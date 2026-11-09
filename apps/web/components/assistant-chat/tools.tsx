@@ -193,7 +193,25 @@ function CollapsibleToolCard({
   );
 }
 
-export function SearchInboxResult({ output }: { output: unknown }) {
+export function SearchInboxResult({ outputs }: { outputs: unknown[] }) {
+  const title =
+    outputs.length > 1 ? `Search Inbox ×${outputs.length}` : "Search Inbox";
+
+  return (
+    <SubtleToolCollapsible title={title}>
+      {outputs.map((output, index) => (
+        <div
+          key={index}
+          className={cn("space-y-3", index > 0 && "border-t pt-3")}
+        >
+          <SearchInboxResultDetails output={output} />
+        </div>
+      ))}
+    </SubtleToolCollapsible>
+  );
+}
+
+function SearchInboxResultDetails({ output }: { output: unknown }) {
   const error = getOutputField<string | null>(output, "error");
   const queryUsed = getOutputField<string | null>(output, "queryUsed");
   const messages = getOutputField<
@@ -210,7 +228,7 @@ export function SearchInboxResult({ output }: { output: unknown }) {
   >(output, "messages");
 
   return (
-    <SubtleToolCollapsible title="Search Inbox">
+    <>
       {queryUsed && (
         <ToolDetailRow
           label="Query"
@@ -224,7 +242,7 @@ export function SearchInboxResult({ output }: { output: unknown }) {
         </div>
       )}
       {messages && messages.length > 0 && <ToolEmailRows emails={messages} />}
-    </SubtleToolCollapsible>
+    </>
   );
 }
 
@@ -263,12 +281,24 @@ export function ManageInboxResult({
     labelApplied,
     inProgress: isInProgress,
   });
+  const archivedMessagesCount = getOutputField<number>(
+    output,
+    "archivedMessagesCount",
+  );
   const isSenderAction =
     action === "bulk_archive_senders" || action === "unsubscribe_senders";
-  const completedCount = isSenderAction
-    ? (sendersCount ?? senders?.length)
-    : (successCount ?? requestedCount);
-  const countLabel = isSenderAction ? "sender" : "item";
+  let completedCount = successCount ?? requestedCount;
+  let countLabel = "item";
+  if (
+    action === "bulk_archive_senders" &&
+    typeof archivedMessagesCount === "number"
+  ) {
+    completedCount = archivedMessagesCount;
+    countLabel = "message";
+  } else if (isSenderAction) {
+    completedCount = sendersCount ?? senders?.length;
+    countLabel = "sender";
+  }
 
   const resolvedThreads = threadIds
     ? threadIds
@@ -305,7 +335,7 @@ export function ManageInboxResult({
       {typeof failedCount === "number" && failedCount > 0 && (
         <ToolPanel className="border-red-200 bg-red-50/60 text-red-700 dark:border-red-900 dark:bg-red-950/20 dark:text-red-200">
           <div className="text-sm">
-            Failed on {failedCount} {countLabel}
+            Failed on {failedCount} {isSenderAction ? "sender" : "item"}
             {failedCount === 1 ? "" : "s"}.
           </div>
         </ToolPanel>
@@ -355,6 +385,10 @@ export function ManageSenderCategoryResult({ output }: { output: unknown }) {
     "category",
   );
   const sendersCount = getOutputField<number>(output, "sendersCount") ?? 0;
+  const archivedMessagesCount = getOutputField<number>(
+    output,
+    "archivedMessagesCount",
+  );
   const senders = getOutputField<string[]>(output, "senders") ?? [];
   const categoryName = category?.name?.trim() || "Category";
 
@@ -368,11 +402,25 @@ export function ManageSenderCategoryResult({ output }: { output: unknown }) {
 
   return (
     <CollapsibleToolCard
-      title={`Archived "${categoryName}" category`}
+      title={
+        archivedMessagesCount === 0
+          ? `No messages archived in "${categoryName}"`
+          : `Archived "${categoryName}" category`
+      }
       badge={
-        <Badge color="green" className="text-[10px]">
-          {sendersCount} sender{sendersCount === 1 ? "" : "s"}
-        </Badge>
+        typeof archivedMessagesCount === "number" ? (
+          <Badge
+            color={archivedMessagesCount > 0 ? "green" : "gray"}
+            className="text-[10px]"
+          >
+            {archivedMessagesCount} message
+            {archivedMessagesCount === 1 ? "" : "s"}
+          </Badge>
+        ) : (
+          <Badge color="green" className="text-[10px]">
+            {sendersCount} sender{sendersCount === 1 ? "" : "s"}
+          </Badge>
+        )
       }
     >
       <ToolSection label="Senders">

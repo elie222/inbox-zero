@@ -3,6 +3,7 @@ import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { softDeleteChat } from "@/utils/chat/soft-delete";
+import { CHAT_ACCOUNT_MISMATCH_ERROR_CODE } from "@/utils/config";
 
 export type GetChatResponse = Awaited<ReturnType<typeof getChat>>;
 const updateChatSchema = z.object({
@@ -12,7 +13,7 @@ const updateChatSchema = z.object({
 export const GET = withEmailAccount(
   "chats/detail",
   async (request, { params }) => {
-    const { emailAccountId } = request.auth;
+    const { emailAccountId, userId } = request.auth;
     const { chatId } = await params;
 
     if (!chatId) {
@@ -23,6 +24,21 @@ export const GET = withEmailAccount(
     }
 
     const chat = await getChat({ chatId, emailAccountId });
+
+    // A new chat has no row until its first message, so a missing chat is
+    // empty. Only the user's own accounts get the mismatch error, so other
+    // users' chat ids look the same as unknown ones.
+    if (!chat && (await isChatInOtherAccountOfUser({ chatId, userId }))) {
+      request.logger.warn("Chat belongs to another email account", { chatId });
+      return NextResponse.json(
+        {
+          error: "This chat belongs to a different email account.",
+          errorCode: CHAT_ACCOUNT_MISMATCH_ERROR_CODE,
+          isKnownError: true,
+        },
+        { status: 403 },
+      );
+    }
 
     return NextResponse.json(chat);
   },
@@ -170,4 +186,18 @@ async function deleteChat({
   emailAccountId: string;
 }) {
   return softDeleteChat({ chatId, emailAccountId });
+}
+
+async function isChatInOtherAccountOfUser({
+  chatId,
+  userId,
+}: {
+  chatId: string;
+  userId: string;
+}) {
+  const chat = await prisma.chat.findFirst({
+    where: { id: chatId, deletedAt: null, emailAccount: { userId } },
+    select: { id: true },
+  });
+  return Boolean(chat);
 }

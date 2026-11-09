@@ -10,11 +10,7 @@ import { getAccountLinkingUrl } from "@/utils/account-linking";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { redirectToSafeUrl } from "@/utils/redirect";
 
-export function AddAccount({
-  helperText = "You will be billed for each account.",
-}: {
-  helperText?: ReactNode;
-}) {
+export function AddAccount({ helperText }: { helperText: ReactNode }) {
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [isLoadingMicrosoft, setIsLoadingMicrosoft] = useState(false);
 

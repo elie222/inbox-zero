@@ -71,6 +71,59 @@ describe("chat compaction", () => {
     ).toEqual([originalSystemMessage]);
   });
 
+  it("keeps recent history from a user message so no tool result loses its call", async () => {
+    mockGenerateText.mockResolvedValue({ text: "Summary" });
+    mockCreateGenerateText.mockReturnValue(mockGenerateText);
+    mockGetModel.mockReturnValue({ model: {}, providerOptions: undefined });
+
+    const messages: ModelMessage[] = [
+      { role: "user", content: "Clean up my inbox" },
+      ...[1, 2, 3].flatMap((index) => toolStep(`call-${index}`)),
+      { role: "assistant", content: "Archived 30 threads." },
+      { role: "user", content: "Thanks, what about newsletters?" },
+      { role: "user", content: "Hidden UI state update" },
+    ];
+
+    const result = await compactMessages({
+      messages,
+      user: getEmailAccount(),
+      logger: createTestLogger(),
+    });
+
+    const [summary, ...kept] = result.compactedMessages;
+    expect(summary.content).toContain("<conversation_summary>");
+    expect(kept[0]).toEqual({
+      role: "user",
+      content: "Thanks, what about newsletters?",
+    });
+    expect(getOrphanedToolResultIds(kept)).toEqual([]);
+    expect(result.compactedCount).toBe(messages.length - kept.length);
+    expect(result.recentUserMessageCount).toBe(2);
+  });
+
+  it("does not compact when no user message can start the kept history", async () => {
+    mockCreateGenerateText.mockReturnValue(mockGenerateText);
+    mockGenerateText.mockClear();
+    const messages: ModelMessage[] = [
+      { role: "user", content: "Clean up my inbox" },
+      ...[1, 2, 3, 4].flatMap((index) => toolStep(`call-${index}`)),
+    ];
+
+    const result = await compactMessages({
+      messages,
+      user: getEmailAccount(),
+      logger: createTestLogger(),
+    });
+
+    expect(result).toEqual({
+      compactedMessages: messages,
+      summary: "",
+      compactedCount: 0,
+      recentUserMessageCount: 0,
+    });
+    expect(mockGenerateText).not.toHaveBeenCalled();
+  });
+
   it("estimates tokens across text, tool input, and tool result", () => {
     const toolOutput = { messages: [{ id: "thread-1", snippet: "Hello" }] };
     const messages: ModelMessage[] = [
@@ -280,3 +333,44 @@ describe("chat compaction", () => {
     expect(truncatePromptContent("abcdefghij", 5)).toBe("abcde");
   });
 });
+
+function toolStep(toolCallId: string): ModelMessage[] {
+  return [
+    {
+      role: "assistant",
+      content: [
+        {
+          type: "tool-call",
+          toolCallId,
+          toolName: "manageInbox",
+          input: {},
+        },
+      ],
+    },
+    {
+      role: "tool",
+      content: [
+        {
+          type: "tool-result",
+          toolCallId,
+          toolName: "manageInbox",
+          output: { type: "json", value: { success: true } },
+        },
+      ],
+    },
+  ];
+}
+
+function getOrphanedToolResultIds(messages: ModelMessage[]) {
+  const callIds = new Set<string>();
+  const orphaned: string[] = [];
+  for (const message of messages) {
+    if (!Array.isArray(message.content)) continue;
+    for (const part of message.content) {
+      if (part.type === "tool-call") callIds.add(part.toolCallId);
+      if (part.type === "tool-result" && !callIds.has(part.toolCallId))
+        orphaned.push(part.toolCallId);
+    }
+  }
+  return orphaned;
+}

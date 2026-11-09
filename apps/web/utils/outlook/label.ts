@@ -15,7 +15,11 @@ import {
   processThreadMessagesFallback,
   runThreadMessageMutation,
 } from "@/utils/outlook/thread-helpers";
-import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
+import {
+  getDefaultLabelColorName,
+  inboxZeroLabels,
+  type InboxZeroLabel,
+} from "@/utils/label";
 import {
   normalizeOutlookCategoryName,
   sanitizeOutlookCategoryName,
@@ -24,6 +28,7 @@ import { findLabelByName } from "@/utils/label/find-label-by-name";
 import { getFolderIds } from "@/utils/outlook/message";
 import type { OutlookCategory } from "@microsoft/microsoft-graph-types";
 import {
+  getDefaultOutlookCategoryColor,
   OUTLOOK_CATEGORY_COLOR_IDS,
   OUTLOOK_CATEGORY_COLOR_MAP,
 } from "@/utils/outlook/category-colors";
@@ -76,11 +81,10 @@ export async function createLabel({
   if (!sanitizedName) throw new Error("Label name cannot be empty");
 
   try {
-    // Use a random preset color if none provided or if the provided color is not supported
     const outlookColor =
       color && OUTLOOK_COLORS.includes(color)
         ? color
-        : OUTLOOK_COLORS[Math.floor(Math.random() * OUTLOOK_COLORS.length)];
+        : getDefaultOutlookColor(sanitizedName);
 
     const response: OutlookCategory = await withMicrosoftGraphWriteRetry(
       () =>
@@ -616,7 +620,8 @@ export async function markReadThread({
       threadId,
       logger,
       messageHandler: (messageId) =>
-        withMicrosoftGraphWriteRetry(
+        // Idempotent absolute write: safe to retry on conflicts and network errors.
+        withMicrosoftGraphRetry(
           () =>
             client.getClient().api(`/me/messages/${messageId}`).patch({
               isRead: read,
@@ -639,7 +644,7 @@ export async function markReadThread({
         threadId,
         logger,
         messageHandler: (messageId) =>
-          withMicrosoftGraphWriteRetry(
+          withMicrosoftGraphRetry(
             () =>
               client
                 .getClient()
@@ -695,7 +700,10 @@ export async function markStarredMessage({
   logger: Logger;
   starred?: boolean;
 }) {
-  await withMicrosoftGraphWriteRetry(
+  // Setting the flag to an absolute value is idempotent, so the full retry
+  // policy is safe, including the 412 Graph returns when another write on the
+  // message (such as a label action) lands first.
+  await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
@@ -811,4 +819,10 @@ async function archiveThreadWithFallback({
     });
     throw directError;
   }
+}
+
+function getDefaultOutlookColor(name: string) {
+  const colorName = getDefaultLabelColorName(name);
+  if (colorName) return getDefaultOutlookCategoryColor(colorName);
+  return OUTLOOK_COLORS[Math.floor(Math.random() * OUTLOOK_COLORS.length)];
 }

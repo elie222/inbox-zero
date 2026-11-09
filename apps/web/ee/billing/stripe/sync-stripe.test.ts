@@ -182,6 +182,52 @@ describe("syncStripeDataToDb", () => {
     );
   });
 
+  it("persists the cancellation survey answer", async () => {
+    prisma.premium.findUnique.mockResolvedValue(null);
+    prisma.premium.upsert.mockResolvedValue({
+      id: "premium-1",
+      users: [],
+      admins: [],
+    });
+    mocks.listSubscriptions.mockResolvedValue({
+      data: [
+        {
+          id: "sub_test",
+          status: "active",
+          cancel_at: 1_800_000_000,
+          canceled_at: 1_790_000_000,
+          cancellation_details: {
+            reason: "cancellation_requested",
+            feedback: "too_expensive",
+            comment: "Costs more than I expected",
+          },
+          items: {
+            data: [
+              {
+                id: "si_test",
+                price: { id: "price_test", product: "prod_test" },
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    await syncStripeDataToDb({
+      customerId: "cus_1",
+      logger: createTestLogger(),
+    });
+
+    expect(prisma.premium.upsert).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          stripeCancellationFeedback: "too_expensive",
+          stripeCancellationComment: "Costs more than I expected",
+        }),
+      }),
+    );
+  });
+
   it("repairs the purchaser link when the customer has no subscription", async () => {
     prisma.premium.findUnique.mockResolvedValue({
       stripeSubscriptionStatus: null,

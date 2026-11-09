@@ -11,7 +11,10 @@ import type {
 import type { ParsedMessage, Attachment } from "@/utils/types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { OutlookLabel, WELL_KNOWN_FOLDERS } from "./constants";
-import { escapeODataString } from "@/utils/outlook/odata-escape";
+import {
+  encodeODataFilter,
+  escapeODataString,
+} from "@/utils/outlook/odata-escape";
 import { withMicrosoftGraphRetry } from "@/utils/outlook/retry";
 import { isNotFoundError } from "@/utils/outlook/errors";
 import { formatEmailWithName } from "@/utils/email";
@@ -651,11 +654,8 @@ export async function queryBatchMessages(
       metadataFilters: metadataSearch.odataFilters,
     });
 
-    request = request.search(
-      options.mailboxSearch
-        ? encodeURIComponent(effectiveSearchQuery!)
-        : effectiveSearchQuery!,
-    );
+    // The Graph SDK does not URL-encode $search, so a raw "#" or "&" would cut the query off.
+    request = request.search(encodeURIComponent(effectiveSearchQuery!));
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withMicrosoftGraphRetry(() => request.get(), logger);
@@ -719,7 +719,7 @@ export async function queryBatchMessages(
 
     // Only apply filter if we have something to filter
     if (combinedFilter) {
-      request = request.filter(combinedFilter);
+      request = request.filter(encodeODataFilter(combinedFilter));
     }
 
     // Graph rejects $orderby combined with $filter on sender or metadata
@@ -828,7 +828,7 @@ export async function queryMessagesWithFilters(
   const combinedFilter = combinedFilters.join(" and ");
 
   if (combinedFilter) {
-    request = request.filter(combinedFilter);
+    request = request.filter(encodeODataFilter(combinedFilter));
   }
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
@@ -1019,7 +1019,9 @@ export async function getMessages(
 
   if (options.query) {
     request = request.filter(
-      `contains(subject, '${escapeODataString(options.query)}')`,
+      encodeODataFilter(
+        `contains(subject, '${escapeODataString(options.query)}')`,
+      ),
     );
   }
 

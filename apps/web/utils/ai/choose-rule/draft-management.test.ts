@@ -6,6 +6,7 @@ import {
   isDraftUnmodified,
 } from "@/utils/ai/choose-rule/draft-management";
 import { stripQuotedHtmlContent } from "@/utils/email/parse-message-reply";
+import { renderReplyBodyHtml } from "@/utils/email/reply-body-html";
 import prisma from "@/utils/prisma";
 import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
@@ -571,6 +572,49 @@ describe("isDraftUnmodified", () => {
           '<div dir="ltr">My reply<br><br>Drafted by <a href="http://localhost:3000/?ref=ABC">Inbox Zero</a>.</div><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">Le lun. 27 avr. 2026, Sender a écrit:<br></div><blockquote class="gmail_quote"><div>Quoted content</div></blockquote></div>',
       }),
       logger,
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("compares link destinations in Outlook HTML bodies when links are included", () => {
+    const outlookDraft = (href: string) =>
+      createParsedMessage({
+        textPlain: `<html><body><div dir="ltr">My reply<br><br>Drafted by <a href="${href}">Inbox Zero</a>.</div></body></html>`,
+        bodyContentType: "html",
+      });
+    const originalContent =
+      'My reply\n\nDrafted by <a href="http://localhost:3000/?ref=ABC">Inbox Zero</a>.';
+
+    expect(
+      isDraftUnmodified({
+        originalContent,
+        currentDraft: outlookDraft("http://localhost:3000/?ref=ABC"),
+        logger,
+        includeLinks: true,
+      }),
+    ).toBe(true);
+    expect(
+      isDraftUnmodified({
+        originalContent,
+        currentDraft: outlookDraft("https://example.com/changed"),
+        logger,
+        includeLinks: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("treats an unchanged draft whose signature HTML has newlines as unmodified", () => {
+    const originalContent =
+      'Following up on this.\n\n<div class="gmail_signature" data-smartmail="gmail_signature"><div>Jane Doe</div>\n<div>Acme Inc.</div></div>';
+
+    const result = isDraftUnmodified({
+      originalContent,
+      currentDraft: createParsedMessage({
+        textHtml: `<div dir="ltr">${renderReplyBodyHtml(originalContent)}</div>`,
+      }),
+      logger,
+      includeLinks: true,
     });
 
     expect(result).toBe(true);

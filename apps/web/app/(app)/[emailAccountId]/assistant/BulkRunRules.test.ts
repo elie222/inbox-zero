@@ -9,6 +9,10 @@ import { onRun } from "./bulk-run";
 
 vi.mock("@/utils/fetch", () => ({ fetchWithAccount: vi.fn() }));
 vi.mock("@/utils/queue/email-actions", () => ({ runAiRules: vi.fn() }));
+vi.mock("@/utils/queue/ai-queue", () => ({
+  slowDownAiQueue: vi.fn(),
+  resetAiQueueConcurrency: vi.fn(),
+}));
 vi.mock("@/utils/sleep", () => ({ sleep: vi.fn() }));
 vi.mock("@/components/Toast", () => ({ toastError: vi.fn() }));
 
@@ -158,7 +162,11 @@ describe("onRun", () => {
       "account-id",
       [expect.objectContaining({ id: "unprocessed-thread" })],
       false,
-      { signal: expect.any(AbortSignal), skipDraftReplies: true },
+      {
+        signal: expect.any(AbortSignal),
+        skipDraftReplies: true,
+        runWithRetry: expect.any(Function),
+      },
     );
   });
 
@@ -183,7 +191,11 @@ describe("onRun", () => {
         expect.objectContaining({ id: "unprocessed-thread" }),
       ],
       true,
-      { signal: expect.any(AbortSignal), skipDraftReplies: true },
+      {
+        signal: expect.any(AbortSignal),
+        skipDraftReplies: true,
+        runWithRetry: expect.any(Function),
+      },
     );
   });
 
@@ -209,7 +221,11 @@ describe("onRun", () => {
       "account-id",
       [expect.objectContaining({ id: "processed-thread" })],
       true,
-      { signal: expect.any(AbortSignal), skipDraftReplies: true },
+      {
+        signal: expect.any(AbortSignal),
+        skipDraftReplies: true,
+        runWithRetry: expect.any(Function),
+      },
     );
   });
 });

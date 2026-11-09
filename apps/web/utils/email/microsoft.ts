@@ -9,7 +9,7 @@ import {
   resolveOutlookLocalMailFolderIds,
 } from "@/utils/outlook/local-mail-sync";
 import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
-import { DraftNotFoundError } from "@/utils/error";
+import { DraftNotFoundError, isOutlookItemNotFoundError } from "@/utils/error";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
@@ -35,7 +35,7 @@ import {
   getLabelById,
   OUTLOOK_COLOR_MAP,
 } from "@/utils/outlook/label";
-import type { InboxZeroLabel } from "@/utils/label";
+import type { InboxZeroLabel, LabelColorName } from "@/utils/label";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import {
   compileOutlookThreadSearch,
@@ -97,6 +97,7 @@ import type {
   SentMessagePage,
   BulkArchiveThread,
   BulkArchiveResult,
+  EmailLabelColor,
   EmailLabelUpdate,
   GetThreadOptions,
   SendEmailOptions,
@@ -112,9 +113,15 @@ import {
   removeOutlookDraftAttachment,
 } from "@/utils/outlook/draft-attachments";
 import type { SendEmailBody } from "@/utils/types/mail";
-import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
+import {
+  getDefaultOutlookCategoryColor,
+  getOutlookCategoryPreset,
+} from "@/utils/outlook/category-colors";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
-import { escapeODataString } from "@/utils/outlook/odata-escape";
+import {
+  encodeODataFilter,
+  escapeODataString,
+} from "@/utils/outlook/odata-escape";
 import { OutlookLabel } from "@/utils/outlook/constants";
 import { resolveOutlookCategoryName } from "@/utils/outlook/search-scope";
 import {
@@ -193,7 +200,9 @@ export class OutlookProvider implements EmailProvider {
         .top(1);
       if (categoryName) {
         request = request.filter(
-          `categories/any(c:c eq '${escapeODataString(categoryName)}')`,
+          encodeODataFilter(
+            `categories/any(c:c eq '${escapeODataString(categoryName)}')`,
+          ),
         );
       }
       return request.get();
@@ -330,7 +339,9 @@ export class OutlookProvider implements EmailProvider {
       .getClient()
       .api("/me/messages")
       .filter(
-        `internetMessageId eq '${escapeODataString(messageIdWithBrackets)}'`,
+        encodeODataFilter(
+          `internetMessageId eq '${escapeODataString(messageIdWithBrackets)}'`,
+        ),
       )
       .top(1)
       .get();
@@ -456,7 +467,7 @@ export class OutlookProvider implements EmailProvider {
         .orderby("sentDateTime desc");
 
       if (filters.length) {
-        request = request.filter(filters.join(" and "));
+        request = request.filter(encodeODataFilter(filters.join(" and ")));
       }
 
       return request;
@@ -516,7 +527,7 @@ export class OutlookProvider implements EmailProvider {
       .orderby("sentDateTime desc");
 
     if (filter) {
-      request = request.filter(filter);
+      request = request.filter(encodeODataFilter(filter));
     }
 
     const response = await request.get();
@@ -1232,6 +1243,14 @@ export class OutlookProvider implements EmailProvider {
     this.client.invalidateCategoryMapCache();
   }
 
+  getDefaultLabelColor(colorName: LabelColorName): EmailLabelColor {
+    return {
+      backgroundColor:
+        OUTLOOK_COLOR_MAP[getDefaultOutlookCategoryColor(colorName)],
+      textColor: "#000000",
+    };
+  }
+
   async updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void> {
     if (update.name)
       throw new Error("Microsoft category names cannot be changed");
@@ -1632,7 +1651,7 @@ export class OutlookProvider implements EmailProvider {
     const response = await this.client
       .getClient()
       .api("/me/messages")
-      .filter(filter)
+      .filter(encodeODataFilter(filter))
       .select(MESSAGE_SELECT_FIELDS)
       .top(maxResults)
       .orderby("receivedDateTime DESC")
@@ -1706,11 +1725,23 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
-    // For Outlook, we need to fetch messages individually since there's no batch endpoint
-    const messagePromises = messageIds.map((messageId) =>
-      this.getMessage(messageId),
+    // Outlook has no batch endpoint, so messages are fetched individually.
+    // Like Gmail's batch, skip messages that no longer exist instead of
+    // failing the whole batch on one stale ID.
+    const messages = await Promise.all(
+      messageIds.map(async (messageId) => {
+        try {
+          return await this.getMessage(messageId);
+        } catch (error) {
+          if (!isOutlookItemNotFoundError(error)) throw error;
+          this.logger.warn("Skipping message missing from Outlook", {
+            messageId,
+          });
+          return null;
+        }
+      }),
     );
-    return Promise.all(messagePromises);
+    return messages.filter((message) => message !== null);
   }
 
   async syncLocalMail(
@@ -1952,6 +1983,7 @@ export class OutlookProvider implements EmailProvider {
     maxResults?: number;
     pageToken?: string;
     messageFormat?: "full" | "metadata";
+    skipParticipantMessages?: boolean;
   }): Promise<{
     threads: EmailThread[];
     nextPageToken?: string;
@@ -2105,7 +2137,7 @@ export class OutlookProvider implements EmailProvider {
         .top(maxResults);
 
       if (filter) {
-        request = request.filter(filter);
+        request = request.filter(encodeODataFilter(filter));
       }
 
       if (!fromEmail || domainFilter) {
@@ -2222,7 +2254,10 @@ export class OutlookProvider implements EmailProvider {
 
     threads = threads.slice(0, maxResults);
 
-    if (options.messageFormat === "metadata") {
+    if (
+      options.messageFormat === "metadata" &&
+      !options.skipParticipantMessages
+    ) {
       threads = await addOutlookThreadParticipantMessages({
         client: this.client,
         threads,
@@ -2367,7 +2402,7 @@ export class OutlookProvider implements EmailProvider {
         this.client
           .getClient()
           .api("/me/messages")
-          .search(`"to:@${escapedKqlDomain}"`)
+          .search(encodeURIComponent(`"to:@${escapedKqlDomain}"`))
           .top(5)
           .select("id,sentDateTime")
           .get(),
@@ -2375,7 +2410,7 @@ export class OutlookProvider implements EmailProvider {
         this.client
           .getClient()
           .api("/me/messages")
-          .search(`"from:@${escapedKqlDomain}"`)
+          .search(encodeURIComponent(`"from:@${escapedKqlDomain}"`))
           .top(5)
           .select("id,receivedDateTime")
           .get(),
@@ -2414,7 +2449,7 @@ export class OutlookProvider implements EmailProvider {
       this.client
         .getClient()
         .api("/me/messages")
-        .search(sentSearch)
+        .search(encodeURIComponent(sentSearch))
         .top(5) // Increase top to account for potential future messages we filter out
         .select("id,sentDateTime")
         .get(),
@@ -2422,7 +2457,7 @@ export class OutlookProvider implements EmailProvider {
       this.client
         .getClient()
         .api("/me/messages")
-        .filter(receivedFilter)
+        .filter(encodeODataFilter(receivedFilter))
         .top(2)
         .select("id")
         .get(),
@@ -2573,7 +2608,8 @@ export class OutlookProvider implements EmailProvider {
   ): Promise<void> {
     await mapWithConcurrency([...new Set(messageIds)], 4, async (messageId) => {
       try {
-        await withMicrosoftGraphWriteRetry(
+        // Idempotent absolute write: safe to retry on conflicts and network errors.
+        await withMicrosoftGraphRetry(
           () =>
             this.client
               .getClient()
@@ -2611,8 +2647,8 @@ export class OutlookProvider implements EmailProvider {
     fromEmails: string[],
     ownerEmail: string,
     emailAccountId: string,
-  ): Promise<void> {
-    await moveMessagesForSenders({
+  ): Promise<number> {
+    return moveMessagesForSenders({
       client: this.client,
       senders: fromEmails,
       destinationId: "archive",
@@ -3331,7 +3367,8 @@ async function fetchOutlookSearchPage({
   // Graph forbids combining $search with $filter/$orderby and caps page size at 25.
   let request = client.api(apiPath).select(selectFields);
   if (compiled.search) {
-    request = request.search(compiled.search);
+    // The Graph SDK does not URL-encode $search, so a raw "#" or "&" would cut the query off.
+    request = request.search(encodeURIComponent(compiled.search));
   } else {
     const filters: string[] = [];
     if (compiled.flagged) filters.push("flag/flagStatus eq 'flagged'");
@@ -3340,7 +3377,8 @@ async function fetchOutlookSearchPage({
         `categories/any(c:c eq '${escapeODataString(compiled.category)}')`,
       );
     }
-    if (filters.length) request = request.filter(filters.join(" and "));
+    if (filters.length)
+      request = request.filter(encodeODataFilter(filters.join(" and ")));
   }
 
   return request.top(Math.min(maxResults || 25, 25)).get();

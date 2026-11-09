@@ -65,6 +65,7 @@ vi.mock("@/utils/error", () => ({
   isAnthropicInsufficientBalanceError: vi.fn(() => false),
   isContentFilterRefusal: mockIsContentFilterRefusal,
   isIncorrectAPIKeyError: vi.fn(() => false),
+  isGeminiSpendingCapError: vi.fn(() => false),
   isInsufficientCreditsError: vi.fn(() => false),
   isInvalidAIModelError: vi.fn(() => false),
   isAPIKeyDeactivatedError: vi.fn(() => false),

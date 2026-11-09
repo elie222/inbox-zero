@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Onboarding } from "@/app/(app)/[emailAccountId]/onboarding/Onboarding";
+import { OnboardingPermissionsGate } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingPermissionsGate";
 import {
   ConversionAnalyticsScript,
   ConversionQueryParamEvents,
@@ -56,9 +57,11 @@ export default async function OnboardingPage(props: {
         <ConversionQueryParamEvents />
       </Suspense>
       <ConversionAnalyticsScript />
-      <Suspense>
-        <Onboarding step={step} signupIntent={user?.signupIntent ?? null} />
-      </Suspense>
+      <OnboardingPermissionsGate step={step}>
+        <Suspense>
+          <Onboarding step={step} signupIntent={user?.signupIntent ?? null} />
+        </Suspense>
+      </OnboardingPermissionsGate>
     </>
   );
 }

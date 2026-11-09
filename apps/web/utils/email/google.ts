@@ -37,7 +37,11 @@ import {
   GmailLabel,
 } from "@/utils/gmail/label";
 import { labelVisibility, messageVisibility } from "@/utils/gmail/constants";
-import type { InboxZeroLabel } from "@/utils/label";
+import {
+  getGmailDefaultLabelColor,
+  type InboxZeroLabel,
+  type LabelColorName,
+} from "@/utils/label";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getMessageByRfc822Id, getRawMessage } from "@/utils/gmail/message";
 import {
@@ -111,6 +115,7 @@ import type {
   SentMessagePage,
   BulkArchiveThread,
   BulkArchiveResult,
+  EmailLabelColor,
   EmailLabelUpdate,
   GetThreadOptions,
   DraftAttachmentUploadStart,
@@ -842,8 +847,8 @@ export class GmailProvider implements EmailProvider {
     fromEmails: string[],
     ownerEmail: string,
     emailAccountId: string,
-  ): Promise<void> {
-    await this.archiveMessagesFromSenders(
+  ): Promise<number> {
+    return this.archiveMessagesFromSenders(
       fromEmails,
       ownerEmail,
       emailAccountId,
@@ -1339,6 +1344,10 @@ export class GmailProvider implements EmailProvider {
       if (extractErrorInfo(error).status !== 404) throw error;
       this.logger.info("Label was already deleted", { labelId });
     }
+  }
+
+  getDefaultLabelColor(colorName: LabelColorName): EmailLabelColor {
+    return getGmailDefaultLabelColor(colorName);
   }
 
   async updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void> {

@@ -43,11 +43,19 @@ export function useComposeDraftAttachments({
   loadMailboxDraft: boolean;
   enabled: boolean;
 }) {
-  // Loaded once per compose session: Gmail moves an open draft to a new
-  // message on every save, and reloading then would remount the composer.
+  // Decided and loaded once per compose session: Gmail moves an open draft to
+  // a new message on every save, and a copy carrying a file the user just
+  // attached would otherwise send the open composer back to loading.
+  const [decided, setDecided] = useState<{
+    sessionKey: string;
+    needed: boolean;
+  }>();
+  const hasFiles =
+    loadMailboxDraft || Boolean(storedDraft?.content?.attachments.length);
+  if (enabled && decided?.sessionKey !== sessionKey)
+    setDecided({ sessionKey, needed: hasFiles });
   const needed =
-    enabled &&
-    (loadMailboxDraft || Boolean(storedDraft?.content?.attachments.length));
+    enabled && (decided?.sessionKey === sessionKey ? decided.needed : hasFiles);
   const key = needed ? sessionKey : "";
   const inputs = useRef({
     emailAccountId,

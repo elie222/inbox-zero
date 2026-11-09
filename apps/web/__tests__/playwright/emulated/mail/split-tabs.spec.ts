@@ -135,6 +135,49 @@ test("moves focus with the active split when cycling by keyboard", async ({
   );
 });
 
+test("cycles splits backward with Shift-Tab, wrapping to the last", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+
+  const activeSplit = page.locator('button[aria-current="true"]');
+  const splitTabs = page.locator("button[data-split-tab]");
+  await expect(activeSplit).toBeVisible();
+  await splitTabs.first().click();
+  await expect(activeSplit).toHaveAttribute(
+    "data-split-tab",
+    String(await splitTabs.first().getAttribute("data-split-tab")),
+  );
+  const lastId = await splitTabs.last().getAttribute("data-split-tab");
+
+  await page.keyboard.press("Shift+Tab");
+
+  await expect(activeSplit).toHaveAttribute("data-split-tab", String(lastId));
+  await expect(activeSplit).toBeFocused();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-split-keyboard-previous",
+  );
+});
+
+test("leaves Tab to focus navigation outside the mail list", async ({
+  page,
+}) => {
+  await openMail(page);
+
+  const activeSplit = page.locator('button[aria-current="true"]');
+  await expect(activeSplit).toBeVisible();
+  const initial = String(await activeSplit.getAttribute("data-split-tab"));
+  const compose = page.getByRole("button", { name: /^Compose/ });
+  await compose.focus();
+
+  await page.keyboard.press("Tab");
+
+  await expect(compose).not.toBeFocused();
+  await expect(activeSplit).toHaveAttribute("data-split-tab", initial);
+});
+
 test("creates and edits a domain sender condition", async ({
   page,
 }, testInfo) => {

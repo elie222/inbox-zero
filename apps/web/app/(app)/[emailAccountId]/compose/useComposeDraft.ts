@@ -9,13 +9,13 @@ import {
 } from "react";
 import type { UseFormGetValues, UseFormWatch } from "react-hook-form";
 import { toastError } from "@/components/Toast";
+import { startDraftSave } from "@/hooks/useDraftSaveInFlight";
 import {
   DraftAutosaveHaltedError,
   useProviderDraftAutosave,
 } from "@/hooks/useProviderDraftAutosave";
 import { useReplyDraftPersistence } from "@/hooks/useReplyDraftPersistence";
 import {
-  discardComposeDraftAction,
   saveComposeDraftAction,
   updateDraftAction,
 } from "@/utils/actions/mail";
@@ -34,6 +34,7 @@ import {
   updateReplyDraftProviderState,
 } from "@/utils/mail-engine/reply-drafts";
 import { randomUuid } from "@/utils/uuid";
+import { discardMailboxDraft } from "@/utils/mail-engine/discard-mailbox-draft";
 import type { ComposeFormValues } from "./ComposeEmailForm";
 import {
   type ComposeAttachment,
@@ -186,9 +187,23 @@ export function useComposeDraft({
       },
     });
 
+  // The open thread holds its drafts still until the save says which mailbox
+  // message is this composer's, so a copy that syncs in first can't replace it.
+  const whileSaving = async <T>(save: () => Promise<T>) => {
+    const end = localDraftIdentity
+      ? startDraftSave(emailAccountId, localDraftIdentity.threadId)
+      : undefined;
+    try {
+      return await save();
+    } finally {
+      end?.();
+    }
+  };
+
   // Every compose with files needs a mailbox draft to hold them. New messages
   // also get one from autosave; replies and forwards get one on first attach.
-  const ensureProviderDraft = async () => {
+  const ensureProviderDraft = () => whileSaving(createProviderDraft);
+  const createProviderDraft = async () => {
     if (providerDraftId.current) return providerDraftId.current;
     if (providerDraftMessageId) {
       const draftId = await resolveDraftId({
@@ -222,11 +237,13 @@ export function useComposeDraft({
           ...content,
           replyToEmail: getReplyToEmailPayload(getValues("replyToEmail")),
         },
+        composeSessionId: requestId,
       });
       if (!created?.data)
         throw new Error(
           "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
         );
+      if (created.data.sessionSent) throw sessionAlreadySent();
       draftId = created.data.draftId;
       createdMessageId = created.data.messageId;
     }
@@ -247,33 +264,40 @@ export function useComposeDraft({
         : 0,
     getContent: getProviderDraftContent,
     save: (content) =>
-      enqueueDraftOperation(draftQueueKey, async () => {
-        if (!providerDraftMessageId) {
-          const draftId = await ensureProviderDraft();
-          const result = await saveComposeDraftAction(emailAccountId, {
-            draftId,
-            content,
-          });
-          if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
-          await followDraftMessage(result.data.messageId);
-          return;
-        }
-        const result = await updateDraftAction(emailAccountId, {
-          ...content,
-          draftMessageId: providerDraftMessageId,
-          draftId: providerDraftId.current,
-        });
-        if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
-        if (result.data.status === "missing")
-          throw new DraftAutosaveHaltedError(
-            "This draft was sent, deleted, or changed elsewhere, so edits here are no longer saved to your mailbox.",
-          );
-        providerDraftId.current = result.data.draftId;
-        captureLocalDraft();
-        await flushDraft();
-        await followDraftMessage(result.data.messageId);
-      }),
+      enqueueDraftOperation(draftQueueKey, () =>
+        whileSaving(() => saveProviderDraft(content)),
+      ),
   });
+  async function saveProviderDraft(
+    content: NonNullable<ReturnType<typeof getProviderDraftContent>>,
+  ) {
+    if (!providerDraftMessageId) {
+      const draftId = await ensureProviderDraft();
+      const result = await saveComposeDraftAction(emailAccountId, {
+        draftId,
+        content,
+        composeSessionId: requestId,
+      });
+      if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
+      if (result.data.sessionSent) throw sessionAlreadySent();
+      await followDraftMessage(result.data.messageId);
+      return;
+    }
+    const result = await updateDraftAction(emailAccountId, {
+      ...content,
+      draftMessageId: providerDraftMessageId,
+      draftId: providerDraftId.current,
+    });
+    if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
+    if (result.data.status === "missing")
+      throw new DraftAutosaveHaltedError(
+        "This draft was sent, deleted, or changed elsewhere, so edits here are no longer saved to your mailbox.",
+      );
+    providerDraftId.current = result.data.draftId;
+    captureLocalDraft();
+    await flushDraft();
+    await followDraftMessage(result.data.messageId);
+  }
   const { stop: stopProviderAutosave, resume: resumeProviderAutosave } =
     providerAutosave;
   const captureDraft = useCallback(
@@ -328,12 +352,12 @@ export function useComposeDraft({
           providerDraftId.current =
             local?.content?.providerDraftId ?? providerDraftId.current;
           if (providerDraftId.current) {
-            const result = await discardComposeDraftAction(emailAccountId, {
+            await discardMailboxDraft({
+              client,
+              emailAccountId,
+              messageIds: local?.content?.providerDraftMessageIds ?? [],
               draftId: providerDraftId.current,
             });
-            if (!result?.data)
-              throw new Error(getActionErrorMessage(result ?? {}));
-            await client?.requestSync([emailAccountId]);
           }
           if (
             !providerDraftId.current &&
@@ -397,6 +421,14 @@ export function useComposeDraft({
     discard,
     isDiscarding,
   };
+}
+
+// A save that landed after its reply was sent; the server removed the draft
+// it wrote, so there is nothing left to save to.
+function sessionAlreadySent() {
+  return new DraftAutosaveHaltedError(
+    "This reply was already sent, so edits here are no longer saved to your mailbox.",
+  );
 }
 
 // Gmail rebuilds the whole message on each save, files included.

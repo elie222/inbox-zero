@@ -8,6 +8,8 @@ import {
 
 // The Response constructor throws if these statuses are given a body.
 const NULL_BODY_STATUSES = new Set([204, 205, 304]);
+// Leaves headroom inside the route's 15s maxDuration to answer with a 504.
+const UPSTREAM_IDLE_TIMEOUT_MS = 10_000;
 
 export async function createSafeImageProxyFetch(
   input: string | URL,
@@ -45,13 +47,14 @@ async function fetchWithPinnedLookup(
   const requestFn =
     resolvedUrl.url.protocol === "https:" ? httpsRequest : httpRequest;
 
-  return new Promise<Response>((resolve, reject) => {
+  return new Promise<Response>((resolve) => {
     const request = requestFn(
       resolvedUrl.url,
       {
         headers: toNodeHeaders(init?.headers),
         lookup: resolvedUrl.lookup,
         method,
+        timeout: UPSTREAM_IDLE_TIMEOUT_MS,
         servername:
           resolvedUrl.url.protocol === "https:"
             ? resolvedUrl.url.hostname
@@ -93,7 +96,24 @@ async function fetchWithPinnedLookup(
       },
     );
 
-    request.on("error", reject);
+    // A slow, down, or misconfigured image host is expected, so network
+    // failures become gateway responses rather than thrown errors.
+    request.on("timeout", () => {
+      request.destroy(
+        Object.assign(new Error("Upstream request timed out"), {
+          code: "ETIMEDOUT",
+        }),
+      );
+    });
+    request.on("error", (error: NodeJS.ErrnoException) => {
+      const code = error.code || "UNKNOWN";
+      resolve(
+        new Response("Upstream request failed", {
+          status: code === "ETIMEDOUT" ? 504 : 502,
+          statusText: `Upstream request failed: ${code}`,
+        }),
+      );
+    });
     request.end();
   });
 }

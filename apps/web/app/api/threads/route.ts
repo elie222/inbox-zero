@@ -3,6 +3,9 @@ import { resolveNativeThreadsQuery } from "@/utils/split-inbox/native-categories
 import { withEmailProvider } from "@/utils/middleware";
 import { threadsQuery, threadsView } from "@/utils/threads/validation";
 import { loadThreads, toListThreads } from "@/utils/threads/load";
+import { EMAIL_PROVIDER_RATE_LIMIT_MESSAGE } from "@/utils/error";
+import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
+import { getProviderRateLimitRetryAfterSeconds } from "@/utils/email/rate-limit";
 
 export const maxDuration = 30;
 
@@ -78,6 +81,27 @@ export const GET = withEmailProvider(
         view === "list" ? toListThreads(threads) : threads,
       );
     } catch (error) {
+      if (
+        isEmailProviderRateLimitError({
+          error,
+          provider: emailProvider.name,
+        })
+      ) {
+        const retryAfterSeconds = getProviderRateLimitRetryAfterSeconds({
+          error,
+          provider: emailProvider.name,
+        });
+        return NextResponse.json(
+          { error: EMAIL_PROVIDER_RATE_LIMIT_MESSAGE, isKnownError: true },
+          {
+            status: 429,
+            headers: retryAfterSeconds
+              ? { "Retry-After": String(retryAfterSeconds) }
+              : undefined,
+          },
+        );
+      }
+
       request.logger.error("Error fetching threads", {
         error,
         emailAccountId,

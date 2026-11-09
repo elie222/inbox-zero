@@ -49,11 +49,15 @@ import {
   extractErrorInfo as extractGmailErrorInfo,
   isRetryableError as isGmailRetryableError,
 } from "@/utils/gmail/retry";
-import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
+import {
+  isAllowedMicrosoftGraphPageToken,
+  microsoftGraphPageTokenSchema,
+} from "@/utils/outlook/page-token";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { SafeError } from "@/utils/error";
 
 const SEARCH_INBOX_MAX_RESULTS = 20;
+const SEARCH_INBOX_PAGE_TOKEN_PREFIX = "search:";
 const MAX_SENDER_CATEGORIZATION_WAIT_MS = 1500;
 const recipientListSchema = z
   .string()
@@ -364,6 +368,15 @@ export const startSenderCategorizationTool = ({
           logger,
         });
       } catch (error) {
+        if (error instanceof SafeError && error.statusCode === 403) {
+          logger.info("Sender categorization needs AI access");
+          return {
+            upgradeRequired: true as const,
+            message:
+              "Nothing was started. Sender categorization needs AI access on this account, and the chat is showing the user how to enable it.",
+          };
+        }
+
         if (error instanceof SafeError) {
           logger.warn("Unable to start sender categorization", { error });
           return { error: error.message };
@@ -483,68 +496,80 @@ const searchInboxBaseFields = {
       `Maximum number of messages to return, up to ${SEARCH_INBOX_MAX_RESULTS}. Larger values are clamped; use pagination for more results.`,
     ),
   pageToken: microsoftGraphPageTokenSchema.describe(
-    "Use the page token returned from a prior search to paginate.",
+    "nextPageToken from a prior searchInbox result. It continues that search with its original query and filters, so other search fields can be omitted.",
   ),
 };
 
-const gmailSearchInboxInputSchema = z.object({
+const gmailSearchQuerySchema = z
+  .string()
+  .trim()
+  .max(500)
+  .describe(
+    "Gmail search query. Required unless pageToken is set. Use from:person@example.com for an exact sender search. Also supports: to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.",
+  );
+
+const gmailSearchInboxInputSchema = z
+  .object({
+    query: gmailSearchQuerySchema.optional(),
+    ...searchInboxBaseFields,
+  })
+  .refine((value) => Boolean(value.query || value.pageToken), {
+    message: "query or pageToken is required",
+  });
+
+const gmailSearchPageStateSchema = z.object({
+  query: gmailSearchQuerySchema,
+  pageToken: z.string().min(1),
+});
+
+const outlookSearchFilterFields = {
   query: z
     .string()
     .trim()
-    .min(1)
     .max(500)
+    .default("")
     .describe(
-      "Gmail search query. Use from:person@example.com for an exact sender search. Also supports: to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.",
+      "Outlook search for a sender name or brand, recipient, subject, message content, or date/age filters. Use to:person@example.com for an exact recipient. Do not put an exact sender address, mailbox category, folder, mail class, or read/unread state here.",
     ),
-  ...searchInboxBaseFields,
-});
+  fromEmail: z
+    .string()
+    .trim()
+    .refine(isValidEmail, "Invalid email address")
+    .nullish()
+    .describe(
+      "Exact sender email address. Use this instead of query when the sender address is known.",
+    ),
+  readState: z
+    .enum(["read", "unread"])
+    .nullish()
+    .describe(
+      "Structured read-state filter. For mark-as-read requests use unread; for mark-as-unread requests use read.",
+    ),
+  categoryName: z
+    .string()
+    .trim()
+    .min(1)
+    .nullish()
+    .describe(
+      "Exact Outlook category name or category ID. Filters by category membership; use folderName for mail folders.",
+    ),
+  folderName: z
+    .string()
+    .trim()
+    .min(1)
+    .nullish()
+    .describe(
+      "Exact Outlook mail folder name, folder path, or folder ID from listFolders. Filters messages in that folder, independently of categories. Use a path or ID when folder names are ambiguous.",
+    ),
+};
 
 const outlookSearchInboxInputSchema = z
-  .object({
-    query: z
-      .string()
-      .trim()
-      .max(500)
-      .default("")
-      .describe(
-        "Outlook search for a sender name or brand, recipient, subject, message content, or date/age filters. Use to:person@example.com for an exact recipient. Do not put an exact sender address, mailbox category, folder, mail class, or read/unread state here.",
-      ),
-    ...searchInboxBaseFields,
-    fromEmail: z
-      .string()
-      .trim()
-      .refine(isValidEmail, "Invalid email address")
-      .nullish()
-      .describe(
-        "Exact sender email address. Use this instead of query when the sender address is known.",
-      ),
-    readState: z
-      .enum(["read", "unread"])
-      .nullish()
-      .describe(
-        "Structured read-state filter. For mark-as-read requests use unread; for mark-as-unread requests use read.",
-      ),
-    categoryName: z
-      .string()
-      .trim()
-      .min(1)
-      .nullish()
-      .describe(
-        "Exact Outlook category name or category ID. Filters by category membership; use folderName for mail folders.",
-      ),
-    folderName: z
-      .string()
-      .trim()
-      .min(1)
-      .nullish()
-      .describe(
-        "Exact Outlook mail folder name, folder path, or folder ID from listFolders. Filters messages in that folder, independently of categories. Use a path or ID when folder names are ambiguous.",
-      ),
-  })
+  .object({ ...outlookSearchFilterFields, ...searchInboxBaseFields })
   .refine(
     (value) =>
       Boolean(
-        value.query ||
+        value.pageToken ||
+          value.query ||
           value.fromEmail ||
           value.readState ||
           value.categoryName ||
@@ -552,9 +577,14 @@ const outlookSearchInboxInputSchema = z
       ),
     {
       message:
-        "query, fromEmail, readState, categoryName, or folderName is required",
+        "pageToken, query, fromEmail, readState, categoryName, or folderName is required",
     },
   );
+
+const outlookSearchPageStateSchema = z.object({
+  ...outlookSearchFilterFields,
+  pageToken: z.string().min(1).refine(isAllowedMicrosoftGraphPageToken),
+});
 
 const gmailSearchInboxTool = ({
   email,
@@ -569,9 +599,16 @@ const gmailSearchInboxTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
 
-      const { query, limit, pageToken } = input;
+      const { limit } = input;
+      let query = input.query ?? "";
 
       try {
+        const page = decodeSearchInboxPageToken(
+          input.pageToken,
+          gmailSearchPageStateSchema,
+        );
+        if (page) query = page.query;
+
         const emailProvider = await createEmailProvider({
           emailAccountId,
           provider,
@@ -582,17 +619,24 @@ const gmailSearchInboxTool = ({
           emailProvider.searchMessages({
             query,
             maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
-            pageToken: pageToken ?? undefined,
+            pageToken: page?.pageToken,
           }),
           getLabelsForSearchResults({ emailProvider, logger }),
         ]);
 
-        return formatSearchInboxResult({
-          searchResult,
-          queryUsed: query,
-          labels,
-          taxonomyNamesKey: "labelNames",
-        });
+        return {
+          ...formatSearchInboxResult({
+            searchResult,
+            queryUsed: query,
+            labels,
+            taxonomyNamesKey: "labelNames",
+            isContinuation: Boolean(page?.pageToken),
+          }),
+          nextPageToken: encodeSearchInboxPageToken(
+            { query },
+            searchResult.nextPageToken,
+          ),
+        };
       } catch (error) {
         // Provider failures are logged and flushed at the provider boundary.
         const errorInfo = extractGmailErrorInfo(error);
@@ -625,17 +669,18 @@ const outlookSearchInboxTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
 
-      const {
-        query = "",
-        fromEmail,
-        limit,
-        pageToken,
-        readState,
-        categoryName,
-        folderName,
-      } = input;
+      const { limit } = input;
+      let query = input.query ?? "";
 
       try {
+        const page = decodeSearchInboxPageToken(
+          input.pageToken,
+          outlookSearchPageStateSchema,
+        );
+        const { pageToken, ...filters } = page ?? input;
+        query = filters.query ?? "";
+        const { fromEmail, readState, categoryName, folderName } = filters;
+
         const emailProvider = await createEmailProvider({
           emailAccountId,
           provider,
@@ -675,7 +720,12 @@ const outlookSearchInboxTool = ({
             queryUsed: searchResult.queryUsed,
             labels,
             taxonomyNamesKey: "categoryNames",
+            isContinuation: Boolean(pageToken),
           }),
+          nextPageToken: encodeSearchInboxPageToken(
+            { query, fromEmail, readState, categoryName, folderName },
+            searchResult.result.nextPageToken,
+          ),
           ...(searchResult.exactCount !== undefined && {
             exactCount: searchResult.exactCount,
           }),
@@ -1118,16 +1168,18 @@ const buildManageInboxTool = ({
               (result) => result.unsubscribe.attempted,
             ).length;
 
-            await emailProvider.bulkArchiveFromSenders(
-              normalizedFromEmails,
-              email,
-              emailAccountId,
-            );
+            const archivedMessagesCount =
+              await emailProvider.bulkArchiveFromSenders(
+                normalizedFromEmails,
+                email,
+                emailAccountId,
+              );
 
             return {
               success: failedSenders.length === 0,
               action: originalAction,
               sendersCount: normalizedFromEmails.length,
+              archivedMessagesCount,
               senders: normalizedFromEmails,
               successCount,
               failedCount: failedSenders.length,
@@ -1137,16 +1189,18 @@ const buildManageInboxTool = ({
             };
           }
 
-          await emailProvider.bulkArchiveFromSenders(
-            normalizedFromEmails,
-            email,
-            emailAccountId,
-          );
+          const archivedMessagesCount =
+            await emailProvider.bulkArchiveFromSenders(
+              normalizedFromEmails,
+              email,
+              emailAccountId,
+            );
 
           return {
             success: true,
             action: originalAction,
             sendersCount: normalizedFromEmails.length,
+            archivedMessagesCount,
             senders: normalizedFromEmails,
           };
         }
@@ -1504,9 +1558,9 @@ async function getLabelsForSearchResults({
   emailProvider: EmailProvider;
   logger: Logger;
 }) {
-  return emailProvider.getLabels().catch((error) => {
+  return emailProvider.getLabels({ includeHidden: true }).catch((error) => {
     logger.warn("Failed to load labels for search results", { error });
-    return [] as Array<{ id: string; name: string }>;
+    return null;
   });
 }
 
@@ -1514,21 +1568,69 @@ type SearchMessagesResult = Awaited<
   ReturnType<EmailProvider["searchMessages"]>
 >;
 
+// The model often sends only the token for the next page, so the token carries
+// the original search; continuation pages must re-apply the same filters. Bare
+// provider tokens are rejected because they would continue without them.
+function encodeSearchInboxPageToken(
+  search: Record<string, unknown>,
+  providerPageToken: string | undefined,
+) {
+  if (!providerPageToken) return;
+
+  return `${SEARCH_INBOX_PAGE_TOKEN_PREFIX}${Buffer.from(
+    JSON.stringify({ ...search, pageToken: providerPageToken }),
+  ).toString("base64url")}`;
+}
+
+function decodeSearchInboxPageToken<T extends z.ZodType>(
+  pageToken: string | null | undefined,
+  schema: T,
+): z.infer<T> | undefined {
+  if (!pageToken) return;
+
+  try {
+    if (!pageToken.startsWith(SEARCH_INBOX_PAGE_TOKEN_PREFIX)) {
+      throw new Error("Not a searchInbox page token");
+    }
+    const encoded = pageToken.slice(SEARCH_INBOX_PAGE_TOKEN_PREFIX.length);
+    return schema.parse(
+      JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")),
+    );
+  } catch {
+    throw new Error(
+      "Invalid page token. Run the search again without a pageToken.",
+    );
+  }
+}
+
 function formatSearchInboxResult({
   searchResult,
   queryUsed,
   labels,
   taxonomyNamesKey,
+  isContinuation,
 }: {
   searchResult: SearchMessagesResult;
   queryUsed: string;
-  labels: Array<{ id: string; name: string }>;
+  labels: Array<{ id: string; name: string }> | null;
   taxonomyNamesKey: "categoryNames" | "labelNames";
+  isContinuation: boolean;
 }) {
-  const labelsById = createLabelLookupMap(labels);
+  const labelsById = createLabelLookupMap(labels ?? []);
   const items = searchResult.messages.map((message) =>
     mapMessageForSearchResult(message, labelsById, taxonomyNamesKey),
   );
+
+  // An empty search often means the user's term names one of their own labels
+  // or categories rather than text in the messages, so give the model the
+  // names it can filter by instead of leaving it to guess.
+  // Only a first page can show the search matched nothing, and the hint is
+  // omitted when labels failed to load so it never reads as "no labels".
+  const noMatches =
+    items.length === 0 &&
+    !searchResult.nextPageToken &&
+    !isContinuation &&
+    labels !== null;
 
   return {
     queryUsed,
@@ -1537,8 +1639,23 @@ function formatSearchInboxResult({
     hasMore: Boolean(searchResult.nextPageToken),
     summary: summarizeSearchResults(items),
     messages: items,
+    ...(noMatches && {
+      [taxonomyNamesKey === "categoryNames"
+        ? "availableCategoryNames"
+        : "availableLabelNames"]: getUserLabelNames(labels ?? []),
+    }),
   };
 }
+
+function getUserLabelNames(labels: Array<{ id: string; name: string }>) {
+  return labels
+    .filter((label) => !SYSTEM_LABEL_ID_PATTERN.test(label.id))
+    .map((label) => label.name)
+    .slice(0, MAX_AVAILABLE_LABEL_NAMES);
+}
+
+const SYSTEM_LABEL_ID_PATTERN = /^[A-Z_]+$/;
+const MAX_AVAILABLE_LABEL_NAMES = 50;
 
 function mapMessageForSearchResult(
   message: ParsedMessage,

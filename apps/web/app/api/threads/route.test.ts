@@ -7,12 +7,14 @@ const {
   mockGetLabels,
   mockGetThreadsWithQuery,
   mockSearchThreads,
+  mockLoggerError,
 } = vi.hoisted(() => ({
   mockFindMany: vi.fn(),
   mockFindSplit: vi.fn(),
   mockGetLabels: vi.fn(),
   mockGetThreadsWithQuery: vi.fn(),
   mockSearchThreads: vi.fn(),
+  mockLoggerError: vi.fn(),
 }));
 
 vi.mock("@/utils/prisma", () => ({
@@ -44,7 +46,7 @@ vi.mock("@/utils/middleware", () => ({
             getThreadsWithQuery: mockGetThreadsWithQuery,
             searchThreads: mockSearchThreads,
           },
-          logger: { error: vi.fn() },
+          logger: { error: mockLoggerError },
         }),
       ),
 }));
@@ -92,6 +94,43 @@ describe("GET /api/threads", () => {
     mockGetLabels.mockResolvedValue([]);
     mockGetThreadsWithQuery.mockResolvedValue({ threads: [] });
     mockSearchThreads.mockResolvedValue({ threads: [] });
+  });
+
+  it("returns a known 429 for provider rate limits instead of logging an error", async () => {
+    mockGetThreadsWithQuery.mockRejectedValue(
+      Object.assign(new Error("Quota exceeded for quota metric 'Queries'"), {
+        code: 403,
+        errors: [{ reason: "rateLimitExceeded" }],
+      }),
+    );
+
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/threads?limit=100"),
+    );
+
+    expect(response.status).toBe(429);
+    expect(mockLoggerError).not.toHaveBeenCalled();
+  });
+
+  it("tells the client when Gmail allows requests again", async () => {
+    const retryAt = new Date(Date.now() + 90_000);
+    mockGetThreadsWithQuery.mockRejectedValue(
+      Object.assign(
+        new Error(
+          `User-rate limit exceeded.  Retry after ${retryAt.toISOString()}`,
+        ),
+        { code: 429, errors: [{ reason: "rateLimitExceeded" }] },
+      ),
+    );
+
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/threads?limit=100"),
+    );
+
+    expect(response.status).toBe(429);
+    const retryAfterSeconds = Number(response.headers.get("Retry-After"));
+    expect(retryAfterSeconds).toBeGreaterThanOrEqual(89);
+    expect(retryAfterSeconds).toBeLessThanOrEqual(90);
   });
 
   it("passes multiple label IDs to the email provider", async () => {

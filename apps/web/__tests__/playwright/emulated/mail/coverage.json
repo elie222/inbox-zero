@@ -1,4 +1,9 @@
 {
+  "mail-setup.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx",
+    "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",
+    "utils/split-inbox/split-query.ts"
+  ],
   "account-selection.spec.ts": [
     "app/(app)/[emailAccountId]/mail/MailSidebar.tsx",
     "app/(app)/[emailAccountId]/mail/use-combined-mail-threads.ts"
@@ -41,6 +46,7 @@
   "command-palette.spec.ts": [
     "components/CommandK.tsx",
     "store/command-palette.ts",
+    "app/(app)/[emailAccountId]/mail/mail-command-palette.ts",
     "app/(app)/[emailAccountId]/mail/snooze-command-palette.ts",
     "app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx"
   ],
@@ -93,6 +99,10 @@
   "draft-send-recovery.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
     "components/email-list/ThreadDeliveryStatus.tsx"
+  ],
+  "local-draft-badge.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ThreadRow.tsx",
+    "utils/mail-engine/reply-drafts.ts"
   ],
   "inline-image-send.spec.ts": [
     "app/(app)/[emailAccountId]/compose/useComposeSend.ts",
@@ -163,11 +173,21 @@
     "app/(app)/[emailAccountId]/mail/BufferedThreadReader.tsx",
     "components/email-list/EmailContents.tsx"
   ],
+  "reader-unsubscribe.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts"
+  ],
   "reader-visuals.spec.ts": [
     "app/(app)/[emailAccountId]/mail/ThreadReader.tsx",
     "components/email-list/EmailContents.tsx",
     "components/ShortcutTooltipContent.tsx",
     "components/ui/tooltip.tsx"
+  ],
+  "reply-typing-stability.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "app/(app)/[emailAccountId]/compose/useComposeDraft.ts",
+    "components/email-list/EmailThread.tsx",
+    "components/email-list/EmailMessage.tsx"
   ],
   "scheduled-replies.spec.ts": [
     "components/email-list/ThreadDeliveryStatus.tsx",
@@ -235,5 +255,28 @@
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
     "app/api/user/send-as/route.ts",
     "utils/email/send-as.ts"
+  ],
+  "interaction-latency.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/useComposeSend.ts",
+    "hooks/useProviderDraftAutosave.ts",
+    "components/email-list/EmailThread.tsx",
+    "components/email-list/EmailContents.tsx",
+    "utils/email/prepare-html.client.ts"
+  ],
+  "latency-compose.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/useComposeSend.ts",
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "components/email-list/ThreadDeliveryStatus.tsx"
+  ],
+  "latency-triage.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
+    "app/(app)/[emailAccountId]/mail/use-optimistic-archive.ts",
+    "app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx",
+    "app/(app)/[emailAccountId]/mail/ThreadReader.tsx"
+  ],
+  "latency-reading.spec.ts": [
+    "hooks/useThread.ts",
+    "utils/mail-engine/conversation-thread.ts",
+    "components/email-list/EmailContents.tsx"
   ]
 }

@@ -4,7 +4,11 @@ import { type RefObject, useCallback, useRef, useState } from "react";
 import type { SubmitHandler } from "react-hook-form";
 import { useSWRConfig } from "swr";
 import type { ScopedMutator } from "swr";
-import { threadScheduledEmailsKey } from "@/components/email-list/ThreadDeliveryStatus";
+import type { ScheduledEmailsResponse } from "@/app/api/user/scheduled-emails/route";
+import {
+  threadScheduledEmailsKey,
+  UNCONFIRMED_SCHEDULED_EMAIL_PREFIX,
+} from "@/components/email-list/ThreadDeliveryStatus";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import {
@@ -32,7 +36,10 @@ import {
   resolveComposeRecipientFields,
 } from "./compose-recipients";
 import { parseDeliveryTimes } from "./delivery-times";
-import { waitForDraftOperations } from "./draft-operation-queue";
+import {
+  hasPendingDraftOperations,
+  waitForDraftOperations,
+} from "./draft-operation-queue";
 import type { createInitialComposeContent } from "./initial-compose-content";
 import {
   queueReaderEmail,
@@ -159,7 +166,8 @@ export function useComposeSend({
 
       // Files go to the mailbox draft as they are attached, so a send waits
       // for them and never carries their bytes itself.
-      await waitForDraftOperations(draftQueueKey);
+      if (attachmentsRef.current.length)
+        await waitForDraftOperations(draftQueueKey);
       const failedAttachment = attachmentsRef.current.find(
         (attachment) => attachment.status !== "uploaded",
       );
@@ -217,20 +225,95 @@ export function useComposeSend({
         }
       }
       setSubmissionError("");
-      await stopProviderAutosave();
+      // Read once: whether to wait for the draft and whether to hold for undo
+      // must agree.
+      const online = navigator.onLine;
+      // A draft save already on its way to the mailbox would hold Send for a
+      // round trip. Instead the send carries its own content, and once it is
+      // delivered the server removes the session's draft, even one that save
+      // creates afterwards. Sending through the draft would let the late save
+      // overwrite the final text (specs/compose-send.qnt).
+      const replacesSavingDraft =
+        hasPendingDraftOperations(draftQueueKey) &&
+        attachmentsRef.current.length === 0 &&
+        !providerDraftMessageId &&
+        Boolean(localDraftIdentity) &&
+        online &&
+        !sendAt &&
+        !remindAt &&
+        deliveryPath.current !== "scheduled";
+      const draftSaveSettled = stopProviderAutosave().then(() =>
+        waitForDraftOperations(draftQueueKey),
+      );
+      // Scheduling is confirmed by the server, so the composer closes and the
+      // thread shows it being scheduled at once; a refusal reopens it.
+      const schedulesAtOnce =
+        Boolean(deliveryTimes.sendAt) &&
+        (isInlineReply
+          ? deliveryPath.current !== "outbox"
+          : canScheduleDelivery);
+      const scheduledThreadId = replyingToEmail?.threadId ?? null;
+      let withdrawSchedule = () => {};
+      let sessionDraftIds: string[] = [];
+      if (schedulesAtOnce) {
+        // The reply's mailbox draft would otherwise show in the thread until
+        // the server confirms; the ids are read from this device.
+        sessionDraftIds = providerDraftMessageId
+          ? getDraftSessionMessageIds(
+              selectedEmailAccountId,
+              providerDraftMessageId,
+            )
+          : localDraftIdentity
+            ? ((await getReplyDraft(localDraftIdentity))?.content
+                ?.providerDraftMessageIds ?? [])
+            : [];
+        const showSessionDrafts = hideSendingDraftMessages(
+          selectedEmailAccountId,
+          sessionDraftIds,
+        );
+        const withdrawRow = showScheduledEmail(
+          mutate,
+          selectedEmailAccountId,
+          scheduledThreadId,
+          {
+            id: `${UNCONFIRMED_SCHEDULED_EMAIL_PREFIX}${requestId}`,
+            sendAt: deliveryTimes.sendAt,
+            remindAt: deliveryTimes.remindAt,
+          },
+        );
+        withdrawSchedule = () => {
+          withdrawRow();
+          showSessionDrafts();
+        };
+        if (!scheduledThreadId)
+          toastSuccess({ description: "Email scheduled." });
+        onClose?.();
+      }
+      const failSchedule = (description: string) => {
+        withdrawSchedule();
+        setSubmissionError(description);
+        if (!schedulesAtOnce) return;
+        toastError({ description });
+        onRestore?.();
+      };
+      if (!replacesSavingDraft) await draftSaveSettled;
       let deliveryAccepted = false;
       try {
         // Autosave can replace a draft's message ID; its provider draft ID survives.
-        enrichedData.providerDraftId = await resolveSendDraftId(
-          providerDraftId.current,
-          localDraftIdentity,
-        );
+        if (replacesSavingDraft)
+          enrichedData.replacesDraftOfSession = requestId;
+        enrichedData.providerDraftId = replacesSavingDraft
+          ? undefined
+          : await resolveSendDraftId(
+              providerDraftId.current,
+              localDraftIdentity,
+            );
         // The mailbox draft is what carries the files to the recipient.
         if (attachmentsRef.current.length && !enrichedData.providerDraftId) {
-          toastError({
-            description:
-              "Could not find this draft in your mailbox to send its attachments. Reopen it and try again.",
-          });
+          const description =
+            "Could not find this draft in your mailbox to send its attachments. Reopen it and try again.";
+          if (schedulesAtOnce) failSchedule(description);
+          else toastError({ description });
           return;
         }
         if (isInlineReply) {
@@ -256,8 +339,19 @@ export function useComposeSend({
         const isScheduled = isInlineReply
           ? deliveryPath.current === "scheduled"
           : canScheduleDelivery && Boolean(sendAt || remindAt);
+        if (schedulesAtOnce) {
+          // A save that finished meanwhile may have added a draft message.
+          const showLaterDrafts = hideSendingDraftMessages(
+            selectedEmailAccountId,
+            draftMessageIds.filter((id) => !sessionDraftIds.includes(id)),
+          );
+          const withdrawEarlier = withdrawSchedule;
+          withdrawSchedule = () => {
+            withdrawEarlier();
+            showLaterDrafts();
+          };
+        }
         if (isScheduled) {
-          const scheduledThreadId = replyingToEmail?.threadId ?? null;
           const result = await scheduleEmailAction(selectedEmailAccountId, {
             clientMutationId: requestId,
             threadId: scheduledThreadId,
@@ -268,7 +362,7 @@ export function useComposeSend({
             remindAt: deliveryTimes.remindAt,
           });
           if (!result?.data) {
-            setSubmissionError(
+            failSchedule(
               getActionErrorMessage(result ?? {}, {
                 prefix: scheduledThreadId
                   ? "Could not schedule this reply"
@@ -297,10 +391,11 @@ export function useComposeSend({
             selectedEmailAccountId,
             scheduledThreadId,
           );
-          if (!scheduledThreadId) {
-            toastSuccess({ description: "Email scheduled." });
+          if (!schedulesAtOnce) {
+            if (!scheduledThreadId)
+              toastSuccess({ description: "Email scheduled." });
+            onClose?.();
           }
-          onClose?.();
           refetch?.();
           return;
         }
@@ -312,7 +407,6 @@ export function useComposeSend({
           (isInlineReply ? draftKeyMessageId : replyingToEmail?.messageId) ??
           localDraftIdentity?.messageId ??
           requestId;
-        const online = navigator.onLine;
         if (!client) {
           setSubmissionError(
             "Mail is still starting. Try sending again in a moment.",
@@ -324,7 +418,14 @@ export function useComposeSend({
           return;
         }
         let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
-        let showDraftAgain = () => {};
+        let showSentDrafts = () => {};
+        let showSavedDraft = () => {};
+        let draftShownAgain = false;
+        const showDraftAgain = () => {
+          draftShownAgain = true;
+          showSentDrafts();
+          showSavedDraft();
+        };
         try {
           const publishInlineImages = await prepareOutgoingInlineImages(
             selectedEmailAccountId,
@@ -347,12 +448,28 @@ export function useComposeSend({
             },
             onQueued: async (operationId) => {
               deliveryAccepted = true;
-              showDraftAgain = hideSendingDraftMessages(
+              showSentDrafts = hideSendingDraftMessages(
                 selectedEmailAccountId,
                 draftMessageIds,
               );
+              if (replacesSavingDraft && localDraftIdentity) {
+                // The save may give the draft a message the send has not seen.
+                draftSaveSettled
+                  .then(() => getReplyDraft(localDraftIdentity))
+                  .then((saved) => {
+                    // An undo before the save landed already handed it back.
+                    if (draftShownAgain) return;
+                    showSavedDraft = hideSendingDraftMessages(
+                      selectedEmailAccountId,
+                      (saved?.content?.providerDraftMessageIds ?? []).filter(
+                        (id) => !draftMessageIds.includes(id),
+                      ),
+                    );
+                  })
+                  .catch(() => {});
+              }
               if (replyingToEmail?.threadId?.trim()) {
-                await mutate([
+                mutate([
                   "thread-deliveries",
                   selectedEmailAccountId,
                   readerThreadId,
@@ -481,6 +598,12 @@ export function useComposeSend({
       } catch (error) {
         // biome-ignore lint/suspicious/noConsole: send failures stay visible in the browser console
         console.error(error);
+        if (schedulesAtOnce) {
+          failSchedule(
+            "Could not schedule this email. Check the thread status before trying again.",
+          );
+          return;
+        }
         setSubmissionError(
           "Could not confirm delivery. Check the thread status before trying again.",
         );
@@ -573,4 +696,47 @@ async function refreshScheduledEmails(
     ...(threadId ? [threadScheduledEmailsKey(emailAccountId, threadId)] : []),
   ];
   await Promise.all(keys.map((key) => mutate(key).catch(() => {})));
+}
+
+/**
+ * Shows a scheduled email in its thread before the server confirms it. The
+ * server's row replaces it on the next refresh; the returned function takes
+ * it back out if scheduling fails.
+ */
+function showScheduledEmail(
+  mutate: ScopedMutator,
+  emailAccountId: string,
+  threadId: string | null,
+  pending: { id: string; sendAt: string | null; remindAt: string | null },
+) {
+  if (!threadId || !pending.sendAt) return () => {};
+  const key = threadScheduledEmailsKey(emailAccountId, threadId);
+  const row: ScheduledEmailsResponse["scheduledEmails"][number] = {
+    id: pending.id,
+    status: "PENDING",
+    sendAt: new Date(pending.sendAt),
+    remindAt: pending.remindAt ? new Date(pending.remindAt) : null,
+    reminderStatus: pending.remindAt ? "PENDING" : "NONE",
+    sentAt: null,
+    error: null,
+    draftMessageIds: [],
+  };
+  mutate<ScheduledEmailsResponse>(
+    key,
+    (current) => ({
+      scheduledEmails: [row, ...(current?.scheduledEmails ?? [])],
+    }),
+    { revalidate: false },
+  );
+  return () => {
+    mutate<ScheduledEmailsResponse>(
+      key,
+      (current) => ({
+        scheduledEmails: (current?.scheduledEmails ?? []).filter(
+          (scheduled) => scheduled.id !== row.id,
+        ),
+      }),
+      { revalidate: false },
+    );
+  };
 }

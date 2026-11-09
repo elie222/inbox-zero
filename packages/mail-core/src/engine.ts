@@ -5,6 +5,7 @@ import type {
 } from "./commands";
 import type {
   DraftReadResult,
+  StoredDraft,
   DraftSaveResult,
   SaveDraft,
   SubmitSend,
@@ -27,7 +28,10 @@ import type {
   MailStore,
   SyncStreamPosition,
 } from "./ports/mail-store";
-import type { OperationExecutor } from "./ports/operation-executor";
+import type {
+  ExecutionResult,
+  OperationExecutor,
+} from "./ports/operation-executor";
 import type { AssistantStateSource } from "./ports/assistant-source";
 import type { ScopeDescriptor } from "./ports/mailbox-source";
 import type { HostRuntime } from "./ports/runtime";
@@ -48,7 +52,7 @@ import {
   mailboxCountsQueryKey,
   mailboxQueryKey,
 } from "./subscriptions";
-import type { SyncPage } from "./sync";
+import type { ProviderChange, SyncPage } from "./sync";
 import type { ConversationView } from "./ports/mail-store";
 
 const MAX_BOOTSTRAP_PAGES_PER_RUN = 25;
@@ -69,6 +73,10 @@ const LOW_PRIORITY_CATCH_UP_INTERVAL_MS = 10 * 60_000;
 // when they have not run recently, so a burst of pushes stays cheap.
 const LOW_PRIORITY_REQUESTED_MIN_INTERVAL_MS = 2 * 60_000;
 const MAX_MAILBOX_WINDOW_PAGES = 40;
+// Change history replays oldest first. A stream still behind after this many
+// pages, such as one reopened after days away, takes the provider's newest
+// page first so new mail shows without waiting for the whole replay.
+const NEWEST_PAGE_AFTER_BACKLOG_PAGES = 2;
 
 export type WorkAdmission =
   | { status: "scheduled" | "already_satisfied" }
@@ -123,6 +131,7 @@ export type MailClient = {
   submitConversations(input: SubmitConversationCommand): Promise<Admission>;
   saveDraft(input: SaveDraft): Promise<DraftSaveResult>;
   readDraft(key: DraftKey): Promise<DraftReadResult>;
+  listDrafts(accountId: string): Promise<StoredDraft[]>;
   submitSend(input: SubmitSend): Promise<Admission>;
   cancelOperation(
     key: OperationKey,
@@ -162,6 +171,12 @@ export function createMailEngine(input: {
     input.idleCatchUpIntervalMs ?? IDLE_CATCH_UP_INTERVAL_MS;
   const syncLaneTimeoutMs = input.syncLaneTimeoutMs ?? SYNC_LANE_TIMEOUT_MS;
   const ownerId = input.ownerId ?? "local-owner";
+  // A previous engine with this owner id can only have stopped, since one
+  // owner runs at a time; its unfinished reads are this engine's to redo.
+  let readOnlyClaimsReleased = false;
+  let idleWakers: Array<() => void> = [];
+  // Counts wakes, so one that arrives before a run starts waiting still counts.
+  let wakeGeneration = 0;
   const assistant = input.assistant;
   const queries = createQueryRegistry();
   let evictedForCurrentPressure = false;
@@ -173,6 +188,13 @@ export function createMailEngine(input: {
   >();
   const syncLaneErrors: unknown[] = [];
   const remoteSearches = new Map<string, RemoteSearch>();
+  // A changes page read before a command settled still shows the command's
+  // messages as they were, and applying it afterwards would undo what the
+  // command confirmed until the next catch-up. Each read remembers how many
+  // commands had settled when it started and skips messages settled since.
+  let settledCommandCount = 0;
+  const messagesSettledAt = new Map<string, number>();
+  const openChangeReads = new Map<number, number>();
   let closed = false;
 
   return {
@@ -263,6 +285,9 @@ export function createMailEngine(input: {
     readDraft(key) {
       return store.readDraft(key);
     },
+    listDrafts(accountId) {
+      return store.listDrafts(accountId);
+    },
     async submitSend(send) {
       const admission = await store.admitSend(send);
       await queries.refreshAll();
@@ -300,7 +325,12 @@ export function createMailEngine(input: {
       return { status: "scheduled" };
     },
     async ensureMessageContent(key) {
-      await store.enqueueHydration({ keys: [key], purpose: "body" });
+      await store.enqueueHydration({
+        keys: [key],
+        purpose: "body",
+        priority: "interactive",
+      });
+      wakeIdleRun();
       return { status: "scheduled" };
     },
     getDiagnostics(accountId) {
@@ -343,6 +373,10 @@ export function createMailEngine(input: {
         evictedForCurrentPressure = true;
         if (evictedBodies > 0) await queries.refreshAll();
       }
+      if (!readOnlyClaimsReleased) {
+        await store.releaseReadOnlyClaims({ ownerId });
+        readOnlyClaimsReleased = true;
+      }
       let lanesStarted = false;
       while (runtime.nowMs() < deadlineMs) {
         await yieldToHost();
@@ -357,6 +391,7 @@ export function createMailEngine(input: {
           reportSyncLaneErrors();
           if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
         }
+        const generationBeforeClaim = wakeGeneration;
         const work = await store.claimWork({
           ownerId,
           nowMs: runtime.nowMs(),
@@ -370,7 +405,8 @@ export function createMailEngine(input: {
           const contacts = await store.indexContactBacklog();
           const { remaining } = await store.indexSearchBacklog();
           if (contacts.remaining || remaining) continue;
-          await waitForSyncLanes(deadlineMs, signal);
+          if (await waitForSyncLanes(deadlineMs, signal, generationBeforeClaim))
+            continue;
           return;
         }
         if (work.kind === "command") {
@@ -379,11 +415,12 @@ export function createMailEngine(input: {
             attemptId: work.attemptId,
             signal: signal ?? new AbortController().signal,
           });
-          await store.settleAttempt({
+          const settled = await store.settleAttempt({
             attemptId: work.attemptId,
             operation: work.operation,
             result,
           });
+          if (settled.status === "committed") noteSettledMessages(result);
           await queries.refreshAll();
           continue;
         }
@@ -393,11 +430,12 @@ export function createMailEngine(input: {
             receiptId: work.receiptId,
             signal: signal ?? new AbortController().signal,
           });
-          await store.settleAttempt({
+          const settled = await store.settleAttempt({
             attemptId: work.attemptId,
             operation: work.operation,
             result,
           });
+          if (settled.status === "committed") noteSettledMessages(result);
           await queries.refreshAll();
           continue;
         }
@@ -504,10 +542,8 @@ export function createMailEngine(input: {
               bodies: hydrated.value.bodies,
             });
             await queries.refreshAll();
-            await store.completeJob({
-              jobId: work.jobId,
-              attemptId: work.attemptId,
-            });
+            for (const jobId of work.jobIds ?? [work.jobId])
+              await store.completeJob({ jobId, attemptId: work.attemptId });
           }
           continue;
         }
@@ -547,35 +583,41 @@ export function createMailEngine(input: {
           }
           continue;
         }
-        const changes = await source.readChanges({
-          session: work.session,
-          requestId: work.jobId,
-          position: work.position,
-          pageSize: 50,
-          signal: signal ?? new AbortController().signal,
-        });
-        if (changes.status === "page") {
-          const applied = await store.applySyncPage({
-            page: changes.page,
-            ownerId,
-            bodies: changes.page.bodies,
-          });
-          if (applied.status === "committed") {
-            await queries.refreshAll();
-            await noteConnection(work.session.accountId, "ok");
-            notifySyncPageCommitted(changes.page);
-          }
-        } else if (changes.status === "reset_required") {
-          await ingestBootstrap({
+        const readFence = openChangeRead();
+        try {
+          const changes = await source.readChanges({
             session: work.session,
-            from: work.position,
-            deadlineMs,
-            signal,
-            requestId: `${work.jobId}-reset`,
-            scopeId: changes.scopeId,
+            requestId: work.jobId,
+            position: work.position,
+            pageSize: 50,
+            signal: signal ?? new AbortController().signal,
           });
-        } else {
-          await noteConnection(work.session.accountId, changes.status);
+          if (changes.status === "page") {
+            const page = withoutMessagesSettledSince(changes.page, readFence);
+            const applied = await store.applySyncPage({
+              page,
+              ownerId,
+              bodies: page.bodies,
+            });
+            if (applied.status === "committed") {
+              await queries.refreshAll();
+              await noteConnection(work.session.accountId, "ok");
+              notifySyncPageCommitted(page);
+            }
+          } else if (changes.status === "reset_required") {
+            await ingestBootstrap({
+              session: work.session,
+              from: work.position,
+              deadlineMs,
+              signal,
+              requestId: `${work.jobId}-reset`,
+              scopeId: changes.scopeId,
+            });
+          } else {
+            await noteConnection(work.session.accountId, changes.status);
+          }
+        } finally {
+          closeChangeRead(readFence);
         }
       }
     },
@@ -821,9 +863,15 @@ export function createMailEngine(input: {
       const retry = syncLaneRetries.get(accountId);
       if (retry && retry.retryAtMs > runtime.nowMs()) continue;
       const abort = new AbortController();
+      const startedAtMs = runtime.nowMs();
       let timedOut = false;
+      let slept = false;
       const timeout = setTimeout(() => {
         timedOut = true;
+        // Far more wall time than the timeout means the device slept or the
+        // process was frozen mid-request. The lane restarts without a report
+        // or backoff, since its connection is likely gone, not hung.
+        slept = runtime.nowMs() - startedAtMs > 2 * syncLaneTimeoutMs;
         abort.abort();
       }, syncLaneTimeoutMs);
       // The lane settles on abort even if a request ignores the signal.
@@ -834,7 +882,7 @@ export function createMailEngine(input: {
         abort,
         done: Promise.race([catchUpAccount(account, abort.signal), aborted])
           .then(() => {
-            if (timedOut) {
+            if (timedOut && !slept) {
               failSyncLane(accountId, new Error("Mail sync lane timed out"));
             } else {
               syncLaneRetries.delete(accountId);
@@ -842,7 +890,7 @@ export function createMailEngine(input: {
           })
           .catch((error: unknown) => {
             // A purge or close stopped the lane on purpose.
-            if (abort.signal.aborted && !timedOut) return;
+            if (abort.signal.aborted && (!timedOut || slept)) return;
             failSyncLane(accountId, error);
           })
           .finally(() => {
@@ -873,10 +921,17 @@ export function createMailEngine(input: {
     syncLaneRetries.delete(accountId);
   }
 
-  async function waitForSyncLanes(deadlineMs: number, signal?: AbortSignal) {
-    if (syncLanes.size > 0) {
+  /** Resolves true when new work woke the wait before the lanes finished. */
+  async function waitForSyncLanes(
+    deadlineMs: number,
+    signal?: AbortSignal,
+    generationBeforeClaim = wakeGeneration,
+  ) {
+    let woken = wakeGeneration !== generationBeforeClaim;
+    if (!woken && syncLanes.size > 0) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       let onAbort: (() => void) | undefined;
+      let onWake: (() => void) | undefined;
       await Promise.race([
         Promise.allSettled([...syncLanes.values()].map((lane) => lane.done)),
         new Promise<void>((resolve) => {
@@ -887,11 +942,27 @@ export function createMailEngine(input: {
           onAbort = resolve;
           signal?.addEventListener("abort", onAbort, { once: true });
         }),
+        new Promise<void>((resolve) => {
+          onWake = () => {
+            woken = true;
+            resolve();
+          };
+          idleWakers.push(onWake);
+        }),
       ]);
       clearTimeout(timer);
       if (onAbort) signal?.removeEventListener("abort", onAbort);
+      idleWakers = idleWakers.filter((wake) => wake !== onWake);
     }
     reportSyncLaneErrors();
+    return woken && !signal?.aborted && runtime.nowMs() < deadlineMs;
+  }
+
+  // Wakes a run that is idle until its deadline, so work someone is waiting
+  // on starts now rather than on the host's next run.
+  function wakeIdleRun() {
+    wakeGeneration += 1;
+    for (const wake of idleWakers.splice(0)) wake();
   }
 
   // Reports lane failures to the host loop. Each failing account already
@@ -992,6 +1063,7 @@ export function createMailEngine(input: {
       streams.push(...streams.splice(0, nextStreamIndex));
     }
     const dueStreams: typeof streams = [];
+    const behindStreams: SyncStreamPosition[] = [];
     // Bootstrap scans share one slice per pass, so a mailbox with many
     // folders can't run the lane into its timeout before later folders get a
     // turn. Folders left over go first on the next pass.
@@ -1061,88 +1133,127 @@ export function createMailEngine(input: {
           offset,
           offset + MAX_CHANGES_BATCH_READS,
         );
-        const results = await readBatch({
-          session,
-          reads: chunk.map((stream) => ({
-            requestId: runtime.randomId(),
-            position: stream,
-          })),
-          pageSize: 50,
-          signal,
-        });
-        if (results.length !== chunk.length) {
-          throw new Error("Changes batch returned the wrong number of results");
-        }
-        for (const [index, stream] of chunk.entries()) {
-          const changes = results[index] as SyncReadResult;
-          // Applying a page holds the store, so let host reads in between.
-          if (index > 0) await yieldToHost();
-          await applyStreamChanges({
+        const readFence = openChangeRead();
+        try {
+          const results = await readBatch({
             session,
-            idleGate,
-            stream,
-            changes,
+            reads: chunk.map((stream) => ({
+              requestId: runtime.randomId(),
+              position: stream,
+            })),
+            pageSize: 50,
             signal,
           });
+          if (results.length !== chunk.length) {
+            throw new Error(
+              "Changes batch returned the wrong number of results",
+            );
+          }
+          for (const [index, stream] of chunk.entries()) {
+            const changes = results[index] as SyncReadResult;
+            // Applying a page holds the store, so let host reads in between.
+            if (index > 0) await yieldToHost();
+            const behind = await applyStreamChanges({
+              session,
+              idleGate,
+              stream,
+              changes,
+              readFence,
+              signal,
+            });
+            if (behind) behindStreams.push(behind);
+          }
+        } finally {
+          closeChangeRead(readFence);
         }
       }
     } else {
       for (const [index, stream] of dueStreams.entries()) {
         if (index > 0) await yieldToHost();
         if (signal.aborted) return;
-        const changes = await source.readChanges({
-          session,
-          requestId: runtime.randomId(),
-          position: stream,
-          pageSize: 50,
-          signal,
-        });
-        await applyStreamChanges({
-          session,
-          idleGate,
-          stream,
-          changes,
-          signal,
-        });
+        const readFence = openChangeRead();
+        try {
+          const changes = await source.readChanges({
+            session,
+            requestId: runtime.randomId(),
+            position: stream,
+            pageSize: 50,
+            signal,
+          });
+          const behind = await applyStreamChanges({
+            session,
+            idleGate,
+            stream,
+            changes,
+            readFence,
+            signal,
+          });
+          if (behind) behindStreams.push(behind);
+        } finally {
+          closeChangeRead(readFence);
+        }
       }
+    }
+    // Every page read in this pass is applied first, so the newest page is
+    // the latest state written and the replay after it only reads later state.
+    for (const position of behindStreams) {
+      if (signal.aborted) return;
+      await yieldToHost();
+      await ingestNewestPage(session, idleGate, position, signal);
     }
     await catchUpAssistantIfDue(idleGate, account, signal);
   }
 
+  /** Resolves the stream's new position when it is far enough behind that its newest page should go in ahead of the replay. */
   async function applyStreamChanges({
     session,
     idleGate,
     stream,
     changes,
+    readFence,
     signal,
   }: {
     session: { accountId: string; generation: string };
     idleGate: IdleCatchUpGate;
     stream: AccountSyncState["streams"][number];
     changes: SyncReadResult;
+    readFence: number;
     signal: AbortSignal;
-  }) {
+  }): Promise<SyncStreamPosition | null> {
     // A stopped lane may have been replaced, and its late result must not
     // move the shared catch-up schedule.
-    if (signal.aborted) return;
+    if (signal.aborted) return null;
     if (changes.status === "page") {
+      const page = withoutMessagesSettledSince(changes.page, readFence);
       const applied = await store.applySyncPage({
-        page: changes.page,
+        page,
         ownerId,
-        bodies: changes.page.bodies,
+        bodies: page.bodies,
       });
       if (applied.status === "committed") {
-        if (changes.page.roundComplete) {
+        let backlogPages = 0;
+        if (page.roundComplete) {
           idleGate.nextStreamCatchUpAtMs.set(
             stream.streamId,
             runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
           );
+          idleGate.streamBacklogPages.delete(stream.streamId);
+          idleGate.newestPageIngested.delete(stream.streamId);
         } else {
           idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
+          backlogPages =
+            (idleGate.streamBacklogPages.get(stream.streamId) ?? 0) + 1;
+          idleGate.streamBacklogPages.set(stream.streamId, backlogPages);
         }
         await queries.refreshAll();
         await noteConnection(session.accountId, "ok");
-        notifySyncPageCommitted(changes.page);
+        notifySyncPageCommitted(page);
+        // Asked again on every later page until it lands, so a failed or
+        // interrupted fetch is retried rather than waiting out the replay.
+        return backlogPages >= NEWEST_PAGE_AFTER_BACKLOG_PAGES &&
+          !idleGate.newestPageIngested.has(stream.streamId)
+          ? page.to
+          : null;
       } else {
         idleGate.nextStreamCatchUpAtMs.delete(stream.streamId);
       }
@@ -1153,6 +1264,8 @@ export function createMailEngine(input: {
         stream.streamId,
         runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
       );
+      idleGate.streamBacklogPages.delete(stream.streamId);
+      idleGate.newestPageIngested.delete(stream.streamId);
       const resetStream = { ...stream, streamId: changes.scopeId };
       await ingestBootstrap({
         session,
@@ -1170,6 +1283,111 @@ export function createMailEngine(input: {
       );
       await noteConnection(session.accountId, changes.status);
     }
+    return null;
+  }
+
+  // Lists the stream's newest messages the way a bootstrap's first page does
+  // and applies them at the stream's current checkpoint, which stays put, so
+  // the replay still covers every older change behind them.
+  async function ingestNewestPage(
+    session: { accountId: string; generation: string },
+    idleGate: IdleCatchUpGate,
+    position: SyncStreamPosition,
+    signal: AbortSignal,
+  ) {
+    const requestId = runtime.randomId();
+    const readFence = openChangeRead();
+    try {
+      const bootstrap = await source.beginBootstrap({
+        session,
+        requestId,
+        signal,
+        scope: await resolveScope(session, position.streamId, signal),
+        afterMs: null,
+      });
+      if (bootstrap.status !== "ok") {
+        await noteConnection(session.accountId, bootstrap.status);
+        return;
+      }
+      const newest = await source.enumerate({
+        session,
+        requestId: `${requestId}-newest`,
+        signal,
+        bootstrapId: bootstrap.value.bootstrapId,
+        page: bootstrap.value.enumerationToken,
+        pageSize: 50,
+      });
+      if (newest.status !== "ok") {
+        await noteConnection(session.accountId, newest.status);
+        return;
+      }
+      const page = withoutMessagesSettledSince(
+        {
+          session,
+          requestId,
+          from: position,
+          to: position,
+          changes: newest.value.changes,
+          requiredHydration: newest.value.requiredHydration,
+          bodies: newest.value.bodies,
+          roundComplete: false,
+        },
+        readFence,
+      );
+      const applied = await store.applySyncPage({
+        page,
+        ownerId,
+        bodies: page.bodies,
+      });
+      if (applied.status === "committed") {
+        // A stopped lane may have been replaced, and its late result must not
+        // mark a newer backlog as already shown.
+        if (!signal.aborted) idleGate.newestPageIngested.add(position.streamId);
+        await queries.refreshAll();
+      }
+    } finally {
+      closeChangeRead(readFence);
+    }
+  }
+
+  function noteSettledMessages(result: ExecutionResult) {
+    if (result.status !== "confirmed") return;
+    settledCommandCount += 1;
+    const keys = [
+      ...result.targets
+        .filter((target) => target.outcome === "applied")
+        .map((target) => target.key),
+      ...result.observations.flatMap(changedMessageKey),
+    ];
+    for (const key of keys) {
+      messagesSettledAt.set(messageKeyId(key), settledCommandCount);
+    }
+  }
+
+  function openChangeRead() {
+    const fence = settledCommandCount;
+    openChangeReads.set(fence, (openChangeReads.get(fence) ?? 0) + 1);
+    return fence;
+  }
+
+  function closeChangeRead(fence: number) {
+    const remaining = (openChangeReads.get(fence) ?? 1) - 1;
+    if (remaining > 0) openChangeReads.set(fence, remaining);
+    else openChangeReads.delete(fence);
+    // Only a read that started before a settle can still carry its stale state.
+    const oldestOpenFence = Math.min(...openChangeReads.keys());
+    for (const [id, settledAt] of messagesSettledAt) {
+      if (settledAt <= oldestOpenFence) messagesSettledAt.delete(id);
+    }
+  }
+
+  function withoutMessagesSettledSince(page: SyncPage, fence: number) {
+    const changes = page.changes.filter((change) =>
+      changedMessageKey(change).every(
+        (key) => (messagesSettledAt.get(messageKeyId(key)) ?? 0) <= fence,
+      ),
+    );
+    return changes.length === page.changes.length ? page : { ...page, changes };
   }
 
   function idleCatchUpGateFor(accountId: string, generation: string) {
@@ -1186,6 +1404,8 @@ export function createMailEngine(input: {
       requestCount: 0,
       scopesDiscoveredAt: null,
       streamCheckedAt: new Map(),
+      streamBacklogPages: new Map(),
+      newestPageIngested: new Set(),
     };
     idleCatchUpGates.set(accountId, created);
     return created;
@@ -1404,6 +1624,9 @@ type IdleCatchUpGate = {
   requestCount: number;
   scopesDiscoveredAt: CheckStamp | null;
   streamCheckedAt: Map<string, CheckStamp>;
+  streamBacklogPages: Map<string, number>;
+  /** Streams whose current backlog already has its newest page in. */
+  newestPageIngested: Set<string>;
 };
 
 type CheckStamp = { atMs: number; requestCount: number };
@@ -1450,6 +1673,18 @@ function defaultRandomId(): string {
   throw new Error(
     "HostRuntime.randomId is required when crypto.randomUUID is unavailable",
   );
+}
+
+function changedMessageKey(change: ProviderChange): MessageKey[] {
+  return change.kind === "message_patch" ||
+    change.kind === "removed_from_scope" ||
+    change.kind === "message_deleted"
+    ? [change.key]
+    : [];
+}
+
+function messageKeyId(key: MessageKey) {
+  return `${key.accountId}\0${key.messageId}`;
 }
 
 /**

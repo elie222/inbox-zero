@@ -12,6 +12,8 @@ export type BulkRunState = {
   fetchedThreads: Map<string, Thread>;
   stoppedCount: number | null;
   runResult: { count: number } | null;
+  // Set while the email provider is rate limiting the run.
+  rateLimitResumeAt: Date | null;
 };
 
 export type BulkRunAction =
@@ -21,6 +23,7 @@ export type BulkRunAction =
   | { type: "PAUSE" }
   | { type: "RESUME" }
   | { type: "STOP"; completedCount: number }
+  | { type: "RATE_LIMIT_WAIT"; resumeAt: Date | null }
   | { type: "RESET" };
 
 export const initialBulkRunState: BulkRunState = {
@@ -29,6 +32,7 @@ export const initialBulkRunState: BulkRunState = {
   fetchedThreads: new Map(),
   stoppedCount: null,
   runResult: null,
+  rateLimitResumeAt: null,
 };
 
 export function bulkRunReducer(
@@ -44,6 +48,7 @@ export function bulkRunReducer(
         fetchedThreads: new Map(),
         stoppedCount: null,
         runResult: null,
+        rateLimitResumeAt: null,
       };
 
     case "THREADS_QUEUED": {
@@ -68,6 +73,7 @@ export function bulkRunReducer(
         ...state,
         status: "idle",
         runResult: { count: action.count },
+        rateLimitResumeAt: null,
       };
 
     case "PAUSE":
@@ -91,6 +97,14 @@ export function bulkRunReducer(
         ...state,
         status: "stopped",
         stoppedCount: action.completedCount,
+        rateLimitResumeAt: null,
+      };
+
+    case "RATE_LIMIT_WAIT":
+      if (action.resumeAt && !isRunActive(state.status)) return state;
+      return {
+        ...state,
+        rateLimitResumeAt: action.resumeAt,
       };
 
     case "RESET":
@@ -118,4 +132,8 @@ export function getProgressMessage(
   }
 
   return `Processed ${state.processedThreadIds.size} emails`;
+}
+
+function isRunActive(status: ProcessingStatus) {
+  return status === "processing" || status === "paused";
 }

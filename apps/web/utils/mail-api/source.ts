@@ -43,6 +43,7 @@ const SUPPORTED_CHANGES = [
   "move",
   "set_membership",
   "snooze",
+  "discard_draft",
 ] as const;
 
 type FolderScopeNode = {

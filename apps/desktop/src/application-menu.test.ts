@@ -2,16 +2,11 @@ import type { MenuItemConstructorOptions } from "electron";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { configureDesktopApplicationMenu } from "./application-menu";
 
-const { app, BrowserWindow, Menu } = vi.hoisted(() => ({
+const { app, Menu } = vi.hoisted(() => ({
   app: {
     getVersion: vi.fn(() => "0.2.0"),
     setAboutPanelOptions: vi.fn(),
     showAboutPanel: vi.fn(),
-  },
-  BrowserWindow: class {
-    webContents = {
-      navigationHistory: { goBack: vi.fn(), goForward: vi.fn() },
-    };
   },
   Menu: {
     buildFromTemplate: vi.fn(
@@ -21,7 +16,7 @@ const { app, BrowserWindow, Menu } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("electron", () => ({ app, BrowserWindow, Menu }));
+vi.mock("electron", () => ({ app, Menu }));
 
 describe("desktop application menu", () => {
   beforeEach(() => {
@@ -33,6 +28,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates,
       createWindow: vi.fn(),
+      getActiveContents: vi.fn(),
       openSettings: vi.fn(),
       recordDiagnostics: vi.fn(),
       platform: "win32",
@@ -62,6 +58,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates: vi.fn(),
       createWindow,
+      getActiveContents: vi.fn(),
       openSettings: vi.fn(),
       recordDiagnostics: vi.fn(),
       platform: "darwin",
@@ -82,6 +79,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates,
       createWindow: vi.fn(),
+      getActiveContents: vi.fn(),
       openSettings: vi.fn(),
       recordDiagnostics: vi.fn(),
       updateReady: true,
@@ -100,6 +98,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates: vi.fn(),
       createWindow: vi.fn(),
+      getActiveContents: vi.fn(),
       openSettings: vi.fn(),
       recordDiagnostics: vi.fn(),
       downloadPercent: 42,
@@ -123,6 +122,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates: vi.fn(),
       createWindow: vi.fn(),
+      getActiveContents: vi.fn(),
       openSettings: vi.fn(),
       recordDiagnostics,
       platform,
@@ -147,6 +147,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates: vi.fn(),
       createWindow: vi.fn(),
+      getActiveContents: vi.fn(),
       openSettings,
       recordDiagnostics: vi.fn(),
       platform,
@@ -165,6 +166,7 @@ describe("desktop application menu", () => {
     configureDesktopApplicationMenu({
       checkForUpdates: vi.fn(),
       createWindow: vi.fn(),
+      getActiveContents: vi.fn(),
       openSettings: vi.fn(),
       recordDiagnostics: vi.fn(),
       platform: "darwin",
@@ -180,10 +182,18 @@ describe("desktop application menu", () => {
     expect(pastePlain?.accelerator).toBe("CommandOrControl+Shift+V");
   });
 
-  it("navigates the focused window's history with Cmd/Ctrl+[ and Cmd/Ctrl+]", () => {
+  it("navigates the focused window's active tab with Cmd/Ctrl+[ and Cmd/Ctrl+]", () => {
+    const window = {};
+    const contents = {
+      navigationHistory: { goBack: vi.fn(), goForward: vi.fn() },
+    };
+    const getActiveContents = vi.fn((target: unknown) =>
+      target === window ? contents : undefined,
+    );
     configureDesktopApplicationMenu({
       checkForUpdates: vi.fn(),
       createWindow: vi.fn(),
+      getActiveContents: getActiveContents as never,
       openSettings: vi.fn(),
       recordDiagnostics: vi.fn(),
       platform: "darwin",
@@ -198,12 +208,9 @@ describe("desktop application menu", () => {
     expect(back?.accelerator).toBe("CommandOrControl+[");
     expect(forward?.accelerator).toBe("CommandOrControl+]");
 
-    const window = new BrowserWindow();
     back?.click?.({} as never, window as never, {} as never);
-    expect(window.webContents.navigationHistory.goBack).toHaveBeenCalledOnce();
+    expect(contents.navigationHistory.goBack).toHaveBeenCalledOnce();
     forward?.click?.({} as never, window as never, {} as never);
-    expect(
-      window.webContents.navigationHistory.goForward,
-    ).toHaveBeenCalledOnce();
+    expect(contents.navigationHistory.goForward).toHaveBeenCalledOnce();
   });
 });

@@ -7,6 +7,7 @@ import { MEETING_RECORDER_MIN_TIER } from "@/utils/meeting-recorder/config";
 import { isMeetingBotProviderConfigured } from "@/utils/meeting-recorder/create-bot-provider";
 import { CANCELLABLE_STATUSES } from "@/utils/meeting-recorder/recording-lifecycle";
 import {
+  getReconcileAccountSelect,
   reconcileAccount,
   releaseAccountBookings,
   sweepRecordings,
@@ -57,12 +58,7 @@ async function scheduleAllMeetingRecordings(logger: Logger) {
       ...premiumFilter,
       calendarConnections: { some: { isConnected: true } },
     },
-    select: {
-      id: true,
-      email: true,
-      meetingRecorderJoinRule: true,
-      name: true,
-    },
+    select: getReconcileAccountSelect(new Date()),
   });
   // Accounts holding live bookings that the main reconcile query no longer
   // covers: downgraded plans, a disable whose settings-time release failed, or

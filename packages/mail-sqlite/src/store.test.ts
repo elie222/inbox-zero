@@ -693,6 +693,75 @@ describe("engine plus sqlite archive slice", () => {
     await engine.close();
   });
 
+  it("hides a discarded draft at once and keeps it gone once the provider confirms", async () => {
+    const messages = new Map<string, ProviderChange>([
+      ["m1", messagePatch("m1", "c1", 1000, ["inbox"])],
+      ["d1", messagePatch("d1", "c1", 2000, ["draft"])],
+    ]);
+    const executor: OperationExecutor = {
+      async execute({ operation }) {
+        if (operation.intent.kind !== "metadata") {
+          return { status: "rejected", code: "unsupported", targets: [] };
+        }
+        return {
+          status: "confirmed",
+          receiptId: "r1",
+          observations: [],
+          targets: operation.intent.targets.map((key) => ({
+            key,
+            outcome: "applied" as const,
+            code: null,
+          })),
+        };
+      },
+      async inspect(input) {
+        return this.execute({ ...input, attemptId: "inspect" });
+      },
+    };
+    const { engine, store } = await draftEngine(messages, executor);
+    expect(await conversationMessageIds(store)).toEqual(["m1", "d1"]);
+
+    await engine.submitMetadata({
+      accountId: "acc-1",
+      commandId: "discard",
+      targets: [{ accountId: "acc-1", messageId: "d1" }],
+      change: { kind: "discard_draft" },
+    });
+    expect(await conversationMessageIds(store)).toEqual(["m1"]);
+
+    await engine.runUntil(Date.now() + 2000);
+    expect(await conversationMessageIds(store)).toEqual(["m1"]);
+    await engine.close();
+  });
+
+  it("brings a discarded draft back when the provider rejects the discard", async () => {
+    const messages = new Map<string, ProviderChange>([
+      ["m1", messagePatch("m1", "c1", 1000, ["inbox"])],
+      ["d1", messagePatch("d1", "c1", 2000, ["draft"])],
+    ]);
+    const executor: OperationExecutor = {
+      async execute() {
+        return { status: "rejected", code: "draft_changed", targets: [] };
+      },
+      async inspect(input) {
+        return this.execute({ ...input, attemptId: "inspect" });
+      },
+    };
+    const { engine, store } = await draftEngine(messages, executor);
+
+    await engine.submitMetadata({
+      accountId: "acc-1",
+      commandId: "discard",
+      targets: [{ accountId: "acc-1", messageId: "d1" }],
+      change: { kind: "discard_draft" },
+    });
+    expect(await conversationMessageIds(store)).toEqual(["m1"]);
+
+    await engine.runUntil(Date.now() + 2000);
+    expect(await conversationMessageIds(store)).toEqual(["m1", "d1"]);
+    await engine.close();
+  });
+
   it("rebuilds from bootstrap when catch-up reports an expired position", async () => {
     const messages = new Map([
       ["m1", messagePatch("m1", "c1", 1000, ["inbox"])],
@@ -854,6 +923,48 @@ describe("engine plus sqlite archive slice", () => {
 });
 
 describe("drafts, freeze, and uncertain settlement", () => {
+  it("lists only the given account's drafts at their latest revision", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    for (const accountId of ["acc-1", "acc-2"]) {
+      await store.ensureAccount({
+        accountId,
+        provider: "google",
+        generation: "g1",
+      });
+    }
+    const content = {
+      to: ["ada@example.com"],
+      cc: [],
+      bcc: [],
+      subject: "Hi",
+      editableHtml: "<p>Hi</p>",
+      quotedHtml: "",
+    };
+    await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d1" },
+      expectedRevision: null,
+      content,
+    });
+    await store.saveDraft({
+      key: { accountId: "acc-1", draftId: "d1" },
+      expectedRevision: 1,
+      content: { ...content, subject: "Hi again", conversationId: "t1" },
+    });
+    await store.saveDraft({
+      key: { accountId: "acc-2", draftId: "d2" },
+      expectedRevision: null,
+      content,
+    });
+
+    expect(await store.listDrafts("acc-1")).toEqual([
+      {
+        key: { accountId: "acc-1", draftId: "d1" },
+        draftRevision: 2,
+        content: { ...content, subject: "Hi again", conversationId: "t1" },
+      },
+    ]);
+  });
+
   it("rejects edits to a frozen draft and keeps uncertain operations after reopen", async () => {
     const directory = await mkdtemp(join(tmpdir(), "mail-sqlite-drafts-"));
     const path = join(directory, "mailbox.sqlite");
@@ -1901,6 +2012,60 @@ describe("drafts, freeze, and uncertain settlement", () => {
       await store.claimWork({
         ownerId: "owner",
         nowMs: Date.now() + 5000,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    await store.close();
+  });
+
+  it("resumes a blocked_auth command once the account connects again", async () => {
+    const store = await parkSendOnBlockedAuth("send-reauth");
+    // Sync sees the same expired token, then the user reconnects.
+    await store.recordConnection({
+      accountId: "acc-1",
+      connection: "blocked_auth",
+    });
+    await store.recordConnection({ accountId: "acc-1", connection: "ready" });
+
+    const resumed = await store.claimWork({
+      ownerId: "owner",
+      nowMs: Date.now(),
+      leaseMs: 30_000,
+    });
+    expect(resumed).toMatchObject({
+      kind: "command",
+      operation: { key: { operationId: "send-reauth" } },
+    });
+    await store.close();
+  });
+
+  it("keeps a blocked_auth command parked while the connection stays ready", async () => {
+    const store = await parkSendOnBlockedAuth("send-scope");
+    // Sync keeps working (no reconnect happened), so a retry would hit the
+    // same auth error again.
+    await store.recordConnection({ accountId: "acc-1", connection: "ready" });
+
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs: Date.now() + 60_000,
+        leaseMs: 30_000,
+      }),
+    ).toBeNull();
+    await store.close();
+  });
+
+  it("keeps a blocked_auth command parked when the account only comes back online", async () => {
+    const store = await parkSendOnBlockedAuth("send-offline");
+    // A network blip is not a reconnect, so a retry would hit the same auth
+    // error again.
+    await store.recordConnection({ accountId: "acc-1", connection: "offline" });
+    await store.recordConnection({ accountId: "acc-1", connection: "ready" });
+
+    expect(
+      await store.claimWork({
+        ownerId: "owner",
+        nowMs: Date.now() + 60_000,
         leaseMs: 30_000,
       }),
     ).toBeNull();
@@ -5216,4 +5381,78 @@ function fixtureSource(messages: Map<string, ProviderChange>): MailboxSource {
       return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
     },
   };
+}
+
+async function parkSendOnBlockedAuth(commandId: string) {
+  const store = await createSqliteMailStore(createNodeSqliteDriver());
+  await store.ensureAccount({
+    accountId: "acc-1",
+    provider: "google",
+    generation: "g1",
+  });
+  const draft = { accountId: "acc-1", draftId: `d-${commandId}` };
+  const saved = await store.saveDraft({
+    key: draft,
+    expectedRevision: null,
+    content: {
+      to: ["ada@example.com"],
+      cc: [],
+      bcc: [],
+      subject: "Hi",
+      editableHtml: "<p>Hi</p>",
+      quotedHtml: "",
+    },
+  });
+  if (saved.status !== "saved") throw new Error("expected save");
+  await store.admitSend({
+    commandId,
+    draft,
+    draftRevision: saved.draftRevision,
+    replyTo: null,
+  });
+  const execute = await store.claimWork({
+    ownerId: "owner",
+    nowMs: Date.now(),
+    leaseMs: 30_000,
+  });
+  if (execute?.kind !== "command") throw new Error("expected command");
+  await store.settleAttempt({
+    attemptId: execute.attemptId,
+    operation: execute.operation,
+    result: {
+      status: "not_dispatched",
+      reason: "blocked_auth",
+      retryAfterMs: 5000,
+    },
+  });
+  return store;
+}
+
+async function draftEngine(
+  messages: Map<string, ProviderChange>,
+  executor: OperationExecutor,
+) {
+  const store = await createSqliteMailStore(createNodeSqliteDriver());
+  await store.ensureAccount({
+    accountId: "acc-1",
+    provider: "google",
+    generation: "g1",
+  });
+  const engine = createMailEngine({
+    store,
+    source: fixtureSource(messages),
+    executor,
+    runtime: createHostRuntime(),
+  });
+  await engine.requestSync(["acc-1"]);
+  await engine.runUntil(Date.now() + 2000);
+  return { engine, store };
+}
+
+async function conversationMessageIds(store: MailStore) {
+  const { view } = await store.readConversation(
+    { accountId: "acc-1", conversationId: "c1" },
+    { after: null, pageSize: 10 },
+  );
+  return view.messages.map((message) => message.key.messageId);
 }

@@ -8,7 +8,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { useState } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ThreadMessage } from "@/components/email-list/types";
 import {
   rememberReplacedDraftMessage,
@@ -19,6 +19,7 @@ import {
   organizeThreadMessages,
 } from "@/components/email-list/EmailThread";
 import { hideSendingDraftMessages } from "@/hooks/useHiddenDraftMessageIds";
+import { startDraftSave } from "@/hooks/useDraftSaveInFlight";
 
 class MockResizeObserver {
   observe() {}
@@ -29,9 +30,14 @@ vi.stubGlobal("ResizeObserver", MockResizeObserver);
 
 const { discardDraft } = vi.hoisted(() => ({ discardDraft: vi.fn() }));
 
-vi.mock("next-safe-action/hooks", () => ({
-  useAction: () => ({ executeAsync: discardDraft }),
+vi.mock("@/utils/mail-engine/discard-mailbox-draft", () => ({
+  discardMailboxDraft: discardDraft,
 }));
+// Every describe that discards relies on success unless it says otherwise.
+beforeEach(() => {
+  discardDraft.mockReset();
+  discardDraft.mockResolvedValue(undefined);
+});
 const { scheduledEmails } = vi.hoisted(() => ({
   scheduledEmails: {
     current: [] as { status: string; draftMessageIds: string[] }[],
@@ -103,7 +109,6 @@ vi.mock("@/hooks/useSentMessageOpens", () => ({
   useSentMessageOpens: () => ({ data: undefined }),
 }));
 vi.mock("@/components/Toast", () => ({ toastError: vi.fn() }));
-vi.mock("@/utils/actions/mail", () => ({ deleteDraftAction: vi.fn() }));
 vi.mock("@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy", () => ({
   ComposeEmailFormLazy: MockComposer,
 }));
@@ -193,6 +198,55 @@ describe("EmailThread reply composer", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Send" })[2]);
     expect(editors()).toHaveLength(2);
     expect((editors()[0] as HTMLInputElement).value).toBe("Independent edit");
+  });
+
+  // Sync can deliver a save's new message before the save's response says it
+  // replaces the open draft. The editor must survive that gap.
+  it("keeps editing a saved draft when its next save syncs in first", () => {
+    composerMounts = 0;
+    const parent = createReaderMessage("parent", "1000");
+    const view = render(
+      <EmailThread
+        messages={[parent, createReaderDraft("race-v1", "2000")]}
+        refetch={vi.fn()}
+        showReplyButton
+      />,
+    );
+    let endSave = () => {};
+    act(() => {
+      endSave = startDraftSave("account-1", "thread-1");
+    });
+
+    for (const messages of [
+      [
+        parent,
+        createReaderDraft("race-v1", "2000"),
+        createReaderDraft("race-v2", "3000"),
+      ],
+      [parent, createReaderDraft("race-v2", "3000")],
+    ]) {
+      view.rerender(
+        <EmailThread
+          messages={messages}
+          missingBodyIds={new Set(["race-v2"])}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      expect(
+        screen.getAllByRole("textbox", { name: "Email message" }),
+      ).toHaveLength(1);
+      expect(composerMounts).toBe(1);
+    }
+
+    rememberReplacedDraftMessage("account-1", "race-v1", "race-v2");
+    act(() => endSave());
+
+    expect(screen.queryByText("Loading message…")).toBeNull();
+    const current = screen.getByRole("textbox", { name: "Email message" });
+    expect(current.dataset.draftSessionId).toBe("race-v1:reply");
+    expect(current.dataset.providerDraftMessageId).toBe("race-v2");
+    expect(composerMounts).toBe(1);
   });
 
   // Gmail gives a draft a new message ID each time it is saved. When sync
@@ -780,10 +834,7 @@ describe("EmailThread scheduled send drafts", () => {
 });
 
 describe("EmailThread draft discard", () => {
-  afterEach(() => {
-    cleanup();
-    discardDraft.mockReset();
-  });
+  afterEach(cleanup);
 
   // A draft opened from the Drafts folder is the entire conversation, so once
   // it is discarded there is nothing left to read and the reader has to leave.
@@ -804,15 +855,8 @@ describe("EmailThread draft discard", () => {
     expect(onThreadDiscarded).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
-    "action error",
-    "exception",
-  ])("keeps the conversation and restores its draft after a deletion %s", async (failure) => {
-    if (failure === "action error") {
-      discardDraft.mockResolvedValue({ serverError: "Deletion failed" });
-    } else {
-      discardDraft.mockRejectedValue(new Error("Deletion failed"));
-    }
+  it("keeps the conversation and restores its draft when the discard fails", async () => {
+    discardDraft.mockRejectedValue(new Error("Deletion failed"));
     const onThreadDiscarded = vi.fn();
     render(
       <EmailThread

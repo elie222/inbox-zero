@@ -2,7 +2,7 @@ import type { ComponentProps } from "react";
 import Link from "next/link";
 import { env } from "@/env";
 import { EXTENSION_URL } from "@/utils/config";
-import { BRAND_NAME } from "@/utils/branding";
+import { BRAND_NAME, HAS_BRAND_KIT } from "@/utils/branding";
 import { CookieSettingsButton } from "@/components/CookieConsent";
 
 export const footerNavigation = {
@@ -12,7 +12,7 @@ export const footerNavigation = {
       href: EXTENSION_URL,
       target: "_blank",
     },
-    { name: "AI Email Assistant", href: "/ai-automation" },
+    { name: "AI Email Assistant", href: "/ai-email-assistant" },
     { name: "Email App", href: "/email-client" },
     { name: "Mobile App", href: "/mobile-app" },
     { name: "Download", href: "/download" },
@@ -109,6 +109,7 @@ export const footerNavigation = {
     { name: "GitHub", href: "/github", target: "_blank" },
     { name: "Discord", href: "/discord", target: "_blank" },
     { name: "OSS Friends", href: "/oss-friends" },
+    ...(HAS_BRAND_KIT ? [{ name: "Brand Kit", href: "/brand" }] : []),
     { name: "Email Blaster", href: "/game" },
     {
       name: "Bot Directory",

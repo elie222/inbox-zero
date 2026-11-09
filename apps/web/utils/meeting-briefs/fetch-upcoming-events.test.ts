@@ -1,8 +1,10 @@
 import { addMinutes } from "date-fns/addMinutes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
-import prisma from "@/utils/__mocks__/prisma";
-import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
+import {
+  createCalendarEventProvidersFromConnections,
+  getConnectedCalendarConnections,
+} from "@/utils/calendar/event-provider";
 import type {
   CalendarEvent,
   CalendarEventProvider,
@@ -20,7 +22,15 @@ const logger = createTestLogger();
 describe("fetchUpcomingEvents", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    prisma.calendarConnection.count.mockResolvedValue(1);
+    vi.mocked(getConnectedCalendarConnections).mockResolvedValue([
+      {
+        id: "connection-1",
+        provider: "google",
+        accessToken: "access-token",
+        refreshToken: "refresh-token",
+        expiresAt: null,
+      },
+    ]);
   });
 
   it("skips cancelled event placeholder titles", async () => {
@@ -47,7 +57,9 @@ describe("fetchUpcomingEvents", () => {
       }),
     ]);
 
-    vi.mocked(createCalendarEventProviders).mockResolvedValue([provider]);
+    vi.mocked(createCalendarEventProvidersFromConnections).mockReturnValue([
+      provider,
+    ]);
 
     const events = await fetchUpcomingEvents({
       emailAccountId: "email-account-id",
@@ -77,7 +89,9 @@ describe("fetchUpcomingEvents", () => {
       }),
     ]);
 
-    vi.mocked(createCalendarEventProviders).mockResolvedValue([provider]);
+    vi.mocked(createCalendarEventProvidersFromConnections).mockReturnValue([
+      provider,
+    ]);
 
     const events = await fetchUpcomingEvents({
       emailAccountId: "email-account-id",
@@ -111,7 +125,9 @@ describe("fetchUpcomingEvents", () => {
         }),
       ]);
 
-      vi.mocked(createCalendarEventProviders).mockResolvedValue([provider]);
+      vi.mocked(createCalendarEventProvidersFromConnections).mockReturnValue([
+        provider,
+      ]);
 
       const events = await fetchUpcomingEvents({
         emailAccountId: "email-account-id",
@@ -130,7 +146,9 @@ describe("fetchUpcomingEvents", () => {
         }),
       ]);
 
-      vi.mocked(createCalendarEventProviders).mockResolvedValue([provider]);
+      vi.mocked(createCalendarEventProvidersFromConnections).mockReturnValue([
+        provider,
+      ]);
 
       const events = await fetchUpcomingEvents({
         emailAccountId: "email-account-id",

@@ -26,6 +26,11 @@ export const metadataChangeSchema = z.discriminatedUnion("kind", [
     kind: z.literal("snooze"),
     untilMs: z.number().int().nonnegative(),
   }),
+  z.object({
+    kind: z.literal("discard_draft"),
+    /** The provider draft; its message id can change on every save. */
+    draftId: z.string().min(1).max(256).optional(),
+  }),
 ]);
 export type MetadataChange = z.infer<typeof metadataChangeSchema>;
 

@@ -30,6 +30,7 @@ import type {
   SearchMemoriesTool,
 } from "@/utils/ai/assistant/chat-memory-tools";
 import type { GetCalendarEventsTool } from "@/utils/ai/assistant/chat-calendar-tools";
+import type { ControlMailScreenTool } from "@/utils/ai/assistant/chat-mail-screen-tool";
 
 // export type DataPart = { type: "append-message"; message: string };
 
@@ -65,6 +66,7 @@ export type ChatTools = {
   forwardEmail: ForwardEmailTool;
   getCalendarEvents: GetCalendarEventsTool;
   readAttachment: ReadAttachmentTool;
+  controlMailScreen: ControlMailScreenTool;
 };
 
 // biome-ignore lint/complexity/noBannedTypes: ignore

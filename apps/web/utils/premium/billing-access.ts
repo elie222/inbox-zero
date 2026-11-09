@@ -61,14 +61,20 @@ type BillingAccessUser = {
 };
 
 export function canManageBilling(userId: string, user: BillingAccessUser) {
+  return getBillingAccessDenial(userId, user) === null;
+}
+
+export function getBillingAccessDenial(
+  userId: string,
+  user: BillingAccessUser,
+): "not_organization_admin" | "plan_managed_elsewhere" | null {
   const { premium } = user;
   const organizationMemberships = user.emailAccounts.flatMap(
     (emailAccount) => emailAccount.members,
   );
 
   if (!premium) {
-    if (organizationMemberships.length === 0) return true;
-    return isOrganizationAdmin(organizationMemberships);
+    return requireOrganizationAdmin(organizationMemberships);
   }
 
   // Invited seats share a premium, so billing access must stay anchored to a
@@ -77,8 +83,7 @@ export function canManageBilling(userId: string, user: BillingAccessUser) {
   const isPurchaser = premiumAdminIds.has(userId) || premium.id === userId;
 
   if (isPurchaser) {
-    if (organizationMemberships.length === 0) return true;
-    return isOrganizationAdmin(organizationMemberships);
+    return requireOrganizationAdmin(organizationMemberships);
   }
 
   const purchaserOrganizationMemberships = organizationMemberships.filter(
@@ -89,9 +94,13 @@ export function canManageBilling(userId: string, user: BillingAccessUser) {
         return premiumAdminIds.has(user.id) || user.id === premium.id;
       }),
   );
-  if (purchaserOrganizationMemberships.length === 0) return false;
+  if (purchaserOrganizationMemberships.length === 0) {
+    return "plan_managed_elsewhere";
+  }
 
-  return isOrganizationAdmin(purchaserOrganizationMemberships);
+  return isOrganizationAdmin(purchaserOrganizationMemberships)
+    ? null
+    : "not_organization_admin";
 }
 
 export function assertCanManageBilling(
@@ -101,4 +110,9 @@ export function assertCanManageBilling(
   if (!canManageBilling(userId, user)) {
     throw new SafeError("Not admin");
   }
+}
+
+function requireOrganizationAdmin(memberships: OrganizationMembership[]) {
+  if (memberships.length === 0) return null;
+  return isOrganizationAdmin(memberships) ? null : "not_organization_admin";
 }

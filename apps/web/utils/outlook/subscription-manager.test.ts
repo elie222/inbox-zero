@@ -4,6 +4,10 @@ import prisma from "@/utils/prisma";
 import type { EmailProvider } from "@/utils/email/types";
 import type { SubscriptionHistoryEntry } from "@/utils/outlook/subscription-history";
 import { createTestLogger } from "@/__tests__/helpers";
+import {
+  addUserErrorMessage,
+  mailboxFullErrorKey,
+} from "@/utils/error-messages";
 
 const logger = createTestLogger();
 
@@ -19,8 +23,14 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
-vi.mock("@/utils/error", () => ({
+vi.mock("@/utils/error", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/error")>()),
   captureException: vi.fn(),
+}));
+
+vi.mock("@/utils/error-messages", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/error-messages")>()),
+  addUserErrorMessage: vi.fn(),
 }));
 
 describe("OutlookSubscriptionManager", () => {
@@ -147,6 +157,46 @@ describe("OutlookSubscriptionManager", () => {
       });
 
       vi.useRealTimers();
+    });
+
+    it("shows a banner when the mailbox is full instead of disconnecting", async () => {
+      vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+        email: "user@example.com",
+        userId: "user-id",
+        watchEmailsSubscriptionId: null,
+        watchEmailsExpirationDate: null,
+      } as any);
+      vi.mocked(mockProvider.watchEmails).mockRejectedValue(
+        new Error(
+          "Operation: Create; Exception: [Status Code: Forbidden; Reason: The operation failed with a permanent mailbox error.]",
+        ),
+      );
+
+      const result = await manager.createSubscription();
+
+      expect(result).toBeNull();
+      expect(addUserErrorMessage).toHaveBeenCalledWith(
+        "user-id",
+        mailboxFullErrorKey(emailAccountId),
+        "The mailbox for user@example.com is full or can't accept changes, so Inbox Zero can't process new emails. Free up space or fix the mailbox in Microsoft 365. This message clears once it's working again.",
+        expect.anything(),
+      );
+    });
+
+    it("does not show the mailbox full banner for other failures", async () => {
+      vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
+        email: "user@example.com",
+        userId: "user-id",
+        watchEmailsSubscriptionId: null,
+        watchEmailsExpirationDate: null,
+      } as any);
+      vi.mocked(mockProvider.watchEmails).mockRejectedValue(
+        new Error("Graph 503"),
+      );
+
+      await manager.createSubscription();
+
+      expect(addUserErrorMessage).not.toHaveBeenCalled();
     });
 
     it("marks the cancelled subscription lapsed when creation returns nothing", async () => {

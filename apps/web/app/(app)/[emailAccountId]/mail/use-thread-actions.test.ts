@@ -22,7 +22,10 @@ const mail = vi.hoisted(() => ({
 }));
 
 vi.mock("sonner", () => ({ toast: notifications }));
-const toasts = vi.hoisted(() => ({ toastUndo: vi.fn() }));
+const toasts = vi.hoisted(() => ({
+  releaseLatestToastUndo: vi.fn(),
+  toastUndo: vi.fn(),
+}));
 
 vi.mock("@/components/Toast", () => toasts);
 vi.mock("@inboxzero/mail-react/MailEngineProvider", () => ({
@@ -192,6 +195,213 @@ describe("useThreadActions", () => {
       accountId: "account",
       operationId: expect.any(String),
     });
+  });
+
+  it("undoes an archive that is still being queued when undo is pressed", async () => {
+    let admit = (_admission: { status: "queued" }) => {};
+    mail.client.submitConversations.mockReturnValueOnce(
+      new Promise((resolve) => {
+        admit = resolve;
+      }),
+    );
+    const { result } = renderActions();
+    let restored: string[] = [];
+    await act(async () => {
+      const archived = result.current.archive(["thread"]);
+      const undone = result.current
+        .waitForPendingUndoable()
+        .then(() => result.current.undo());
+      await vi.waitFor(() =>
+        expect(mail.client.submitConversations).toHaveBeenCalled(),
+      );
+      admit({ status: "queued" });
+      await archived;
+      restored = await undone;
+    });
+    expect(mail.client.cancelOperation).toHaveBeenCalledWith({
+      accountId: "account",
+      operationId: expect.any(String),
+    });
+    expect(restored).toEqual(["thread"]);
+  });
+
+  it("labels a selection as one command and undoes it by removing the label", async () => {
+    mail.client.cancelOperation.mockResolvedValue({ status: "too_late" });
+    const threads = [
+      createThread(["INBOX"], "one"),
+      createThread(["INBOX"], "two"),
+    ];
+    const { result } = renderActions({ threads });
+    let labeled: string[] = [];
+    await act(async () => {
+      labeled = await result.current.applyLabel(["one", "two"], "label-1");
+    });
+    expect(labeled).toEqual(["one", "two"]);
+    expect(mail.client.submitConversations).toHaveBeenCalledTimes(1);
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        change: {
+          kind: "set_membership",
+          membership: "label",
+          id: "label-1",
+          present: true,
+        },
+      }),
+    );
+    expect(toasts.toastUndo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Label applied to 2 conversations",
+      }),
+    );
+
+    mail.client.submitConversations.mockClear();
+    await act(() => result.current.undo());
+    expect(
+      mail.client.submitConversations.mock.calls.map(([call]) => call.change),
+    ).toEqual([
+      {
+        kind: "set_membership",
+        membership: "label",
+        id: "label-1",
+        present: false,
+      },
+    ]);
+  });
+
+  it("moves with a label and an archive, and undo reverses both", async () => {
+    const { result } = renderActions();
+    await act(() =>
+      result.current.applyLabel(["thread"], "label-1", { archive: true }),
+    );
+    expect(
+      mail.client.submitConversations.mock.calls.map(([call]) => call.change),
+    ).toEqual([
+      {
+        kind: "set_membership",
+        membership: "label",
+        id: "label-1",
+        present: true,
+      },
+      { kind: "archive" },
+    ]);
+    expect(toasts.toastUndo).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "Moved" }),
+    );
+
+    mail.client.cancelOperation.mockResolvedValue({ status: "too_late" });
+    mail.client.submitConversations.mockClear();
+    await act(() => result.current.undo());
+    expect(mail.client.cancelOperation).toHaveBeenCalledTimes(2);
+    expect(
+      mail.client.submitConversations.mock.calls.map(([call]) => call.change),
+    ).toEqual([
+      { kind: "unarchive" },
+      {
+        kind: "set_membership",
+        membership: "label",
+        id: "label-1",
+        present: false,
+      },
+    ]);
+  });
+
+  it("keeps a label the thread already had when the label is undone", async () => {
+    mail.client.cancelOperation.mockResolvedValue({ status: "too_late" });
+    const onRestore = vi.fn();
+    const threads = [
+      createThread(["INBOX", "label-1"], "had"),
+      createThread(["INBOX"], "new"),
+    ];
+    const { result } = renderActions({ onRestore, threads });
+    await act(() => result.current.applyLabel(["had", "new"], "label-1"));
+    mail.client.submitConversations.mockClear();
+
+    await act(() => result.current.undo());
+
+    expect(mail.client.submitConversations).toHaveBeenCalledTimes(1);
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversations: [{ accountId: "account", conversationId: "new" }],
+      }),
+    );
+    // Labeling never took the threads out of view, so the reader stays put.
+    expect(onRestore).not.toHaveBeenCalled();
+  });
+
+  it("puts the label back off a thread whose move couldn't archive it", async () => {
+    mail.client.submitConversations
+      .mockResolvedValueOnce({ status: "queued" })
+      .mockResolvedValueOnce({ status: "rejected", code: "queue_full" });
+    const { result } = renderActions();
+    let moved: string[] = [];
+    await act(async () => {
+      moved = await result.current.applyLabel(["thread"], "label-1", {
+        archive: true,
+      });
+    });
+
+    expect(moved).toEqual([]);
+    expect(
+      mail.client.submitConversations.mock.calls.map(([call]) => call.change),
+    ).toEqual([
+      {
+        kind: "set_membership",
+        membership: "label",
+        id: "label-1",
+        present: true,
+      },
+      { kind: "archive" },
+      {
+        kind: "set_membership",
+        membership: "label",
+        id: "label-1",
+        present: false,
+      },
+    ]);
+    // The label command may hold other threads, so it isn't cancelled.
+    expect(mail.client.cancelOperation).not.toHaveBeenCalled();
+    expect(toasts.toastUndo).not.toHaveBeenCalled();
+  });
+
+  it("doesn't let an archive still being queued become undoable after a later folder move", async () => {
+    let admitArchive = (_admission: { status: "queued" }) => {};
+    mail.client.submitConversations.mockReturnValueOnce(
+      new Promise((resolve) => {
+        admitArchive = resolve;
+      }),
+    );
+    const { result } = renderActions();
+    await act(async () => {
+      const archived = result.current.archive(["thread"]);
+      const moved = result.current.moveToFolder(["thread"], "folder-1");
+      await vi.waitFor(() =>
+        expect(mail.client.submitConversations).toHaveBeenCalledTimes(1),
+      );
+      admitArchive({ status: "queued" });
+      await Promise.all([archived, moved]);
+    });
+
+    expect(
+      mail.client.submitConversations.mock.calls.map(([call]) => call.change),
+    ).toEqual([{ kind: "archive" }, { kind: "move", folderId: "folder-1" }]);
+    await act(() => result.current.undo());
+    expect(mail.client.cancelOperation).not.toHaveBeenCalled();
+  });
+
+  it("moves into a folder without offering an undo it can't honour", async () => {
+    const { result } = renderActions();
+    await act(() => result.current.moveToFolder(["thread"], "folder-1"));
+    expect(mail.client.submitConversations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        change: { kind: "move", folderId: "folder-1" },
+      }),
+    );
+    expect(toasts.toastUndo).not.toHaveBeenCalled();
+    expect(toasts.releaseLatestToastUndo).toHaveBeenCalled();
+    expect(notifications.success).toHaveBeenCalledWith("Moved");
+
+    await act(() => result.current.undo());
+    expect(mail.client.cancelOperation).not.toHaveBeenCalled();
   });
 });
 

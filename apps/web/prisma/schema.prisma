@@ -158,9 +158,13 @@ model EmailAccount {
   name  String? // Name associated with the Google account
   image String? // Profile image URL from the Google account
 
+  sortOrder Int? // Position in the user's account switcher; null sorts last, by createdAt
+
   about                          String?
   writingStyle                   String?
   signature                      String? // User's email signature from provider or manually set
+  sentSignatureScan              Json? // signatures found in recent sent mail, see utils/email/signature-suggestions.ts
+  sentSignatureScannedAt         DateTime?
   includeReferralSignature       Boolean   @default(false)
   includeSentWithSignature       Boolean   @default(true) // "Sent with <brand>" footer on emails sent from the mail client
   sentMessageOpenTrackingEnabled Boolean   @default(true) // show when sent mail-client emails are opened
@@ -193,6 +197,11 @@ model EmailAccount {
 
   mailLayout          MailLayout @default(LIST)
   mailExpandedPreview Boolean    @default(false)
+  /// Collapses threads from bundled splits into one row each in the inbox.
+  /// Null until first turned on, which is when default bundles are chosen.
+  mailBundleInbox     Boolean?
+  mailDefaultSplitId  String?
+  mailSetup           MailSetupState @default(PENDING)
 
   includeInAllAccounts Boolean @default(true)
 
@@ -236,6 +245,7 @@ model EmailAccount {
   emailTokens         EmailToken[]
   knowledge           Knowledge[]
   snippets            Snippet[]
+  emailSignatures     EmailSignature[]
   replyMemories       ReplyMemory[]
   chats               Chat[]
   chatMemories        ChatMemory[]
@@ -287,6 +297,9 @@ model MailSplit {
   /// Whether every filter must match, or any one of them ("Show mail matching
   /// all/any of these conditions"). A split with no filters is the plain inbox.
   matchAll  Boolean  @default(true)
+  /// Shown as one collapsed row in the inbox when the account bundles its inbox.
+  bundleInInbox Boolean @default(false)
+  hideFromAll   Boolean @default(false)
 
   emailAccountId String
   emailAccount   EmailAccount      @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -610,6 +623,8 @@ model Premium {
   stripeCancellationInitiatedAt  DateTime? // Timestamp of the event that first scheduled cancellation. Does not identify who initiated it.
   stripeCanceledAt               DateTime? // Stripe canceled_at: when cancellation was requested, which can precede the effective end in stripeEndedAt. Historical data.
   stripeEndedAt                  DateTime? // Timestamp for when the subscription ended permanently for any reason (cancellation, final payment failure). Historical data.
+  stripeCancellationFeedback     String? // Customer portal cancellation survey reason, e.g. 'too_expensive'.
+  stripeCancellationComment      String? // Customer portal cancellation survey free-text comment.
   stripeAiOverageLastInvoiceId   String?
   stripeAiOverageLastPeriodEnd   DateTime?
   stripeAiOverageLastUnits       Int?
@@ -900,6 +915,7 @@ model ExecutedAction {
   @@index([sentMessageIds], type: Gin)
   @@index([messagingChannelId, createdAt])
   @@index([draftStatus, createdAt], map: "ExecutedAction_draftStatus_createdAt_draft_idx", where: raw("\"draftId\" IS NOT NULL"))
+  @@index([executedRuleId], map: "ExecutedAction_executedRuleId_draft_idx", where: raw("\"draftId\" IS NOT NULL"))
 }
 
 model ScheduledAction {
@@ -1227,9 +1243,11 @@ model ThreadTracker {
   resolved  Boolean           @default(false)
   type      ThreadTrackerType
 
-  followUpAppliedAt     DateTime?
-  followUpDraftId       String?
-  followUpNotifications Json?
+  followUpAppliedAt      DateTime?
+  followUpDraftId        String?
+  followUpDraftContent   String?
+  followUpDraftCreatedAt DateTime?
+  followUpNotifications  Json?
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -1239,6 +1257,7 @@ model ThreadTracker {
   @@index([emailAccountId, resolved, sentAt, type])
   @@index([emailAccountId, type, resolved, sentAt])
   @@index([emailAccountId, type, resolved, followUpAppliedAt, sentAt])
+  @@index([emailAccountId, followUpDraftCreatedAt], map: "ThreadTracker_followUpDraft_cleanup_idx", where: raw("\"followUpDraftContent\" IS NOT NULL"))
 }
 
 model CleanupJob {
@@ -1304,6 +1323,20 @@ model Snippet {
 
   @@unique([emailAccountId, shortcut])
   @@index([emailAccountId])
+}
+
+// Signatures to choose from in compose besides the account's default `EmailAccount.signature`.
+model EmailSignature {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+  html      String
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, name])
 }
 
 model ReplyMemory {
@@ -2203,6 +2236,12 @@ enum MailLayout {
   SPLIT
 }
 
+enum MailSetupState {
+  PENDING
+  SUGGESTED
+  DONE
+}
+
 enum MailSplitFilterKind {
   UNREAD
   STARRED
@@ -2225,6 +2264,7 @@ enum DraftEmailStatus {
   CLEANED_UP_UNUSED
   MISSING_FROM_PROVIDER
   USER_EDITED
+  CLEANUP_SKIPPED
 }
 
 enum ReplyMemoryKind {

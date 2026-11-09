@@ -181,6 +181,39 @@ export async function getPersistedOnboardingState() {
   });
 }
 
+// Simulates a user who unticked the Gmail checkboxes on Google's consent
+// screen. Returns a restore function for the scope stored before.
+export async function revokeGmailScopes() {
+  const previous = await withClient(async (client) => {
+    const result = await client.query<{
+      accountId: string;
+      scope: string | null;
+    }>(
+      `SELECT a.id AS "accountId", a.scope
+       FROM "Account" a
+       INNER JOIN "EmailAccount" ea ON ea."accountId" = a.id
+       WHERE ea.email = $1`,
+      [PLAYWRIGHT_TEST_EMAIL],
+    );
+    const row = result.rows[0];
+    if (!row) throw new Error("Could not find the Playwright account");
+
+    await client.query(`UPDATE "Account" SET scope = $2 WHERE id = $1`, [
+      row.accountId,
+      "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
+    ]);
+    return row;
+  });
+
+  return () =>
+    withClient((client) =>
+      client.query(`UPDATE "Account" SET scope = $2 WHERE id = $1`, [
+        previous.accountId,
+        previous.scope,
+      ]),
+    );
+}
+
 async function withClient<T>(callback: (client: Client) => Promise<T>) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();

@@ -74,7 +74,7 @@ export function Stats() {
   useEffect(() => {
     // Skip stat loading when viewing someone else's account
     if (isAccountOwner) {
-      onLoad({ loadBefore: false, showToast: false });
+      onLoad({ loadBefore: false, showToast: false }).catch(() => undefined);
     }
   }, [onLoad, isAccountOwner]);
 

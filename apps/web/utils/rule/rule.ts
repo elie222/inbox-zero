@@ -42,6 +42,7 @@ import {
   normalizeSelectArgValue,
 } from "@/utils/mcp/tool-specs";
 import { assertNoSenderOnlyOverlap } from "@/utils/rule/sender-scope-overlap";
+import { canActionBeDelayed } from "@/utils/delayed-actions";
 import { isIntegrationActionEnabledForEmailAccountId } from "@/utils/integration-action.server";
 
 export type RuleActionCreateData = Omit<
@@ -621,6 +622,19 @@ export async function deleteRule({
   ruleId: string;
   groupId?: string | null;
 }) {
+  let deletedGroup = false;
+  if (groupId) {
+    const deletedGroups = await prisma.group.deleteMany({
+      where: { id: groupId, emailAccountId },
+    });
+
+    deletedGroup = deletedGroups.count > 0;
+  }
+
+  if (!deletedGroup) {
+    await prisma.rule.delete({ where: { id: ruleId, emailAccountId } });
+  }
+
   after(() =>
     trackRuleEvent({
       emailAccountId,
@@ -628,16 +642,6 @@ export async function deleteRule({
       properties: { ruleId },
     }),
   );
-
-  if (groupId) {
-    const deletedGroups = await prisma.group.deleteMany({
-      where: { id: groupId, emailAccountId },
-    });
-
-    if (deletedGroups.count > 0) return;
-  }
-
-  await prisma.rule.delete({ where: { id: ruleId, emailAccountId } });
 }
 
 type RuleScopeKey =
@@ -1006,10 +1010,9 @@ function addNestedActionOwnershipToInputs(
   emailAccountId: string,
 ): Prisma.ActionCreateManyRuleInput[] {
   return actions.map((action) => {
-    const actionWithSupportedDelay =
-      action.type === ActionType.INTEGRATION
-        ? { ...action, delayInMinutes: null }
-        : action;
+    const actionWithSupportedDelay = canActionBeDelayed(action.type)
+      ? action
+      : { ...action, delayInMinutes: null };
 
     return addNestedActionOwnershipToInput(
       actionWithSupportedDelay,

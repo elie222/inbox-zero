@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { MAX_MAIL_SPLITS } from "@/utils/split-inbox/split-constants";
-import { MailLayout } from "@/generated/prisma/enums";
+import { MailLayout, MailSetupState } from "@/generated/prisma/enums";
 import {
   mailSplitFiltersSchema,
   mailSplitNameSchema,
@@ -63,13 +63,37 @@ export const reorderMailSplitsBody = z.object({
     ),
 });
 
+export const addSendersToMailSplitBody = z.object({
+  id: z.string(),
+  senders: z
+    .array(z.string().trim().max(320).pipe(z.email()))
+    .min(1)
+    // The split's condition cap is enforced after senders it already covers
+    // are dropped, so this only bounds the request.
+    .max(500),
+});
+
 export const deleteMailSplitBody = z.object({ id: z.string() });
 export type DeleteMailSplitBody = z.infer<typeof deleteMailSplitBody>;
+
+export const setMailSplitBundleBody = z.object({
+  id: z.string(),
+  bundleInInbox: z.boolean(),
+});
+
+export const setMailSplitHideFromAllBody = z.object({
+  id: z.string(),
+  hideFromAll: z.boolean(),
+});
 
 export const updateMailPreferencesBody = z
   .object({
     layout: z.nativeEnum(MailLayout).optional(),
     expandedPreview: z.boolean().optional(),
+    bundleInbox: z.boolean().optional(),
+    /** Null goes back to opening on the first tab. */
+    defaultSplitId: z.string().min(1).nullable().optional(),
+    setup: z.enum(MailSetupState).optional(),
   })
   // Every field is optional so a caller can update one preference without
   // restating the others, which would otherwise also accept an empty update.

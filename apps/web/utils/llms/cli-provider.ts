@@ -3,8 +3,6 @@ import { env } from "@/env";
 import { SafeError } from "@/utils/error";
 import { Provider } from "@/utils/llms/config";
 
-type CliProvider = string;
-
 type CliProviderModule = Record<string, unknown>;
 
 type CliModelFactory = (
@@ -23,13 +21,108 @@ type McpBridgeFactory = (
   tools: Record<string, McpBridgedTool>,
 ) => unknown;
 
+// Each CLI provider is a community AI SDK package that is not a dependency of
+// this app. Self-hosters install it themselves, so it is only ever loaded at
+// runtime, after CLI_LLM_ENABLED is checked.
+type CliProviderAdapter = {
+  packageName: string;
+  defaultModel: string;
+  createModel: (
+    module: CliProviderModule,
+    modelName: string,
+  ) => LanguageModelV4;
+  // Only for CLIs that can execute Inbox Zero's AI SDK tools themselves.
+  // Without it, tools passed to the CLI are left for the package to handle.
+  createModelWithTools?: (
+    module: CliProviderModule,
+    modelName: string,
+    tools: Record<string, McpBridgedTool>,
+  ) => LanguageModelV4;
+};
+
 const runtimeImport = (specifier: string): Promise<CliProviderModule> =>
   import(/* webpackIgnore: true */ specifier);
 
-const CLAUDE_CODE_PACKAGE = "ai-sdk-provider-claude-code";
 const CLAUDE_CODE_MCP_SERVER_NAME = "inboxzero";
+const CLAUDE_CODE_TOOL_NAME_PREFIX = `mcp__${CLAUDE_CODE_MCP_SERVER_NAME}__`;
 
-export function assertCliLlmEnabled(provider: CliProvider) {
+const CLI_PROVIDER_ADAPTERS: Record<string, CliProviderAdapter> = {
+  [Provider.CODEX_CLI]: {
+    packageName: "ai-sdk-provider-codex-cli",
+    defaultModel: "gpt-5.3-codex",
+    createModel: (module, modelName) =>
+      getFactory(
+        module,
+        "codexExec",
+        Provider.CODEX_CLI,
+      )(modelName, {
+        allowNpx: env.CODEX_CLI_ALLOW_NPX,
+        skipGitRepoCheck: true,
+        approvalMode: "never",
+        sandboxMode: "read-only",
+        ...(env.CODEX_CLI_PATH ? { codexPath: env.CODEX_CLI_PATH } : {}),
+        logger: false,
+      }),
+  },
+  [Provider.CLAUDE_CODE]: {
+    packageName: "ai-sdk-provider-claude-code",
+    defaultModel: "sonnet",
+    createModel: (module, modelName) =>
+      getFactory(
+        module,
+        "claudeCode",
+        Provider.CLAUDE_CODE,
+      )(modelName, {
+        settingSources: [],
+        allowedTools: [],
+        permissionMode: "default",
+        sandbox: { enabled: true },
+      }),
+    createModelWithTools: (module, modelName, tools) => {
+      const claudeCode = getFactory(module, "claudeCode", Provider.CLAUDE_CODE);
+      const createBridge = getFactory(
+        module,
+        "createAiSdkMcpServer",
+        Provider.CLAUDE_CODE,
+      ) as McpBridgeFactory;
+
+      const model = claudeCode(modelName, {
+        settingSources: [],
+        allowedTools: Object.keys(tools).map(
+          (name) => `${CLAUDE_CODE_TOOL_NAME_PREFIX}${name}`,
+        ),
+        mcpServers: {
+          [CLAUDE_CODE_MCP_SERVER_NAME]: createBridge(
+            CLAUDE_CODE_MCP_SERVER_NAME,
+            tools,
+          ),
+        },
+        permissionMode: "default",
+        sandbox: { enabled: true },
+      });
+
+      return wrapWithUnprefixedToolNames({
+        model,
+        prefix: CLAUDE_CODE_TOOL_NAME_PREFIX,
+        provider: Provider.CLAUDE_CODE,
+      });
+    },
+  },
+};
+
+export function isCliProvider(provider: string) {
+  return Object.hasOwn(CLI_PROVIDER_ADAPTERS, provider);
+}
+
+export function supportsCliToolBridge(provider: string) {
+  return Boolean(CLI_PROVIDER_ADAPTERS[provider]?.createModelWithTools);
+}
+
+export function getCliProviderDefaultModel(provider: string) {
+  return getAdapter(provider).defaultModel;
+}
+
+export function assertCliLlmEnabled(provider: string) {
   if (env.CLI_LLM_ENABLED) return;
 
   throw new SafeError(
@@ -41,15 +134,19 @@ export function createCliLanguageModel({
   provider,
   modelName,
 }: {
-  provider: CliProvider;
+  provider: string;
   modelName: string;
 }): LanguageModelV4 {
   assertCliLlmEnabled(provider);
+  const adapter = getAdapter(provider);
 
   let modelPromise: Promise<LanguageModelV4> | undefined;
 
   const getModel = () => {
-    modelPromise ??= loadCliLanguageModel({ provider, modelName });
+    modelPromise ??= importOptionalProviderPackage(
+      adapter.packageName,
+      provider,
+    ).then((module) => adapter.createModel(module, modelName));
     return modelPromise;
   };
 
@@ -73,75 +170,68 @@ export function createCliLanguageModel({
 
 // AI SDK tools cannot be auto-bridged at the LanguageModelV4 layer: by the
 // time the wrapper sees them they have been reduced to JSON schemas with no
-// `execute`. Callers that pass tools must therefore use this helper, which
-// wires the original tool record through `createAiSdkMcpServer` so the
-// Claude Code CLI can invoke them locally over MCP.
-export async function createClaudeCodeLanguageModelWithBridgedTools({
+// `execute`. Callers that pass tools to a CLI provider must therefore use
+// this helper, which hands the original tool record to the adapter.
+export async function createCliLanguageModelWithTools({
+  provider,
   modelName,
   tools,
 }: {
+  provider: string;
   modelName: string;
   tools: Record<string, McpBridgedTool>;
 }): Promise<LanguageModelV4> {
-  assertCliLlmEnabled(Provider.CLAUDE_CODE);
-
+  assertCliLlmEnabled(provider);
+  const adapter = getAdapter(provider);
   const module = await importOptionalProviderPackage(
-    CLAUDE_CODE_PACKAGE,
-    Provider.CLAUDE_CODE,
+    adapter.packageName,
+    provider,
   );
-  const claudeCode = getFactory(module, "claudeCode", Provider.CLAUDE_CODE);
-  const createBridge = getFactory(
-    module,
-    "createAiSdkMcpServer",
-    Provider.CLAUDE_CODE,
-  ) as McpBridgeFactory;
 
-  const toolNames = Object.keys(tools);
-  if (toolNames.length === 0) return createClaudeCodeLanguageModel(modelName);
+  if (!adapter.createModelWithTools || Object.keys(tools).length === 0) {
+    return adapter.createModel(module, modelName);
+  }
 
-  const mcpServer = createBridge(CLAUDE_CODE_MCP_SERVER_NAME, tools);
-  const allowedTools = toolNames.map((name) => prefixToolName(name));
-
-  const inner = claudeCode(modelName, {
-    settingSources: [],
-    allowedTools,
-    mcpServers: { [CLAUDE_CODE_MCP_SERVER_NAME]: mcpServer },
-    permissionMode: "default",
-    sandbox: { enabled: true },
-  });
-
-  return wrapWithUnprefixedToolNames(inner);
+  return adapter.createModelWithTools(module, modelName, tools);
 }
 
-const TOOL_NAME_PREFIX = `mcp__${CLAUDE_CODE_MCP_SERVER_NAME}__`;
-
-function prefixToolName(name: string): string {
-  return `${TOOL_NAME_PREFIX}${name}`;
+function getAdapter(provider: string) {
+  const adapter = CLI_PROVIDER_ADAPTERS[provider];
+  if (!adapter) {
+    throw new SafeError(`Unsupported CLI LLM provider: ${provider}`);
+  }
+  return adapter;
 }
 
-function unprefixToolName(name: string): string {
-  return name.startsWith(TOOL_NAME_PREFIX)
-    ? name.slice(TOOL_NAME_PREFIX.length)
-    : name;
-}
-
-// The MCP bridge causes the Claude Code CLI to surface tool calls as
-// `mcp__inboxzero__<name>`. Inbox Zero callers (stop conditions, UI part
-// renderers, validators) match on the original tool names, so the prefix is
-// stripped from every `toolName` field in both the non-streaming and
+// A CLI that runs Inbox Zero tools over MCP reports tool calls under its MCP
+// name (e.g. `mcp__inboxzero__<name>`). Inbox Zero callers (stop conditions,
+// UI part renderers, validators) match on the original tool names, so the
+// prefix is stripped from every `toolName` field in both the non-streaming and
 // streaming response paths before it reaches the AI SDK consumer.
-function wrapWithUnprefixedToolNames(model: LanguageModelV4): LanguageModelV4 {
+function wrapWithUnprefixedToolNames({
+  model,
+  prefix,
+  provider,
+}: {
+  model: LanguageModelV4;
+  prefix: string;
+  provider: string;
+}): LanguageModelV4 {
+  const unprefixPart = (part: unknown): unknown => {
+    if (!part || typeof part !== "object") return part;
+    const record = part as Record<string, unknown>;
+    if (typeof record.toolName !== "string") return part;
+    if (!record.toolName.startsWith(prefix)) return part;
+    return { ...record, toolName: record.toolName.slice(prefix.length) };
+  };
+
   const wrapped = {
     specificationVersion: model.specificationVersion,
     provider: model.provider,
     modelId: model.modelId,
     supportedUrls: model.supportedUrls,
     async doGenerate(...args: unknown[]) {
-      const doGenerate = getModelMethod(
-        model,
-        "doGenerate",
-        Provider.CLAUDE_CODE,
-      );
+      const doGenerate = getModelMethod(model, "doGenerate", provider);
       const result = (await doGenerate(...args)) as {
         content?: unknown[];
       } & Record<string, unknown>;
@@ -153,7 +243,7 @@ function wrapWithUnprefixedToolNames(model: LanguageModelV4): LanguageModelV4 {
       };
     },
     async doStream(...args: unknown[]) {
-      const doStream = getModelMethod(model, "doStream", Provider.CLAUDE_CODE);
+      const doStream = getModelMethod(model, "doStream", provider);
       const result = (await doStream(...args)) as {
         stream: ReadableStream<unknown>;
       } & Record<string, unknown>;
@@ -170,65 +260,9 @@ function wrapWithUnprefixedToolNames(model: LanguageModelV4): LanguageModelV4 {
   return wrapped as unknown as LanguageModelV4;
 }
 
-function unprefixPart(part: unknown): unknown {
-  if (!part || typeof part !== "object") return part;
-  const record = part as Record<string, unknown>;
-  if (typeof record.toolName !== "string") return part;
-  return { ...record, toolName: unprefixToolName(record.toolName) };
-}
-
-async function loadCliLanguageModel({
-  provider,
-  modelName,
-}: {
-  provider: CliProvider;
-  modelName: string;
-}): Promise<LanguageModelV4> {
-  switch (provider) {
-    case Provider.CODEX_CLI:
-      return createCodexCliLanguageModel(modelName);
-    case Provider.CLAUDE_CODE:
-      return createClaudeCodeLanguageModel(modelName);
-    default:
-      throw new SafeError(`Unsupported CLI LLM provider: ${provider}`);
-  }
-}
-
-async function createCodexCliLanguageModel(modelName: string) {
-  const module = await importOptionalProviderPackage(
-    "ai-sdk-provider-codex-cli",
-    Provider.CODEX_CLI,
-  );
-  const codexExec = getFactory(module, "codexExec", Provider.CODEX_CLI);
-
-  return codexExec(modelName, {
-    allowNpx: env.CODEX_CLI_ALLOW_NPX,
-    skipGitRepoCheck: true,
-    approvalMode: "never",
-    sandboxMode: "read-only",
-    ...(env.CODEX_CLI_PATH ? { codexPath: env.CODEX_CLI_PATH } : {}),
-    logger: false,
-  });
-}
-
-async function createClaudeCodeLanguageModel(modelName: string) {
-  const module = await importOptionalProviderPackage(
-    CLAUDE_CODE_PACKAGE,
-    Provider.CLAUDE_CODE,
-  );
-  const claudeCode = getFactory(module, "claudeCode", Provider.CLAUDE_CODE);
-
-  return claudeCode(modelName, {
-    settingSources: [],
-    allowedTools: [],
-    permissionMode: "default",
-    sandbox: { enabled: true },
-  });
-}
-
 async function importOptionalProviderPackage(
   packageName: string,
-  provider: CliProvider,
+  provider: string,
 ) {
   try {
     return await runtimeImport(packageName);
@@ -245,7 +279,7 @@ async function importOptionalProviderPackage(
 function getFactory(
   module: CliProviderModule,
   exportName: string,
-  provider: CliProvider,
+  provider: string,
 ): CliModelFactory {
   const factory = module[exportName];
 
@@ -261,7 +295,7 @@ function getFactory(
 function getModelMethod(
   model: LanguageModelV4,
   methodName: "doGenerate" | "doStream",
-  provider: CliProvider,
+  provider: string,
 ) {
   const method = model[methodName];
 

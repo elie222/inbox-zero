@@ -31,6 +31,10 @@ describe("Loops lifecycle events", () => {
       success: false,
       message: "Email or userId already exists/is already on list",
     }),
+    new APIError(409, {
+      success: false,
+      message: "Email is already in your audience.",
+    }),
     { statusCode: "409", message: "Email already on list" },
     { status: 409, message: "Email already exists" },
     new Error("Email or userId already exists/is already on list"),

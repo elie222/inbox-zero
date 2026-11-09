@@ -14,6 +14,7 @@ import {
   StarIcon,
   Trash2Icon,
   MessageSquareIcon,
+  SplitIcon,
 } from "lucide-react";
 import type { Command } from "@/lib/commands/types";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
@@ -24,6 +25,7 @@ type MailCommandActions = {
   moveToInbox?: () => void;
   forward?: () => void;
   label?: () => void;
+  addToSplit?: () => void;
   star?: () => void;
   markRead?: () => void;
   markSpam?: () => void;
@@ -46,7 +48,7 @@ export function buildMailCommandPalette({
   isAutoArchived = false,
   isAutoArchiveDisabled = false,
   isUnsubscribeDisabled = false,
-  unsubscribeLabel = "Unsubscribe from sender",
+  unsubscribeLabel = "Unsubscribe",
   openExternalLabel = "Open in email provider",
   targetCount,
 }: {
@@ -115,6 +117,18 @@ export function buildMailCommandPalette({
       priority: 2,
       keywords: ["label", "tag", "categorize"],
       action: actions.label,
+    });
+  }
+
+  if (actions.addToSplit) {
+    commands.push({
+      id: "mail-add-to-split",
+      label: "Add senders to split",
+      icon: SplitIcon,
+      section: "actions",
+      priority: 3,
+      keywords: ["split", "sender", "tab", "inbox"],
+      action: actions.addToSplit,
     });
   }
 

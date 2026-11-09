@@ -28,6 +28,8 @@ import { toastSuccess, toastError } from "@/components/Toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { prefixPath } from "@/utils/path";
 import { AddAccount } from "@/app/(app)/accounts/AddAccount";
+import { getAddAccountBillingText } from "@/app/(app)/premium/config";
+import { usePremium } from "@/hooks/usePremium";
 import { PageHeader } from "@/components/PageHeader";
 import { PageWrapper } from "@/components/PageWrapper";
 import { logOut } from "@/utils/user";
@@ -44,6 +46,7 @@ import { clearOfflineMailCacheForAccount } from "@/utils/offline/clear-mail-cach
 
 export default function AccountsPage() {
   const { data, isLoading, error, mutate } = useAccounts();
+  const { premium, isPremium, isLoading: isPremiumLoading } = usePremium();
   const notification = useAccountNotifications();
 
   return (
@@ -66,7 +69,13 @@ export default function AccountsPage() {
               onAccountDeleted={mutate}
             />
           ))}
-          <AddAccount />
+          <AddAccount
+            helperText={
+              isPremiumLoading
+                ? null
+                : getAddAccountBillingText(isPremium ? premium : null)
+            }
+          />
         </div>
       </LoadingContent>
     </PageWrapper>
