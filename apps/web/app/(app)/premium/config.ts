@@ -21,12 +21,12 @@ const pricing: Record<PremiumTier, number> = {
   BASIC_ANNUALLY: 8,
   PRO_MONTHLY: 16,
   PRO_ANNUALLY: 10,
-  STARTER_MONTHLY: 20,
-  STARTER_ANNUALLY: 18,
+  STARTER_MONTHLY: 25,
+  STARTER_ANNUALLY: 20,
   PLUS_MONTHLY: 35,
   PLUS_ANNUALLY: 28,
   PROFESSIONAL_MONTHLY: 50,
-  PROFESSIONAL_ANNUALLY: 42,
+  PROFESSIONAL_ANNUALLY: 40,
   COPILOT_MONTHLY: 500,
   LIFETIME: 299,
 };
@@ -46,9 +46,25 @@ export const BRIEF_MY_MEETING_PRICE_ID_MONTHLY =
 export const BRIEF_MY_MEETING_PRICE_ID_ANNUALLY =
   "price_1SjoawKGf8mwZWHnfAeShYhb";
 
-const INCLUDED_EMAIL_ACCOUNT_PRICE_IDS = [
+// Grandfathered Plus and Professional monthly prices, and Plus annual, bill one
+// unit per email account and treat each user's second account as free.
+const LEGACY_INCLUDED_EMAIL_ACCOUNT_PRICE_IDS = [
+  "price_1SzNImKGf8mwZWHnlYWXLNC4",
+  "price_1SzNJEKGf8mwZWHndmH3lYxf",
+  "price_1S5u6NKGf8mwZWHnZCfy4D5n",
+];
+
+// Current prices are graduated in Stripe to match: the first units up to this
+// count cost the plan price, and each further unit costs `getExtraAccountPrice`.
+export const INCLUDED_EMAIL_ACCOUNTS_PER_PERSON = 2;
+
+const PER_PERSON_PRICE_IDS = [
+  env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
+  env.NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID,
   env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID,
+  env.NEXT_PUBLIC_STRIPE_PLUS_ANNUALLY_PRICE_ID,
   env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
+  env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID,
 ];
 
 const STRIPE_PRICE_ID_CONFIG: Record<
@@ -92,9 +108,11 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   },
   PLUS_MONTHLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID,
+    oldPriceIds: ["price_1SzNImKGf8mwZWHnlYWXLNC4"],
   },
   PLUS_ANNUALLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_PLUS_ANNUALLY_PRICE_ID,
+    oldPriceIds: ["price_1SzNJEKGf8mwZWHndmH3lYxf"],
   },
   PROFESSIONAL_MONTHLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
@@ -152,12 +170,87 @@ export function getStripePriceId({
   return STRIPE_PRICE_ID_CONFIG[tier]?.priceId ?? null;
 }
 
-export function hasIncludedEmailAccountsStripePriceId(
+/**
+ * How a Stripe price turns email accounts into a subscription quantity.
+ * - `per_person`: the current graduated prices. The first 2 units cost the
+ *   full plan price and each further unit costs half, so each person pays in
+ *   full with 2 email accounts included.
+ * - `legacy_included`: one unit per account, minus each user's second account.
+ * - `per_account`: one unit per account.
+ */
+export function getStripeSeatModel(
   priceId: string | null | undefined,
-): boolean {
-  if (!priceId) return false;
+): "per_person" | "legacy_included" | "per_account" {
+  if (!priceId) return "per_account";
+  if (LEGACY_INCLUDED_EMAIL_ACCOUNT_PRICE_IDS.includes(priceId)) {
+    return "legacy_included";
+  }
+  // A legacy price can still be the configured price until the env var moves
+  // to its replacement, and must keep billing per account until then.
+  const isLegacyPrice = Object.values(STRIPE_PRICE_ID_CONFIG).some((config) =>
+    config.oldPriceIds?.includes(priceId),
+  );
+  if (PER_PERSON_PRICE_IDS.includes(priceId) && !isLegacyPrice) {
+    return "per_person";
+  }
+  return "per_account";
+}
 
-  return INCLUDED_EMAIL_ACCOUNT_PRICE_IDS?.includes(priceId) ?? false;
+/** List price in cents for a per-person price, which has no unit amount. */
+export function getStripePerPersonAmount({
+  priceId,
+  quantity,
+}: {
+  priceId: string;
+  quantity: number;
+}): number | undefined {
+  if (getStripeSeatModel(priceId) !== "per_person") return;
+  const tier = getStripeSubscriptionTier({ priceId });
+  if (!tier) return;
+
+  const months = tier.endsWith("_ANNUALLY") ? 12 : 1;
+  const planAmount = pricing[tier] * months * 100;
+  const extraUnits = Math.max(0, quantity - INCLUDED_EMAIL_ACCOUNTS_PER_PERSON);
+  return planAmount + extraUnits * getExtraAccountPrice(planAmount);
+}
+
+export function getExtraAccountPrice(planPrice: number): number {
+  return planPrice / 2;
+}
+
+export function getAddAccountBillingText(
+  premium:
+    | {
+        tier: PremiumTier | null | undefined;
+        stripePriceId: string | null | undefined;
+      }
+    | null
+    | undefined,
+): string {
+  const seatModel = getStripeSeatModel(premium?.stripePriceId);
+
+  if (seatModel === "per_person" && premium?.tier) {
+    const extraAccountPrice = formatPrice(
+      getExtraAccountPrice(pricing[premium.tier]),
+    );
+    const cadence = premium.tier.endsWith("_ANNUALLY")
+      ? "/mo, billed annually"
+      : "/mo";
+    return `Your plan includes ${INCLUDED_EMAIL_ACCOUNTS_PER_PERSON} email accounts. Each extra account is ${extraAccountPrice}${cadence}.`;
+  }
+  if (seatModel === "legacy_included") {
+    return "Your plan includes 2 email accounts. Each extra account is billed at your plan's per-account price.";
+  }
+  return "You will be billed for each account.";
+}
+
+export function formatPrice(amount: number): string {
+  const cents = amount * 100;
+  // Fractions of a cent come from spreading an annual price over 12 months.
+  if (Math.abs(cents - Math.round(cents)) > 1e-6) {
+    return `$${Math.round(amount)}`;
+  }
+  return Number.isInteger(amount) ? `$${amount}` : `$${amount.toFixed(2)}`;
 }
 
 export function getAppleSubscriptionTier({
@@ -243,6 +336,37 @@ export function getPremiumTierName(
   return tierMap[tier] ?? "Premium";
 }
 
+// Uses the Stripe price rather than the effective tier, which an admin grant
+// can raise above what the subscription actually bills.
+export function getBillingIntervalSwitch(
+  stripePriceId: string | null | undefined,
+): { tier: PremiumTier; label: string; description: string } | null {
+  const currentTier = stripePriceId
+    ? getStripeSubscriptionTier({ priceId: stripePriceId })
+    : null;
+
+  for (const plan of tiers) {
+    const toAnnual = plan.tiers.monthly === currentTier;
+    if (!toAnnual && plan.tiers.annually !== currentTier) continue;
+
+    const tier = plan.tiers[toAnnual ? "annually" : "monthly"];
+    const price = formatPrice(plan.price[toAnnual ? "annually" : "monthly"]);
+    const newPrice = toAnnual ? `${price}/mo, billed annually` : `${price}/mo`;
+    const stripePriceId = getStripePriceId({ tier });
+    const unit =
+      getStripeSeatModel(stripePriceId) === "per_person"
+        ? "per user"
+        : "per email account";
+    const accountBilling = getAddAccountBillingText({ tier, stripePriceId });
+    return {
+      tier,
+      label: toAnnual ? "Switch to annual" : "Switch to monthly",
+      description: `Your ${plan.name} plan will cost ${newPrice} ${unit}. ${accountBilling} The change applies right away, and Stripe prorates your current billing period.`,
+    };
+  }
+  return null;
+}
+
 function discount(monthly: number, annually: number) {
   return ((monthly - annually) / monthly) * 100;
 }
@@ -310,11 +434,6 @@ const plusTier: Tier = {
   features: [
     {
       text: "Everything in Starter, plus:",
-    },
-    {
-      text: "2 email accounts included per user",
-      tooltip:
-        "Each user gets 2 email accounts included. Additional email accounts are billed at the standard per-seat rate.",
     },
     {
       text: "AI meeting notetaker",

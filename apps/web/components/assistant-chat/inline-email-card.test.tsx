@@ -20,6 +20,7 @@ import { getEmailUrlForMessage } from "@/utils/url";
 
 const mockUseAccount = vi.fn();
 const mockUseEmailLookup = vi.fn();
+const mockUseKnownThreadIds = vi.fn();
 const mockArchiveThreadAction = vi.fn();
 const mockMarkReadThreadAction = vi.fn();
 const mockUseThread = vi.fn();
@@ -31,6 +32,7 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
 
 vi.mock("@/components/assistant-chat/email-lookup-context", () => ({
   useEmailLookup: () => mockUseEmailLookup(),
+  useKnownThreadIds: () => mockUseKnownThreadIds(),
 }));
 
 vi.mock("@/components/assistant-chat/inline-email-action-context", () => ({
@@ -116,6 +118,7 @@ afterEach(() => {
 describe("InlineEmailCard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseKnownThreadIds.mockReturnValue(null);
 
     mockUseAccount.mockReturnValue({
       emailAccountId: "account-1",
@@ -310,6 +313,34 @@ describe("InlineEmailCard", () => {
     expect(screen.getByText("Rendered plain body")).toBeTruthy();
   });
 
+  it("does not link a card to a thread ID that no tool returned", () => {
+    mockUseKnownThreadIds.mockReturnValue(new Set(["thread-1"]));
+
+    render(
+      <InlineEmailCard threadid="thread-1x" action="none">
+        Mistyped
+      </InlineEmailCard>,
+    );
+
+    expect(screen.getByText("Mistyped")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
+    expect(mockUseThread).not.toHaveBeenCalledWith(
+      expect.objectContaining({ id: "thread-1x" }),
+    );
+  });
+
+  it("links a card to a thread ID that a tool returned", () => {
+    mockUseKnownThreadIds.mockReturnValue(new Set(["thread-1"]));
+
+    render(
+      <InlineEmailCard threadid="thread-1" action="none">
+        Known
+      </InlineEmailCard>,
+    );
+
+    expect(screen.getByRole("button", { name: "More actions" })).toBeTruthy();
+  });
+
   it("shows the archive action even when action is none", async () => {
     render(
       <InlineEmailCard threadid="thread-1" action="none">
@@ -360,6 +391,7 @@ describe("InlineEmailCard", () => {
 describe("InlineEmailList", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseKnownThreadIds.mockReturnValue(null);
 
     mockUseAccount.mockReturnValue({
       emailAccountId: "account-1",
@@ -412,6 +444,28 @@ describe("InlineEmailList", () => {
       "thread-1",
       "thread-2",
     ]);
+  });
+
+  it("leaves cards with unknown thread IDs out of archive all", async () => {
+    mockUseKnownThreadIds.mockReturnValue(new Set(["thread-1"]));
+
+    render(
+      createElement(
+        InlineEmailList,
+        null,
+        createElement(InlineEmailCard, { threadid: "thread-1" }, "First"),
+        createElement(InlineEmailCard, { threadid: "thread-2x" }, "Second"),
+      ),
+    );
+
+    fireEvent.click(screen.getAllByRole("button")[0]);
+
+    await waitFor(() => {
+      expect(mockArchiveThreadAction).toHaveBeenCalledTimes(1);
+    });
+    expect(mockArchiveThreadAction).toHaveBeenCalledWith("account-1", {
+      threadId: "thread-1",
+    });
   });
 
   it("disables archive all after archive all succeeds", async () => {

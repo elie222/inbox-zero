@@ -107,6 +107,16 @@ export function useThreadSelection(orderedIds: string[]) {
     [orderedIds, selectedIds],
   );
 
+  /** Selects exactly these rows, e.g. ones the assistant picked out. */
+  const replace = useCallback(
+    (ids: string[]) => {
+      resetAnchor();
+      lastToggledIndex.current = null;
+      setSelectedIds(new Set(ids));
+    },
+    [resetAnchor],
+  );
+
   return useMemo(
     () => ({
       selectedIds,
@@ -118,8 +128,9 @@ export function useThreadSelection(orderedIds: string[]) {
       selectRangeTo,
       extendTo,
       clear,
+      replace,
     }),
-    [selectedIds, toggle, selectAll, selectRangeTo, extendTo, clear],
+    [selectedIds, toggle, selectAll, selectRangeTo, extendTo, clear, replace],
   );
 }
 

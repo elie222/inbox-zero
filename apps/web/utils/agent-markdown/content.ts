@@ -1,4 +1,9 @@
-import { tiers } from "@/app/(app)/premium/config";
+import {
+  formatPrice,
+  getExtraAccountPrice,
+  INCLUDED_EMAIL_ACCOUNTS_PER_PERSON,
+  tiers,
+} from "@/app/(app)/premium/config";
 
 const DOCS_ORIGIN = "https://docs.getinboxzero.com";
 const GITHUB_URL = "https://github.com/elie222/inbox-zero";
@@ -58,7 +63,8 @@ ${tiers
 ${tier.description}
 
 - Monthly: $${tier.price.monthly} USD per user per month, billed monthly.
-- Annual: $${tier.price.annually} USD per user per month, billed annually ($${tier.price.annually * 12} USD per user per year).
+- Annual: ${formatPrice(tier.price.annually)} USD per user per month, billed annually (${formatPrice(tier.price.annually * 12)} USD per user per year).
+- Includes ${INCLUDED_EMAIL_ACCOUNTS_PER_PERSON} email accounts per user. Each extra account is ${formatPrice(getExtraAccountPrice(tier.price.monthly))} USD per month on monthly billing, or ${formatPrice(getExtraAccountPrice(tier.price.annually))} USD per month on annual billing. Each team member is billed as a separate user.
 ${tier.features.map((feature) => `- ${feature.text}`).join("\n")}`,
   )
   .join("\n\n")}

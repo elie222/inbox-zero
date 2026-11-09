@@ -84,6 +84,14 @@ export function toastUndo(options: {
   });
 }
 
+/** Retires the latest Undo toast, so an action that can't be undone isn't followed by undoing an older one. */
+export function releaseLatestToastUndo() {
+  const current = latestToastUndo;
+  if (!current) return;
+  latestToastUndo = null;
+  toast.dismiss(current.id);
+}
+
 export async function undoLatestToast() {
   const current = latestToastUndo;
   if (!current) return false;

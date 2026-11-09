@@ -4,21 +4,26 @@ import prisma from "@/utils/prisma";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import {
+  addSendersToMailSplitBody,
   buildMailSplitFromPromptBody,
   createMailSplitBody,
   deleteMailSplitBody,
   reorderMailSplitsBody,
+  setMailSplitBundleBody,
+  setMailSplitHideFromAllBody,
   updateMailPreferencesBody,
   updateMailSplitBody,
 } from "@/utils/actions/mail-split.validation";
 import { aiPromptToSplitFilters } from "@/utils/ai/split/prompt-to-split";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import {
+  addSendersToMailSplit,
   createMailSplitOrThrow,
   updateMailSplit,
   deleteMailSplit,
   reorderMailSplits,
 } from "@/utils/split-inbox/splits.server";
+import { seedDefaultInboxBundles } from "@/utils/split-inbox/inbox-bundles.server";
 
 export const createMailSplitAction = actionClient
   .metadata({ name: "createMailSplit" })
@@ -48,6 +53,13 @@ export const updateMailSplitAction = actionClient
     }) => {
       await updateMailSplit({ emailAccountId, id, name, filters, matchAll });
     },
+  );
+
+export const addSendersToMailSplitAction = actionClient
+  .metadata({ name: "addSendersToMailSplit" })
+  .inputSchema(addSendersToMailSplitBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { id, senders } }) =>
+    addSendersToMailSplit({ emailAccountId, id, senders }),
   );
 
 /**
@@ -106,8 +118,15 @@ export const updateMailPreferencesAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId },
-      parsedInput: { layout, expandedPreview },
+      parsedInput: {
+        layout,
+        expandedPreview,
+        bundleInbox,
+        defaultSplitId,
+        setup,
+      },
     }) => {
+      if (bundleInbox) await seedDefaultInboxBundles(emailAccountId);
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
         data: {
@@ -115,7 +134,40 @@ export const updateMailPreferencesAction = actionClient
           ...(expandedPreview === undefined
             ? {}
             : { mailExpandedPreview: expandedPreview }),
+          ...(bundleInbox === undefined
+            ? {}
+            : { mailBundleInbox: bundleInbox }),
+          ...(defaultSplitId === undefined
+            ? {}
+            : { mailDefaultSplitId: defaultSplitId }),
+          ...(setup === undefined ? {} : { mailSetup: setup }),
         },
       });
+    },
+  );
+
+export const setMailSplitBundleAction = actionClient
+  .metadata({ name: "setMailSplitBundle" })
+  .inputSchema(setMailSplitBundleBody)
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { id, bundleInInbox } }) => {
+      const { count } = await prisma.mailSplit.updateMany({
+        where: { id, emailAccountId },
+        data: { bundleInInbox },
+      });
+      if (!count) throw new SafeError("Split not found");
+    },
+  );
+
+export const setMailSplitHideFromAllAction = actionClient
+  .metadata({ name: "setMailSplitHideFromAll" })
+  .inputSchema(setMailSplitHideFromAllBody)
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { id, hideFromAll } }) => {
+      const { count } = await prisma.mailSplit.updateMany({
+        where: { id, emailAccountId },
+        data: { hideFromAll },
+      });
+      if (!count) throw new SafeError("Split not found");
     },
   );

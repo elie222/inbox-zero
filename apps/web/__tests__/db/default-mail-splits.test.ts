@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, test } from "vitest";
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import {
+  addSendersToMailSplit,
   createMailSplit,
   removeLabelFromMailSplits,
   reorderMailSplits,
@@ -38,6 +39,42 @@ describe.skipIf(!RUN_DB_TESTS)(
 
     afterAll(async () => {
       await prisma.user.deleteMany({ where: { email: accountEmail } });
+    });
+
+    test("adding senders appends to the split without losing concurrent additions", async () => {
+      const created = await createMailSplit({
+        emailAccountId,
+        name: "News",
+        matchAll: true,
+        filters: [{ kind: MailSplitFilterKind.LABEL, value: "Label_News" }],
+      });
+      if (created?.status !== "created") throw new Error("split not created");
+
+      const results = await Promise.all([
+        addSendersToMailSplit({
+          emailAccountId,
+          id: created.id,
+          senders: ["a@x.com", "b@x.com"],
+        }),
+        addSendersToMailSplit({
+          emailAccountId,
+          id: created.id,
+          senders: ["c@x.com", "A@x.com"],
+        }),
+      ]);
+
+      const split = await prisma.mailSplit.findUniqueOrThrow({
+        where: { id: created.id },
+        include: { filters: { orderBy: { order: "asc" } } },
+      });
+      expect(split.matchAll).toBe(false);
+      expect(split.filters.map((filter) => filter.value).sort()).toEqual([
+        "Label_News",
+        "a@x.com",
+        "b@x.com",
+        "c@x.com",
+      ]);
+      expect(results.reduce((sum, result) => sum + result.added, 0)).toBe(3);
     });
 
     test("stores, deletes, and restores inbox and unread splits as rows", async () => {

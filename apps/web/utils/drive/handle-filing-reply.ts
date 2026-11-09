@@ -314,7 +314,7 @@ async function handleMove({
         logger,
       });
       targetFolderId = targetFolder.id;
-      targetFolderPath = target.fullPath;
+      targetFolderPath = targetFolder.path;
     }
 
     await driveProvider.moveFile(fileId, targetFolderId);

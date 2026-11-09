@@ -2277,7 +2277,11 @@ function createMockOutlookClient(
         let orderbyValue: string | undefined;
         const request = {
           filter: (value: string) => {
-            filterValue = value;
+            // Record what Graph receives, since the SDK puts the value in the URL as-is.
+            filterValue =
+              new URL(
+                `https://graph.microsoft.com/?$filter=${value}`,
+              ).searchParams.get("$filter") ?? undefined;
             return request;
           },
           search: (value: string) => {

@@ -17,12 +17,16 @@ import {
   ArchiveRestoreIcon,
   ChevronDownIcon,
   ColumnsIcon,
+  LayersIcon,
   MailIcon,
   MailOpenIcon,
+  MoreHorizontalIcon,
   PanelLeftIcon,
   RowsIcon,
   SearchIcon,
+  SlidersHorizontalIcon,
   SparklesIcon,
+  SplitIcon,
   StarIcon,
   StarOffIcon,
   TagIcon,
@@ -48,6 +52,12 @@ import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Tooltip } from "@/components/Tooltip";
 import { useSidebar } from "@/components/ui/sidebar";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Popover,
   PopoverAnchor,
   PopoverContent,
@@ -72,7 +82,14 @@ export type ListToolbarProps = {
   searchVariant?: "gmail" | "outlook" | "common";
   onToggleLayout: () => void;
   onTogglePreview: () => void;
+  bundleInbox: boolean;
+  /** Omitted outside the single-account inbox, where bundling never applies. */
+  onToggleBundleInbox?: () => void;
   onToggleAssistant: () => void;
+  /** Omitted where the setup card can't apply, or while it's open. */
+  onOpenSetup?: () => void;
+  /** Marks the setup button until the reader has been through setup once. */
+  isSetupSuggested: boolean;
   /** Rendered here only when the split tabs row isn't showing to hold it. */
   selectAll?: ReactNode;
   selectedCount: number;
@@ -88,6 +105,8 @@ export type ListToolbarProps = {
   onStarSelected: () => void;
   /** Omitted when the current view can't label (combined inboxes). */
   onLabelSelected?: () => void;
+  /** Omitted when there's no split the senders could join. */
+  onAddToSplitSelected?: () => void;
   onClearSelection: () => void;
   /** Opens the mail navigation panel on screens too narrow for the rail. */
   onOpenMailNav: () => void;
@@ -106,7 +125,11 @@ export const ListToolbar = memo(function ListToolbar({
   searchVariant = "gmail",
   onToggleLayout,
   onTogglePreview,
+  bundleInbox,
+  onToggleBundleInbox,
   onToggleAssistant,
+  onOpenSetup,
+  isSetupSuggested,
   selectAll,
   selectedCount,
   onArchiveSelected,
@@ -118,6 +141,7 @@ export const ListToolbar = memo(function ListToolbar({
   isStarredSelected,
   onStarSelected,
   onLabelSelected,
+  onAddToSplitSelected,
   onClearSelection,
   onOpenMailNav,
 }: ListToolbarProps) {
@@ -239,6 +263,28 @@ export const ListToolbar = memo(function ListToolbar({
             </Tooltip>
           ) : null}
 
+          {onAddToSplitSelected ? (
+            <DropdownMenu>
+              <Tooltip content="More actions">
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="More selection actions"
+                    className={cn(toolbarButton, "w-8 justify-center px-0")}
+                  >
+                    <MoreHorizontalIcon className="size-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+              </Tooltip>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={onAddToSplitSelected}>
+                  <SplitIcon className="mr-2 size-4" />
+                  Add senders to split
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+
           <Tooltip shortcuts={[{ id: "backToList", label: "Clear selection" }]}>
             <button
               type="button"
@@ -264,6 +310,49 @@ export const ListToolbar = memo(function ListToolbar({
           searchVariant={searchVariant}
         />
       )}
+
+      {selectedCount === 0 && onOpenSetup ? (
+        <Tooltip content="Mail setup">
+          <button
+            type="button"
+            onClick={onOpenSetup}
+            aria-label="Mail setup"
+            className={cn(toolbarButton, "relative w-8 justify-center px-0")}
+          >
+            <SlidersHorizontalIcon className="size-3.5" />
+            {isSetupSuggested && (
+              <span className="absolute top-1 right-1 flex size-2">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-blue-500 opacity-75 motion-reduce:animate-none" />
+                <span className="relative inline-flex size-2 rounded-full bg-blue-500" />
+              </span>
+            )}
+          </button>
+        </Tooltip>
+      ) : null}
+
+      {selectedCount === 0 && onToggleBundleInbox ? (
+        <Tooltip
+          content={
+            bundleInbox
+              ? "Show every email on its own row"
+              : "Bundle low-priority emails in the inbox"
+          }
+        >
+          <button
+            type="button"
+            onClick={onToggleBundleInbox}
+            aria-label="Bundle low-priority emails"
+            aria-pressed={bundleInbox}
+            className={cn(
+              toolbarButton,
+              "w-8 justify-center px-0",
+              bundleInbox && "bg-muted text-foreground",
+            )}
+          >
+            <LayersIcon className="size-3.5" />
+          </button>
+        </Tooltip>
+      ) : null}
 
       {selectedCount === 0 ? (
         <Tooltip

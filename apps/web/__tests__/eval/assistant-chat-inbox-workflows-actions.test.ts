@@ -213,12 +213,15 @@ describe.runIf(shouldRunEval)(
             !!bulkSearchCall &&
             isBulkArchiveSearchQuery(bulkSearchCall, provider) &&
             hasSearchBeforeFirstWrite(toolCalls) &&
-            searchCalls.length >= 2 &&
+            toolCalls.filter((toolCall) => toolCall.toolName === "searchInbox")
+              .length >= 2 &&
             searchCalls.some(
               (call) =>
                 isBulkArchiveSearchQuery(call, provider) && !call.pageToken,
             ) &&
-            searchCalls.some((call) => call.pageToken === "PAGE_TOKEN_2") &&
+            getProviderSearchCalls().some(
+              (call) => call.pageToken === "PAGE_TOKEN_2",
+            ) &&
             archiveCalls.length >= 1 &&
             archiveCalls.every((call) => call.threadIds.length <= 100) &&
             archivedThreadIds.size === 20 &&
@@ -647,6 +650,9 @@ function isSearchInboxInput(input: unknown): input is SearchInboxInput {
 }
 
 function buildBulkArchiveMessages(count: number, startIndex: number) {
+  const fourYearsAgo = new Date();
+  fourYearsAgo.setFullYear(fourYearsAgo.getFullYear() - 4);
+
   return Array.from({ length: count }, (_, index) => {
     const messageNumber = startIndex + index + 1;
 
@@ -657,6 +663,7 @@ function buildBulkArchiveMessages(count: number, startIndex: number) {
       subject: `Unread archive candidate ${messageNumber}`,
       snippet: `Unread archive candidate ${messageNumber}`,
       labelIds: ["UNREAD", "INBOX"],
+      date: fourYearsAgo.toISOString(),
     });
   });
 }

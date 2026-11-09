@@ -4,6 +4,7 @@ import {
   cleanupConfiguredAIDraftsForAccount,
   getEmailAccountsWithStaleAIDrafts,
   markTrackedDraftDeleted,
+  skipDraftCleanupForDisconnectedAccount,
 } from "@/utils/ai/draft-cleanup";
 import { createTestLogger } from "@/__tests__/helpers";
 import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
@@ -22,6 +23,7 @@ const mocks = vi.hoisted(() => ({
       findFirst: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
   provider: {
@@ -580,6 +582,25 @@ describe("markTrackedDraftDeleted", () => {
     });
   });
 
+  it("marks a skipped draft as cleaned up when the user deletes it", async () => {
+    mocks.prisma.executedAction.findFirst.mockResolvedValue({
+      id: "action-1",
+      draftStatus: DraftEmailStatus.CLEANUP_SKIPPED,
+      wasDraftSent: null,
+    });
+
+    await markTrackedDraftDeleted({
+      draftId: "draft-1",
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    expect(mocks.prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: { draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED },
+    });
+  });
+
   it("does nothing when the draft is not tracked", async () => {
     mocks.prisma.executedAction.findFirst.mockResolvedValue(null);
 
@@ -606,6 +627,58 @@ describe("markTrackedDraftDeleted", () => {
     });
 
     expect(mocks.prisma.executedAction.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("skipDraftCleanupForDisconnectedAccount", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("marks only that account's cleanup candidates as skipped", async () => {
+    mocks.prisma.executedAction.updateMany.mockResolvedValue({ count: 3 });
+
+    await skipDraftCleanupForDisconnectedAccount({
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    expect(mocks.prisma.executedAction.updateMany).toHaveBeenCalledWith({
+      where: {
+        executedRule: { emailAccountId: "email-account-1" },
+        type: ActionType.DRAFT_EMAIL,
+        draftId: { not: null },
+        OR: [
+          {
+            draftStatus: {
+              in: [
+                DraftEmailStatus.PENDING,
+                DraftEmailStatus.REPLIED_WITHOUT_DRAFT,
+              ],
+            },
+          },
+          { draftStatus: null },
+          {
+            draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+            wasDraftSent: false,
+          },
+        ],
+      },
+      data: { draftStatus: DraftEmailStatus.CLEANUP_SKIPPED },
+    });
+  });
+
+  it("does not throw when marking fails", async () => {
+    mocks.prisma.executedAction.updateMany.mockRejectedValue(
+      new Error("database unavailable"),
+    );
+
+    await expect(
+      skipDraftCleanupForDisconnectedAccount({
+        emailAccountId: "email-account-1",
+        logger,
+      }),
+    ).resolves.toBeUndefined();
   });
 });
 

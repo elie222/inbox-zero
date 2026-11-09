@@ -13,7 +13,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # Match root package.json packageManager
-RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
+RUN corepack enable && corepack prepare pnpm@12.18.0 --activate
 
 # Docker-in-Docker for postgres/redis via docker-compose.dev.yml
 RUN install -m 0755 -d /etc/apt/keyrings \

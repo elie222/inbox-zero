@@ -3,6 +3,10 @@ packages:
   - apps/*
 
 enableGlobalVirtualStore: true
+# With the global virtual store, pnpm 12 otherwise injects a NODE_OPTIONS resolve
+# hook into scripts. That hook bypasses Next's require hook for next.config.ts, so
+# tsconfig "@/" imports fail when `serwist build` loads the Next config.
+extendNodePath: false
 
 # Supply-chain hardening: block versions published <24h ago. Malicious npm releases
 # are typically yanked within hours, so the cooldown blocks the attack window.
@@ -19,7 +23,7 @@ overrides:
   "@xmldom/xmldom": "0.8.13"
   axios: "1.16.1"
   dompurify: "3.4.17"
-  fast-xml-parser: "5.8.0"
+  fast-xml-parser: "5.12.0"
   # One ioredis copy for BullMQ and @chat-adapter/state-ioredis. The adapter
   # still declares ^5.4.1, but v6 keeps legacy reply mapping and closing the
   # ioredis 5 advisory requires a single 6.x.
@@ -27,7 +31,7 @@ overrides:
   js-yaml: "3.14.2"
   jws: "4.0.1"
   lodash: "4.18.1"
-  next: "16.4.1"
+  next: "16.4.5"
   postcss: "8.5.14"
   # express@5 depends on proxy-addr ^2.0.7. 2.0.7 treats an IPv4-mapped IPv6
   # trust subnet with an IPv4-sized prefix as trusting every IPv4 address

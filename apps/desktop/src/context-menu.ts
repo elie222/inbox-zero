@@ -1,6 +1,6 @@
 import {
   app,
-  BrowserWindow,
+  type BaseWindow,
   clipboard,
   type ContextMenuParams,
   Menu,
@@ -39,7 +39,13 @@ type ContextMenuParamsInput = Pick<
 
 export function installDesktopContextMenu(
   contents: WebContents,
-  { openExternal }: { openExternal: (url: string) => void },
+  {
+    getWindow,
+    openExternal,
+  }: {
+    getWindow: () => BaseWindow | undefined;
+    openExternal: (url: string) => void;
+  },
 ) {
   const actions: ContextMenuActions = {
     copyText: (text) => clipboard.writeText(text),
@@ -62,7 +68,7 @@ export function installDesktopContextMenu(
     });
     if (template.length === 0) return;
     Menu.buildFromTemplate(template).popup({
-      window: BrowserWindow.fromWebContents(contents) ?? undefined,
+      window: getWindow(),
       frame: params.frame ?? undefined,
     });
   });

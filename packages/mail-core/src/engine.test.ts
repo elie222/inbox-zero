@@ -1135,6 +1135,7 @@ function idleCatchUpStore(
     async claimWork() {
       return null;
     },
+    async releaseReadOnlyClaims() {},
     async readAccountSyncStates() {
       return [
         {

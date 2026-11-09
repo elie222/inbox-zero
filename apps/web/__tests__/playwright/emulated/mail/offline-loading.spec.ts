@@ -373,7 +373,7 @@ async function mailEngineOpfsExists(page: Page) {
   }, MAIL_ENGINE_OPFS_DIRECTORY);
 }
 
-// Mail hides SideNav. NavUser / Sign out only render on non-mail routes.
+// Signs out through NavUser on a non-mail route, which renders SideNav.
 async function signOutFromAppNav(page: Page) {
   await page.goto("/settings");
   await expect(

@@ -112,6 +112,7 @@ describe("user/me route", () => {
       },
     ]);
     expect(body.canManageBilling).toBe(true);
+    expect(body.billingAccessDenial).toBeNull();
   });
 
   it("denies billing access to an organization member even when they are a plan admin", async () => {
@@ -173,6 +174,7 @@ describe("user/me route", () => {
 
     expect(body.premium.isAdmin).toBe(false);
     expect(body.canManageBilling).toBe(false);
+    expect(body.billingAccessDenial).toBe("not_organization_admin");
   });
 
   it("does not expose backend-only Apple subscription identifiers", async () => {

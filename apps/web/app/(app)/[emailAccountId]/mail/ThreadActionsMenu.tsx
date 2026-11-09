@@ -83,6 +83,7 @@ export function ThreadActionsMenu({
   const senderFrom = receivedMessage?.headers.from ?? "";
   const senderEmail = extractEmailAddress(senderFrom);
   const {
+    canUnsubscribe,
     canManageAutoArchive,
     isUnsubscribeDisabled,
     unsubscribeLabel,
@@ -92,7 +93,7 @@ export function ThreadActionsMenu({
     onToggleAutoArchive,
     onUnsubscribe,
     PremiumModal,
-  } = useSenderCommands(message);
+  } = useSenderCommands(receivedMessage ?? message);
   const openUrl = message
     ? getEmailMessageCellActions({
         externalUrl: message.externalUrl,
@@ -105,6 +106,20 @@ export function ThreadActionsMenu({
 
   return (
     <>
+      {canUnsubscribe ? (
+        <Tooltip shortcuts={["unsubscribe"]}>
+          <Button
+            disabled={isUnsubscribeDisabled}
+            onClick={onUnsubscribe}
+            size="xs-2"
+            variant="outline"
+          >
+            <MailXIcon className="mr-1.5 size-3.5" />
+            Unsubscribe
+          </Button>
+        </Tooltip>
+      ) : null}
+
       <DropdownMenu onOpenChange={onOpenChange} open={open}>
         <Tooltip shortcuts={["moreActions"]}>
           <DropdownMenuTrigger asChild>

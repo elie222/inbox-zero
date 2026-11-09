@@ -36,6 +36,61 @@ describe("runAiRules", () => {
     });
   });
 
+  it("retries only the email that failed, keeping it queued until it finishes", async () => {
+    vi.mocked(runRulesAction)
+      .mockResolvedValueOnce({ serverError: "Rate limited" })
+      .mockResolvedValue({ data: [] });
+    const runWithRetry = vi.fn(
+      async <T>(operation: () => Promise<T>): Promise<T> => {
+        try {
+          return await operation();
+        } catch {
+          expect(removeFromAiQueueAtom).not.toHaveBeenCalledWith("thread-a");
+          return operation();
+        }
+      },
+    );
+
+    await runAiRules(
+      "account-id",
+      createThreads("thread-a", "thread-b"),
+      false,
+      {
+        runWithRetry,
+      },
+    );
+
+    const processedThreadIds = vi
+      .mocked(runRulesAction)
+      .mock.calls.map(([, input]) => input.threadId);
+    expect(processedThreadIds.sort()).toEqual([
+      "thread-a",
+      "thread-a",
+      "thread-b",
+    ]);
+    expect(removeFromAiQueueAtom).toHaveBeenCalledWith("thread-a");
+  });
+
+  it("does not rerun an email again when retrying it", async () => {
+    vi.mocked(runRulesAction)
+      .mockResolvedValueOnce({ serverError: "Rate limited" })
+      .mockResolvedValue({ data: [] });
+
+    await runAiRules("account-id", createThreads("thread-a"), true, {
+      runWithRetry: async (operation) => {
+        try {
+          return await operation();
+        } catch {
+          return operation();
+        }
+      },
+    });
+
+    expect(
+      vi.mocked(runRulesAction).mock.calls.map(([, input]) => input.rerun),
+    ).toEqual([true, false]);
+  });
+
   it("rejects when rule processing returns a server error", async () => {
     vi.mocked(runRulesAction).mockResolvedValue({
       serverError: "AI automation is unavailable.",

@@ -2,7 +2,8 @@
 
 Runs the unchanged email client in Chromium, through the real application routes
 and Gmail provider, against emulate.dev with a local quota/latency proxy. Opt-in:
-the dedicated config is only used by `test:mail-loading`. Normal Playwright and
+the dedicated config is only used by `test:mail-loading` and
+`test:bulk-run-rate-limits`. Normal Playwright and
 Vitest discovery exclude these scenarios; no CI workflow invokes the command.
 
 ```sh
@@ -20,6 +21,16 @@ The standard Playwright harness starts its development server. Run on an idle
 machine; first-route compilation is included in cold-view measurements. Supply
 local Redis to exercise account cooldowns; without it the application's shared
 rate-limit protection is disabled. Each run has a fresh synthetic account.
+
+## Bulk run under rate limits
+
+Run `pnpm -F inbox-zero-ai test:bulk-run-rate-limits` with the same
+`DATABASE_URL`, `REDIS_HTTP_URL` and `REDIS_HTTP_TOKEN` as above. It seeds
+300 unread single-message threads, a trial account, and a labelling rule, then
+runs "Process Past Emails" with a per-user budget well below what the run needs.
+It checks that the run pauses with a visible notice, resumes, and runs rules
+on every thread exactly once. It takes 10 to 25 minutes, mostly waiting on the
+simulated quota.
 
 ## Workload and evidence
 

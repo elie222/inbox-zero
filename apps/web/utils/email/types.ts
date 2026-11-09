@@ -2,7 +2,7 @@ import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import type { LocalMailSyncRequest } from "@/utils/actions/local-mail-sync.validation";
 import type { LocalMailSyncResponse } from "@/utils/email/local-mail-sync-types";
 import type { ParsedMessage } from "@/utils/types";
-import type { InboxZeroLabel } from "@/utils/label";
+import type { InboxZeroLabel, LabelColorName } from "@/utils/label";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import type {
   OutlookFolder,
@@ -187,11 +187,12 @@ export interface EmailProvider {
     labelId?: string,
   ): Promise<void>;
   blockUnsubscribedEmail(messageId: string): Promise<void>;
+  /** Returns the number of messages actually moved out of the inbox. */
   bulkArchiveFromSenders(
     fromEmails: string[],
     ownerEmail: string,
     emailAccountId: string,
-  ): Promise<void>;
+  ): Promise<number>;
   bulkArchiveSenderOrThrow(
     fromEmail: string,
     ownerEmail: string,
@@ -278,6 +279,7 @@ export interface EmailProvider {
   ): Promise<ReadableStream<Uint8Array>>;
   /** Real contact photos keyed by canonical email address. */
   getContactPhotos(): Promise<Record<string, string>>;
+  getDefaultLabelColor(colorName: LabelColorName): EmailLabelColor;
   getDraft(
     draftId: string,
     options?: { includeAttachments?: boolean },

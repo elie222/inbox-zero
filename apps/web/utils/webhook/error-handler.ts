@@ -1,4 +1,8 @@
-import { checkCommonErrors, isInvalidGrantError } from "@/utils/error";
+import {
+  checkCommonErrors,
+  isInvalidGrantError,
+  SafeError,
+} from "@/utils/error";
 import { trackError } from "@/utils/posthog";
 import type { Logger } from "@/utils/logger";
 import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
@@ -24,6 +28,12 @@ export async function handleWebhookError(
 
     // Provider clients handle credential cleanup using the tokens that failed.
     // This outer handler has no credential snapshot and must not clear newer tokens.
+    return;
+  }
+
+  // The account was disconnected, but the provider keeps notifying until its
+  // subscription lapses. The provider client already logged a warning.
+  if (error instanceof SafeError && error.message === "No refresh token") {
     return;
   }
 

@@ -3,7 +3,10 @@ import chunk from "lodash/chunk";
 import type { Logger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { BulkArchiveResult, BulkArchiveThread } from "@/utils/email/types";
-import { escapeODataString } from "@/utils/outlook/odata-escape";
+import {
+  encodeODataFilter,
+  escapeODataString,
+} from "@/utils/outlook/odata-escape";
 import { getFolderIds } from "@/utils/outlook/message";
 import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 import {
@@ -512,7 +515,7 @@ async function listSenderMessages({
         : await client
             .getClient()
             .api("/me/messages")
-            .filter(filterExpression)
+            .filter(encodeODataFilter(filterExpression))
             .top(SENDER_LIST_PAGE_SIZE)
             .select("id,conversationId")
             .get();

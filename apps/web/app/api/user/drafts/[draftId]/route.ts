@@ -45,6 +45,15 @@ export const PUT = withEmailProvider(
       provider: request.emailProvider,
       content: body.content,
       draftId,
+      ...(body.composeSessionId
+        ? {
+            composeSession: {
+              id: body.composeSessionId,
+              emailAccountId: request.auth.emailAccountId,
+              logger: request.logger,
+            },
+          }
+        : {}),
     });
     return NextResponse.json(saved satisfies SaveComposeDraftResponse);
   },

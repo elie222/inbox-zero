@@ -453,6 +453,7 @@ export function isKnownApiError(error: unknown): boolean {
     isGmailInsufficientPermissionsError(error) ||
     isGmailRateLimitExceededError(error) ||
     isGmailQuotaExceededError(error) ||
+    isGmailServiceUnavailableError(error) ||
     isKnownOutlookError(error) ||
     isContentFilterRefusal(error) ||
     (APICallError.isInstance(error) &&
@@ -490,6 +491,15 @@ export function checkCommonErrors(
       type: "Gmail Insufficient Permissions",
       message:
         "You must grant all Gmail permissions to use the app. Please log out and log in again to grant permissions.",
+      code: 403,
+    };
+  }
+
+  if (isGmailServiceUnavailableError(error)) {
+    logger.warn("Gmail not enabled for account for url", { url });
+    return {
+      type: "Gmail Service Unavailable",
+      message: GMAIL_SERVICE_UNAVAILABLE_MESSAGE,
       code: 403,
     };
   }

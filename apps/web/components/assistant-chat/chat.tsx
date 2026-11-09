@@ -3,10 +3,13 @@
 import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AlertCircleIcon,
   HistoryIcon,
   Loader2,
+  MailIcon,
   PaperclipIcon,
   PlusIcon,
+  WrenchIcon,
   XIcon,
 } from "lucide-react";
 import { Messages } from "./messages";
@@ -31,7 +34,6 @@ import {
 import { useSession } from "@/utils/auth-client";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
-import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { ChatHistoryItem } from "@/components/assistant-chat/ChatHistoryItem";
 import {
@@ -41,6 +43,8 @@ import {
 import { RenameChatDialog } from "@/components/assistant-chat/RenameChatDialog";
 import { DeleteChatDialog } from "@/components/assistant-chat/DeleteChatDialog";
 import { randomUuid } from "@/utils/uuid";
+import { extractNameFromEmail } from "@/utils/email";
+import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import { VoiceInput } from "@/components/voice/VoiceInput";
 import { liveHistoryFromUiMessages } from "@/utils/voice/live-history";
 
@@ -66,6 +70,7 @@ export function Chat({
     chatId,
     input,
     persistedMessageIds,
+    sendError,
     setInput,
     handleSubmit,
     setNewChat,
@@ -182,8 +187,7 @@ export function Chat({
   const { data: session } = useSession();
   const firstName = session?.user?.name?.split(" ")[0];
   const hasMessages = messages.length > 0;
-  const hasContent =
-    input.trim().length > 0 || attachments.length > 0 || !!context;
+  const hasContent = input.trim().length > 0 || attachments.length > 0;
 
   const inputArea = (
     <PromptInput
@@ -200,6 +204,15 @@ export function Chat({
         }
       }}
     >
+      {sendError ? (
+        <ChatSendError
+          message={sendError.message}
+          onNewChat={sendError.offerNewChat ? setNewChat : undefined}
+        />
+      ) : null}
+      {context ? (
+        <ChatContextChip context={context} onRemove={() => setContext(null)} />
+      ) : null}
       {(attachments.length > 0 || uploadQueue.length > 0) && (
         <div className="flex gap-2 overflow-x-auto p-2 pb-0">
           {attachments.map((attachment) => (
@@ -257,7 +270,12 @@ export function Chat({
               message_count: messages.length,
               via_voice: true,
             });
-            submitTextMessage(text).catch(() => undefined);
+            // A dictated message has no draft, so keep it for a retry.
+            submitTextMessage(text).catch(() => {
+              setInput((current) =>
+                current.trim() ? `${text}\n\n${current}` : text,
+              );
+            });
           }}
         />
         <Tooltip content="Attach images">
@@ -324,22 +342,18 @@ export function Chat({
           setMessages={setMessages}
           setInput={setInput}
           regenerate={regenerate}
-          context={context}
-          setContext={setContext}
           inputArea={inputArea}
         />
       ) : (
         <NewChatView
-          firstName={firstName}
+          greeting={context ? null : getGreeting(firstName)}
+          suggestions={context ? [] : CHAT_EXAMPLES}
           inputArea={inputArea}
           onSuggestionClick={(text) => {
             analytics.captureAction("chat_suggestion_clicked", {
               suggestion_index: CHAT_EXAMPLES.indexOf(text),
             });
-            chat.sendMessage({
-              role: "user",
-              parts: [{ type: "text", text }],
-            });
+            submitTextMessage(text).catch(() => undefined);
             saveDraftInput("");
           }}
         />
@@ -355,8 +369,6 @@ function ChatMessagesView({
   setMessages,
   setInput,
   regenerate,
-  context,
-  setContext,
   inputArea,
 }: {
   status: UseChatHelpers<ChatMessage>["status"];
@@ -365,8 +377,6 @@ function ChatMessagesView({
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   setInput: (input: string) => void;
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
-  context: MessageContext | null;
-  setContext: (context: MessageContext | null) => void;
   inputArea: React.ReactNode;
 }) {
   return (
@@ -382,22 +392,6 @@ function ChatMessagesView({
         isArtifactVisible={false}
         footer={
           <>
-            {context ? (
-              <div className="mb-2 flex items-center gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-                  Fix: {context.message.headers.subject.slice(0, 60)}
-                  {context.message.headers.subject.length > 60 ? "..." : ""}
-                  <button
-                    type="button"
-                    aria-label="Remove context"
-                    className="ml-1 rounded p-0.5 hover:bg-muted-foreground/10"
-                    onClick={() => setContext(null)}
-                  >
-                    ×
-                  </button>
-                </span>
-              </div>
-            ) : null}
             <div className="relative z-10">{inputArea}</div>
             <div className="absolute w-full bottom-0 h-20 bg-background pointer-events-none" />
           </>
@@ -414,23 +408,27 @@ const CHAT_EXAMPLES = [
 ];
 
 function NewChatView({
-  firstName,
+  greeting,
+  suggestions,
   inputArea,
   onSuggestionClick,
 }: {
-  firstName: string | undefined;
+  greeting: string | null;
+  suggestions: string[];
   inputArea: React.ReactNode;
   onSuggestionClick: (text: string) => void;
 }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-[var(--chat-px)]">
       <div className="w-full max-w-[var(--chat-max-w)]">
-        <h1 className="mb-6 text-center text-2xl sm:text-3xl md:text-4xl font-extralight tracking-tight">
-          {getGreeting(firstName)}
-        </h1>
+        {greeting ? (
+          <h1 className="mb-6 text-center text-2xl sm:text-3xl md:text-4xl font-extralight tracking-tight">
+            {greeting}
+          </h1>
+        ) : null}
         {inputArea}
         <div className="mt-3 flex flex-wrap justify-center gap-2">
-          {CHAT_EXAMPLES.map((example) => (
+          {suggestions.map((example) => (
             <Button
               key={example}
               variant="outline"
@@ -599,6 +597,78 @@ function ChatHistoryDropdown() {
         }}
       />
     </>
+  );
+}
+
+function ChatSendError({
+  message,
+  onNewChat,
+}: {
+  message: string;
+  onNewChat?: () => void;
+}) {
+  return (
+    <div className="px-2 pt-2">
+      <div
+        role="alert"
+        data-testid="chat-send-error"
+        className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-2.5 py-1.5 text-sm text-destructive"
+      >
+        <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+        <span className="min-w-0 flex-1">{message}</span>
+        {onNewChat ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="h-auto shrink-0 px-1.5 py-0.5 text-destructive hover:text-destructive"
+            onClick={onNewChat}
+          >
+            New chat
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ChatContextChip({
+  context,
+  onRemove,
+}: {
+  context: MessageContext;
+  onRemove: () => void;
+}) {
+  const { subject, from } = context.message.headers;
+  const Icon = context.type === "fix-rule" ? WrenchIcon : MailIcon;
+
+  return (
+    <div className="px-2 pt-2">
+      <div
+        data-testid="chat-context-card"
+        className="flex max-w-full items-center gap-2.5 rounded-lg border bg-muted/40 py-1.5 pl-2.5 pr-1"
+      >
+        <Icon className="size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="truncate text-sm font-medium">
+            {subject || "(no subject)"}
+          </div>
+          <div className="truncate text-xs text-muted-foreground">
+            {extractNameFromEmail(from)}
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="iconXs"
+          aria-label="Remove email from chat"
+          className="shrink-0 text-muted-foreground"
+          onClick={onRemove}
+        >
+          <XIcon className="size-3.5" />
+        </Button>
+      </div>
+    </div>
   );
 }
 

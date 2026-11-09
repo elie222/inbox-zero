@@ -168,18 +168,12 @@ async function rewriteSrcsetAttribute(
   srcset: string,
   getSignedUrl: (assetUrl: string) => Promise<string>,
 ) {
-  const candidates = splitSrcsetCandidates(srcset);
+  const candidates = parseSrcsetCandidates(srcset);
 
   const rewrittenCandidates = await Promise.all(
-    candidates.map(async (candidate) => {
-      const separatorIndex = candidate.search(/\s/);
-      const rawUrl =
-        separatorIndex === -1 ? candidate : candidate.slice(0, separatorIndex);
-      const descriptor =
-        separatorIndex === -1 ? "" : candidate.slice(separatorIndex);
-      const signedUrl = await getSignedUrl(rawUrl);
-
-      return `${signedUrl}${descriptor}`;
+    candidates.map(async ({ url, descriptor }) => {
+      const signedUrl = await getSignedUrl(url);
+      return descriptor ? `${signedUrl} ${descriptor}` : signedUrl;
     }),
   );
 
@@ -215,27 +209,56 @@ async function replaceAsync(
   return segments.join("");
 }
 
-function splitSrcsetCandidates(srcset: string) {
-  const candidates: string[] = [];
-  let current = "";
-
-  for (let i = 0; i < srcset.length; i++) {
-    const char = srcset[i];
-
-    if (char === "," && isSrcsetDelimiter(current, srcset, i)) {
-      const trimmed = current.trim();
-      if (trimmed) candidates.push(trimmed);
-      current = "";
-      continue;
+/**
+ * Splits a srcset the way browsers do (HTML "parse a srcset attribute"): a
+ * candidate's URL is the run of non-whitespace that starts it, minus trailing
+ * commas, so commas inside a URL stay and a descriptor-less candidate still
+ * ends at its comma. Any other split would leave a URL the browser loads
+ * without the proxy.
+ */
+function parseSrcsetCandidates(srcset: string) {
+  const candidates: { url: string; descriptor: string }[] = [];
+  let index = 0;
+  while (index < srcset.length) {
+    while (
+      index < srcset.length &&
+      (srcset[index] === "," || isAsciiWhitespace(srcset[index]))
+    )
+      index += 1;
+    const urlStart = index;
+    while (index < srcset.length && !isAsciiWhitespace(srcset[index]))
+      index += 1;
+    const rawUrl = srcset.slice(urlStart, index);
+    const url = rawUrl.replace(/,+$/, "");
+    let descriptor = "";
+    if (url === rawUrl) {
+      const descriptorStart = index;
+      // The spec's parentheses state does not nest: the first ")" ends it.
+      let inParens = false;
+      while (index < srcset.length) {
+        const character = srcset[index];
+        if (character === "(") inParens = true;
+        else if (character === ")") inParens = false;
+        else if (character === "," && !inParens) break;
+        index += 1;
+      }
+      descriptor = srcset.slice(descriptorStart, index).trim();
+      index += 1;
     }
-
-    current += char;
+    if (url) candidates.push({ url, descriptor });
   }
-
-  const trimmed = current.trim();
-  if (trimmed) candidates.push(trimmed);
-
   return candidates;
+}
+
+// Srcset splits on ASCII whitespace only; any other space is part of the URL.
+function isAsciiWhitespace(character: string) {
+  return (
+    character === " " ||
+    character === "\t" ||
+    character === "\n" ||
+    character === "\f" ||
+    character === "\r"
+  );
 }
 
 function decodeHtmlValue(value: string) {
@@ -244,19 +267,6 @@ function decodeHtmlValue(value: string) {
 
 function escapeCssUrl(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-}
-
-function isSrcsetDelimiter(
-  currentCandidate: string,
-  value: string,
-  index: number,
-) {
-  if (!/\s/.test(currentCandidate.trim())) return false;
-
-  const rest = value.slice(index + 1);
-  const nextToken = rest.trimStart();
-
-  return /^(https?:\/\/|\/\/|\/|[A-Za-z0-9._%@-])/i.test(nextToken);
 }
 
 function preserveOuterWhitespace(value: string, replacement: string) {
