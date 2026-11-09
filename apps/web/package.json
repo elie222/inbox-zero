@@ -174,7 +174,6 @@
     "framer-motion": "14.9.0",
     "gaxios": "8.3.2",
     "gmail-api-parse-message": "2.1.2",
-    "google": "link:@next/third-parties/google",
     "he": "2.0.0",
     "html-to-text": "10.0.1",
     "ical.js": "2.2.1",
