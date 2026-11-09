@@ -494,6 +494,15 @@ export function checkCommonErrors(
     };
   }
 
+  if (isGmailServiceUnavailableError(error)) {
+    logger.warn("Gmail not enabled for account for url", { url });
+    return {
+      type: "Gmail Service Unavailable",
+      message: GMAIL_SERVICE_UNAVAILABLE_MESSAGE,
+      code: 403,
+    };
+  }
+
   if (isGmailRateLimitExceededError(error)) {
     logger.warn("Gmail rate limit exceeded for url", { url });
     return {

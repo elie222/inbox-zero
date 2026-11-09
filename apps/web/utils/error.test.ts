@@ -18,6 +18,7 @@ import {
   captureException,
   checkCommonErrors,
   EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+  GMAIL_SERVICE_UNAVAILABLE_MESSAGE,
   isGmailServiceUnavailableError,
   EmailProviderRateLimitError,
   getActionErrorMessage,
@@ -776,6 +777,20 @@ describe("checkCommonErrors", () => {
     ],
   ])("maps provider rate-limit mode errors for %s", (_caseName, error, expected) => {
     expect(checkCommonErrors(error, "/api/test", logger)).toEqual(expected);
+  });
+
+  it("maps a Google account without Gmail to a known 403 response", () => {
+    expect(
+      checkCommonErrors(
+        createGmailApiError("failedPrecondition", "Mail service not enabled"),
+        "/api/messages",
+        logger,
+      ),
+    ).toEqual({
+      type: "Gmail Service Unavailable",
+      message: GMAIL_SERVICE_UNAVAILABLE_MESSAGE,
+      code: 403,
+    });
   });
 
   it("maps Graph server errors to a safe 503 response", () => {
