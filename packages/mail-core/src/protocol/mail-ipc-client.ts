@@ -62,7 +62,26 @@ export function createMailIpcClient(
     submitConversations: (payload) => call("submitConversations", payload),
     saveDraft: (payload) => call("saveDraft", payload),
     readDraft: (payload) => call("readDraft", payload),
-    listDrafts: (accountId) => call("listDrafts", { accountId }),
+    async listDrafts(accountId) {
+      const response = (await invoke(
+        envelope("listDrafts", { accountId }),
+      )) as {
+        status?: string;
+        result?: unknown;
+        issues?: { path?: unknown[] }[];
+      };
+      // Desktop builds from before listDrafts reject the method itself as
+      // invalid. Their drafts still open with their threads, so the list just
+      // goes without marking them until the app updates.
+      const isUnknownMethod =
+        response?.status === "invalid" &&
+        !!response.issues?.some((issue) => issue.path?.[0] === "method");
+      if (isUnknownMethod) return [];
+      if (response?.status !== "ok") {
+        throw new Error("Mail engine listDrafts failed");
+      }
+      return response.result as never;
+    },
     submitSend: (payload) => call("submitSend", payload),
     cancelOperation: (payload) => call("cancelOperation", payload),
     requestSync: (accountIds) =>
