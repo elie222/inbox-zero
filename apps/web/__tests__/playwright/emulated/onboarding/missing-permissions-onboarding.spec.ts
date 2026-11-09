@@ -40,7 +40,8 @@ test("asks to reconnect at the next step when Gmail access is missing", async ({
     async (response) =>
       response.request().method() === "POST" &&
       !!response.request().headers()["next-action"] &&
-      (await response.text()).includes("hasAllPermissions"),
+      // Bodies of other actions can be gone after a navigation; skip those.
+      (await response.text().catch(() => "")).includes("hasAllPermissions"),
   );
   await Promise.all([firstStepCheck, openControlOnboarding(page)]);
 
