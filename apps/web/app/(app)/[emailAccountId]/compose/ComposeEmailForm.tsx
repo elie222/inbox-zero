@@ -176,21 +176,15 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
     selectedFromAccount?.email ||
     (selectedAccountOverride ? undefined : userEmail);
   // A failed lookup still lets the user compose, just without a signature.
-  // Waiting only while there is no error keeps a reconnect refetch from
-  // swapping the open form back to a spinner.
-  const {
-    data: composeSignature,
-    error: signatureError,
-    isLoading: isLoadingSignature,
-  } = useSWR<GetSignatureResponse>(
-    getAccountScopedKey("/api/user/signature", selectedEmailAccountId),
-  );
+  // Compose waits only while there is neither data nor an error: SWR keeps
+  // isLoading set for a request started before the reload snapshot filled the
+  // cache, and a reconnect refetch must not swap the open form to a spinner.
+  const { data: composeSignature, error: signatureError } =
+    useSWR<GetSignatureResponse>(
+      getAccountScopedKey("/api/user/signature", selectedEmailAccountId),
+    );
   // A failed lookup sends from the default address, as before.
-  const {
-    data: sendAs,
-    error: sendAsError,
-    isLoading: isLoadingSendAs,
-  } = useSWR<GetSendAsResponse>(
+  const { data: sendAs, error: sendAsError } = useSWR<GetSendAsResponse>(
     getAccountScopedKey("/api/user/send-as", selectedEmailAccountId),
   );
 
@@ -234,8 +228,8 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
         (!sendingAddress && isLoading) ||
         localDraft.isLoading ||
         draftAttachments.isLoading ||
-        (isLoadingSignature && !signatureError) ||
-        (isLoadingSendAs && !sendAsError)
+        (!composeSignature && !signatureError) ||
+        (!sendAs && !sendAsError)
       }
     >
       {sendingAddress && (
