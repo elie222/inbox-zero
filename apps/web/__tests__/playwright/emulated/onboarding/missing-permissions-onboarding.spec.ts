@@ -33,7 +33,16 @@ test("asks to reconnect at the next step when Gmail access is missing", async ({
     "Revokes Gmail scopes; the Outlook check reads the profile instead.",
   );
 
-  await openControlOnboarding(page);
+  // The step the user lands on runs its own permissions check. Revoking before
+  // that check returns would show the reconnect screen on this step instead of
+  // the next one, so wait for it first.
+  const firstStepCheck = page.waitForResponse(
+    async (response) =>
+      response.request().method() === "POST" &&
+      !!response.request().headers()["next-action"] &&
+      (await response.text()).includes("hasAllPermissions"),
+  );
+  await Promise.all([firstStepCheck, openControlOnboarding(page)]);
 
   restoreScope = await revokeGmailScopes();
 
