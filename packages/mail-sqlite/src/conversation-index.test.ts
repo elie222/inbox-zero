@@ -643,6 +643,39 @@ describe("transactional conversation index", () => {
     }
   });
 
+  it.each([
+    "delete",
+    "update",
+  ])("finds a message's memberships through its own index on %s", async (event) => {
+    const driver = createNodeSqliteDriver();
+    await createSqliteMailStore(driver);
+    try {
+      const plan = await driver.read(async (tx) => {
+        const [trigger] = await tx.query(
+          "SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = ?",
+          [`effective_memberships_after_${event}`],
+        );
+        const deleteOld = String(trigger?.sql)
+          .match(/DELETE FROM effective_message_memberships[\s\S]*?\);/)?.[0]
+          .replace(/OLD\.(\w+)/g, "'$1'");
+        return tx.query(`EXPLAIN QUERY PLAN ${deleteOld}`);
+      });
+      const steps = plan.map((row) => String(row.detail));
+      // Without statistics, a plain account-and-message filter scans every
+      // membership in the account through the primary key's prefix.
+      expect(steps).toContainEqual(
+        expect.stringContaining(
+          "INDEX message_memberships_by_message (account_id=? AND message_id=?)",
+        ),
+      );
+      expect(steps).not.toContainEqual(
+        expect.stringMatching(/PRIMARY KEY \(account_id=\?\)$/),
+      );
+    } finally {
+      await driver.close();
+    }
+  });
+
   it("backfills an existing mailbox once", async () => {
     const driver = createNodeSqliteDriver();
     const store = await createSqliteMailStore(driver);
