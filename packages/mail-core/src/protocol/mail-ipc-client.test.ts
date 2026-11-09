@@ -41,6 +41,15 @@ describe("createMailIpcClient", () => {
     );
   });
 
+  it("lists no drafts from a desktop build that predates listDrafts", async () => {
+    const client = createMailIpcClient(
+      vi.fn(async () => ({ status: "invalid", issues: [] })),
+      { push: createPushHost().transport },
+    );
+
+    await expect(client.listDrafts("acc-1")).resolves.toEqual([]);
+  });
+
   it("includes the mailbox provider on requestSync", async () => {
     const invoke = vi.fn(async () => ({
       status: "ok",

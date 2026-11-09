@@ -62,7 +62,19 @@ export function createMailIpcClient(
     submitConversations: (payload) => call("submitConversations", payload),
     saveDraft: (payload) => call("saveDraft", payload),
     readDraft: (payload) => call("readDraft", payload),
-    listDrafts: (accountId) => call("listDrafts", { accountId }),
+    async listDrafts(accountId) {
+      const response = (await invoke(
+        envelope("listDrafts", { accountId }),
+      )) as { status?: string; result?: unknown };
+      // Desktop builds from before listDrafts reject it as an invalid request.
+      // Their drafts still open with their threads, so the list just goes
+      // without marking them until the app updates.
+      if (response?.status === "invalid") return [];
+      if (response?.status !== "ok") {
+        throw new Error("Mail engine listDrafts failed");
+      }
+      return response.result as never;
+    },
     submitSend: (payload) => call("submitSend", payload),
     cancelOperation: (payload) => call("cancelOperation", payload),
     requestSync: (accountIds) =>
