@@ -20,6 +20,7 @@ const llmProviderEnum = z.enum([
   "openai-compatible",
   "codex-cli",
   "claude-code",
+  "chatgpt",
 ]);
 
 /** For Vercel preview deployments, auto-detect from VERCEL_URL. */
@@ -192,6 +193,13 @@ const parsedEnv = createEnv({
     CLI_LLM_ENABLED: booleanString.optional().default(false),
     CODEX_CLI_ALLOW_NPX: booleanString.optional().default(false),
     CODEX_CLI_PATH: z.string().optional(),
+    // Self-host only: OpenAI requires partner approval for paid or remotely hosted apps.
+    CHATGPT_PLAN_ENABLED: booleanString.optional().default(false),
+    // Written by `inbox-zero setup` / `inbox-zero chatgpt login`; imported into
+    // the database on first use, after which the app owns token refresh.
+    CHATGPT_CLIENT_ID: z.string().optional(),
+    CHATGPT_HOST_ID: z.string().optional(),
+    CHATGPT_REFRESH_TOKEN: z.string().optional(),
 
     OPENAI_ZERO_DATA_RETENTION: booleanString.optional().default(false),
     VOICE_PROVIDER: z.enum(["openai", "groq"]).optional(),

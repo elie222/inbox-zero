@@ -186,6 +186,11 @@ export function generateEnvFile(config: {
     setValue("OPENAI_COMPATIBLE_MODEL", env.OPENAI_COMPATIBLE_MODEL);
   } else if (llmProvider === "cerebras") {
     setValue("CEREBRAS_API_KEY", env.CEREBRAS_API_KEY || env.LLM_API_KEY);
+  } else if (llmProvider === "chatgpt") {
+    setValue("CHATGPT_PLAN_ENABLED", env.CHATGPT_PLAN_ENABLED);
+    setValue("CHATGPT_CLIENT_ID", env.CHATGPT_CLIENT_ID);
+    setValue("CHATGPT_HOST_ID", env.CHATGPT_HOST_ID);
+    setValue("CHATGPT_REFRESH_TOKEN", env.CHATGPT_REFRESH_TOKEN);
   }
 
   return content;
@@ -210,6 +215,7 @@ const SENSITIVE_KEYS = new Set([
   "CEREBRAS_API_KEY",
   "BEDROCK_ACCESS_KEY",
   "BEDROCK_SECRET_KEY",
+  "CHATGPT_REFRESH_TOKEN",
   "AUTH_SECRET",
   "EMAIL_ENCRYPT_SECRET",
   "EMAIL_ENCRYPT_SALT",

@@ -21,7 +21,11 @@ import {
   getEnvFileName,
   type EnvConfig,
 } from "./utils";
-import { LLM_PROVIDER_OPTIONS, promptLlmCredentials } from "./llm";
+import {
+  LLM_PROVIDER_OPTIONS,
+  promptChatGptSignIn,
+  promptLlmCredentials,
+} from "./llm";
 import { runGoogleSetup } from "./setup-google";
 import { runAwsSetup } from "./setup-aws";
 import { runTerraformSetup } from "./setup-terraform";
@@ -203,6 +207,14 @@ async function main() {
     const name = configCmd.opts().name;
     return runConfigInteractive(name);
   });
+
+  program
+    .command("chatgpt")
+    .description("Manage the ChatGPT plan connection")
+    .command("login")
+    .description("Sign in with ChatGPT so Inbox Zero uses your ChatGPT plan")
+    .option("-n, --name <name>", "Configuration name (e.g., staging)")
+    .action((options: { name?: string }) => runChatGptLogin(options.name));
 
   program
     .command("setup-google")
@@ -1640,6 +1652,7 @@ const CONFIG_CATEGORIES: Record<
       "BEDROCK_ACCESS_KEY",
       "BEDROCK_SECRET_KEY",
       "BEDROCK_REGION",
+      "CHATGPT_PLAN_ENABLED",
     ],
   },
   "Database & Redis": {
@@ -1677,6 +1690,34 @@ function requireEnvFile(name?: string): { envFile: string; content: string } {
     process.exit(1);
   }
   return { envFile, content: readFileSync(envFile, "utf-8") };
+}
+
+async function runChatGptLogin(name?: string) {
+  p.intro("Sign in with ChatGPT");
+  const { envFile, content } = requireEnvFile(name);
+  const existing = parseEnvFile(content);
+
+  // Reusing the registration keeps ChatGPT's usage settings for this app.
+  const registration = await promptChatGptSignIn({
+    hostId: existing.CHATGPT_HOST_ID,
+    clientId: existing.CHATGPT_CLIENT_ID,
+  });
+  if (!registration.CHATGPT_REFRESH_TOKEN) {
+    p.outro("ChatGPT was not connected.");
+    return;
+  }
+
+  let updated = updateEnvValue(content, "CHATGPT_PLAN_ENABLED", "true");
+  for (const [key, value] of Object.entries(registration)) {
+    if (value) updated = updateEnvValue(updated, key, value);
+  }
+  if (!existing.DEFAULT_LLMS?.startsWith("chatgpt:")) {
+    p.log.info(
+      "To run Inbox Zero's AI on ChatGPT, also set: inbox-zero config set DEFAULT_LLMS chatgpt:gpt-6.1-sol",
+    );
+  }
+  saveEnvFile(envFile, updated);
+  p.outro("Saved. Restart Inbox Zero to use it: inbox-zero start");
 }
 
 async function runConfigInteractive(name?: string) {

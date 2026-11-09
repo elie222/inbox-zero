@@ -93,6 +93,29 @@ LLM_API_KEY=
     expect(result).toContain("GOOGLE_CLIENT_ID=google-id");
   });
 
+  it("should write the ChatGPT plan registration from setup sign-in", () => {
+    const result = generateEnvFile({
+      env: {
+        ...baseEnv,
+        DEFAULT_LLMS: "chatgpt:gpt-6.1-sol",
+        LLM_API_KEY: undefined,
+        CHATGPT_PLAN_ENABLED: "true",
+        CHATGPT_CLIENT_ID: "oaiapp_123",
+        CHATGPT_HOST_ID: "urn:uuid:host",
+        CHATGPT_REFRESH_TOKEN: "refresh-token",
+      },
+      useDockerInfra: true,
+      llmProvider: "chatgpt",
+      template: baseTemplate,
+    });
+
+    expect(result).toContain("DEFAULT_LLMS=chatgpt:gpt-6.1-sol");
+    expect(result).toContain("CHATGPT_PLAN_ENABLED=true");
+    expect(result).toContain("CHATGPT_CLIENT_ID=oaiapp_123");
+    expect(result).toContain("CHATGPT_HOST_ID=urn:uuid:host");
+    expect(result).toContain("CHATGPT_REFRESH_TOKEN=refresh-token");
+  });
+
   it("should preserve replacement tokens and escape quoted values", () => {
     const result = generateEnvFile({
       env: {
