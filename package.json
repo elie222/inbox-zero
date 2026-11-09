@@ -33,7 +33,7 @@
     "@biomejs/biome": "2.5.2",
     "@clack/prompts": "1.8.1",
     "@turbo/gen": "2.11.10",
-    "commander": "15.0.0",
+    "commander": "15.1.0",
     "husky": "9.1.7",
     "konsistent": "1.0.0-beta.13",
     "lint-staged": "17.6.0",

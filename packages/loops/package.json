@@ -6,7 +6,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "loops": "7.3.0"
+    "loops": "7.4.0"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

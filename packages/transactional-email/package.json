@@ -15,7 +15,7 @@
     "nanoid": "6.0.2",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "react-email": "6.11.6",
+    "react-email": "6.11.8",
     "resend": "6.37.0"
   },
   "devDependencies": {
