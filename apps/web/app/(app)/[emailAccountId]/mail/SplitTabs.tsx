@@ -75,6 +75,9 @@ export function SplitTabs({
   // Follow the active tab as tabs settle (counts load, layouts switch) until
   // the reader scrolls the strip themselves; picking a tab follows it again.
   const followActiveRef = useRef(true);
+  // When the reader last wheeled or touched the strip; cleared before our own
+  // reveals so their scrolling is never mistaken for the reader's.
+  const gestureAtRef = useRef(0);
   const { drag, suppressClickRef, trackPress } = useDragReorder<DragState>();
   // Scopes the sliding underline so two mounted tab bars never trade it.
   const underlineGroupId = useId();
@@ -163,14 +166,13 @@ export function SplitTabs({
     if (!tabs) return;
     // Only a scroll that follows the reader's own wheel or touch stops
     // following the active tab; our own reveals scroll the strip too.
-    let gestureAt = 0;
     let lastLeft = tabs.scrollLeft;
     const markGesture = () => {
-      gestureAt = performance.now();
+      gestureAtRef.current = performance.now();
     };
     const update = () => {
       if (
-        performance.now() - gestureAt < 500 &&
+        performance.now() - gestureAtRef.current < 500 &&
         Math.abs(tabs.scrollLeft - lastLeft) >= 1
       )
         followActiveRef.current = false;
@@ -208,7 +210,10 @@ export function SplitTabs({
     tabs.addEventListener("wheel", onWheel, { passive: false });
     tabs.addEventListener("touchmove", markGesture, { passive: true });
     const observer = new ResizeObserver(() => {
-      if (followActiveRef.current) revealActiveTab(tabs, "instant");
+      if (followActiveRef.current) {
+        gestureAtRef.current = 0;
+        revealActiveTab(tabs, "instant");
+      }
       update();
     });
     observer.observe(tabs);
@@ -225,6 +230,7 @@ export function SplitTabs({
     const tabs = tabsRef.current;
     if (!activeSplitId || !tabs || !splitOrder) return;
     followActiveRef.current = true;
+    gestureAtRef.current = 0;
     revealActiveTab(tabs, reduceMotion ? "instant" : "smooth");
   }, [activeSplitId, splitOrder, reduceMotion]);
 
