@@ -715,9 +715,6 @@ importers:
       gmail-api-parse-message:
         specifier: 2.1.2
         version: 2.1.2
-      google:
-        specifier: link:@next/third-parties/google
-        version: link:@next/third-parties/google
       he:
         specifier: 2.0.0
         version: 2.0.0
