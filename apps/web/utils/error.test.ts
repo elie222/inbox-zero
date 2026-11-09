@@ -147,6 +147,14 @@ describe("captureException", () => {
     vi.clearAllMocks();
   });
 
+  it("does not report a Google account without Gmail to Sentry", () => {
+    captureException(
+      createGmailApiError("failedPrecondition", "Mail service not enabled"),
+    );
+
+    expect(mockSentryCaptureException).not.toHaveBeenCalled();
+  });
+
   it("forwards diagnostic tags separately from extra context", () => {
     const error = new Error("startup failed");
     const tags = {
