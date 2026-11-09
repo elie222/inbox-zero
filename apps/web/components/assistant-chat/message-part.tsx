@@ -41,6 +41,7 @@ import {
 import type { DeleteRuleOutput } from "@/utils/ai/assistant/tools/rules/delete-rule-tool";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { getUserVisibleToolFailureMessage } from "@/utils/ai/assistant/chat-response-guard";
+import { isToolErrorHiddenFromUser } from "@/utils/ai/assistant/tool-error-visibility";
 import { pluralize } from "@/utils/string";
 import { parseMailScreenAction } from "@/utils/ai/assistant/mail-screen-action";
 
@@ -202,6 +203,16 @@ export function MessagePart({
   }
 
   // Tool handling
+  // Hidden errors are mistakes the model is expected to correct on its own.
+  if (
+    part.type.startsWith("tool-") &&
+    "state" in part &&
+    part.state === "output-available" &&
+    isToolErrorHiddenFromUser(part.output)
+  ) {
+    return null;
+  }
+
   if (part.type === "tool-getAccountOverview") {
     return renderToolStatus({
       part,

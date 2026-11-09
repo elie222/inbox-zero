@@ -4,6 +4,7 @@ import {
   GroupItemType,
   SystemType,
 } from "@/generated/prisma/enums";
+import { Prisma } from "@/generated/prisma/client";
 import { createTestLogger } from "@/__tests__/helpers";
 import { createRuleTool } from "./tools/rules/create-rule-tool";
 import { updateRuleTool } from "./tools/rules/update-rule-tool";
@@ -211,6 +212,36 @@ describe("createRuleTool overlap guard", () => {
       }),
     );
     expect(mockCreateRule).toHaveBeenCalledOnce();
+  });
+
+  it("explains a duplicate rule name instead of a generic failure", async () => {
+    mockCreateRule.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: { target: ["name", "emailAccountId"] },
+      }),
+    );
+
+    const result = await createRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider: "google",
+      logger,
+    }).execute({
+      name: "Receipts",
+      condition: {
+        aiInstructions: "Receipts and order confirmations",
+        static: null,
+        conditionalOperator: null,
+      },
+      actions: defaultActions,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: expect.stringContaining('A rule named "Receipts" already exists'),
+    });
   });
 });
 

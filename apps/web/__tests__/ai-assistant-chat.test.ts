@@ -175,7 +175,10 @@ async function captureToolSet(
     logger,
   });
 
-  return mockToolCallAgentStream.mock.calls[0][0].tools;
+  return withToolExecutionOptions(
+    mockToolCallAgentStream.mock.calls[0][0].tools,
+    messages,
+  );
 }
 
 async function captureCalendarChat(
@@ -650,27 +653,29 @@ describe("aiProcessAssistantChat", () => {
       logger,
     });
 
-    const args = mockToolCallAgentStream.mock.calls[0][0];
+    const tools = withToolExecutionOptions(
+      mockToolCallAgentStream.mock.calls[0][0].tools,
+      baseMessages,
+    );
 
     expect(
-      args.tools.createRule.inputSchema.safeParse(getWebhookRuleInput())
-        .success,
-    ).toBe(false);
+      await getToolInputError(tools, "createRule", getWebhookRuleInput()),
+    ).not.toBeNull();
     expect(
-      args.tools.updateRule.inputSchema.safeParse({
+      await getToolInputError(tools, "updateRule", {
         ruleName: "Webhook",
         updates: {
           actions: getWebhookRuleActionsInput().actions,
         },
-      }).success,
-    ).toBe(false);
+      }),
+    ).not.toBeNull();
   });
 
   it("accepts sparse rule action fields for createRule and updateRule", async () => {
     const tools = await captureToolSet(true);
 
     expect(
-      tools.createRule.inputSchema.safeParse({
+      await getToolInputError(tools, "createRule", {
         name: "Finance",
         condition: {
           conditionalOperator: null,
@@ -693,11 +698,11 @@ describe("aiProcessAssistantChat", () => {
             delayInMinutes: null,
           },
         ],
-      }).success,
-    ).toBe(true);
+      }),
+    ).toBeNull();
 
     expect(
-      tools.updateRule.inputSchema.safeParse({
+      await getToolInputError(tools, "updateRule", {
         ruleName: "Finance",
         updates: {
           actions: [
@@ -715,15 +720,15 @@ describe("aiProcessAssistantChat", () => {
             },
           ],
         },
-      }).success,
-    ).toBe(true);
+      }),
+    ).toBeNull();
   });
 
   it("rejects updateRule payloads that omit required action fields", async () => {
     const tools = await captureToolSet(true);
 
     expect(
-      tools.updateRule.inputSchema.safeParse({
+      await getToolInputError(tools, "updateRule", {
         ruleName: "Finance",
         updates: {
           actions: [
@@ -734,11 +739,11 @@ describe("aiProcessAssistantChat", () => {
             },
           ],
         },
-      }).success,
-    ).toBe(false);
+      }),
+    ).not.toBeNull();
 
     expect(
-      tools.updateRule.inputSchema.safeParse({
+      await getToolInputError(tools, "updateRule", {
         ruleName: "Webhook",
         updates: {
           actions: [
@@ -749,8 +754,8 @@ describe("aiProcessAssistantChat", () => {
             },
           ],
         },
-      }).success,
-    ).toBe(false);
+      }),
+    ).not.toBeNull();
   });
 
   it("gates MOVE_FOLDER rule actions by provider", async () => {
@@ -759,7 +764,7 @@ describe("aiProcessAssistantChat", () => {
     const microsoftTools = await captureToolSet(true, "microsoft");
 
     expect(
-      googleTools.updateRule.inputSchema.safeParse({
+      await getToolInputError(googleTools, "updateRule", {
         ruleName: "Finance",
         updates: {
           actions: [
@@ -772,11 +777,11 @@ describe("aiProcessAssistantChat", () => {
             },
           ],
         },
-      }).success,
-    ).toBe(false);
+      }),
+    ).not.toBeNull();
 
     expect(
-      microsoftTools.updateRule.inputSchema.safeParse({
+      await getToolInputError(microsoftTools, "updateRule", {
         ruleName: "Finance",
         updates: {
           actions: [
@@ -789,8 +794,8 @@ describe("aiProcessAssistantChat", () => {
             },
           ],
         },
-      }).success,
-    ).toBe(true);
+      }),
+    ).toBeNull();
   });
 
   it("adds OpenAI prompt cache key when chatId is provided", async () => {
@@ -1474,7 +1479,10 @@ describe("aiProcessAssistantChat", () => {
     expect(freshRuleContext?.content).toContain('"name": "To Reply"');
     expect(onRulesStateExposed).toHaveBeenCalledWith(2);
 
-    const result = await args.tools.updateRule.execute({
+    const result = await withToolExecutionOptions(
+      args.tools,
+      args.messages,
+    ).updateRule.execute({
       ruleName: "To Reply",
       updates: {
         condition: {
@@ -1572,7 +1580,10 @@ describe("aiProcessAssistantChat", () => {
 
     // The chat already saw this revision, so a rule write must succeed without
     // requiring another getUserRulesAndSettings round trip first.
-    const result = await args.tools.updateRule.execute({
+    const result = await withToolExecutionOptions(
+      args.tools,
+      args.messages,
+    ).updateRule.execute({
       ruleName: "To Reply",
       updates: {
         condition: {
@@ -2109,7 +2120,7 @@ describe("aiProcessAssistantChat", () => {
       messageHtml: "<p>Hello</p>",
     } as any);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       error: `Invalid sendEmail input: unsupported field "${field}"`,
     });
     expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
@@ -2128,7 +2139,7 @@ describe("aiProcessAssistantChat", () => {
       messageHtml: "<p>Hello</p>",
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       error: "Invalid sendEmail input: to must include valid email address(es)",
     });
     expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
@@ -2232,7 +2243,7 @@ describe("aiProcessAssistantChat", () => {
       from: "sender.alias@example.test",
     } as any);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       error: 'Invalid forwardEmail input: unsupported field "from"',
     });
     expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
@@ -2318,23 +2329,23 @@ describe("aiProcessAssistantChat", () => {
   it("saveMemory schema allows assistant_inference without userEvidence", async () => {
     const tools = await captureToolSet();
 
-    const parsed = (tools.saveMemory as any).inputSchema.safeParse({
-      content: "User may prefer concise responses.",
-      source: "assistant_inference",
-    });
-
-    expect(parsed.success).toBe(true);
+    expect(
+      await getToolInputError(tools, "saveMemory", {
+        content: "User may prefer concise responses.",
+        source: "assistant_inference",
+      }),
+    ).toBeNull();
   });
 
   it("saveMemory schema requires userEvidence for user_message", async () => {
     const tools = await captureToolSet();
 
-    const parsed = (tools.saveMemory as any).inputSchema.safeParse({
-      content: "I prefer concise responses.",
-      source: "user_message",
-    });
-
-    expect(parsed.success).toBe(false);
+    expect(
+      await getToolInputError(tools, "saveMemory", {
+        content: "I prefer concise responses.",
+        source: "user_message",
+      }),
+    ).not.toBeNull();
   });
 
   it("searchMemories supports empty query for broad recall", async () => {
@@ -2585,6 +2596,20 @@ describe("aiProcessAssistantChat", () => {
         archivedMessagesCount: 7,
       }),
     );
+  });
+
+  it("explains how to fix an empty sender list for sender actions", async () => {
+    const tools = await captureToolSet();
+    mockCreateEmailProvider.mockClear();
+
+    const result = await tools.manageInbox.execute({
+      action: "bulk_archive_senders",
+      fromEmails: [],
+    });
+
+    expect(result.error).toContain("No sender-level action was taken.");
+    expect(result.error).toContain("archive_threads");
+    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
   });
 
   it("blocks sender actions without sender emails before provider calls", async () => {
@@ -2845,6 +2870,42 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 });
+
+// Mirrors what the AI SDK passes to execute, so chat tool guards see the
+// conversation the call was made in.
+function withToolExecutionOptions(
+  tools: Record<string, any>,
+  messages: ModelMessage[],
+) {
+  return Object.fromEntries(
+    Object.entries(tools).map(([toolName, toolDefinition]) => [
+      toolName,
+      {
+        ...toolDefinition,
+        execute: (input: unknown, options?: Record<string, unknown>) =>
+          toolDefinition.execute(input, {
+            toolCallId: "test-tool-call",
+            messages,
+            context: undefined,
+            ...options,
+          }),
+      },
+    ]),
+  ) as Record<string, any>;
+}
+
+async function getToolInputError(
+  tools: Record<string, any>,
+  toolName: string,
+  input: unknown,
+) {
+  const result = await tools[toolName].execute(input);
+  const error = result?.error;
+  return typeof error === "string" &&
+    error.startsWith(`Invalid ${toolName} input`)
+    ? error
+    : null;
+}
 
 function getWebhookRuleInput() {
   return {

@@ -120,16 +120,13 @@ describe("chat inbox tools", () => {
       logger,
     });
 
-    const result = await (toolInstance.execute as any)({
+    const result = await asSchema(toolInstance.inputSchema).validate!({
       to: "Jack Cohen",
       subject: "Hello",
       messageHtml: "<p>Hi there</p>",
     });
 
-    expect(result).toEqual({
-      error: "Invalid sendEmail input: to must include valid email address(es)",
-    });
-    expect(createEmailProvider).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
   });
 
   it("prepares threaded reply flow without sending immediately", async () => {
@@ -264,17 +261,13 @@ describe("chat inbox tools", () => {
       logger,
     });
 
-    const result = await (toolInstance.execute as any)({
+    const result = await asSchema(toolInstance.inputSchema).validate!({
       messageId: "message-1",
       to: "Jack Cohen",
       content: "Forwarding this along.",
     });
 
-    expect(result).toEqual({
-      error:
-        "Invalid forwardEmail input: to must include valid email address(es)",
-    });
-    expect(createEmailProvider).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
   });
 
   it("resolves a label name before archiving threads", async () => {
