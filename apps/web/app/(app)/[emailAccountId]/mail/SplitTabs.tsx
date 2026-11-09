@@ -161,7 +161,20 @@ export function SplitTabs({
   useEffect(() => {
     const tabs = tabsRef.current;
     if (!tabs) return;
+    // Only a scroll that follows the reader's own wheel or touch stops
+    // following the active tab; our own reveals scroll the strip too.
+    let gestureAt = 0;
+    let lastLeft = tabs.scrollLeft;
+    const markGesture = () => {
+      gestureAt = performance.now();
+    };
     const update = () => {
+      if (
+        performance.now() - gestureAt < 500 &&
+        Math.abs(tabs.scrollLeft - lastLeft) >= 1
+      )
+        followActiveRef.current = false;
+      lastLeft = tabs.scrollLeft;
       const start = tabs.scrollLeft > 1;
       const end = tabs.scrollLeft < tabs.scrollWidth - tabs.clientWidth - 1;
       setHidden((current) =>
@@ -177,7 +190,7 @@ export function SplitTabs({
     const onWheel = (event: WheelEvent) => {
       // Ctrl-wheel is zoom, including trackpad pinch.
       if (event.ctrlKey || event.metaKey) return;
-      followActiveRef.current = false;
+      markGesture();
       if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
       const max = tabs.scrollWidth - tabs.clientWidth;
       // Firefox reports wheel notches in lines (or pages), not pixels.
@@ -193,10 +206,7 @@ export function SplitTabs({
       tabs.scrollLeft = next;
     };
     tabs.addEventListener("wheel", onWheel, { passive: false });
-    const stopFollowing = () => {
-      followActiveRef.current = false;
-    };
-    tabs.addEventListener("touchstart", stopFollowing, { passive: true });
+    tabs.addEventListener("touchmove", markGesture, { passive: true });
     const observer = new ResizeObserver(() => {
       if (followActiveRef.current) revealActiveTab(tabs, "instant");
       update();
@@ -206,7 +216,7 @@ export function SplitTabs({
     return () => {
       tabs.removeEventListener("scroll", update);
       tabs.removeEventListener("wheel", onWheel);
-      tabs.removeEventListener("touchstart", stopFollowing);
+      tabs.removeEventListener("touchmove", markGesture);
       observer.disconnect();
     };
   }, []);
