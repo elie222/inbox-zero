@@ -2350,9 +2350,9 @@ describe("chat inbox tools - sender categories", () => {
     expect(result.totalQueuedSenders).toBe(8);
   });
 
-  it("startSenderCategorization reports an AI access error before queuing work", async () => {
+  it("startSenderCategorization offers an upgrade instead of failing when the plan lacks AI access", async () => {
     mockValidateUserAndAiAccess.mockRejectedValue(
-      new SafeError("Please upgrade for AI access"),
+      new SafeError("Please upgrade for AI access", 403),
     );
 
     const toolInstance = startSenderCategorizationTool({
@@ -2364,8 +2364,30 @@ describe("chat inbox tools - sender categories", () => {
 
     const result = await (toolInstance.execute as any)({});
 
-    expect(result).toEqual({ error: "Please upgrade for AI access" });
+    expect(result).toEqual({
+      upgradeRequired: true,
+      message: expect.any(String),
+    });
+    expect(result).not.toHaveProperty("error");
     expect(createEmailProvider).not.toHaveBeenCalled();
+    expect(mockStartBulkCategorization).not.toHaveBeenCalled();
+  });
+
+  it("startSenderCategorization reports other access failures as errors", async () => {
+    mockValidateUserAndAiAccess.mockRejectedValue(
+      new SafeError("User not found"),
+    );
+
+    const result = await (
+      startSenderCategorizationTool({
+        email: TEST_EMAIL,
+        emailAccountId: "email-account-1",
+        provider: "google",
+        logger,
+      }).execute as any
+    )({});
+
+    expect(result).toEqual({ error: "User not found" });
     expect(mockStartBulkCategorization).not.toHaveBeenCalled();
   });
 
