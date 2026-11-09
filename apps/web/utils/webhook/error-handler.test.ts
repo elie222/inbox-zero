@@ -187,8 +187,7 @@ describe("handleWebhookError", () => {
   });
 
   describe("Disconnected accounts", () => {
-    it("logs a missing refresh token as a warning, not an error", async () => {
-      const warn = vi.spyOn(logger, "warn");
+    it("does not log a missing refresh token as an error", async () => {
       const error = vi.spyOn(logger, "error");
 
       await handleWebhookError(new SafeError("No refresh token"), {
@@ -196,7 +195,6 @@ describe("handleWebhookError", () => {
         url: "/api/outlook/webhook",
       });
 
-      expect(warn).toHaveBeenCalled();
       expect(error).not.toHaveBeenCalled();
       expect(trackError).not.toHaveBeenCalled();
     });

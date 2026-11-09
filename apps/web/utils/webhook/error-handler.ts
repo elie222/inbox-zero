@@ -32,11 +32,8 @@ export async function handleWebhookError(
   }
 
   // The account was disconnected, but the provider keeps notifying until its
-  // subscription lapses.
+  // subscription lapses. The provider client already logged a warning.
   if (error instanceof SafeError && error.message === "No refresh token") {
-    logger.warn("No refresh token while processing webhook", {
-      emailAccountId,
-    });
     return;
   }
 

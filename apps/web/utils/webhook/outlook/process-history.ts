@@ -219,7 +219,7 @@ export async function processHistoryForUser({
       return NextResponse.json({ ok: true });
     }
 
-    // The user was already told to fix their own AI key or billing.
+    // The user was already told to fix their own AI key, model or billing.
     if (isHandledUserKeyError(error)) {
       logger.warn("Error processing webhook with user AI key", { error });
       return NextResponse.json({ ok: true });

@@ -453,6 +453,7 @@ export function isKnownApiError(error: unknown): boolean {
     isGmailInsufficientPermissionsError(error) ||
     isGmailRateLimitExceededError(error) ||
     isGmailQuotaExceededError(error) ||
+    isGmailServiceUnavailableError(error) ||
     isKnownOutlookError(error) ||
     isContentFilterRefusal(error) ||
     (APICallError.isInstance(error) &&
