@@ -26,8 +26,7 @@ const pricing: Record<PremiumTier, number> = {
   PLUS_MONTHLY: 35,
   PLUS_ANNUALLY: 28,
   PROFESSIONAL_MONTHLY: 50,
-  // Stripe bills $500/yr; the UI rounds this to $42/mo.
-  PROFESSIONAL_ANNUALLY: 500 / 12,
+  PROFESSIONAL_ANNUALLY: 40,
   COPILOT_MONTHLY: 500,
   LIFETIME: 299,
 };
