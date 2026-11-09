@@ -9,7 +9,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { redis } from "@/utils/redis";
 import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
-import { captureException } from "@/utils/error";
+import { captureException, markAsHandledUserKeyError } from "@/utils/error";
 import { getMockParsedMessage } from "@/__tests__/mocks/email-provider.mock";
 import { learnFromOutlookLabelRemoval } from "@/utils/webhook/outlook/learn-label-removal";
 import prisma from "@/utils/prisma";
@@ -458,6 +458,22 @@ describe("Outlook processHistoryForUser - Folder Filtering", () => {
 
       const jsonResponse = await result.json();
       expect(jsonResponse).toEqual({ ok: true });
+      expect(captureException).not.toHaveBeenCalled();
+    });
+
+    it("handles errors already reported to the user about their AI key without Sentry", async () => {
+      const error = new Error("Your prepayment credits are depleted.");
+      markAsHandledUserKeyError(error);
+      const mockProvider = { getMessage: vi.fn().mockRejectedValue(error) };
+      vi.mocked(createEmailProvider).mockResolvedValue(mockProvider as any);
+
+      const result = await processHistoryForUser({
+        subscriptionId: "sub-123",
+        resourceData: mockResourceData as any,
+        logger,
+      });
+
+      expect(await result.json()).toEqual({ ok: true });
       expect(captureException).not.toHaveBeenCalled();
     });
 
