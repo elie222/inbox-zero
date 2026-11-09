@@ -49,8 +49,14 @@ describe("swr-persistence", () => {
         [unstable_serialize(["/api/user/signature", ACCOUNT_A])]: {
           signatureHtml: "A",
         },
+        [unstable_serialize(["/api/user/send-as", ACCOUNT_A])]: {
+          addresses: [{ email: "a@example.com" }],
+        },
         // Fetched for whichever account the route belongs to, so never kept.
-        "/api/user/send-as": { addresses: [{ email: "b@example.com" }] },
+        "/api/user/signature": { signatureHtml: "route account" },
+        [unstable_serialize(["/api/user/send-as", ACCOUNT_B])]: {
+          addresses: [{ email: "b@example.com" }],
+        },
       }),
     );
 
@@ -58,7 +64,9 @@ describe("swr-persistence", () => {
     expect(restored.get("/api/user/signature")?.data).toEqual({
       signatureHtml: "A",
     });
-    expect(restored.has("/api/user/send-as")).toBe(false);
+    expect(restored.get("/api/user/send-as")?.data).toEqual({
+      addresses: [{ email: "a@example.com" }],
+    });
   });
 
   it("does not leak entries across accounts", () => {
