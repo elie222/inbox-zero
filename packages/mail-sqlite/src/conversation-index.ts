@@ -123,8 +123,17 @@ function clearArchiveInboxRole(table: string) {
     );`;
 }
 
+// Without planner statistics, SQLite reads a plain "account and message"
+// filter through the primary key's account prefix, scanning every membership
+// in the account: seconds per message on a large mailbox, so a sync page held
+// the engine for tens of seconds. Triggers can't force an index on a DELETE,
+// but their SELECTs can, so the message's keys come from its own index.
 const DELETE_OLD_MEMBERSHIPS = `DELETE FROM effective_message_memberships
-  WHERE account_id = OLD.account_id AND message_id = OLD.message_id;`;
+  WHERE (account_id, kind, membership_id, conversation_id, message_id) IN (
+    SELECT account_id, kind, membership_id, conversation_id, message_id
+    FROM effective_message_memberships INDEXED BY message_memberships_by_message
+    WHERE account_id = OLD.account_id AND message_id = OLD.message_id
+  );`;
 
 // Label, category, and folder views otherwise scan every message and parse
 // its label JSON, which made sidebar counts cost seconds per refresh. Rows are
@@ -170,6 +179,31 @@ export async function migrateMembershipIndex(tx: SqlTransaction) {
     ${previous.length ? COPY_PREVIOUS_MEMBERSHIPS : insertMemberships("m")}
     CREATE INDEX message_memberships_by_message
       ON effective_message_memberships(account_id, message_id);
+  `);
+  await createMembershipTriggers(tx);
+  await tx.execute(
+    "INSERT INTO schema_migrations(id, name) VALUES (11, '0011-membership-index-by-conversation')",
+  );
+}
+
+export async function migrateMembershipTriggerLookup(tx: SqlTransaction) {
+  const applied = await tx.query(
+    "SELECT 1 FROM schema_migrations WHERE id = 12",
+  );
+  if (applied.length) return;
+  await createMembershipTriggers(tx);
+  await tx.execute(
+    "INSERT INTO schema_migrations(id, name) VALUES (12, '0012-membership-trigger-lookup')",
+  );
+}
+
+async function createMembershipTriggers(tx: SqlTransaction) {
+  for (const event of ["insert", "delete", "update"]) {
+    await tx.exec(
+      `DROP TRIGGER IF EXISTS effective_memberships_after_${event}`,
+    );
+  }
+  await tx.exec(`
     CREATE TRIGGER effective_memberships_after_insert
     AFTER INSERT ON effective_messages
     BEGIN
@@ -190,9 +224,6 @@ export async function migrateMembershipIndex(tx: SqlTransaction) {
       ${insertMemberships("NEW")}
     END;
   `);
-  await tx.execute(
-    "INSERT INTO schema_migrations(id, name) VALUES (11, '0011-membership-index-by-conversation')",
-  );
 }
 
 // Copying the first index avoids reading every message, which took most of a
