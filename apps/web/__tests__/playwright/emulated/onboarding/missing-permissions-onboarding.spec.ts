@@ -35,15 +35,24 @@ test("asks to reconnect at the next step when Gmail access is missing", async ({
 
   // The step the user lands on runs its own permissions check. Revoking before
   // that check returns would show the reconnect screen on this step instead of
-  // the next one, so wait for it first.
-  const firstStepCheck = page.waitForResponse(
-    async (response) =>
-      response.request().method() === "POST" &&
-      !!response.request().headers()["next-action"] &&
-      // Bodies of other actions can be gone after a navigation; skip those.
-      (await response.text().catch(() => "")).includes("hasAllPermissions"),
-  );
-  await Promise.all([firstStepCheck, openControlOnboarding(page)]);
+  // the next one, so wait for it first. The browser can stop reading a server
+  // action's response once it has the result, leaving its body unreadable to
+  // page.waitForResponse, so read the bodies here before the page gets them.
+  let firstStepChecked = false;
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    if (request.method() !== "POST" || !request.headers()["next-action"]) {
+      return route.fallback();
+    }
+    const response = await route.fetch().catch(() => null);
+    if (!response) return route.abort();
+    const body = await response.text();
+    if (body.includes("hasAllPermissions")) firstStepChecked = true;
+    await route.fulfill({ response, body });
+  });
+  await openControlOnboarding(page);
+  await expect.poll(() => firstStepChecked, { timeout: 60_000 }).toBe(true);
+  await page.unrouteAll({ behavior: "wait" });
 
   restoreScope = await revokeGmailScopes();
 
