@@ -43,11 +43,28 @@ describe("createMailIpcClient", () => {
 
   it("lists no drafts from a desktop build that predates listDrafts", async () => {
     const client = createMailIpcClient(
-      vi.fn(async () => ({ status: "invalid", issues: [] })),
+      vi.fn(async () => ({
+        status: "invalid",
+        issues: [{ code: "invalid_union", path: ["method"] }],
+      })),
       { push: createPushHost().transport },
     );
 
     await expect(client.listDrafts("acc-1")).resolves.toEqual([]);
+  });
+
+  it("still fails listDrafts when the request itself is invalid", async () => {
+    const client = createMailIpcClient(
+      vi.fn(async () => ({
+        status: "invalid",
+        issues: [{ code: "invalid_type", path: ["payload", "accountId"] }],
+      })),
+      { push: createPushHost().transport },
+    );
+
+    await expect(client.listDrafts("acc-1")).rejects.toThrow(
+      "Mail engine listDrafts failed",
+    );
   });
 
   it("includes the mailbox provider on requestSync", async () => {
