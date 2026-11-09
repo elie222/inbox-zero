@@ -12,7 +12,7 @@ import {
 } from "@/utils/analytics/composer-stability";
 
 // Kept out of the initial bundle, then fetched ahead of use by
-// preloadComposeEmailForm so opening compose never waits on the download.
+// preloadComposeEmailForm so the download is usually done before compose opens.
 const loadComposeEmailForm = () =>
   import("./ComposeEmailForm").then((mod) => mod.ComposeEmailForm);
 

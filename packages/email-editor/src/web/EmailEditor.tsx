@@ -80,7 +80,7 @@ const SquireEmailEditor = lazy(() =>
   })),
 );
 
-/** Fetches the editor ahead of use, in the browser only, so opening it never waits on the download. */
+/** Fetches the editor ahead of use, in the browser only, so it is usually loaded before it opens. */
 export function preloadEmailEditor() {
   loadSquireEmailEditor().catch(() => {
     // Rendering the editor retries the download behind its own fallback.

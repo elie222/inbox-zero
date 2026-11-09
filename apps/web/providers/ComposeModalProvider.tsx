@@ -19,6 +19,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy";
 import type { GetSignatureResponse } from "@/app/api/user/signature/route";
 import type { GetSendAsResponse } from "@/app/api/user/send-as/route";
+import { getAccountScopedKey } from "@/utils/swr";
 import type { ReplyingToEmail } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailForm";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getActiveMailClient } from "@/utils/mail-engine/active-client";
@@ -86,10 +87,17 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
   // are fetched while mail is open (and kept across reloads by the SWR
   // snapshot) and a shortcut opens it at once.
   useSWR<GetSignatureResponse>(
-    isMailView ? "/api/user/signature" : null,
+    isMailView
+      ? getAccountScopedKey("/api/user/signature", emailAccountId)
+      : null,
     WARM_ONLY,
   );
-  useSWR<GetSendAsResponse>(isMailView ? "/api/user/send-as" : null, WARM_ONLY);
+  useSWR<GetSendAsResponse>(
+    isMailView
+      ? getAccountScopedKey("/api/user/send-as", emailAccountId)
+      : null,
+    WARM_ONLY,
+  );
   useEffect(() => {
     if (isMailView) preloadComposeEmailForm();
   }, [isMailView]);

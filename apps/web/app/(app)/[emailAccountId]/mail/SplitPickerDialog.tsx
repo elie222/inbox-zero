@@ -23,6 +23,7 @@ import {
   getThreadSenders,
   type SenderThread,
 } from "@/utils/split-inbox/split-senders";
+import { getAccountScopedKey } from "@/utils/swr";
 
 /** Adds the senders of the selected conversations to one of the account's splits. */
 export function SplitPickerDialog({
@@ -39,7 +40,9 @@ export function SplitPickerDialog({
   const { emailAccountId, userEmail } = useAccount();
   // Loaded on open rather than with the list, since only this action needs it.
   const { data: sendAs, isLoading: isLoadingSendAs } =
-    useSWR<GetSendAsResponse>("/api/user/send-as");
+    useSWR<GetSendAsResponse>(
+      getAccountScopedKey("/api/user/send-as", emailAccountId),
+    );
   const senders = useMemo(
     () =>
       getThreadSenders(threads, [

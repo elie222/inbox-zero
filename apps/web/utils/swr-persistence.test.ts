@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { unstable_serialize } from "swr";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import {
@@ -39,6 +40,25 @@ describe("swr-persistence", () => {
       isValidating: false,
     });
     expect(restored.get("/api/mail/settings")?.data).toEqual({ splits: [] });
+  });
+
+  it("keeps the signature and send-as entries under the account's own key", () => {
+    persistSwrEntries(
+      ACCOUNT_A,
+      cacheWith({
+        [unstable_serialize(["/api/user/signature", ACCOUNT_A])]: {
+          signatureHtml: "A",
+        },
+        // Fetched for whichever account the route belongs to, so never kept.
+        "/api/user/send-as": { addresses: [{ email: "b@example.com" }] },
+      }),
+    );
+
+    const restored = readPersistedSwrEntries(ACCOUNT_A);
+    expect(restored.get("/api/user/signature")?.data).toEqual({
+      signatureHtml: "A",
+    });
+    expect(restored.has("/api/user/send-as")).toBe(false);
   });
 
   it("does not leak entries across accounts", () => {

@@ -1,16 +1,36 @@
+import { unstable_serialize } from "swr";
+
 const STORAGE_PREFIX = "inbox-zero:swr:v2:";
 
 // These hooks use plain-string SWR keys that are not account-scoped (the
 // account travels in a request header), so the snapshot is namespaced by
-// emailAccountId instead. The signature and send-as addresses let compose
-// open at once after a reload instead of waiting for them.
+// emailAccountId instead.
 export const PERSISTED_SWR_KEYS = [
   "/api/labels",
   "/api/user/folders",
   "/api/mail/settings",
+] as const;
+
+// Kept so compose opens at once after a reload. Always keyed by account: a
+// composer can belong to another account than the route's (All Accounts), and
+// a plain key would be fetched for the route's account.
+const ACCOUNT_KEYED_PERSISTED_PATHS = [
   "/api/user/signature",
   "/api/user/send-as",
 ] as const;
+
+/** Each persisted snapshot field and the SWR key it fills for this account. */
+export function getPersistedSwrKeys(emailAccountId: string) {
+  return [
+    ...PERSISTED_SWR_KEYS.map((path) => ({ path, key: path as PersistedKey })),
+    ...ACCOUNT_KEYED_PERSISTED_PATHS.map((path) => ({
+      path,
+      key: [path, emailAccountId] as PersistedKey,
+    })),
+  ];
+}
+
+type PersistedKey = string | readonly [string, string];
 
 type SwrCacheState = {
   data?: unknown;
@@ -55,10 +75,10 @@ export function persistSwrEntries(
     // the whitelisted keys doesn't drop the rest on overwrite.
     const snapshot = readRawSnapshot(emailAccountId);
     let hasData = false;
-    for (const key of PERSISTED_SWR_KEYS) {
-      const data = cache.get(key)?.data;
+    for (const { path, key } of getPersistedSwrKeys(emailAccountId)) {
+      const data = cache.get(unstable_serialize(key))?.data;
       if (data !== undefined) {
-        snapshot[key] = data;
+        snapshot[path] = data;
         hasData = true;
       }
     }
@@ -118,9 +138,9 @@ function readRawSnapshot(emailAccountId: string): Record<string, unknown> {
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return snapshot;
     }
-    for (const key of PERSISTED_SWR_KEYS) {
-      const data = (parsed as Record<string, unknown>)[key];
-      if (data !== undefined) snapshot[key] = data;
+    for (const { path } of getPersistedSwrKeys(emailAccountId)) {
+      const data = (parsed as Record<string, unknown>)[path];
+      if (data !== undefined) snapshot[path] = data;
     }
   } catch {
     // A corrupt snapshot must never break the app.

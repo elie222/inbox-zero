@@ -181,11 +181,11 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
   // cache, and a reconnect refetch must not swap the open form to a spinner.
   const { data: composeSignature, error: signatureError } =
     useSWR<GetSignatureResponse>(
-      getAccountScopedKey("/api/user/signature", selectedAccountOverride),
+      getAccountScopedKey("/api/user/signature", selectedEmailAccountId),
     );
   // A failed lookup sends from the default address, as before.
   const { data: sendAs, error: sendAsError } = useSWR<GetSendAsResponse>(
-    getAccountScopedKey("/api/user/send-as", selectedAccountOverride),
+    getAccountScopedKey("/api/user/send-as", selectedEmailAccountId),
   );
 
   const localDraftIdentity = props.draftSessionId
