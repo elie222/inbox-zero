@@ -35,7 +35,6 @@ import {
   type CreateSignatureBody,
 } from "@/utils/actions/signature.validation";
 import { DEFAULT_SIGNATURE_ID } from "@/utils/email/default-signature";
-import { getAccountScopedKey } from "@/utils/swr";
 
 type Signature = GetSignatureResponse["signatures"][number];
 type EditingSignature = { id?: string; name: string; html: string };
@@ -100,7 +99,7 @@ function SignaturesManager({
 }) {
   const { emailAccountId } = useAccount();
   const { data, error, isLoading, mutate } = useSWR<GetSignatureResponse>(
-    getAccountScopedKey("/api/user/signature", emailAccountId),
+    "/api/user/signature",
   );
   const [editing, setEditing] = useState<EditingSignature | null>(null);
   const [found, setFound] = useState(initialFound);

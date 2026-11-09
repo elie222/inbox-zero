@@ -2,11 +2,14 @@ const STORAGE_PREFIX = "inbox-zero:swr:v2:";
 
 // These hooks use plain-string SWR keys that are not account-scoped (the
 // account travels in a request header), so the snapshot is namespaced by
-// emailAccountId instead.
+// emailAccountId instead. The signature and send-as addresses let compose
+// open at once after a reload instead of waiting for them.
 export const PERSISTED_SWR_KEYS = [
   "/api/labels",
   "/api/user/folders",
   "/api/mail/settings",
+  "/api/user/signature",
+  "/api/user/send-as",
 ] as const;
 
 type SwrCacheState = {

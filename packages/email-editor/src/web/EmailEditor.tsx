@@ -72,11 +72,20 @@ export type EmailEditorProps = {
 
 // Squire touches the DOM when its module loads, so it must stay out of
 // server rendering.
+const loadSquireEmailEditor = () => import("./squire/SquireEmailEditor");
+
 const SquireEmailEditor = lazy(() =>
-  import("./squire/SquireEmailEditor").then((module) => ({
+  loadSquireEmailEditor().then((module) => ({
     default: module.SquireEmailEditor,
   })),
 );
+
+/** Fetches the editor ahead of use, in the browser only, so opening it never waits on the download. */
+export function preloadEmailEditor() {
+  loadSquireEmailEditor().catch(() => {
+    // Rendering the editor retries the download behind its own fallback.
+  });
+}
 
 export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
   function EmailEditor(
