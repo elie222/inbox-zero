@@ -178,13 +178,13 @@ describe("monthly pricing config", () => {
 });
 
 describe("getStripePerPersonAmount", () => {
-  it("uses Stripe's exact annual amount rather than the rounded monthly price", () => {
+  it("bills extra accounts at half the annual plan price", () => {
     expect(
       getStripePerPersonAmount({
         priceId: "price_current_professional_annual",
         quantity: 3,
       }),
-    ).toBe(75_000);
+    ).toBe(72_000);
   });
 });
 
