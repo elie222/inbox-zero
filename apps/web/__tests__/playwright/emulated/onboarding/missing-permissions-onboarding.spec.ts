@@ -44,7 +44,8 @@ test("asks to reconnect at the next step when Gmail access is missing", async ({
     if (request.method() !== "POST" || !request.headers()["next-action"]) {
       return route.fallback();
     }
-    const response = await route.fetch();
+    const response = await route.fetch().catch(() => null);
+    if (!response) return route.abort();
     const body = await response.text();
     if (body.includes("hasAllPermissions")) firstStepChecked = true;
     await route.fulfill({ response, body });
