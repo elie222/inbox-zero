@@ -17,26 +17,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useUiLanguageEnabled } from "@/hooks/useFeatureFlags";
 import { setLocaleAction } from "@/utils/actions/locale";
 import { getActionErrorMessage } from "@/utils/error";
-import {
-  DEFAULT_LOCALE,
-  LOCALE_LABELS,
-  LOCALES,
-  toLocale,
-} from "@/utils/i18n/locales";
+import { LOCALE_LABELS, LOCALES, toLocale } from "@/utils/i18n/locales";
 
 export function LanguageSection() {
   const { i18n, t } = useLingui();
-  const enabled = useUiLanguageEnabled();
   const { execute, isExecuting } = useAction(setLocaleAction, {
     onError: ({ error }) =>
       toastError({ description: getActionErrorMessage(error) }),
   });
-
-  // Anyone already off English keeps the picker, so they can always switch back.
-  if (!enabled && i18n.locale === DEFAULT_LOCALE) return null;
 
   return (
     <>

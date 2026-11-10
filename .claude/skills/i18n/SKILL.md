@@ -46,7 +46,7 @@ return <PageHeader title={t(i18n)`Settings`} />;
 
 ## Catalogs
 
-Feature PRs add or change strings in code only. Don't run `intl:extract` or edit `messages.po` in them. Every build runs `lingui extract-template` first, so a string missing from the catalogs still renders in English. Run `pnpm -F inbox-zero-ai intl:extract` and fill translations in a separate translation PR, or in a PR that adds a language.
+A PR that adds or changes UI strings in a translated area also translates them: run `pnpm -F inbox-zero-ai intl:extract`, fill the new entries in every locale's `messages.po`, and commit the catalogs with the code. Every build runs `lingui extract-template` first, so a string that was missed still renders in English instead of breaking.
 
 When translating, keep every placeholder (`{0}`, `{name}`), numbered tag (`<0>…</0>`), and plural `#`, match the catalog's existing terms and tone, and keep short labels short. Check that `pnpm -F inbox-zero-ai exec lingui extract` reports 0 missing for the locale.
 
@@ -56,4 +56,4 @@ Add it to `locales` in `lingui.config.ts`, to `LOCALES` and `LOCALE_LABELS` in `
 
 ## Locale selection
 
-The `locale` cookie, set by the Language setting in Settings, picks the language; without it the app is English. The setting is shown behind the `ui-language` PostHog flag, and to anyone already using another language.
+The `locale` cookie, set by the Language setting in Settings, picks the language; without it the app is English. The browser's language is not used.
