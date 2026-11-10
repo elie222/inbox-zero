@@ -1,10 +1,44 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
+import type { EmailProvider } from "@/utils/email/types";
 import { createLabel } from "./label";
 
 describe("createLabel conflict handling", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    "Label name exists or conflicts",
+    "Invalid label name",
+    "Unexpected provider failure",
+  ])("does not classify a label name as an account failure: %s", async (message) => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const gmail = gmailClient({
+      create: vi.fn().mockRejectedValue(new Error(message)),
+      list: vi.fn().mockResolvedValue(labelsResponse([])),
+    });
+
+    await expect(
+      resolveLabelNameAndId({
+        label: "invalid_grant",
+        emailProvider: {
+          getLabelByName: vi.fn().mockResolvedValue(null),
+          createLabel: (name: string) => createLabel({ gmail, name }),
+        } as unknown as EmailProvider,
+      }),
+    ).resolves.toEqual({ label: "invalid_grant", labelId: null });
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Error resolving label"),
+    );
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("Error resolving label"),
+    );
   });
 
   it("returns existing nested label when conflict differs by slash spacing", async () => {
@@ -118,9 +152,7 @@ describe("createLabel conflict handling", () => {
         gmail,
         name: "Reference/Political activism",
       }),
-    ).rejects.toThrow(
-      "Label conflict but not found: Reference/Political activism",
-    );
+    ).rejects.toThrow("Label conflict but not found");
   });
 });
 
