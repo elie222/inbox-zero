@@ -1,5 +1,5 @@
 /** biome-ignore-all lint/style/noMagicNumbers: test */
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
@@ -14,7 +14,7 @@ const logger = createTestLogger();
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 describe.runIf(isAiTest)("aiExtractFromEmailHistory", () => {
-  test("returns null without calling the model when there is no history", async () => {
+  test("returns null when there is no history", async () => {
     const result = await aiExtractFromEmailHistory({
       currentThreadMessages: [getMessage({ daysAgo: 0 })],
       historicalMessages: [],
@@ -84,6 +84,10 @@ describe.runIf(isAiTest)("aiExtractFromEmailHistory", () => {
   test(
     "returns null when the history is unrelated to the current thread",
     async () => {
+      // The extractor also returns null on failure, so a logged error must fail
+      // this test rather than pass as an "unrelated" verdict.
+      const errorSpy = vi.spyOn(logger, "error");
+
       const result = await aiExtractFromEmailHistory({
         currentThreadMessages: [
           getMessage({
@@ -104,7 +108,9 @@ describe.runIf(isAiTest)("aiExtractFromEmailHistory", () => {
         logger,
       });
 
+      expect(errorSpy).not.toHaveBeenCalled();
       expect(result).toBeNull();
+      errorSpy.mockRestore();
     },
     TIMEOUT,
   );
