@@ -1290,16 +1290,6 @@ export class GmailProvider implements EmailProvider {
     );
   }
 
-  async getPreviousConversationMessages(
-    messageIds: string[],
-  ): Promise<ParsedMessage[]> {
-    return getMessagesBatch({
-      messageIds,
-      accessToken: getAccessTokenFromClient(this.client),
-      logger: this.logger,
-    });
-  }
-
   async removeThreadLabel(threadId: string, labelId: string): Promise<void> {
     await removeThreadLabel(this.client, threadId, labelId);
   }
