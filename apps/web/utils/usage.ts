@@ -14,6 +14,7 @@ import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("usage");
+const MAX_MODELS_WARNED_FOR_MISSING_PRICING = 1000;
 const modelsWarnedForMissingPricing = new Set<string>();
 
 export type AiUsageEvent = {
@@ -209,14 +210,18 @@ export function calculateUsageCost(options: {
     inputTokens - cachedInputTokens - cacheWriteTokens,
   );
   const outputTokens = Math.max(0, usage.outputTokens ?? 0);
-  const cachedInputTokenPrice = pricing.cachedInput ?? pricing.input;
-  const cacheWriteTokenPrice = pricing.cacheWrite ?? pricing.input;
+  const rates =
+    pricing.longContext && inputTokens >= pricing.longContext.minInputTokens
+      ? pricing.longContext
+      : pricing;
+  const cachedInputTokenPrice = rates.cachedInput ?? rates.input;
+  const cacheWriteTokenPrice = rates.cacheWrite ?? rates.input;
 
   return (
-    uncachedInputTokens * pricing.input +
+    uncachedInputTokens * rates.input +
     cachedInputTokens * cachedInputTokenPrice +
     cacheWriteTokens * cacheWriteTokenPrice +
-    outputTokens * pricing.output
+    outputTokens * rates.output
   );
 }
 
@@ -318,6 +323,12 @@ function warnMissingPricingOnce({
   const key = `${provider}:${model}`;
   if (modelsWarnedForMissingPricing.has(key)) return;
 
+  // User-configured model IDs are open-ended, so keep the set bounded.
+  if (
+    modelsWarnedForMissingPricing.size >= MAX_MODELS_WARNED_FOR_MISSING_PRICING
+  ) {
+    modelsWarnedForMissingPricing.clear();
+  }
   modelsWarnedForMissingPricing.add(key);
   logger.warn("No pricing for model; estimated cost recorded as 0", {
     provider,

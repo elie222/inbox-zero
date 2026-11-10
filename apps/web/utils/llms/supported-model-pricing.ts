@@ -1,9 +1,15 @@
 /** biome-ignore-all lint/style/noMagicNumbers: static pricing constants */
-export type ModelPricing = {
+type TokenRates = {
   input: number;
   output: number;
   cachedInput?: number;
   cacheWrite?: number;
+};
+
+export type ModelPricing = TokenRates & {
+  // Rates that replace the base ones once a request's prompt reaches
+  // minInputTokens.
+  longContext?: TokenRates & { minInputTokens: number };
 };
 
 const sonnet = {
@@ -24,14 +30,18 @@ const haiku = {
   cachedInput: 0.1 / 1_000_000,
   cacheWrite: 1.25 / 1_000_000,
 };
-// Haiku 5.5 bills 5x these rates once a prompt reaches 100k tokens. The flat
-// table can't express that tier, so long prompts are underestimated here;
-// OpenRouter's reported cost is preferred whenever it is available.
 const haiku5_5 = {
   input: 0.1 / 1_000_000,
   output: 0.5 / 1_000_000,
   cachedInput: 0.01 / 1_000_000,
   cacheWrite: 0.125 / 1_000_000,
+  longContext: {
+    minInputTokens: 100_000,
+    input: 0.5 / 1_000_000,
+    output: 2.5 / 1_000_000,
+    cachedInput: 0.05 / 1_000_000,
+    cacheWrite: 0.625 / 1_000_000,
+  },
 };
 const sonnet5_5 = {
   input: 2 / 1_000_000,

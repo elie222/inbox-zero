@@ -318,7 +318,24 @@ describe("calculateUsageCost", () => {
 
     expect(calculateUsageCost({ provider, model, usage })).toBeCloseTo(
       (1000 * inputPerM + 500 * outputPerM) / 1_000_000,
+      12,
     );
+  });
+
+  it("applies Haiku 5.5 long-context rates from 100k prompt tokens", () => {
+    const usage = languageModelUsage({
+      inputTokens: 100_000,
+      outputTokens: 1000,
+      totalTokens: 101_000,
+    });
+
+    expect(
+      calculateUsageCost({
+        provider: "anthropic",
+        model: "claude-haiku-5-5",
+        usage,
+      }),
+    ).toBeCloseTo((100_000 * 0.5 + 1000 * 2.5) / 1_000_000, 12);
   });
 
   it("resolves prefixed OpenRouter pricing for non-prefixed model names", () => {
@@ -725,6 +742,9 @@ describe("saveAiUsage", () => {
 
     expect(publishAiCall).toHaveBeenCalledWith(
       expect.objectContaining({ cost: 0.3456, providerReportedCost: 0 }),
+    );
+    expect(saveUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ cost: 0.3456 }),
     );
   });
 
