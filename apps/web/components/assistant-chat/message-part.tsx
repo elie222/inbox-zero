@@ -13,6 +13,7 @@ import {
   BasicToolInfo,
   CreatedRuleToolCard,
   PendingDeleteRuleToolCard,
+  PendingDeleteSplitCard,
   PendingSaveMemoryToolCard,
   PendingCreateRuleToolCard,
   ForwardEmailResult,
@@ -288,12 +289,19 @@ export function MessagePart({
     return renderToolStatus({
       part,
       loadingText: "Updating your split inbox...",
-      renderSuccess: ({ toolCallId }) => (
-        <BasicToolInfo
-          key={toolCallId}
-          text={getSplitInboxLabel(part.input?.action, part.input?.name)}
-        />
-      ),
+      renderSuccess: ({ toolCallId }) =>
+        part.output && "pendingDelete" in part.output ? (
+          <PendingDeleteSplitCard
+            key={toolCallId}
+            split={part.output.pendingDelete}
+            disableConfirm={disableConfirm || !isPersistedMessage}
+          />
+        ) : (
+          <BasicToolInfo
+            key={toolCallId}
+            text={getSplitInboxLabel(part.input?.action, part.input?.name)}
+          />
+        ),
     });
   }
 
@@ -1140,8 +1148,6 @@ function getSplitInboxLabel(action?: string, name?: string | null) {
       return `Created ${split}`;
     case "update":
       return `Updated ${split}`;
-    case "delete":
-      return "Deleted split";
     default:
       return "Read your split inbox";
   }

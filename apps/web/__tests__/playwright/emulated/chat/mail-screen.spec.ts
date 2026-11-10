@@ -122,7 +122,9 @@ test("the assistant's search shows over an open email", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test("the assistant creates a split and shows it", async ({ page }) => {
+test("the assistant creates a split and shows it", async ({
+  page,
+}, testInfo) => {
   const { conversations } = await openMail(page);
   await page.getByRole("button", { name: "Toggle the assistant" }).click();
   await expect(page.getByTestId("chat-input")).toBeVisible();
@@ -147,11 +149,9 @@ test("the assistant creates a split and shows it", async ({ page }) => {
   await expect(
     page.getByText("I made a Dana split and switched you to it."),
   ).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByRole("button", { name: "Dana" })).toHaveAttribute(
-    "aria-current",
-    "true",
-    { timeout: 60_000 },
-  );
+  await expect(
+    page.getByRole("button", { name: "Dana", exact: true }),
+  ).toHaveAttribute("aria-current", "true", { timeout: 60_000 });
   await expect(
     conversations
       .locator("[data-mail-thread-key]")
@@ -162,6 +162,37 @@ test("the assistant creates a split and shows it", async ({ page }) => {
       .locator("[data-mail-thread-key]")
       .filter({ hasText: "Playwright Test Message" }),
   ).toHaveCount(0);
+
+  const splitId = new URL(page.url()).searchParams.get("split");
+  await scriptReply({
+    match: "delete the dana split",
+    toolCall: {
+      name: "manageSplitInbox",
+      arguments: { action: "delete", splitId },
+    },
+  });
+  await scriptReply({
+    match: "pendingDelete",
+    text: "Confirm below to delete the Dana split.",
+  });
+  await sendChatMessage(page, "Delete the Dana split");
+  await expect(
+    page.getByText("Confirm below to delete the Dana split."),
+  ).toBeVisible({ timeout: 60_000 });
+  // Nothing is deleted until the user confirms.
+  const danaTab = page.getByRole("button", { name: "Dana", exact: true });
+  await expect(danaTab).toBeVisible();
+
+  const confirm = page.getByRole("button", { name: "Delete split" });
+  await expect(confirm).toBeEnabled({ timeout: 60_000 });
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "chat-confirms-split-delete",
+  );
+  await confirm.click();
+  await expect(danaTab).toHaveCount(0, { timeout: 60_000 });
+  await expect(page.getByText("Deleted split")).toBeVisible();
 });
 
 async function readThreadId(conversations: Locator, subject: string) {

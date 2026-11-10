@@ -4,6 +4,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
   createMailSplitOrThrow,
+  deleteMailSplit,
   updateMailSplit,
 } from "@/utils/split-inbox/splits.server";
 import { manageSplitInboxTool } from "./chat-split-inbox-tool";
@@ -76,6 +77,22 @@ describe("manageSplitInboxTool", () => {
       expect((result as { error: string }).error).toBeTruthy();
     }
     expect(createMailSplitOrThrow).not.toHaveBeenCalled();
+  });
+
+  it("asks the user to confirm a delete instead of deleting", async () => {
+    prisma.mailSplit.findFirst.mockResolvedValue({
+      id: "split-1",
+      name: "Rakazo",
+    } as never);
+
+    const result = await run({ action: "delete", splitId: "split-1" });
+
+    expect(result).toMatchObject({
+      success: true,
+      requiresConfirmation: true,
+      pendingDelete: { id: "split-1", name: "Rakazo" },
+    });
+    expect(deleteMailSplit).not.toHaveBeenCalled();
   });
 
   it("renames a split without dropping conditions it was not given", async () => {

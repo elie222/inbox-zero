@@ -18,7 +18,6 @@ import {
 } from "@/utils/split-inbox/split-filters";
 import {
   createMailSplitOrThrow,
-  deleteMailSplit,
   updateMailSplit,
 } from "@/utils/split-inbox/splits.server";
 import { OLDER_THAN_OPTIONS } from "@/utils/split-inbox/split-query";
@@ -37,7 +36,7 @@ const manageSplitInboxInputSchema = z.object({
   action: z
     .enum(["list", "create", "update", "delete"])
     .describe(
-      "list: show the user's splits with their ids and conditions. create: add a split. update: change a split's name, matching or conditions. delete: remove a split.",
+      "list: show the user's splits with their ids and conditions. create: add a split. update: change a split's name, matching or conditions. delete: ask the user to confirm removing a split.",
     ),
   splitId: z
     .string()
@@ -94,7 +93,7 @@ export const manageSplitInboxTool = ({
 }) =>
   tool({
     description:
-      "Read and change the user's split inbox: the tabs on the mail screen that each show the slice of the inbox matching some conditions, such as mail from a sender, mail sent to an address or domain, or mail with a label. A split only filters what a tab shows; it never moves, labels or changes mail, so create, update and delete apply right away without asking first, and the mail screen switches to a split after it is created or updated. The All tab and the Other tab (inbox mail no other split matches) are built in and cannot be changed. Use list before update or delete to get the split id.",
+      "Read and change the user's split inbox: the tabs on the mail screen that each show the slice of the inbox matching some conditions, such as mail from a sender, mail sent to an address or domain, or mail with a label. A split only filters what a tab shows; it never moves, labels or changes mail, so create and update apply right away without asking first, and the mail screen switches to a split after it is created or updated. delete only shows the user a confirmation card: the split stays until they confirm it there. The All tab and the Other tab (inbox mail no other split matches) are built in and cannot be changed. Use list before update or delete to get the split id.",
     inputSchema: manageSplitInboxInputSchema,
     execute: async (input) => {
       logger.info("Tracking tool call", { tool: "manage_split_inbox", email });
@@ -189,8 +188,22 @@ export const manageSplitInboxTool = ({
           }
           case "delete": {
             if (!input.splitId) return failure("delete requires a splitId.");
-            await deleteMailSplit({ emailAccountId, id: input.splitId });
-            return { success: true as const, action: "delete" as const };
+            const split = await prisma.mailSplit.findFirst({
+              where: {
+                id: input.splitId,
+                emailAccountId,
+                filters: { some: {} },
+              },
+              select: { id: true, name: true },
+            });
+            if (!split) return failure("Split not found or cannot be removed.");
+            // A deleted split can't be restored, so the user confirms it.
+            return {
+              success: true as const,
+              action: "delete" as const,
+              requiresConfirmation: true as const,
+              pendingDelete: split,
+            };
           }
         }
       } catch (error) {
