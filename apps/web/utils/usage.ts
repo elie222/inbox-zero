@@ -14,6 +14,7 @@ import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("usage");
+const modelsWarnedForMissingPricing = new Set<string>();
 
 export type AiUsageEvent = {
   cachedInputTokens: number;
@@ -180,7 +181,10 @@ export function calculateUsageCost(options: {
 }): number {
   const { provider, model, usage } = options;
   const pricing = getModelPricing({ provider, model });
-  if (!pricing) return 0;
+  if (!pricing) {
+    warnMissingPricingOnce({ provider, model });
+    return 0;
+  }
 
   const normalizedCachedInputTokens = Math.max(
     0,
@@ -302,6 +306,23 @@ function buildModelLookupCandidates({
   }
 
   return [...new Set(candidates)];
+}
+
+function warnMissingPricingOnce({
+  provider,
+  model,
+}: {
+  provider: string;
+  model: string;
+}) {
+  const key = `${provider}:${model}`;
+  if (modelsWarnedForMissingPricing.has(key)) return;
+
+  modelsWarnedForMissingPricing.add(key);
+  logger.warn("No pricing for model; estimated cost recorded as 0", {
+    provider,
+    model,
+  });
 }
 
 function notifyAiUsageListeners(event: AiUsageEvent): void {

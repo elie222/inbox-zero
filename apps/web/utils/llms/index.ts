@@ -1983,10 +1983,10 @@ function getOpenRouterUsage(value: unknown): {
   const providerMetadata = getObjectProperty(value, "providerMetadata");
   const openRouterMetadata = getObjectProperty(providerMetadata, "openrouter");
   const usage = getObjectProperty(openRouterMetadata, "usage");
-  const costDetails = getObjectProperty(usage, "cost_details");
+  const costDetails = getObjectProperty(usage, "costDetails");
   const cost = getFiniteNumber(getProperty(usage, "cost"));
   const upstreamInferenceCost = getFiniteNumber(
-    getProperty(costDetails, "upstream_inference_cost"),
+    getProperty(costDetails, "upstreamInferenceCost"),
   );
 
   if (cost === undefined && upstreamInferenceCost === undefined) return null;
