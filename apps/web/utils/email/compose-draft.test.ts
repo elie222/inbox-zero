@@ -76,6 +76,49 @@ it("creates the mailbox draft with its Cc and Bcc so they survive a sync before 
     }),
   );
 });
+it.each([
+  undefined,
+  "draft-1",
+])("saves complete recipients while unfinished addresses remain local (draft %s)", async (draftId) => {
+  const editing = {
+    ...content,
+    to: '"Doe, Jane" <jane@example.com>, second@',
+    cc: "copied@example.com, unfinished@",
+    bcc: "hidden@example.com, other@",
+  };
+  await saveComposeDraft({ provider, draftId, content: editing });
+
+  const expected = expect.objectContaining({
+    to: '"Doe, Jane" <jane@example.com>',
+    cc: "copied@example.com",
+    bcc: "hidden@example.com",
+    messageHtml: content.messageHtml,
+  });
+  if (draftId)
+    expect(provider.updateDraft).toHaveBeenCalledWith(draftId, expected);
+  else expect(provider.createDraft).toHaveBeenCalledWith(expected);
+  expect(editing.to).toContain("second@");
+});
+
+it.each([
+  undefined,
+  "draft-1",
+])("saves a draft with no complete To recipient (draft %s)", async (draftId) => {
+  await saveComposeDraft({
+    provider,
+    draftId,
+    content: { ...content, to: "unfinished@", cc: "copied@example.com" },
+  });
+  const expected = expect.objectContaining({
+    to: "",
+    cc: "copied@example.com",
+    messageHtml: content.messageHtml,
+  });
+  if (draftId)
+    expect(provider.updateDraft).toHaveBeenCalledWith(draftId, expected);
+  else expect(provider.createDraft).toHaveBeenCalledWith(expected);
+});
+
 it("keeps the confirmed draft id when the mailbox message cannot be loaded yet", async () => {
   vi.mocked(provider.getDraft).mockRejectedValueOnce(new Error("timeout"));
   expect(await saveComposeDraft({ provider, content })).toEqual({
