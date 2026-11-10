@@ -436,6 +436,49 @@ describe("Squire email editor", () => {
     expect(screen.queryByRole("button", { name: /signature/u })).toBeNull();
   });
 
+  it.each([
+    "Backspace",
+    "Delete",
+  ])("breaks out of an empty quoted line with %s without deleting adjacent text", async (key) => {
+    const { textbox, handle } = await renderEditor({
+      initialHtml:
+        "<blockquote><div>First question</div><div><br></div><div>Second question</div></blockquote>",
+    });
+    const emptyLine = textbox().querySelector("blockquote > div:nth-child(2)");
+    if (!emptyLine) throw new Error("Missing empty quoted line");
+    act(() => textbox().focus());
+    const range = document.createRange();
+    range.selectNodeContents(emptyLine);
+    range.collapse(true);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+
+    await act(async () => {
+      fireEvent.keyDown(textbox(), { key });
+    });
+    expect(textbox().querySelectorAll("blockquote")).toHaveLength(2);
+
+    await act(async () => {
+      fireEvent.keyDown(textbox(), { key: "z", ctrlKey: true });
+    });
+    expect(textbox().querySelectorAll("blockquote")).toHaveLength(1);
+    expect(textbox().querySelector("blockquote")?.children).toHaveLength(3);
+
+    await act(async () => {
+      fireEvent.keyDown(textbox(), { key: "y", ctrlKey: true });
+    });
+    act(() => handle().insertText("My answer"));
+
+    expect(textbox().querySelectorAll("blockquote")).toHaveLength(2);
+    expect(textbox().querySelectorAll("blockquote")[0].textContent).toBe(
+      "First question",
+    );
+    expect(textbox().querySelectorAll("blockquote")[1].textContent).toBe(
+      "Second question",
+    );
+    expect(textbox().children[1].textContent).toBe("My answer");
+  });
+
   it("quotes text and leaves the caret on a new line below it", async () => {
     const { handle, textbox } = await renderEditor({});
 
