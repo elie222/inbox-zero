@@ -31,6 +31,10 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Node 25+ enables its own Web Storage by default, and without a
+    // --localstorage-file its global `localStorage` is undefined and shadows
+    // jsdom's implementation in jsdom test files.
+    execArgv: ["--no-experimental-webstorage"],
     setupFiles: ["./__tests__/setup.ts"],
     exclude: [...configDefaults.exclude, "__tests__/playwright/**"],
     server: {
