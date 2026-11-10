@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Logger } from "@/utils/logger";
+import { z } from "zod";
+import { createScopedLogger } from "@/utils/logger";
+import { aiChooseRule } from "./ai-choose-rule";
 import { getEmail, getEmailAccount } from "@/__tests__/helpers";
 import type { ClassificationFeedbackItem } from "@/utils/rule/classification-feedback";
 
@@ -159,6 +161,72 @@ describe("aiChooseRule rule name resolution", () => {
   });
 });
 
+describe.each([
+  false,
+  true,
+])("aiChooseRule structured selection (multi-rule: %s)", (multiRuleSelectionEnabled) => {
+  const candidateRules = [
+    { name: "Factures reçues", instructions: "Paid invoices" },
+    { name: "Team / Updates", instructions: "Team updates" },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it.each([
+    "Invented rule",
+    "Factures reçues extra",
+    "",
+  ])("rejects an unoffered name %j during structured generation", async (ruleName) => {
+    mockStructuredResponse({
+      reasoning: "A matching rule",
+      noMatchFound: false,
+      ruleName,
+      matchedRules: [{ ruleName, isPrimary: true }],
+    });
+
+    await expect(
+      chooseRule(candidateRules, multiRuleSelectionEnabled),
+    ).rejects.toBeInstanceOf(z.ZodError);
+  });
+
+  it("returns the exact offered rule and its primary metadata", async () => {
+    mockStructuredResponse({
+      reasoning: "A paid invoice",
+      noMatchFound: false,
+      ruleName: candidateRules[0].name,
+      matchedRules: [{ ruleName: candidateRules[0].name, isPrimary: true }],
+    });
+
+    const result = await chooseRule(candidateRules, multiRuleSelectionEnabled);
+
+    expect(result.rules).toEqual([
+      { rule: candidateRules[0], isPrimary: true },
+    ]);
+  });
+
+  it("allows an explicit no-match response", async () => {
+    mockStructuredResponse({
+      reasoning: "No rule applies",
+      noMatchFound: true,
+      ruleName: null,
+      matchedRules: [],
+    });
+
+    const result = await chooseRule(candidateRules, multiRuleSelectionEnabled);
+
+    expect(result).toEqual({ rules: [], reason: "No rule applies" });
+  });
+
+  it("does not generate a selection when no rules are offered", async () => {
+    const result = await chooseRule([], multiRuleSelectionEnabled);
+
+    expect(result.rules).toEqual([]);
+    expect(generateObjectSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe("aiChooseRule invalid rule selections", () => {
   const candidateRules = [
     { name: "Allowed A", instructions: "First" },
@@ -249,13 +317,7 @@ describe("aiChooseRule invalid rule selections", () => {
 
 const UNRESOLVED_ERROR = /did not resolve to any offered rule/i;
 
-const noopLogger = {
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-  trace: vi.fn(),
-  with: vi.fn(() => noopLogger),
-} as unknown as Logger;
+const logger = createScopedLogger("test-ai-choose-rule");
 
 async function runChooseRule({
   multiRuleSelectionEnabled,
@@ -266,13 +328,11 @@ async function runChooseRule({
   email: ReturnType<typeof getEmail>;
   classificationFeedback: ClassificationFeedbackItem[] | null;
 }) {
-  const { aiChooseRule } = await import("./ai-choose-rule");
-
   await aiChooseRule({
     email,
     rules,
     emailAccount: getEmailAccount({ multiRuleSelectionEnabled }),
-    logger: noopLogger,
+    logger,
     classificationFeedback,
   });
 }
@@ -286,12 +346,18 @@ async function chooseRule(
   candidateRules: { name: string; instructions: string }[],
   multiRuleSelectionEnabled = false,
 ) {
-  const { aiChooseRule } = await import("./ai-choose-rule");
-
   return aiChooseRule({
     email: getEmail(),
     rules: candidateRules,
     emailAccount: getEmailAccount({ multiRuleSelectionEnabled }),
-    logger: noopLogger,
+    logger,
   });
+}
+
+function mockStructuredResponse(response: unknown) {
+  generateObjectSpy.mockImplementation(
+    async ({ schema }: { schema: z.ZodType }) => ({
+      object: schema.parse(response),
+    }),
+  );
 }

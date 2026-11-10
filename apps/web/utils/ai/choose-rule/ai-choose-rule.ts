@@ -202,7 +202,7 @@ ${stringifyEmail(email, 500)}
         .string()
         .describe("The reason you chose the rule. Keep it concise"),
       ruleName: z
-        .string()
+        .enum(rules.map((rule) => rule.name))
         .nullable()
         .describe("The exact name of the rule you want to apply"),
       noMatchFound: z
@@ -315,7 +315,9 @@ ${stringifyEmail(email, 500)}
       matchedRules: z
         .array(
           z.object({
-            ruleName: z.string().describe("The exact name of the rule"),
+            ruleName: z
+              .enum(rules.map((rule) => rule.name))
+              .describe("The exact name of the rule"),
             isPrimary: z
               .boolean()
               .describe(
