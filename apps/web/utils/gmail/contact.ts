@@ -232,13 +232,15 @@ async function searchWithCacheWarmup<T>(
 }
 
 function isColdSearchCacheError(error: unknown) {
-  const { googleErrorStatus, code, reason, errorMessage } =
+  const { googleErrorStatus, googleErrorMessage, code, reason, errorMessage } =
     extractErrorInfo(error);
   return (
     (googleErrorStatus === "FAILED_PRECONDITION" ||
       code === "FAILED_PRECONDITION" ||
       reason === "failedPrecondition") &&
-    /cold cache/i.test(errorMessage)
+    [errorMessage, googleErrorMessage].some(
+      (message) => typeof message === "string" && /cold cache/i.test(message),
+    )
   );
 }
 

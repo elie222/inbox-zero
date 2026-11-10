@@ -92,6 +92,34 @@ describe("searchContacts", () => {
     ).toEqual(["match", "", "match"]);
   });
 
+  it.each([
+    false,
+    true,
+  ])("recovers when a generic message hides the Google response (wrapped: %s)", async (wrapped) => {
+    vi.useFakeTimers();
+    const providerError = Object.assign(
+      new Error("Bad Request"),
+      coldCacheError(),
+    );
+    const error = wrapped
+      ? new Error("Request failed", { cause: providerError })
+      : providerError;
+    const { client, searchContactsMock } = createPeopleClient({
+      searchContactsMock: vi
+        .fn()
+        .mockRejectedValueOnce(error)
+        .mockResolvedValue({ data: { results: [] } }),
+    });
+    const assertion = expect(
+      searchContacts(client, "match", createTestLogger()),
+    ).resolves.toEqual([]);
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(
+      searchContactsMock.mock.calls.map(([params]) => params.query),
+    ).toEqual(["match", "", "match"]);
+  });
+
   it("does not warm healthy searches or unrelated precondition failures", async () => {
     const { client, searchContactsMock, searchOtherContactsMock } =
       createPeopleClient();
@@ -132,7 +160,9 @@ describe("searchContacts", () => {
         profilePictureUrl: undefined,
       },
     ]);
-    expect(searchContactsMock).toHaveBeenCalledTimes(2);
+    expect(
+      searchContactsMock.mock.calls.map(([params]) => params.query),
+    ).toEqual(["other", ""]);
   });
 
   it("maps all usable Google contact addresses to compose suggestions", async () => {

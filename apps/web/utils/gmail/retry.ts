@@ -17,6 +17,7 @@ interface RetryLogContext {
 interface ErrorInfo {
   code?: string;
   errorMessage: string;
+  googleErrorMessage?: string;
   googleErrorStatus?: string;
   reason?: string;
   status?: number;
@@ -115,6 +116,10 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
     getFirstErrorValue(responseError.errors, "reason") ??
     undefined;
   const googleErrorStatus = (responseError.status as string) ?? undefined;
+  const googleErrorMessage =
+    typeof responseError.message === "string"
+      ? responseError.message
+      : undefined;
   const primaryMessage =
     (cause?.message as string) ??
     (err?.message as string) ??
@@ -127,7 +132,14 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
 
   const errorMessage = String(primaryMessage);
 
-  return { status, code, reason, googleErrorStatus, errorMessage };
+  return {
+    status,
+    code,
+    reason,
+    googleErrorStatus,
+    googleErrorMessage,
+    errorMessage,
+  };
 }
 
 /**

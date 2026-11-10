@@ -234,6 +234,23 @@ describe("Gmail retry helpers", () => {
   });
 
   describe("extractErrorInfo", () => {
+    it("retains the Google response message alongside a generic SDK message", () => {
+      const error = Object.assign(new Error("Bad Request"), {
+        response: {
+          data: {
+            error: {
+              status: "FAILED_PRECONDITION",
+              message: "Request failed due to cold cache data",
+            },
+          },
+        },
+      });
+      expect(extractErrorInfo(error)).toMatchObject({
+        errorMessage: "Bad Request",
+        googleErrorMessage: "Request failed due to cold cache data",
+        googleErrorStatus: "FAILED_PRECONDITION",
+      });
+    });
     it("should extract Gmail error details from response payload", () => {
       const error = {
         cause: {
