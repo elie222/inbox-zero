@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "node scripts/build-mcp-app.mjs && prisma migrate deploy && cross-env NODE_OPTIONS=--max_old_space_size=16384 next build && serwist build serwist.config.mjs",
+    "build": "node scripts/build-mcp-app.mjs && prisma generate && prisma migrate deploy && cross-env NODE_OPTIONS=--max_old_space_size=16384 next build && serwist build serwist.config.mjs",
     "build:ci": "node scripts/build-mcp-app.mjs && cross-env NODE_OPTIONS=--max_old_space_size=16384 next build && serwist build serwist.config.mjs",
     "check-client-redirects": "node scripts/check-client-redirects.js",
     "check-enums": "node scripts/check-enum-imports.js",
