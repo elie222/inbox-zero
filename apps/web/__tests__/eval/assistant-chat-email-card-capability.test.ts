@@ -10,6 +10,7 @@ import { describeEvalMatrix } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { judgeEvalOutput } from "@/__tests__/eval/semantic-judge";
 import { createScopedLogger } from "@/utils/logger";
+import { normalizeAssistantTagMarkup } from "@/components/assistant-chat/assistant-tag-normalization";
 
 // pnpm --filter inbox-zero-ai test-ai eval/assistant-chat-email-card-capability
 
@@ -68,7 +69,8 @@ describe.runIf(shouldRunEval)("Eval: email card capability", () => {
         );
         // The model's text carries the meaning, so cards must stay empty.
         const cardsAreEmpty = [
-          ...output.matchAll(
+          // Same normalization the renderer applies, e.g. self-closing cards.
+          ...normalizeAssistantTagMarkup(output).matchAll(
             /<(email-detail|email)(?![-\w])[^>]*>([\s\S]*?)<\/\1>/gi,
           ),
         ].every((match) => match[2].trim() === "");
