@@ -107,6 +107,16 @@ export function BillingSection() {
               )}
           </ItemActions>
         </Item>
+      ) : premium?.stripeSubscriptionStatus === "paused" ? (
+        <Item size="sm">
+          <ItemContent>
+            <ItemTitle>{getPremiumTierName(premium.tier)} plan</ItemTitle>
+            <ItemDescription>Paused</ItemDescription>
+          </ItemContent>
+          <ItemActions className="flex-wrap justify-end">
+            <ManageSubscription premium={premium} compact />
+          </ItemActions>
+        </Item>
       ) : (
         <Item size="sm">
           <ItemContent>

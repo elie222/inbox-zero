@@ -38,6 +38,7 @@ describe("getEffectiveStripeSubscriptionStatus", () => {
       getEffectiveStripeSubscriptionStatus({
         status: "trialing",
         cancel_at_period_end: true,
+        pause_collection: null,
       }),
     ).toBe("canceled");
   });
@@ -47,6 +48,7 @@ describe("getEffectiveStripeSubscriptionStatus", () => {
       getEffectiveStripeSubscriptionStatus({
         status: "active",
         cancel_at_period_end: true,
+        pause_collection: null,
       }),
     ).toBe("active");
   });
@@ -56,8 +58,39 @@ describe("getEffectiveStripeSubscriptionStatus", () => {
       getEffectiveStripeSubscriptionStatus({
         status: "trialing",
         cancel_at_period_end: false,
+        pause_collection: null,
       }),
     ).toBe("trialing");
+  });
+
+  it("treats subscriptions with paused payment collection as paused", () => {
+    expect(
+      getEffectiveStripeSubscriptionStatus({
+        status: "active",
+        cancel_at_period_end: false,
+        pause_collection: { behavior: "void", resumes_at: null },
+      }),
+    ).toBe("paused");
+  });
+
+  it("restores the real status once payment collection resumes", () => {
+    expect(
+      getEffectiveStripeSubscriptionStatus({
+        status: "active",
+        cancel_at_period_end: false,
+        pause_collection: null,
+      }),
+    ).toBe("active");
+  });
+
+  it("keeps Stripe's paused status for trials that ended without payment", () => {
+    expect(
+      getEffectiveStripeSubscriptionStatus({
+        status: "paused",
+        cancel_at_period_end: false,
+        pause_collection: null,
+      }),
+    ).toBe("paused");
   });
 });
 
