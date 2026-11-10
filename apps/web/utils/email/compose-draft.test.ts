@@ -119,6 +119,41 @@ it.each([
   else expect(provider.createDraft).toHaveBeenCalledWith(expected);
 });
 
+it.each([
+  undefined,
+  "draft-1",
+])("rejects malformed recipient tokens on save (draft %s)", async (draftId) => {
+  const malformed = [
+    "good@example.com next@",
+    "Name <good@example.com",
+    "Name <good@example.com> next@",
+    '"Unfinished <good@example.com>',
+    "bad<name <good@example.com>",
+    "Name\r\nBcc: injected@example.com <good@example.com>",
+    "Name\r\n <good@example.com>",
+  ];
+  for (const recipient of malformed) {
+    await saveComposeDraft({
+      provider,
+      draftId,
+      content: {
+        ...content,
+        to: `kept@example.com, ${recipient}`,
+        cc: recipient,
+        bcc: recipient,
+      },
+    });
+    const expected = expect.objectContaining({
+      to: "kept@example.com",
+      cc: "",
+      bcc: "",
+    });
+    if (draftId)
+      expect(provider.updateDraft).toHaveBeenLastCalledWith(draftId, expected);
+    else expect(provider.createDraft).toHaveBeenLastCalledWith(expected);
+  }
+});
+
 it("keeps the confirmed draft id when the mailbox message cannot be loaded yet", async () => {
   vi.mocked(provider.getDraft).mockRejectedValueOnce(new Error("timeout"));
   expect(await saveComposeDraft({ provider, content })).toEqual({

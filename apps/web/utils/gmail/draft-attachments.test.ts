@@ -100,8 +100,8 @@ describe("rewriteGmailDraft", () => {
       provider,
       draftId: "r-1",
       content: {
-        to: '"Doe, Jane" <jane@example.com>, next@',
-        cc: "copied@example.com, unfinished@",
+        to: '"Doe, Jane" <jane@example.com>, good@example.com next@',
+        cc: "copied@example.com, Name <good@example.com",
         bcc: "hidden@example.com, other@",
         subject: "Edited subject",
         messageHtml: "<p>Edited body</p>",

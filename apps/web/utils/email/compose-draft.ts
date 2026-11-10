@@ -1,8 +1,4 @@
-import {
-  extractEmailAddress,
-  isValidEmail,
-  splitRecipientList,
-} from "@/utils/email";
+import { completeDraftRecipients } from "@/utils/email/draft-recipients";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { SafeError } from "@/utils/error";
 import type { EmailProvider } from "@/utils/email/types";
@@ -197,10 +193,4 @@ async function discardWithRetry({
     }
   }
   return false;
-}
-
-function completeDraftRecipients(value: string) {
-  return splitRecipientList(value)
-    .filter((recipient) => isValidEmail(extractEmailAddress(recipient)))
-    .join(", ");
 }
