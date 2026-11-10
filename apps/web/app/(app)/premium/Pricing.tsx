@@ -43,6 +43,7 @@ import { redirectToSafeUrl } from "@/utils/redirect";
 export type PricingProps = {
   header?: React.ReactNode;
   showSkipUpgrade?: boolean;
+  showGoToApp?: boolean;
   className?: string;
   displayTiers?: Tier[];
 };
@@ -161,11 +162,12 @@ export default function Pricing(props: PricingProps) {
         {header}
 
         {hasExistingSubscription && (
-          <div className="mb-8 mt-8 text-center">
+          <div className="mb-8 mt-8 flex flex-wrap justify-center gap-2">
             <ManageSubscription premium={premium ?? null} />
 
-            {userPremiumTier && (
-              <Button className="ml-2" asChild>
+            {/* Only pages without the app sidebar need a way back in. */}
+            {userPremiumTier && props.showGoToApp && (
+              <Button asChild>
                 <Link href="/setup">
                   <SparklesIcon className="mr-2 h-4 w-4" />
                   Go to app
@@ -174,7 +176,7 @@ export default function Pricing(props: PricingProps) {
             )}
 
             {hasActiveAppleManagedSubscription && (
-              <div className="mx-auto mt-4 max-w-2xl text-left">
+              <div className="mt-2 w-full max-w-2xl basis-full text-left">
                 <AlertBasic
                   variant="blue"
                   title="Managed in the App Store"
@@ -184,7 +186,7 @@ export default function Pricing(props: PricingProps) {
             )}
 
             {isLegacyStripePlan && (
-              <div className="mx-auto mt-4 max-w-2xl text-left">
+              <div className="mt-2 w-full max-w-2xl basis-full text-left">
                 <AlertBasic
                   variant="blue"
                   title="Grandfathered pricing"

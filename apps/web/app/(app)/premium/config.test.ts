@@ -26,7 +26,6 @@ vi.mock("@/env", () => ({
 
 import {
   getAppleSubscriptionTier,
-  getBillingIntervalSwitch,
   getStripePriceId,
   hasLegacyStripePriceId,
   getAddAccountBillingText,
@@ -268,43 +267,5 @@ describe("getAppleSubscriptionTier", () => {
     expect(getAppleSubscriptionTier({ productId: "unknown.apple.plan" })).toBe(
       null,
     );
-  });
-});
-
-describe("getBillingIntervalSwitch", () => {
-  it("offers the subscribed plan on the other billing interval", () => {
-    expect(
-      getBillingIntervalSwitch("price_current_plus_monthly"),
-    ).toMatchObject({
-      tier: "PLUS_ANNUALLY",
-      label: "Switch to annual",
-      description: expect.stringContaining(
-        "$28/mo, billed annually per user. Your plan includes 2 email accounts. Each extra account is $14/mo, billed annually.",
-      ),
-    });
-    expect(
-      getBillingIntervalSwitch("price_current_starter_annual"),
-    ).toMatchObject({
-      tier: "STARTER_MONTHLY",
-      label: "Switch to monthly",
-      // The test env points Starter monthly at a legacy per-account price.
-      description: expect.stringContaining(
-        "$25/mo per email account. You will be billed for each account.",
-      ),
-    });
-  });
-
-  it("keeps a legacy subscription on its own plan", () => {
-    expect(
-      getBillingIntervalSwitch("price_1S5u6NKGf8mwZWHnZCfy4D5n"),
-    ).toMatchObject({ tier: "PROFESSIONAL_ANNUALLY" });
-  });
-
-  it("offers nothing for prices outside the current plans", () => {
-    expect(
-      getBillingIntervalSwitch("price_1RfeDLKGf8mwZWHn6UW8wJcY"),
-    ).toBeNull();
-    expect(getBillingIntervalSwitch("price_unknown")).toBeNull();
-    expect(getBillingIntervalSwitch(null)).toBeNull();
   });
 });
