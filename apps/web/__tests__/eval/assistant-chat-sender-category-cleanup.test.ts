@@ -31,6 +31,11 @@ const hoisted = vi.hoisted(() => ({
   mockGetCategorizationStatusSnapshot: vi.fn((progress: unknown) =>
     buildStatusSnapshotFromProgress(progress),
   ),
+  mockValidateUserAndAiAccess: vi.fn(),
+}));
+
+vi.mock("@/utils/user/validate", () => ({
+  validateUserAndAiAccess: hoisted.mockValidateUserAndAiAccess,
 }));
 
 vi.mock("@/utils/categorize/senders/get-category-overview", () => ({

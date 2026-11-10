@@ -192,6 +192,24 @@ vi.mock("@/utils/senders/unsubscribe", () => ({
 
 vi.mock("@/utils/prisma");
 
+// An account that has never run sender categorization, so the category
+// overview tool reports no categories instead of failing on the prisma mock.
+vi.mock("@/utils/categorize/senders/get-category-overview", () => ({
+  getCategoryOverview: vi.fn(async () => ({
+    autoCategorizeSenders: false,
+    categorization: {
+      status: "idle",
+      totalItems: 0,
+      completedItems: 0,
+      remainingItems: 0,
+      message: "Sender categorization has not started.",
+    },
+    categorizedSenderCount: 0,
+    uncategorizedSenderCount: 0,
+    categories: [],
+  })),
+}));
+
 vi.mock("@/env", async () => {
   const { buildAssistantChatEvalEnv } = await vi.importActual<
     typeof import("@/__tests__/eval/assistant-chat-eval-env")
