@@ -116,7 +116,7 @@ test("archives unread newsletters in the background and leaves conversations alo
   await scriptReply({
     match: "decide which emails a bulk inbox action",
     object: { matchingEmailIds: newsletters.map((message) => message.id) },
-    delayMs: 3000,
+    slow: true,
   });
 
   await page.goto(`/${emailAccountId}/assistant`);
