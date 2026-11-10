@@ -895,6 +895,8 @@ function ReplyPanel({
         onRestoreCompose(composeSession);
         return false;
       }
+      // Without the engine nothing else drops the discarded draft from view.
+      if (!client) refetch();
       onDraftDiscarded?.();
       return true;
     },
@@ -907,6 +909,7 @@ function ReplyPanel({
       onDraftDiscarded,
       onRestoreCompose,
       onStartDiscard,
+      refetch,
     ],
   );
 

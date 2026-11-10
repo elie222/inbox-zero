@@ -223,7 +223,11 @@ function MailEngineRuntimeInner({ children }: { children: ReactNode }) {
       setClient(visible);
       // The list marks unsaved replies as drafts from this, not only once
       // their threads are opened.
-      hydrateReplyDrafts(emailAccountId).catch(captureException);
+      // A client torn down or replaced mid-read fails the read; not a bug.
+      hydrateReplyDrafts(emailAccountId).catch((error) => {
+        if (!abort.signal.aborted && published === next)
+          captureException(error);
+      });
     }
 
     if (mode === "desktop-ipc") {

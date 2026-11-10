@@ -281,7 +281,9 @@ function PriceTier({
   const hasActiveStripeSubscription =
     !!stripeSubscriptionId &&
     !!stripeSubscriptionStatus &&
-    ["active", "trialing"].includes(stripeSubscriptionStatus);
+    // A paused subscription is still open in Stripe, so plan changes go
+    // through the portal rather than a new checkout.
+    ["active", "trialing", "paused"].includes(stripeSubscriptionStatus);
 
   function getCTAText() {
     if (isCurrentPlan) return "Current plan";
