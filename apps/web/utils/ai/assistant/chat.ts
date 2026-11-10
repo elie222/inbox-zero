@@ -54,6 +54,7 @@ import {
 import { getAssistantChatProvider } from "./chat-provider-shared";
 import { LlmUseCase } from "@/utils/llms/use-cases";
 import { isIntegrationActionEnabledForUserId } from "@/utils/integration-action.server";
+import { setAnthropicCacheBreakpoints } from "@/utils/ai/assistant/cache-breakpoints";
 import { trimStaleToolResults } from "@/utils/ai/assistant/trim-stale-tool-results";
 import { guardChatTools } from "@/utils/ai/assistant/chat-tool-guards";
 
@@ -300,7 +301,7 @@ export async function aiProcessAssistantChat({
       contextMessages,
     });
 
-  const messagesWithCacheControl = addAnthropicCacheControl(
+  const messagesWithCacheControl = setAnthropicCacheBreakpoints(
     cacheOptimizedMessages,
     stablePrefixEndIndex,
   );
@@ -415,15 +416,16 @@ export async function aiProcessAssistantChat({
       messages: stepMessages,
       experimental_steeringMessages: steeringMessages,
     }) => {
-      const trimmedMessages = trimStaleToolResults(stepMessages);
-      const messages =
-        trimmedMessages === stepMessages ? undefined : trimmedMessages;
+      const messages = setAnthropicCacheBreakpoints(
+        trimStaleToolResults(stepMessages),
+        stablePrefixEndIndex,
+      );
 
       if (
         !finalReply.isFinalReplyStep(steeringMessages) &&
         Date.now() - startedAt < ASSISTANT_CHAT_TOOL_BUDGET_MS[responseSurface]
       )
-        return messages && { messages };
+        return { messages };
 
       return {
         messages,
@@ -502,42 +504,6 @@ function buildCacheOptimizedMessages({
   };
 }
 
-function addAnthropicCacheControl(
-  messages: ModelMessage[],
-  stablePrefixEndIndex: number,
-) {
-  const cacheControl: Record<string, JSONValue> = {
-    cacheControl: { type: "ephemeral" },
-  };
-
-  const cacheBreakpointIndexes = new Set([
-    0,
-    Math.max(0, Math.min(stablePrefixEndIndex, messages.length - 1)),
-  ]);
-
-  return messages.map((message, index) => {
-    if (!cacheBreakpointIndexes.has(index)) return message;
-
-    const messageWithOptions = message as ModelMessage & {
-      providerOptions?: Record<string, Record<string, JSONValue>>;
-    };
-
-    return {
-      ...messageWithOptions,
-      providerOptions: {
-        ...messageWithOptions.providerOptions,
-        anthropic: {
-          ...(messageWithOptions.providerOptions?.anthropic as Record<
-            string,
-            JSONValue
-          >),
-          ...cacheControl,
-        },
-      },
-    };
-  });
-}
-
 function formatFixRuleResultContext({
   ruleName,
   reason,
@@ -604,6 +570,11 @@ function getChatProviderOptionsForCaching({ chatId }: { chatId?: string }) {
       ? {
           openai: {
             promptCacheKey: `assistant-chat:${chatId}`,
+          },
+          // Keeps a chat's requests on one upstream provider, where its
+          // prompt cache lives.
+          openrouter: {
+            prompt_cache_key: `assistant-chat:${chatId}`,
           },
         }
       : {}),
