@@ -26,7 +26,7 @@ export type OutlookLabel = {
 
 export type GenericLabel = UserLabel | OutlookLabel;
 
-export function isHiddenLabel(label: EmailLabel): boolean {
+function isHidden(label: EmailLabel): boolean {
   return label.labelListVisibility === "labelHide";
 }
 
@@ -115,7 +115,7 @@ export function useSplitLabels() {
     const hidden: EmailLabel[] = [];
 
     userLabels.forEach((label) => {
-      if (isHiddenLabel(label)) {
+      if (isHidden(label)) {
         hidden.push(label);
       } else {
         visible.push(label);

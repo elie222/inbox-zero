@@ -13,11 +13,13 @@ import { LabelPickerDialog } from "./LabelPickerDialog";
 
 (globalThis as { React?: typeof React }).React = React;
 
-const { mockUseAccount, mockUseLabels, mockUseFolders } = vi.hoisted(() => ({
-  mockUseAccount: vi.fn(),
-  mockUseLabels: vi.fn(),
-  mockUseFolders: vi.fn(),
-}));
+const { mockUseAccount, mockUseLabels, mockUseFolders, mockUseLabelCounts } =
+  vi.hoisted(() => ({
+    mockUseAccount: vi.fn(),
+    mockUseLabels: vi.fn(),
+    mockUseFolders: vi.fn(),
+    mockUseLabelCounts: vi.fn(),
+  }));
 
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => mockUseAccount(),
@@ -25,9 +27,11 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
 
 vi.mock("@/hooks/useLabels", () => ({
   isLabelsKey: () => true,
-  isHiddenLabel: (label: { labelListVisibility?: string }) =>
-    label.labelListVisibility === "labelHide",
   useLabels: () => mockUseLabels(),
+}));
+
+vi.mock("@/hooks/useLabelCounts", () => ({
+  useLabelCounts: () => mockUseLabelCounts(),
 }));
 
 vi.mock("@/hooks/useFolders", () => ({
@@ -61,6 +65,7 @@ if (!HTMLElement.prototype.scrollIntoView) {
 
 describe("LabelPickerDialog", () => {
   beforeEach(() => {
+    mockUseLabelCounts.mockReturnValue({ countsById: new Map() });
     mockUseLabels.mockReturnValue({
       userLabels: [{ id: "category-1", name: "Category One", type: "user" }],
       isLoading: false,
@@ -180,6 +185,20 @@ describe("LabelPickerDialog", () => {
       emailAccountId: "account-1",
       provider: "google",
     });
+    mockUseLabelCounts.mockReturnValue({
+      countsById: new Map([
+        [
+          "read-only",
+          {
+            id: "read-only",
+            name: "Newsletters",
+            kind: "label",
+            total: 4,
+            unread: 0,
+          },
+        ],
+      ]),
+    });
     mockUseLabels.mockReturnValue({
       userLabels: [
         {
@@ -188,7 +207,15 @@ describe("LabelPickerDialog", () => {
           type: "user",
           labelListVisibility: "labelHide",
         },
-        { id: "zeta", name: "Zeta", type: "user" },
+        { id: "work", name: "Work", type: "user" },
+        { id: "work-plus", name: "Work Plus", type: "user" },
+        { id: "work-child", name: "Work/Clients", type: "user" },
+        {
+          id: "read-only",
+          name: "Newsletters",
+          type: "user",
+          labelListVisibility: "labelShowIfUnread",
+        },
         { id: "bracket", name: "[Superhuman]/Muted", type: "user" },
       ],
       isLoading: false,
@@ -206,6 +233,13 @@ describe("LabelPickerDialog", () => {
 
     expect(
       screen.getAllByRole("option").map((option) => option.textContent),
-    ).toEqual(["Zeta", "[Superhuman]/Muted", "Archive Later"]);
+    ).toEqual([
+      "Work",
+      "Work/Clients",
+      "Work Plus",
+      "[Superhuman]/Muted",
+      "Archive Later",
+      "Newsletters",
+    ]);
   });
 });

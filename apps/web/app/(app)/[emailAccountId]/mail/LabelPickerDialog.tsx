@@ -15,7 +15,9 @@ import {
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useFolders } from "@/hooks/useFolders";
-import { isHiddenLabel, isLabelsKey, useLabels } from "@/hooks/useLabels";
+import { useLabelCounts } from "@/hooks/useLabelCounts";
+import { isLabelsKey, useLabels } from "@/hooks/useLabels";
+import type { EmailLabel } from "@/providers/email-label-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { createLabelAction } from "@/utils/actions/mail";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
@@ -24,6 +26,8 @@ import {
   FOLDER_SEPARATOR,
   flattenOutlookFolders,
 } from "@/utils/outlook/folders";
+import { getLabelTree, type SidebarLabel } from "./label-tree";
+import { splitLabelsByListVisibility } from "./label-visibility";
 
 const GMAIL_CATEGORY_NAMES: Record<string, string> = {
   CATEGORY_PERSONAL: "Personal",
@@ -57,6 +61,11 @@ export function LabelPickerDialog({
     isLoading: isLoadingLabels,
     error: labelsError,
   } = useLabels(emailAccountId);
+  const { countsById } = useLabelCounts({
+    emailAccountId,
+    labels: userLabels,
+    folders: [],
+  });
   const { mutate } = useSWRConfig();
   const {
     folders,
@@ -84,16 +93,21 @@ export function LabelPickerDialog({
             a.id.localeCompare(b.id, "en"),
         );
     }
-    // Match the sidebar: its label order, with hidden labels last.
+    const { visibleLabels, hiddenLabels } = splitLabelsByListVisibility({
+      labels: userLabels,
+      countsById,
+    });
     return [
-      ...userLabels.filter((label) => !isHiddenLabel(label)),
-      ...userLabels.filter(isHiddenLabel),
+      ...flattenLabelTree(
+        getLabelTree(visibleLabels, !isMicrosoftProvider(provider)),
+      ),
+      ...hiddenLabels,
     ].map((label) => ({
       id: label.id,
       name: label.name,
       displayName: getLabelDisplayName(label.id, label.name),
     }));
-  }, [isFolderMove, folders, userLabels]);
+  }, [isFolderMove, folders, userLabels, countsById, provider]);
   const canCreate =
     !isFolderMove &&
     name.length > 0 &&
@@ -220,4 +234,11 @@ export function LabelPickerDialog({
 
 function getLabelDisplayName(id: string, name: string) {
   return GMAIL_CATEGORY_NAMES[id] ?? name;
+}
+
+function flattenLabelTree(nodes: SidebarLabel[]): EmailLabel[] {
+  return nodes.flatMap((node) => [
+    node.label,
+    ...flattenLabelTree(node.children),
+  ]);
 }
