@@ -246,17 +246,27 @@ function createLabelDirectory({
   let labels: Promise<{ id: string; name: string }[]> | undefined;
   const load = () => {
     labels ??= createEmailProvider({ emailAccountId, provider, logger }).then(
-      (emailProvider) => emailProvider.getLabels(),
+      (emailProvider) => emailProvider.getLabels({ includeHidden: true }),
     );
     return labels;
   };
   return {
+    // Listing still works with raw ids if labels can't be fetched.
     nameFor: async (id: string) =>
-      (await load()).find((label) => label.id === id)?.name,
-    idFor: async (name: string) =>
-      (await load()).find(
-        (label) => label.name.trim().toLowerCase() === name.toLowerCase(),
-      )?.id,
+      (await load().catch(() => [])).find((label) => label.id === id)?.name,
+    // An exact name or id wins over a case-insensitive name, so labels that
+    // differ only in case can't be confused.
+    idFor: async (nameOrId: string) => {
+      const all = await load();
+      const exact = all.find(
+        (label) => label.name === nameOrId || label.id === nameOrId,
+      );
+      if (exact) return exact.id;
+      const loose = all.filter(
+        (label) => label.name.toLowerCase() === nameOrId.toLowerCase(),
+      );
+      return loose.length === 1 ? loose[0].id : undefined;
+    },
   };
 }
 

@@ -8,6 +8,7 @@ import {
   MAX_SPLIT_LABELS,
 } from "@/utils/split-inbox/split-constants";
 import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
+import { senderFilterSchema } from "@/utils/split-inbox/sender-filter";
 import { createSearchParams } from "@/utils/url";
 
 /**
@@ -18,7 +19,7 @@ const threadsQueryLeaf = z
   .strictObject({
     labelId: z.string().trim().min(1).nullish(),
     fromEmail: z.string().trim().min(1).nullish(),
-    toEmail: z.string().trim().min(1).nullish(),
+    toEmail: senderFilterSchema.nullish(),
     isUnread: z.literal(true).nullish(),
     before: z.coerce.date().nullish(),
     inboxSection: z.enum(["focused", "other"]).nullish(),
@@ -57,7 +58,7 @@ export const threadsQuery = z
     q: z.string().nullish(),
     fromEmail: z.string().nullish(),
     /** Addressed to this address or @domain, in To or Cc. */
-    toEmail: z.string().nullish(),
+    toEmail: senderFilterSchema.nullish(),
     limit: z.coerce.number().max(100).nullish(),
     type: z.string().nullish(),
     folderId: z.string().nullish(), // For Outlook

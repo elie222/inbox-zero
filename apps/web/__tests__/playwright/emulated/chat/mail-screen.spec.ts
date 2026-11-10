@@ -109,6 +109,7 @@ test("the assistant's search shows over an open email", async ({ page }) => {
   await expect(page.getByText("I put that search on your screen.")).toBeVisible(
     { timeout: 60_000 },
   );
+  await expect(conversations).toBeVisible({ timeout: 60_000 });
   await expect(
     conversations
       .locator("[data-mail-thread-key]")

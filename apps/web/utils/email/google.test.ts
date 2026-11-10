@@ -790,7 +790,7 @@ describe("GmailProvider.getThreadsWithQuery", () => {
     const list = vi
       .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
       .mockResolvedValueOnce({
-        threads: [{ id: "miss" }, { id: "hit" }],
+        threads: [{ id: "miss" }, { id: "hit" }, { id: "to" }],
         nextPageToken: undefined,
       });
     const headers = (to: string, cc?: string) => ({
@@ -821,6 +821,16 @@ describe("GmailProvider.getThreadsWithQuery", () => {
           },
         ],
       },
+      {
+        id: "to",
+        messages: [
+          {
+            id: "to",
+            labelIds: ["INBOX"],
+            payload: headers("security@rakazo.com"),
+          },
+        ],
+      },
     ]);
     const oauth = new auth.OAuth2();
     oauth.setCredentials({ access_token: "access-token" });
@@ -828,7 +838,7 @@ describe("GmailProvider.getThreadsWithQuery", () => {
     const result = await provider.getThreadsWithQuery({
       query: { toEmail: "@rakazo.com", labelIds: ["INBOX"] },
     });
-    expect(result.threads.map(({ id }) => id)).toEqual(["hit"]);
+    expect(result.threads.map(({ id }) => id)).toEqual(["hit", "to"]);
     expect(list).toHaveBeenCalledWith(
       expect.objectContaining({ q: "{to:rakazo.com cc:rakazo.com}" }),
     );

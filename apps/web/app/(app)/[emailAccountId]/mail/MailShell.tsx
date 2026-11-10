@@ -1807,8 +1807,12 @@ export function MailShell() {
           setAssistantSelection(action.threadIds);
           return;
         case "show_split":
+          // The chat may have finished after the user switched accounts.
+          if (action.emailAccountId !== emailAccountId) return;
           // Split tabs only show on this account's unscoped, unsearched inbox.
           revealList();
+          setAssistantSelection(null);
+          appliedAssistantKeys.current = new Set();
           selection.clear();
           setSearch("");
           setScopeType(null);

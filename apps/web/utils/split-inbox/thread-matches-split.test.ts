@@ -101,13 +101,16 @@ describe("Other inbox membership", () => {
     expect(threadMatchesSplit(conversation, split, now)).toBe(false);
     conversation.messages[0].headers.to = "a@b.com, Security@Rakazo.com";
     expect(threadMatchesSplit(conversation, split, now)).toBe(true);
+    const exact = (value: string) => ({
+      ...split,
+      filters: [{ kind: "TO" as const, value }],
+    });
     expect(
-      threadMatchesSplit(
-        conversation,
-        { ...split, filters: [{ kind: "TO", value: "hello@rakazo.com" }] },
-        now,
-      ),
-    ).toBe(false);
+      threadMatchesSplit(conversation, exact("security@rakazo.com"), now),
+    ).toBe(true);
+    expect(threadMatchesSplit(conversation, exact("ty@rakazo.com"), now)).toBe(
+      false,
+    );
   });
 
   it("matches sender, read state, category and age together", () => {

@@ -1245,13 +1245,17 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
         },
       },
     });
-    const result = await new OutlookProvider(client).getThreadsWithQuery({
-      query: { type: "inbox", toEmail: "@rakazo.com" },
-    });
-    expect(result.threads.map((thread) => thread.id).sort()).toEqual([
-      "cc",
-      "to",
-    ]);
+    const provider = new OutlookProvider(client);
+    const ids = async (toEmail: string) =>
+      (
+        await provider.getThreadsWithQuery({
+          query: { type: "inbox", toEmail },
+        })
+      ).threads
+        .map((thread) => thread.id)
+        .sort();
+    expect(await ids("@rakazo.com")).toEqual(["cc", "to"]);
+    expect(await ids("hello@rakazo.com")).toEqual(["cc"]);
   });
 
   it.each([
