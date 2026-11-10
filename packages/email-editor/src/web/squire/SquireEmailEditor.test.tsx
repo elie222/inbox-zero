@@ -482,6 +482,50 @@ describe("Squire email editor", () => {
     expect(textbox().children[1].textContent?.trim()).toBe("My answer");
   });
 
+  it.each([
+    {
+      tag: "ul",
+      html: "<ul><li><br></li><li>Keep this</li></ul>",
+      selector: "li",
+    },
+    {
+      tag: "table",
+      html: "<table><tbody><tr><td><br></td><td>Keep this</td></tr></tbody></table>",
+      selector: "td",
+    },
+  ])("keeps an empty quoted $tag inside its quote when deleting", async ({
+    tag,
+    html,
+    selector,
+  }) => {
+    const { textbox } = await renderEditor({
+      initialHtml: `<blockquote><div>Before</div>${html}<div>After</div></blockquote>`,
+    });
+    act(() => textbox().focus());
+    // jsdom does not implement inherited editability, which Squire checks
+    // before merging the next block during normal deletion.
+    for (const element of textbox().querySelectorAll("*")) {
+      Object.defineProperty(element, "isContentEditable", { value: true });
+    }
+    const emptyBlock = textbox().querySelector(selector);
+    if (!emptyBlock) throw new Error("Missing structural block");
+    const range = document.createRange();
+    range.selectNodeContents(emptyBlock);
+    range.collapse(true);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+
+    await act(async () => {
+      fireEvent.keyDown(textbox(), { key: "Delete" });
+    });
+
+    expect(textbox().querySelectorAll("blockquote")).toHaveLength(1);
+    expect(textbox().querySelector(`blockquote ${tag}`)?.textContent).toContain(
+      "Keep this",
+    );
+    expect(textbox().querySelector(`:scope > ${tag}`)).toBeNull();
+  });
+
   it("quotes text and leaves the caret on a new line below it", async () => {
     const { handle, textbox } = await renderEditor({});
 

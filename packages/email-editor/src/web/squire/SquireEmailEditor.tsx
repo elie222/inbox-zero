@@ -479,7 +479,8 @@ export const SquireEmailEditor = forwardRef<
 
     const exitEmptyQuote = (event: KeyboardEvent) => {
       if (
-        !root.contains(event.target as Node) ||
+        !(event.target instanceof Node) ||
+        !root.contains(event.target) ||
         event.defaultPrevented ||
         event.isComposing ||
         event.keyCode === 229 ||
@@ -500,6 +501,7 @@ export const SquireEmailEditor = forwardRef<
       );
       if (
         !block ||
+        closestWithin(block, "table, ol, ul", root) ||
         block.textContent?.replace(/\u200B/gu, "").trim() ||
         block.querySelector(
           "img, hr, table, input, [contenteditable='false']",
