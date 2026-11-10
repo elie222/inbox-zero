@@ -17,7 +17,11 @@ const responseSchema = z.object({
   usage: z.object({
     input_tokens: z.number().nonnegative(),
     input_tokens_details: z
-      .object({ cached_tokens: z.number().nonnegative() })
+      .object({
+        cache_read_input_tokens: z.number().nonnegative().optional(),
+        cache_creation_input_tokens: z.number().nonnegative().optional(),
+        cached_tokens: z.number().nonnegative().optional(),
+      })
       .optional(),
     output_tokens: z.number().nonnegative(),
     output_tokens_details: z
@@ -108,8 +112,10 @@ export function createPerplexityResearchModel(apiKey: string): LanguageModelV4 {
           inputTokens: {
             total: usage.input_tokens,
             noCache: undefined,
-            cacheRead: usage.input_tokens_details?.cached_tokens,
-            cacheWrite: undefined,
+            cacheRead:
+              usage.input_tokens_details?.cache_read_input_tokens ??
+              usage.input_tokens_details?.cached_tokens,
+            cacheWrite: usage.input_tokens_details?.cache_creation_input_tokens,
           },
           outputTokens: {
             total: usage.output_tokens,

@@ -6,7 +6,20 @@ const fetchMock = vi.fn();
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Perplexity meeting research transport", () => {
-  it("uses web-grounded Agent API research and maps text, tokens and cost", async () => {
+  it.each([
+    {
+      details: { cache_read_input_tokens: 20, cache_creation_input_tokens: 5 },
+      cacheWriteTokens: 5,
+    },
+    { details: { cached_tokens: 20 }, cacheWriteTokens: undefined },
+    {
+      details: { cache_read_input_tokens: 20, cached_tokens: 10 },
+      cacheWriteTokens: undefined,
+    },
+  ])("uses web-grounded Agent API research and maps text, tokens and cost case %#", async ({
+    details,
+    cacheWriteTokens,
+  }) => {
     vi.stubGlobal("fetch", fetchMock);
     fetchMock.mockResolvedValueOnce(
       Response.json({
@@ -25,7 +38,7 @@ describe("Perplexity meeting research transport", () => {
         ],
         usage: {
           input_tokens: 100,
-          input_tokens_details: { cached_tokens: 20 },
+          input_tokens_details: details,
           output_tokens: 30,
           output_tokens_details: { reasoning_tokens: 10 },
           cost: { total_cost: 0.012 },
@@ -66,7 +79,7 @@ describe("Perplexity meeting research transport", () => {
       inputTokens: 100,
       outputTokens: 30,
       totalTokens: 130,
-      inputTokenDetails: { cacheReadTokens: 20 },
+      inputTokenDetails: { cacheReadTokens: 20, cacheWriteTokens },
       outputTokenDetails: { reasoningTokens: 10 },
     });
     expect(result.providerMetadata).toEqual({
@@ -101,6 +114,8 @@ describe("Perplexity meeting research transport", () => {
         prompt: "Synthetic research",
         maxRetries: 0,
       }),
-    ).rejects.toThrow("Perplexity research request failed (400)");
+    ).rejects.toMatchObject({
+      message: "Perplexity research request failed (400)",
+    });
   });
 });
