@@ -290,7 +290,9 @@ export function MessagePart({
       part,
       loadingText: "Updating your split inbox...",
       renderSuccess: ({ toolCallId }) =>
-        part.output && "pendingDelete" in part.output ? (
+        part.output &&
+        "pendingDelete" in part.output &&
+        part.output.pendingDelete ? (
           <PendingDeleteSplitCard
             key={toolCallId}
             split={part.output.pendingDelete}
