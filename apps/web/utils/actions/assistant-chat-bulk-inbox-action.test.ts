@@ -30,7 +30,7 @@ describe("confirmAssistantBulkInboxActionForAccount", () => {
     expect(created.data).toMatchObject({
       emailAccountId: "ea_1",
       chatId: "chat-1",
-      toolCallId: "tool-1",
+      confirmationKey: "chat-message-1:tool-1",
       action: "archive_threads",
       search: { query: "in:inbox category:promotions" },
       instruction: "only newsletters",

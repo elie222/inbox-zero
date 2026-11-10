@@ -24,7 +24,7 @@ CREATE TABLE "BulkInboxActionJob" (
     "failedCount" INTEGER NOT NULL DEFAULT 0,
     "error" TEXT,
     "completedAt" TIMESTAMP(3),
-    "toolCallId" TEXT NOT NULL,
+    "confirmationKey" TEXT NOT NULL,
     "chatId" TEXT,
     "emailAccountId" TEXT NOT NULL,
 
@@ -35,7 +35,7 @@ CREATE TABLE "BulkInboxActionJob" (
 CREATE INDEX "BulkInboxActionJob_chatId_updatedAt_idx" ON "BulkInboxActionJob"("chatId", "updatedAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "BulkInboxActionJob_emailAccountId_toolCallId_key" ON "BulkInboxActionJob"("emailAccountId", "toolCallId");
+CREATE UNIQUE INDEX "BulkInboxActionJob_emailAccountId_confirmationKey_key" ON "BulkInboxActionJob"("emailAccountId", "confirmationKey");
 
 -- AddForeignKey
 ALTER TABLE "BulkInboxActionJob" ADD CONSTRAINT "BulkInboxActionJob_chatId_fkey" FOREIGN KEY ("chatId") REFERENCES "Chat"("id") ON DELETE SET NULL ON UPDATE CASCADE;

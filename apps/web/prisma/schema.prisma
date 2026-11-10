@@ -1333,14 +1333,16 @@ model BulkInboxActionJob {
   error       String?
   completedAt DateTime?
 
-  toolCallId String
-  chatId     String?
-  chat       Chat?   @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  // Chat message id plus tool call id. Models can repeat tool call ids across
+  // chats, and one confirmation must map to exactly one job.
+  confirmationKey String
+  chatId          String?
+  chat            Chat?   @relation(fields: [chatId], references: [id], onDelete: SetNull)
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  @@unique([emailAccountId, toolCallId])
+  @@unique([emailAccountId, confirmationKey])
   @@index([chatId, updatedAt])
 }
 

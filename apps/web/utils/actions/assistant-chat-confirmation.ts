@@ -494,8 +494,11 @@ export async function confirmAssistantBulkInboxActionForAccount({
     // A retried confirmation reuses the job and its current chunk token.
     // Queueing that token again is harmless: a live chunk holds the lease,
     // and a finished one has already moved the token on.
+    const confirmationKey = `${reservation.chatMessageId}:${toolCallId}`;
     const existingJob = await prisma.bulkInboxActionJob.findUnique({
-      where: { emailAccountId_toolCallId: { emailAccountId, toolCallId } },
+      where: {
+        emailAccountId_confirmationKey: { emailAccountId, confirmationKey },
+      },
       select: { id: true, chunkToken: true },
     });
     const job =
@@ -504,7 +507,7 @@ export async function confirmAssistantBulkInboxActionForAccount({
         data: {
           emailAccountId,
           chatId,
-          toolCallId,
+          confirmationKey,
           search: pendingAction.search,
           action: pendingAction.action,
           labelId: pendingAction.labelId,
