@@ -448,51 +448,13 @@ export const getBillingPortalUrlAction = actionClientUser
           }
         : undefined;
 
-    try {
-      const { url } = await stripe.billingPortal.sessions.create({
-        customer: user.premium.stripeCustomerId,
-        return_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
-        flow_data: confirmFlow,
-      });
+    const { url } = await stripe.billingPortal.sessions.create({
+      customer: user.premium.stripeCustomerId,
+      return_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
+      flow_data: confirmFlow,
+    });
 
-      return { url };
-    } catch (error) {
-      if (
-        !confirmFlow ||
-        !planChangeItem ||
-        !priceId ||
-        !user.premium.stripeSubscriptionId ||
-        !isUnsupportedStripePortalPlanChange(error)
-      ) {
-        throw error;
-      }
-
-      // Monthly ↔ annual (and other interval) switches are often rejected by
-      // the portal confirm flow even though Stripe can apply them directly.
-      logger.warn(
-        "Stripe plan-change confirm flow failed; applying the price update directly",
-        { error: error instanceof Error ? error.message : error },
-      );
-
-      const updated = await stripe.subscriptions.update(
-        user.premium.stripeSubscriptionId,
-        {
-          items: [
-            {
-              id: planChangeItem.id,
-              price: priceId,
-              quantity,
-            },
-          ],
-          cancel_at_period_end: false,
-          proration_behavior: "create_prorations",
-          payment_behavior: "pending_if_incomplete",
-          expand: ["latest_invoice"],
-        },
-      );
-
-      return { url: getStripePlanChangeRedirectUrl(updated) };
-    }
+    return { url };
   });
 
 export const endStripeTrialAction = actionClientUser
@@ -705,45 +667,4 @@ function getStripePlanChangeItem({
   const storedItem = items.find((item) => item.id === storedSubscriptionItemId);
   if (storedItem) return storedItem;
   if (items.length === 1) return items[0];
-}
-
-const UNSUPPORTED_PORTAL_PLAN_CHANGE_MESSAGES = [
-  "different billing interval",
-  "not available in the customer portal",
-  "not updatable",
-  "must belong to the same product",
-  // The portal configuration doesn't list the target price.
-  "does not include the price",
-];
-
-function isUnsupportedStripePortalPlanChange(error: unknown): boolean {
-  if (!isStripeInvalidRequestError(error)) return false;
-  if (error.param?.startsWith("flow_data")) return true;
-
-  const message = error.message.toLowerCase();
-  return UNSUPPORTED_PORTAL_PLAN_CHANGE_MESSAGES.some((fragment) =>
-    message.includes(fragment),
-  );
-}
-
-function isStripeInvalidRequestError(
-  error: unknown,
-): error is { type: string; message: string; param?: string } {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "type" in error &&
-    (error as { type: unknown }).type === "invalid_request_error" &&
-    "message" in error &&
-    typeof (error as { message: unknown }).message === "string"
-  );
-}
-
-function getStripePlanChangeRedirectUrl(subscription: Stripe.Subscription) {
-  const invoice = subscription.latest_invoice;
-  if (invoice && typeof invoice !== "string" && invoice.status !== "paid") {
-    return invoice.hosted_invoice_url || `${env.NEXT_PUBLIC_BASE_URL}/premium`;
-  }
-
-  return `${env.NEXT_PUBLIC_BASE_URL}/premium`;
 }

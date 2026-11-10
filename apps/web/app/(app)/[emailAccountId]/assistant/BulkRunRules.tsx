@@ -84,6 +84,7 @@ export function BulkRunRules() {
   const [generateDraftReplies, setGenerateDraftReplies] = useState(false);
 
   const abortRef = useRef<() => void>(undefined);
+  const runIdRef = useRef(0);
 
   // Derived state
   const remaining = new Set(
@@ -106,6 +107,7 @@ export function BulkRunRules() {
   useBeforeUnload(isBusy);
 
   const handleStart = async () => {
+    const runId = ++runIdRef.current;
     dispatch({ type: "START" });
 
     if (!startDate) {
@@ -135,10 +137,13 @@ export function BulkRunRules() {
           rerun: isRerunEnabled,
           maxEmails: isTrial ? TRIAL_BULK_PROCESS_EMAIL_LIMIT : undefined,
         },
+        // A stopped run's queue can still report after a new run starts.
         (threads) => {
+          if (runIdRef.current !== runId) return;
           dispatch({ type: "THREADS_QUEUED", threads });
         },
         (completionStatus, count) => {
+          if (runIdRef.current !== runId) return;
           if (completionStatus !== "success") {
             dispatch({ type: "STOP", completedCount: count });
             return;
@@ -147,6 +152,7 @@ export function BulkRunRules() {
           dispatch({ type: "COMPLETE", count });
         },
         (resumeAt) => {
+          if (runIdRef.current !== runId) return;
           dispatch({ type: "RATE_LIMIT_WAIT", resumeAt });
         },
       );

@@ -131,4 +131,28 @@ describe("getThreadOtpCode", () => {
       getThreadOtpCode({ snippet: "123456", messages: [] }, userLabels),
     ).toBeNull();
   });
+
+  it("reads the code from a message whose OTP label is hidden from the list", () => {
+    const hiddenOtpLabel = {
+      id: "Label_otp",
+      name: "OTP",
+      messageListVisibility: "hide",
+    };
+    expect(
+      getThreadOtpCode(
+        {
+          snippet: "Use 482913 to continue",
+          messages: [
+            {
+              subject: "Welcome back",
+              date: "2026-01-01T00:00:00Z",
+              snippet: "Use 482913 to continue",
+              labelIds: [hiddenOtpLabel.id],
+            },
+          ],
+        },
+        { [hiddenOtpLabel.id]: hiddenOtpLabel },
+      ),
+    ).toBe("482913");
+  });
 });

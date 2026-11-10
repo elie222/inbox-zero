@@ -305,13 +305,24 @@ async function connectPurchaserAsAdminIfMissing({
   }
 }
 
-function getEffectiveStripeSubscriptionStatus(subscription: {
-  status: string;
-  cancel_at_period_end: boolean;
-}) {
-  return subscription.status === "trialing" && subscription.cancel_at_period_end
-    ? "canceled"
-    : subscription.status;
+function getEffectiveStripeSubscriptionStatus(
+  subscription: Pick<
+    Stripe.Subscription,
+    "status" | "cancel_at_period_end" | "pause_collection"
+  >,
+) {
+  if (subscription.status === "trialing" && subscription.cancel_at_period_end) {
+    return "canceled";
+  }
+  // Stripe keeps the status "active" while payment collection is paused, so
+  // store "paused" to stop granting paid access until collection resumes.
+  if (
+    subscription.pause_collection &&
+    (subscription.status === "active" || subscription.status === "trialing")
+  ) {
+    return "paused";
+  }
+  return subscription.status;
 }
 
 export { getEffectiveStripeSubscriptionStatus };
