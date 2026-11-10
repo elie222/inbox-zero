@@ -1,0 +1,90 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-10 14:46+0200\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Account"
+msgstr "Account"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Add Account"
+msgstr "Add Account"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "AI Model"
+msgstr "AI Model"
+
+#: app/(app)/settings/EmailOtpSection.tsx
+msgid "Allow sign-in with a one-time email code"
+msgstr "Allow sign-in with a one-time email code"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Beta Features"
+msgstr "Beta Features"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Billing"
+msgstr "Billing"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Connect Apps"
+msgstr "Connect Apps"
+
+#: app/(app)/settings/AppearanceSection.tsx
+msgid "Dark mode"
+msgstr "Dark mode"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Developer"
+msgstr "Developer"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Email Accounts"
+msgstr "Email Accounts"
+
+#: app/(app)/settings/EmailOtpSection.tsx
+msgid "Email delivery unavailable."
+msgstr "Email delivery unavailable."
+
+#: app/(app)/settings/TeamSection.tsx
+msgid "Invite"
+msgstr "Invite"
+
+#: app/(app)/settings/TeamSection.tsx
+msgid "Invite members"
+msgstr "Invite members"
+
+#: app/(app)/settings/LanguageSection.tsx
+msgid "Language"
+msgstr "Language"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Open"
+msgstr "Open"
+
+#: app/(app)/settings/page.tsx
+#: app/(app)/settings/SettingsDialog.tsx
+msgid "Settings"
+msgstr "Settings"
+
+#: app/(app)/settings/TeamSection.tsx
+msgid "Share your plan by inviting teammates to your organization."
+msgstr "Share your plan by inviting teammates to your organization."
+
+#. placeholder {0}: data.email
+#: app/(app)/settings/EmailOtpSection.tsx
+msgid "Sign in with {0}."
+msgstr "Sign in with {0}."
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Team"
+msgstr "Team"
+
+#: app/(app)/settings/AppearanceSection.tsx
+msgid "Toggle dark mode"
+msgstr "Toggle dark mode"

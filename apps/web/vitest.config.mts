@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
+import { lingui } from "@lingui/vite-plugin";
 import { config } from "dotenv";
 import { configDefaults, defineConfig } from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
@@ -16,7 +17,7 @@ const envFile = isE2E ? "./.env.e2e" : "./.env.test";
 const env = existsSync(envFile) ? config({ path: envFile }).parsed : undefined;
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  plugins: [tsconfigPaths(), lingui({ macroTransform: true })],
   // Vitest runs outside Next, so it must compile JSX instead of inheriting
   // Next's tsconfig `jsx: "preserve"` setting.
   esbuild: {

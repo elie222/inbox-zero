@@ -45,3 +45,8 @@ export function useTeamsEnabled() {
   const posthogEnabled = useFeatureFlagEnabled("microsoft-teams");
   return env.NEXT_PUBLIC_TEAMS_ENABLED || posthogEnabled;
 }
+
+// Hidden until enough of the app is translated to offer it to everyone.
+export function useUiLanguageEnabled() {
+  return useFeatureFlagEnabled("ui-language");
+}

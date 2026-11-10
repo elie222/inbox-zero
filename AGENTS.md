@@ -74,6 +74,7 @@
 ## Component Guidelines
 - Use shadcn/ui components when available
 - Use `LoadingContent` component for async data: `<LoadingContent loading={isLoading} error={error}>{data && <YourComponent data={data} />}</LoadingContent>`
+- UI translation uses Lingui; see `.claude/skills/i18n/SKILL.md`. Feature PRs wrap strings in code only and never run `intl:extract` or edit `messages.po`.
 
 ## Fullstack Workflow
 See `.claude/skills/fullstack-workflow/SKILL.md` for full examples and templates.
