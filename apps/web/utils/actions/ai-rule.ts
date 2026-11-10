@@ -17,6 +17,8 @@ import { flushLoggerSafely } from "@/utils/logger-flush";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
+import { retryFailedRuleActions } from "@/utils/ai/choose-rule/retry-failed-actions";
+import { ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { checkHasAccess } from "@/utils/premium/server";
 import {
   RERUN_MINIMUM_TIER,
@@ -135,16 +137,31 @@ export const runRulesAction = actionClient
       });
 
       if (executedRules.length > 0) {
-        logger.info("Skipping. Rule already exists.");
+        logger.info("Rule already ran for this message");
 
-        return executedRules.map((executedRule) => ({
-          rule: executedRule.rule,
-          actionItems: executedRule.actionItems,
-          reason: executedRule.reason,
-          existing: true,
-          createdAt: executedRule.createdAt,
-          status: executedRule.status,
-        }));
+        const results = [];
+        for (const executedRule of executedRules) {
+          const status =
+            executedRule.status === ExecutedRuleStatus.ERROR
+              ? ((await retryFailedRuleActions({
+                  client: emailProvider,
+                  executedRuleId: executedRule.id,
+                  message,
+                  emailAccount,
+                  logger,
+                })) ?? executedRule.status)
+              : executedRule.status;
+
+          results.push({
+            rule: executedRule.rule,
+            actionItems: executedRule.actionItems,
+            reason: executedRule.reason,
+            existing: true,
+            createdAt: executedRule.createdAt,
+            status,
+          });
+        }
+        return results;
       }
 
       logger.info("Loading enabled rules for execution");
