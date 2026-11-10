@@ -8,6 +8,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useStableCallback } from "@/app/(app)/[emailAccountId]/mail/use-stable-callback";
 import { ThreadContent } from "@/components/EmailViewer";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
@@ -38,12 +39,12 @@ export function MailPreviewOverlay({
 
   // Closing from inside the overlay hands focus back to the email's chat card
   // rather than dropping it on the page body.
-  function close() {
+  const close = useStableCallback(() => {
     const hadFocus = sectionRef.current?.contains(document.activeElement);
     const card = getChatCard(threadId);
     onClose();
     if (hadFocus) card?.focus();
-  }
+  });
 
   useEffect(() => {
     setPosition(getPosition(threadId));
@@ -86,7 +87,7 @@ export function MailPreviewOverlay({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  });
+  }, [threadId, close, onNavigate]);
 
   const previous = position.threadIds[position.index - 1];
   const next = position.threadIds[position.index + 1];
