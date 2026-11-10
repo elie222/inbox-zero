@@ -31,7 +31,12 @@ import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachm
 import type { SelectedAttachment } from "@/utils/attachments/source-schema";
 import { getReplyMemoriesForPrompt } from "@/utils/ai/reply/reply-memory";
 import type { DraftContextMetadata } from "@/utils/ai/reply/draft-context-metadata";
-import { collectSenderReplyExamples } from "@/utils/reply-tracker/sender-reply-examples";
+import {
+  collectSenderReplyExamples,
+  getSenderHistoryMessages,
+} from "@/utils/reply-tracker/sender-reply-examples";
+
+const MAX_HISTORICAL_MESSAGES = 10;
 
 export type DraftGenerationResult = {
   attachments?: SelectedAttachment[];
@@ -78,15 +83,18 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
   minimumConfidence: DraftReplyConfidence,
   selectedRuleId?: string,
 ): Promise<DraftGenerationResult> {
-  const { threadMessages, previousConversationMessages } = testMessage
-    ? { threadMessages: [testMessage], previousConversationMessages: null }
-    : await fetchThreadAndConversationMessages(threadId, client);
+  // Providers return chronological order; sort defensively since drafting
+  // logic breaks silently if messages arrive out of order.
+  const threadMessages = testMessage
+    ? [testMessage]
+    : (await client.getThreadMessages(threadId)).sort(
+        sortByInternalDate("asc"),
+      );
 
   const { draft, confidence, attribution, attachments, draftContextMetadata } =
     await generateDraftContent(
       emailAccount,
       threadMessages,
-      previousConversationMessages,
       client,
       logger,
       minimumConfidence,
@@ -118,36 +126,9 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
   };
 }
 
-/**
- * Fetches thread messages and previous conversation messages
- */
-async function fetchThreadAndConversationMessages(
-  threadId: string,
-  client: EmailProvider,
-): Promise<{
-  threadMessages: ParsedMessage[];
-  previousConversationMessages: ParsedMessage[] | null;
-}> {
-  // Providers return chronological order; sort defensively since drafting
-  // logic breaks silently if messages arrive out of order.
-  const threadMessages = (await client.getThreadMessages(threadId)).sort(
-    sortByInternalDate("asc"),
-  );
-  const previousConversationMessages =
-    await client.getPreviousConversationMessages(
-      threadMessages.map((msg) => msg.id),
-    );
-
-  return {
-    threadMessages,
-    previousConversationMessages,
-  };
-}
-
 async function generateDraftContent(
   emailAccount: EmailAccountWithAI,
   threadMessages: ParsedMessage[],
-  previousConversationMessages: ParsedMessage[] | null,
   emailProvider: EmailProvider,
   logger: Logger,
   minimumConfidence: DraftReplyConfidence,
@@ -206,6 +187,26 @@ async function generateDraftContent(
     }),
   }));
 
+  const senderEmail = extractEmailAddress(lastMessage.headers.from);
+  const senderHistoryPromise = getSenderHistoryMessages({
+    emailAccount,
+    emailProvider,
+    senderEmail,
+    currentThreadId: lastMessage.threadId,
+    logger,
+  });
+  const historicalMessagesPromise = senderHistoryPromise.then((history) =>
+    history.slice(0, MAX_HISTORICAL_MESSAGES).map((msg) =>
+      getEmailForLLM(msg, {
+        maxLength: 1000,
+        extractReply: true,
+        removeForwarded: false,
+        includeLinkUrls: true,
+        includeImageAltText: true,
+      }),
+    ),
+  );
+
   // 1. Get knowledge base entries
   const knowledgeBase = await prisma.knowledge.findMany({
     where: { emailAccountId: emailAccount.id },
@@ -218,26 +219,6 @@ async function generateDraftContent(
     messages[messages.length - 1],
     10_000,
   );
-  const currentMessageIds = new Set(threadMessages.map((msg) => msg.id));
-  const historicalMessagesForLLM = previousConversationMessages
-    ?.filter((msg) => !currentMessageIds.has(msg.id))
-    .map((msg) =>
-      getEmailForLLM(msg, {
-        maxLength: 1000,
-        extractReply: true,
-        removeForwarded: false,
-        includeLinkUrls: true,
-        includeImageAltText: true,
-      }),
-    );
-  const senderEmail = extractEmailAddress(lastMessage.headers.from);
-
-  if (historicalMessagesForLLM?.length) {
-    logger.info("Fetching historical messages from sender");
-    logger.trace("Fetching historical messages from sender", {
-      sender: lastMessage.headers.from,
-    });
-  }
   const attachmentSelectionPromise = selectedRuleId
     ? selectDraftAttachmentsForRule({
         emailAccount,
@@ -333,23 +314,25 @@ async function generateDraftContent(
       additionalRecipients,
       logger,
     }),
-    historicalMessagesForLLM?.length
-      ? aiExtractFromEmailHistory({
-          currentThreadMessages: messages,
-          historicalMessages: historicalMessagesForLLM,
-          emailAccount,
-          logger,
-        })
-      : Promise.resolve(null),
+    historicalMessagesPromise.then((historicalMessages) =>
+      historicalMessages.length
+        ? aiExtractFromEmailHistory({
+            currentThreadMessages: messages,
+            historicalMessages,
+            emailAccount,
+            logger,
+          })
+        : null,
+    ),
     attachmentSelectionPromise,
     activeBookingLinksPromise,
-    collectSenderReplyExamples({
-      emailAccount,
-      emailProvider,
-      senderEmail,
-      currentMessageIds,
-      logger,
-    }),
+    senderHistoryPromise.then((senderHistoryMessages) =>
+      collectSenderReplyExamples({
+        emailProvider,
+        senderEmail,
+        senderHistoryMessages,
+      }),
+    ),
   ]);
   const {
     content: replyMemoryContent,
@@ -377,7 +360,7 @@ async function generateDraftContent(
     },
     senderHistory: {
       summaryInjected: !!emailHistorySummary,
-      summarySourceMessageCount: historicalMessagesForLLM?.length ?? 0,
+      summarySourceMessageCount: (await historicalMessagesPromise).length,
       precedentThreadsInjected: precedentThreadCount > 0,
       precedentThreadCount,
       sameSenderReplyExamplesInjected: !!senderReplyExamples?.content,
