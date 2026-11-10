@@ -182,7 +182,7 @@ function buildCleanupTurn(): ModelMessage[] {
   const rounds: ModelMessage[] = [];
   const totals = { threads_archived: 0, threads_trashed: 0 };
 
-  ARCHIVE_BATCH_SIZES.forEach((size, batch) => {
+  for (const [batch, size] of ARCHIVE_BATCH_SIZES.entries()) {
     totals.threads_archived += size;
     rounds.push(
       ...manageInboxRound({
@@ -199,7 +199,7 @@ function buildCleanupTurn(): ModelMessage[] {
         content:
           "While you're at it, delete the spam from those fake prize senders.",
       });
-      TRASH_BATCH_SIZES.forEach((trashSize, trashBatch) => {
+      for (const [trashBatch, trashSize] of TRASH_BATCH_SIZES.entries()) {
         totals.threads_trashed += trashSize;
         rounds.push(
           ...manageInboxRound({
@@ -209,14 +209,14 @@ function buildCleanupTurn(): ModelMessage[] {
             totals,
           }),
         );
-      });
+      }
       rounds.push({
         role: "assistant",
         content: "Deleted the spam. Continuing with the promotions.",
       });
       rounds.push({ role: "user", content: "Great, keep going." });
     }
-  });
+  }
 
   return [
     {
