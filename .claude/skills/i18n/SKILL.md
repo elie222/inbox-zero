@@ -52,7 +52,7 @@ When translating, keep every placeholder (`{0}`, `{name}`), numbered tag (`<0>â€
 
 ## Adding a language
 
-Add it to `locales` in `lingui.config.ts`, to `LOCALES` and `LOCALE_LABELS` in `utils/i18n/locales.ts`, and to the catalog imports in `utils/i18n/server.ts`. Then run `intl:extract`, translate the new catalog, and commit it.
+Add it to `locales` in `lingui.config.ts`, to `LOCALES` and `LOCALE_LABELS` in `utils/i18n/locales.ts`, and to the catalog imports and `catalogs` map in `utils/i18n/server.ts`. Then run `intl:extract`, translate the new catalog, and commit it.
 
 ## Locale selection
 
