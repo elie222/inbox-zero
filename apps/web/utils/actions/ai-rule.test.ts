@@ -257,33 +257,43 @@ describe("runRulesAction", () => {
   });
 
   it("finishes the actions of a saved result that ended in error instead of skipping the email", async () => {
-    prisma.executedRule.findMany.mockResolvedValue([
-      {
-        id: "failed-executed-rule",
-        status: "ERROR",
-        reason: "Rule matched",
-        actionItems: [],
-        rule: { id: "rule-1" },
-        createdAt: new Date("2026-03-27T00:00:00.000Z"),
-      },
-    ] as any);
+    const savedResult = {
+      id: "failed-executed-rule",
+      status: "ERROR",
+      reason: "Rule matched",
+      actionItems: [{ id: "archive", executionStatus: "FAILED" }],
+      rule: { id: "rule-1" },
+      createdAt: new Date("2026-03-27T00:00:00.000Z"),
+    };
+    prisma.executedRule.findMany
+      .mockResolvedValueOnce([savedResult] as any)
+      .mockResolvedValueOnce([
+        {
+          ...savedResult,
+          status: "APPLIED",
+          actionItems: [{ id: "archive", executionStatus: "SUCCEEDED" }],
+        },
+      ] as any);
     retryFailedRuleActionsMock.mockResolvedValue("APPLIED");
 
     const result = await runRulesAction("account-1", {
       messageId: "message-1",
       threadId: "thread-1",
       isTest: false,
+      skipDraftReplies: true,
     });
 
     expect(retryFailedRuleActionsMock).toHaveBeenCalledWith(
       expect.objectContaining({
         executedRuleId: "failed-executed-rule",
         message: expect.objectContaining({ id: "message-1" }),
+        skipDraftReplies: true,
       }),
     );
     expect(result?.data?.[0]).toMatchObject({
       existing: true,
       status: "APPLIED",
+      actionItems: [{ id: "archive", executionStatus: "SUCCEEDED" }],
     });
     expect(runRulesMock).not.toHaveBeenCalled();
   });

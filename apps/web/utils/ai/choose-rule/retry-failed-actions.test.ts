@@ -27,7 +27,11 @@ vi.mock("@/utils/prisma", () => ({
     },
     executedRule: {
       update: vi.fn(),
+      updateMany: vi.fn(),
       findUnique: vi.fn(),
+    },
+    scheduledAction: {
+      count: vi.fn(),
     },
   },
 }));
@@ -36,6 +40,8 @@ const mockRunActionFunction = runActionFunction as Mock;
 const mockFindExecutedRule = prisma.executedRule.findUnique as Mock;
 const mockExecutedRuleUpdate = prisma.executedRule.update as Mock;
 const mockFindExistingDraft = prisma.executedAction.findFirst as Mock;
+const mockClaimExecutedRule = prisma.executedRule.updateMany as Mock;
+const mockCountFailedScheduledActions = prisma.scheduledAction.count as Mock;
 
 const logger = createTestLogger();
 const client = {} as EmailProvider;
@@ -67,6 +73,8 @@ describe("retryFailedRuleActions", () => {
     vi.clearAllMocks();
     mockRunActionFunction.mockResolvedValue(undefined);
     mockFindExistingDraft.mockResolvedValue(null);
+    mockClaimExecutedRule.mockResolvedValue({ count: 1 });
+    mockCountFailedScheduledActions.mockResolvedValue(0);
   });
 
   it("completes an archive that failed on a rate limit without repeating actions that succeeded", async () => {
@@ -169,6 +177,47 @@ describe("retryFailedRuleActions", () => {
     expect(ranActionIds()).toEqual(["archive"]);
   });
 
+  it("does not create a draft when the run has draft replies turned off", async () => {
+    mockFindExecutedRule.mockResolvedValue(
+      buildExecutedRule([
+        action("draft", ActionType.DRAFT_EMAIL, ExecutedActionStatus.FAILED),
+        action("archive", ActionType.ARCHIVE, null),
+      ]),
+    );
+
+    const status = await retry({ skipDraftReplies: true });
+
+    expect(ranActionIds()).toEqual(["archive"]);
+    expect(status).toBe(ExecutedRuleStatus.ERROR);
+  });
+
+  it("does not run actions while another run is already retrying them", async () => {
+    mockClaimExecutedRule.mockResolvedValue({ count: 0 });
+    mockFindExecutedRule.mockResolvedValue(
+      buildExecutedRule([
+        action("draft", ActionType.DRAFT_EMAIL, ExecutedActionStatus.FAILED),
+      ]),
+    );
+
+    await retry();
+
+    expect(mockRunActionFunction).not.toHaveBeenCalled();
+  });
+
+  it("keeps the rule in error when one of its scheduled actions failed", async () => {
+    mockCountFailedScheduledActions.mockResolvedValue(1);
+    mockFindExecutedRule.mockResolvedValue(
+      buildExecutedRule([
+        action("archive", ActionType.ARCHIVE, ExecutedActionStatus.FAILED),
+      ]),
+    );
+
+    const status = await retry();
+
+    expect(ranActionIds()).toEqual(["archive"]);
+    expect(status).toBe(ExecutedRuleStatus.ERROR);
+  });
+
   it("leaves results that are not in error alone", async () => {
     mockFindExecutedRule.mockResolvedValue({
       ...buildExecutedRule([
@@ -184,12 +233,13 @@ describe("retryFailedRuleActions", () => {
   });
 });
 
-function retry() {
+function retry({ skipDraftReplies }: { skipDraftReplies?: boolean } = {}) {
   return retryFailedRuleActions({
     client,
     executedRuleId: "executed-rule-1",
     message,
     emailAccount,
+    skipDraftReplies,
     logger,
   });
 }

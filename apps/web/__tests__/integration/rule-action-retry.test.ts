@@ -43,6 +43,20 @@ vi.mock("@/utils/prisma", () => ({
         Object.assign(store.executedRule!, data);
         return store.executedRule;
       },
+      updateMany: async ({
+        where,
+        data,
+      }: {
+        where: { status: string };
+        data: Record<string, unknown>;
+      }) => {
+        if (store.executedRule?.status !== where.status) return { count: 0 };
+        Object.assign(store.executedRule, data);
+        return { count: 1 };
+      },
+    },
+    scheduledAction: {
+      count: async () => 0,
     },
     executedAction: {
       update: async ({

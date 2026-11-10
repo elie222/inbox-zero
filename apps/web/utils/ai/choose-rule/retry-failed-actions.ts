@@ -2,6 +2,7 @@ import {
   ActionType,
   ExecutedActionStatus,
   ExecutedRuleStatus,
+  ScheduledActionStatus,
 } from "@/generated/prisma/enums";
 import type { ExecutedAction } from "@/generated/prisma/client";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
@@ -33,12 +34,14 @@ export async function retryFailedRuleActions({
   executedRuleId,
   message,
   emailAccount,
+  skipDraftReplies,
   logger,
 }: {
   client: EmailProvider;
   executedRuleId: string;
   message: ParsedMessage;
   emailAccount: ActionExecutionEmailAccount;
+  skipDraftReplies?: boolean;
   logger: Logger;
 }): Promise<ExecutedRuleStatus | null> {
   const log = logger.with({ executedRuleId });
@@ -64,6 +67,7 @@ export async function retryFailedRuleActions({
       actionsToRetry.push(action);
     } else if (
       action.type === ActionType.DRAFT_EMAIL &&
+      !skipDraftReplies &&
       !(await hasDraftFromRuleInThread(executedRule))
     ) {
       actionsToRetry.push(action);
@@ -73,6 +77,17 @@ export async function retryFailedRuleActions({
   if (actionsToRetry.length === 0) {
     log.info("No failed rule actions are safe to retry");
     return executedRule.status;
+  }
+
+  // Claiming the result keeps concurrent retries from repeating actions, such
+  // as both creating a draft.
+  const claim = await prisma.executedRule.updateMany({
+    where: { id: executedRule.id, status: ExecutedRuleStatus.ERROR },
+    data: { status: ExecutedRuleStatus.APPLYING },
+  });
+  if (claim.count === 0) {
+    log.info("Another run is already retrying these rule actions");
+    return null;
   }
 
   log.info("Retrying failed rule actions", {
@@ -87,8 +102,11 @@ export async function retryFailedRuleActions({
     logger: log,
   });
 
-  const leftUnfinished = unfinishedActions.length > actionsToRetry.length;
-  if (status === ExecutedRuleStatus.APPLIED && leftUnfinished) {
+  if (
+    status === ExecutedRuleStatus.APPLIED &&
+    (unfinishedActions.length > actionsToRetry.length ||
+      (await hasFailedScheduledAction(executedRule.id)))
+  ) {
     await prisma.executedRule.update({
       where: { id: executedRule.id },
       data: { status: ExecutedRuleStatus.ERROR },
@@ -97,6 +115,13 @@ export async function retryFailedRuleActions({
   }
 
   return status;
+}
+
+async function hasFailedScheduledAction(executedRuleId: string) {
+  const failedCount = await prisma.scheduledAction.count({
+    where: { executedRuleId, status: ScheduledActionStatus.FAILED },
+  });
+  return failedCount > 0;
 }
 
 async function hasDraftFromRuleInThread({
