@@ -433,8 +433,13 @@ export function InlineEmailCard({
         className={`group flex items-center gap-2.5 px-3 text-sm ${hasSummary ? "py-3" : "py-2.5"} ${threadId ? "cursor-pointer" : ""} ${getRowStateClass({ isDone, inList: Boolean(listState) })}`}
         aria-current={isPreviewed ? "true" : undefined}
         data-chat-email-thread-id={opensOnMailScreen ? threadId : undefined}
-        onClick={toggleOpen}
+        // The actions menu renders in a portal, but React still bubbles its
+        // events here; only act on events from the row itself.
+        onClick={(e) => {
+          if (isFromRow(e)) toggleOpen();
+        }}
         onKeyDown={(e) => {
+          if (!isFromRow(e)) return;
           if (threadId && (e.key === "Enter" || e.key === " ")) {
             e.preventDefault();
             toggleOpen();
@@ -646,6 +651,14 @@ function InlineEmailCardBody({
         )}
       </div>
     </>
+  );
+}
+
+function isFromRow(event: { currentTarget: EventTarget; target: EventTarget }) {
+  return (
+    event.currentTarget instanceof Node &&
+    event.target instanceof Node &&
+    event.currentTarget.contains(event.target)
   );
 }
 

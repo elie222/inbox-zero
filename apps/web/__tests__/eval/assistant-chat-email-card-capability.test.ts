@@ -66,8 +66,14 @@ describe.runIf(shouldRunEval)("Eval: email card capability", () => {
         const hasCardMarkup = /<\/?(?:emails|email|email-detail)\b/i.test(
           output,
         );
+        // The model's text carries the meaning, so cards must stay empty.
+        const cardsAreEmpty = [
+          ...output.matchAll(/<(email|email-detail)\b[^>]*>([\s\S]*?)<\/\1>/gi),
+        ].every((match) => match[2].trim() === "");
         const pass =
-          judgement.pass && hasCardMarkup === supportsInlineEmailCards;
+          judgement.pass &&
+          hasCardMarkup === supportsInlineEmailCards &&
+          cardsAreEmpty;
         reporter.record({
           testName: `email summaries (support=${supportsInlineEmailCards}, history=${hasCardHistory})`,
           model: model.label,

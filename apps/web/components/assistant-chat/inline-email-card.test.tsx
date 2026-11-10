@@ -367,6 +367,22 @@ describe("InlineEmailCard", () => {
     expect(store.get(mailPreviewAtom)).toBeNull();
   });
 
+  it("doesn't open the email when an action is chosen from its menu", async () => {
+    const store = createStore();
+    store.set(mailScreenMountedAtom, true);
+
+    render(
+      <JotaiProvider store={store}>
+        <InlineEmailCard threadid="thread-1">Summary</InlineEmailCard>
+      </JotaiProvider>,
+    );
+    openMoreActions();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Archive" }));
+
+    await waitFor(() => expect(mockArchiveThreadAction).toHaveBeenCalled());
+    expect(store.get(mailPreviewAtom)).toBeNull();
+  });
+
   it("numbers a card only inside an email list", () => {
     const { unmount } = render(
       <InlineEmailCard threadid="thread-1" index={3}>

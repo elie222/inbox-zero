@@ -54,6 +54,7 @@ describe("buildResolvedSystemPrompt", () => {
     const plainPrompt = buildPrompt({ supportsInlineEmailCards: false });
 
     expect(cardPrompt).toContain("<email threadid");
+    expect(cardPrompt).not.toContain("<emails>");
     expect(cardPrompt).toContain("<email-detail");
 
     expect(plainPrompt).not.toContain("<email threadid");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -27,6 +27,23 @@ export function MailPreviewOverlay({
   // The chat's cards live in another part of the page, so their order is read
   // from the document. It's re-read on every step, so new cards are picked up.
   const [position, setPosition] = useState(() => getPosition(threadId));
+  const sectionRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Announce the email by moving focus in. It's non-modal, so the chat stays
+  // usable and there's no focus trap.
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+
+  // Closing from inside the overlay hands focus back to the email's chat card
+  // rather than dropping it on the page body.
+  function close() {
+    const hadFocus = sectionRef.current?.contains(document.activeElement);
+    const card = getChatCard(threadId);
+    onClose();
+    if (hadFocus) card?.focus();
+  }
 
   useEffect(() => {
     setPosition(getPosition(threadId));
@@ -61,7 +78,7 @@ export function MailPreviewOverlay({
     function onKeyDown(event: KeyboardEvent) {
       if (event.defaultPrevented || isEditableTarget(event.target)) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") close();
       else if (event.key === "j") step(1);
       else if (event.key === "k") step(-1);
       else return;
@@ -69,13 +86,14 @@ export function MailPreviewOverlay({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [threadId, onClose, onNavigate]);
+  });
 
   const previous = position.threadIds[position.index - 1];
   const next = position.threadIds[position.index + 1];
 
   return (
     <section
+      ref={sectionRef}
       aria-label="Email from chat"
       className="absolute inset-0 z-30 flex flex-col bg-background"
     >
@@ -113,7 +131,8 @@ export function MailPreviewOverlay({
             size="iconXs"
             variant="ghost"
             Icon={XIcon}
-            onClick={onClose}
+            onClick={close}
+            ref={closeButtonRef}
           />
         </div>
       </div>
@@ -160,6 +179,8 @@ function getChatCard(threadId: string) {
 function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
   return (
+    // Menus and lists use letter keys for typeahead.
+    Boolean(target.closest('[role="menu"],[role="listbox"]')) ||
     target.isContentEditable ||
     target.tagName === "INPUT" ||
     target.tagName === "TEXTAREA" ||
