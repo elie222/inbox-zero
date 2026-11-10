@@ -475,36 +475,50 @@ describe("createGenerateObject repairText", () => {
     "direct",
     "wrapped",
   ])("falls back after bounded retries for %s structured validation errors", async (kind) => {
-    const validationError = new Error("Invalid candidate ID");
-    const error =
-      kind === "direct"
-        ? validationError
-        : new Error("No object generated", { cause: validationError });
-    mockTypeValidationErrorIsInstance.mockImplementation(
-      (value) => value === validationError,
-    );
-    mockNoObjectGeneratedErrorIsInstance.mockImplementation(
-      (value) => kind === "wrapped" && value === error,
-    );
-    mockGenerateObject
-      .mockRejectedValueOnce(error)
-      .mockRejectedValueOnce(error)
-      .mockRejectedValueOnce(error)
-      .mockResolvedValueOnce({ object: { ok: true }, usage: null });
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const validationError = new Error("Invalid candidate ID");
+      const error =
+        kind === "direct"
+          ? validationError
+          : new Error("No object generated", { cause: validationError });
+      mockTypeValidationErrorIsInstance.mockImplementation(
+        (value) => value === validationError,
+      );
+      mockNoObjectGeneratedErrorIsInstance.mockImplementation(
+        (value) => kind === "wrapped" && value === error,
+      );
+      mockGenerateObject
+        .mockRejectedValueOnce(error)
+        .mockRejectedValueOnce(error)
+        .mockRejectedValueOnce(error)
+        .mockResolvedValueOnce({ object: { ok: true }, usage: null });
 
-    const generateObject = await createGenerateObjectWithFallback();
-    await expect(
-      generateObject({
-        instructions: "Return JSON.",
-        prompt: "Return JSON.",
-        schema: {} as any,
-      } as any),
-    ).resolves.toEqual({ object: { ok: true }, usage: null });
+      const generateObject = await createGenerateObjectWithFallback();
+      await expect(
+        generateObject({
+          instructions: "Return JSON.",
+          prompt: "Return JSON.",
+          schema: {} as any,
+        } as any),
+      ).resolves.toEqual({ object: { ok: true }, usage: null });
 
-    expect(mockGenerateObject).toHaveBeenCalledTimes(4);
-    expect(mockGenerateObject.mock.calls[3][0].model).not.toBe(
-      mockGenerateObject.mock.calls[0][0].model,
-    );
+      expect(mockGenerateObject).toHaveBeenCalledTimes(4);
+      expect(mockGenerateObject.mock.calls[3][0].model).not.toBe(
+        mockGenerateObject.mock.calls[0][0].model,
+      );
+      const outcomeLog = logSpy.mock.calls
+        .flat()
+        .find(
+          (value) =>
+            typeof value === "string" &&
+            value.includes("LLM object generation completed"),
+        );
+      expect(outcomeLog).toContain('"validation"');
+      expect(outcomeLog).not.toContain('"unknown"');
+    } finally {
+      logSpy.mockRestore();
+    }
   });
 
   it("propagates validation failure after exhausting configured models", async () => {
