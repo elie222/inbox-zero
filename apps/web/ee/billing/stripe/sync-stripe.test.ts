@@ -73,6 +73,16 @@ describe("getEffectiveStripeSubscriptionStatus", () => {
     ).toBe("paused");
   });
 
+  it("keeps terminal statuses even if payment collection was paused", () => {
+    expect(
+      getEffectiveStripeSubscriptionStatus({
+        status: "canceled",
+        cancel_at_period_end: false,
+        pause_collection: { behavior: "void", resumes_at: null },
+      }),
+    ).toBe("canceled");
+  });
+
   it("restores the real status once payment collection resumes", () => {
     expect(
       getEffectiveStripeSubscriptionStatus({

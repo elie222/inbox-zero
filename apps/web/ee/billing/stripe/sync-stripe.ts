@@ -316,7 +316,12 @@ function getEffectiveStripeSubscriptionStatus(
   }
   // Stripe keeps the status "active" while payment collection is paused, so
   // store "paused" to stop granting paid access until collection resumes.
-  if (subscription.pause_collection) return "paused";
+  if (
+    subscription.pause_collection &&
+    (subscription.status === "active" || subscription.status === "trialing")
+  ) {
+    return "paused";
+  }
   return subscription.status;
 }
 
