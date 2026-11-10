@@ -47,7 +47,11 @@ export function ManageSubscription({
   return (
     <>
       {premium?.stripeSubscriptionStatus === "trialing" && (
-        <EndTrialButton variant="outline" size={size} showIcon={!compact} />
+        <EndTrialButton
+          variant={compact ? "outline" : undefined}
+          size={size}
+          showIcon={!compact}
+        />
       )}
 
       {premium?.stripeSubscriptionId && (
