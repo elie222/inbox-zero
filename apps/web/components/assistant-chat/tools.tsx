@@ -2453,6 +2453,7 @@ export function PendingDeleteSplitCard({
 }) {
   const { emailAccountId } = useAccount();
   const { data: settings, mutate } = useMailSettings();
+  const [activeSplitId, setActiveSplitId] = useQueryState("split");
   const [isDeleting, setIsDeleting] = useState(false);
   // Read from the account's splits, so the card stays right after a reload.
   const deleted =
@@ -2468,6 +2469,7 @@ export function PendingDeleteSplitCard({
         toastError({ description: result.serverError });
         return;
       }
+      if (activeSplitId === split.id) setActiveSplitId(null);
       await mutate();
       toastSuccess({ description: "The split has been deleted." });
     } catch {

@@ -163,6 +163,7 @@ test("the assistant creates a split and shows it", async ({
       .filter({ hasText: "Playwright Test Message" }),
   ).toHaveCount(0);
 
+  await expect(page).toHaveURL(/[?&]split=/);
   const splitId = new URL(page.url()).searchParams.get("split");
   await scriptReply({
     match: "delete the dana split",
@@ -192,6 +193,7 @@ test("the assistant creates a split and shows it", async ({
   );
   await confirm.click();
   await expect(danaTab).toHaveCount(0, { timeout: 60_000 });
+  await expect(page).not.toHaveURL(/[?&]split=/);
   await expect(page.getByText("Deleted split")).toBeVisible();
 });
 
