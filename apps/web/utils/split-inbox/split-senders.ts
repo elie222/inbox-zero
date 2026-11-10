@@ -86,22 +86,28 @@ export function getThreadSenders(
   const senders = new Set<string>();
   for (const messages of threads) {
     // Providers return thread messages in their own order, so go by date and
-    // fall back to position only when dates tie or are missing.
-    const address = messages
+    // fall back to position when dates tie or any is missing.
+    const candidates = messages
       .map((message, index) => ({
         address: canonicalizeEmailAddress(message.headers.from),
-        time:
-          internalDateToDate(message.internalDate, {
-            fallbackToNow: false,
-          }).getTime() || 0,
+        time: internalDateToDate(message.internalDate, {
+          fallbackToNow: false,
+        }).getTime(),
         index,
       }))
-      .filter(({ address }) => address && !own.has(address))
-      .sort((a, b) => a.time - b.time || a.index - b.index)
+      // The action rejects the whole request over one malformed address.
+      .filter(
+        ({ address }) =>
+          address &&
+          !own.has(address) &&
+          address.length <= 320 &&
+          isValidEmail(address),
+      );
+    const allDated = candidates.every(({ time }) => Number.isFinite(time));
+    const address = candidates
+      .sort((a, b) => (allDated ? a.time - b.time : 0) || a.index - b.index)
       .at(-1)?.address;
-    // The action rejects the whole request over one malformed address.
-    if (address && address.length <= 320 && isValidEmail(address))
-      senders.add(address);
+    if (address) senders.add(address);
   }
   return [...senders];
 }

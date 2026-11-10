@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { threadsQueryToPredicate } from "./threads-query";
 
 describe("threadsQueryToPredicate", () => {
@@ -134,6 +134,58 @@ describe("threadsQueryToPredicate", () => {
             ],
           },
         },
+      ],
+    });
+  });
+
+  it("excludes age splits by received date rather than as a label", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-08T00:00:00Z"));
+    try {
+      const predicate = threadsQueryToPredicate({
+        type: "inbox",
+        excludeSplits: [
+          { matchAll: true, filters: [{ kind: "OLDER_THAN", value: "1w" }] },
+        ],
+      });
+      expect(predicate).toEqual({
+        kind: "all",
+        predicates: [
+          { kind: "mailbox", mailbox: "inbox" },
+          {
+            kind: "not",
+            predicate: {
+              kind: "any",
+              predicates: [
+                {
+                  kind: "all",
+                  predicates: [
+                    {
+                      kind: "received",
+                      afterMs: null,
+                      beforeMs: new Date("2026-01-01T00:00:00Z").getTime(),
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps a user label's membership top-level when combined with other filters", () => {
+    expect(
+      threadsQueryToPredicate({ labelId: "Label_news", fromEmail: "a@x.com" }),
+    ).toEqual({
+      kind: "all",
+      predicates: [
+        { kind: "address", field: "from", value: "a@x.com", match: "address" },
+        { kind: "membership", membership: "label", id: "Label_news" },
+        { kind: "mailbox", mailbox: "all" },
       ],
     });
   });

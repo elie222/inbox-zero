@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { env } from "@/env";
 import { useAction } from "next-safe-action/hooks";
 import { usePremium } from "@/hooks/usePremium";
 import {
@@ -105,6 +106,27 @@ export function BillingSection() {
               !premium.lemonSqueezyCustomerId && (
                 <ViewInvoicesButton premium={premium} />
               )}
+          </ItemActions>
+        </Item>
+      ) : premium?.stripeSubscriptionStatus === "paused" ? (
+        <Item size="sm">
+          <ItemContent>
+            <ItemTitle>{getPremiumTierName(premium.tier)} plan</ItemTitle>
+            {/* Customers can't pause or resume in the Stripe portal, so a
+                paused subscription is resumed by support. */}
+            <ItemDescription>
+              Paused. Contact{" "}
+              <a
+                href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
+                className="underline"
+              >
+                {env.NEXT_PUBLIC_SUPPORT_EMAIL}
+              </a>{" "}
+              to resume it.
+            </ItemDescription>
+          </ItemContent>
+          <ItemActions className="flex-wrap justify-end">
+            <ManageSubscription premium={premium} compact />
           </ItemActions>
         </Item>
       ) : (

@@ -81,6 +81,31 @@ describe("resetDefaultLabelColors", () => {
     });
   });
 
+  it("does not treat an extra label as built-in when the built-in label has no id", async () => {
+    const emailProvider = createMockEmailProvider();
+    vi.mocked(emailProvider.getLabels).mockResolvedValue([
+      { id: "personal", name: "Personal", type: "user", color: red },
+    ]);
+    prisma.rule.findMany.mockResolvedValue([
+      {
+        systemType: SystemType.TO_REPLY,
+        actions: [
+          { labelId: null, label: "To Reply" },
+          { labelId: "personal", label: "Personal" },
+        ],
+      },
+    ] as any);
+
+    const result = await resetDefaultLabelColors({
+      emailAccountId: "account-id",
+      emailProvider,
+      logger,
+    });
+
+    expect(result).toEqual({ updated: 0, failed: 0 });
+    expect(emailProvider.updateLabel).not.toHaveBeenCalled();
+  });
+
   it("repairs a label whose background matches but text color does not", async () => {
     const emailProvider = createMockEmailProvider();
     vi.mocked(emailProvider.getLabels).mockResolvedValue([
