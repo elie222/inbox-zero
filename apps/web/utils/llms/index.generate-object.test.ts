@@ -6,6 +6,7 @@ const {
   mockGenerateObject,
   mockIsContentFilterRefusal,
   mockNoObjectGeneratedErrorIsInstance,
+  mockTypeValidationErrorIsInstance,
   mockSaveAiUsage,
   mockShouldForceNanoModel,
 } = vi.hoisted(() => ({
@@ -14,6 +15,7 @@ const {
   mockGenerateObject: vi.fn(),
   mockIsContentFilterRefusal: vi.fn(() => false),
   mockNoObjectGeneratedErrorIsInstance: vi.fn(() => false),
+  mockTypeValidationErrorIsInstance: vi.fn(() => false),
   mockSaveAiUsage: vi.fn(),
   mockShouldForceNanoModel: vi.fn(),
 }));
@@ -22,7 +24,7 @@ vi.mock("ai", () => ({
   APICallError: { isInstance: () => false },
   RetryError: { isInstance: () => false },
   NoObjectGeneratedError: { isInstance: mockNoObjectGeneratedErrorIsInstance },
-  TypeValidationError: { isInstance: () => false },
+  TypeValidationError: { isInstance: mockTypeValidationErrorIsInstance },
   ToolLoopAgent: class {},
   generateObject: mockGenerateObject,
   generateText: vi.fn(),
@@ -89,8 +91,9 @@ describe("createGenerateObject repairText", () => {
     vi.clearAllMocks();
     mockIsContentFilterRefusal.mockReturnValue(false);
     mockNoObjectGeneratedErrorIsInstance.mockReturnValue(false);
+    mockTypeValidationErrorIsInstance.mockReturnValue(false);
     mockShouldForceNanoModel.mockResolvedValue({ shouldForce: false });
-    mockGenerateObject.mockResolvedValue({
+    mockGenerateObject.mockReset().mockResolvedValue({
       object: { ok: true },
       usage: null,
     });
@@ -466,6 +469,60 @@ describe("createGenerateObject repairText", () => {
 
     expect(result).toEqual({ object: { ok: true }, usage: null });
     expect(mockGenerateObject).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    "direct",
+    "wrapped",
+  ])("falls back after bounded retries for %s structured validation errors", async (kind) => {
+    const validationError = new Error("Invalid candidate ID");
+    const error =
+      kind === "direct"
+        ? validationError
+        : new Error("No object generated", { cause: validationError });
+    mockTypeValidationErrorIsInstance.mockImplementation(
+      (value) => value === validationError,
+    );
+    mockNoObjectGeneratedErrorIsInstance.mockImplementation(
+      (value) => kind === "wrapped" && value === error,
+    );
+    mockGenerateObject
+      .mockRejectedValueOnce(error)
+      .mockRejectedValueOnce(error)
+      .mockRejectedValueOnce(error)
+      .mockResolvedValueOnce({ object: { ok: true }, usage: null });
+
+    const generateObject = await createGenerateObjectWithFallback();
+    await expect(
+      generateObject({
+        instructions: "Return JSON.",
+        prompt: "Return JSON.",
+        schema: {} as any,
+      } as any),
+    ).resolves.toEqual({ object: { ok: true }, usage: null });
+
+    expect(mockGenerateObject).toHaveBeenCalledTimes(4);
+    expect(mockGenerateObject.mock.calls[3][0].model).not.toBe(
+      mockGenerateObject.mock.calls[0][0].model,
+    );
+  });
+
+  it("propagates validation failure after exhausting configured models", async () => {
+    const error = new Error("Invalid candidate ID");
+    mockTypeValidationErrorIsInstance.mockImplementation(
+      (value) => value === error,
+    );
+    mockGenerateObject.mockRejectedValue(error);
+
+    const generateObject = await createGenerateObjectWithFallback();
+    await expect(
+      generateObject({
+        instructions: "Return JSON.",
+        prompt: "Return JSON.",
+        schema: {} as any,
+      } as any),
+    ).rejects.toBe(error);
+    expect(mockGenerateObject).toHaveBeenCalledTimes(6);
   });
 
   it("records billed usage when object validation fails before retry succeeds", async () => {

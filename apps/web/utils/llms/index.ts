@@ -1462,6 +1462,14 @@ function shouldFallbackToNextModel(error: unknown): boolean {
   if (isContentFilterRefusal(error)) return true;
 
   if (
+    TypeValidationError.isInstance(unwrappedError) ||
+    (NoObjectGeneratedError.isInstance(unwrappedError) &&
+      TypeValidationError.isInstance(unwrappedError.cause))
+  ) {
+    return true;
+  }
+
+  if (
     APICallError.isInstance(unwrappedError) &&
     isInvalidAIModelError(unwrappedError)
   ) {
