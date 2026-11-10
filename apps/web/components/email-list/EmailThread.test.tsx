@@ -513,9 +513,11 @@ describe("EmailThread outgoing replies", () => {
       const bar = screen.getByTestId("thread-selection-bar");
       expect(bar.classList.contains("hidden")).toBe(true);
 
-      view.container
-        .querySelector('[data-send-operation-id="send-1"] [data-email-ready]')
-        ?.setAttribute("data-email-ready", "true");
+      const sentBody = view.container.querySelector(
+        '[data-send-operation-id="send-1"] [data-email-ready]',
+      );
+      expect(sentBody).toBeTruthy();
+      sentBody?.setAttribute("data-email-ready", "true");
       await act(async () => vi.advanceTimersByTimeAsync(20));
 
       expect(bar.classList.contains("hidden")).toBe(false);
