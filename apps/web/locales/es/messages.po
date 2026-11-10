@@ -1,0 +1,90 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-10 14:46+0200\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: es\n"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Account"
+msgstr "Cuenta"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Add Account"
+msgstr "Añadir cuenta"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "AI Model"
+msgstr "Modelo de IA"
+
+#: app/(app)/settings/EmailOtpSection.tsx
+msgid "Allow sign-in with a one-time email code"
+msgstr "Permitir iniciar sesión con un código de un solo uso por correo"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Beta Features"
+msgstr "Funciones beta"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Billing"
+msgstr "Facturación"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Connect Apps"
+msgstr "Conectar apps"
+
+#: app/(app)/settings/AppearanceSection.tsx
+msgid "Dark mode"
+msgstr "Modo oscuro"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Developer"
+msgstr "Desarrollador"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Email Accounts"
+msgstr "Cuentas de correo"
+
+#: app/(app)/settings/EmailOtpSection.tsx
+msgid "Email delivery unavailable."
+msgstr "El envío de correos no está disponible."
+
+#: app/(app)/settings/TeamSection.tsx
+msgid "Invite"
+msgstr "Invitar"
+
+#: app/(app)/settings/TeamSection.tsx
+msgid "Invite members"
+msgstr "Invitar miembros"
+
+#: app/(app)/settings/LanguageSection.tsx
+msgid "Language"
+msgstr "Idioma"
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Open"
+msgstr "Abrir"
+
+#: app/(app)/settings/page.tsx
+#: app/(app)/settings/SettingsDialog.tsx
+msgid "Settings"
+msgstr "Configuración"
+
+#: app/(app)/settings/TeamSection.tsx
+msgid "Share your plan by inviting teammates to your organization."
+msgstr "Comparte tu plan invitando a tus compañeros a tu organización."
+
+#. placeholder {0}: data.email
+#: app/(app)/settings/EmailOtpSection.tsx
+msgid "Sign in with {0}."
+msgstr "Inicia sesión con {0}."
+
+#: app/(app)/settings/SettingsContent.tsx
+msgid "Team"
+msgstr "Equipo"
+
+#: app/(app)/settings/AppearanceSection.tsx
+msgid "Toggle dark mode"
+msgstr "Activar o desactivar el modo oscuro"
