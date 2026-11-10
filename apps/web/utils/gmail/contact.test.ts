@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { GaxiosError } from "gaxios";
 import { createTestLogger } from "@/__tests__/helpers";
 
 const envMock = vi.hoisted(() => ({
@@ -118,6 +119,42 @@ describe("searchContacts", () => {
     expect(
       searchContactsMock.mock.calls.map(([params]) => params.query),
     ).toEqual(["match", "", "match"]);
+  });
+
+  it.each([
+    "saved",
+    "other",
+  ] as const)("recovers the %s source from a Gaxios API cause without a reason", async (source) => {
+    vi.useFakeTimers();
+    const error = new GaxiosError(
+      "Bad Request",
+      { url: new URL("https://people.googleapis.com"), headers: new Headers() },
+      undefined,
+      {
+        code: 400,
+        status: "FAILED_PRECONDITION",
+        message: "Request failed due to cold cache data",
+      },
+    );
+    const search = vi
+      .fn()
+      .mockRejectedValueOnce(error)
+      .mockResolvedValue({ data: { results: [] } });
+    const { client } = createPeopleClient({
+      ...(source === "saved"
+        ? { searchContactsMock: search }
+        : { searchOtherContactsMock: search }),
+    });
+    const assertion = expect(
+      searchContacts(client, "match", createTestLogger()),
+    ).resolves.toEqual([]);
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(search.mock.calls.map(([params]) => params.query)).toEqual([
+      "match",
+      "",
+      "match",
+    ]);
   });
 
   it("does not warm healthy searches or unrelated precondition failures", async () => {

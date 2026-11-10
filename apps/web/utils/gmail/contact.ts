@@ -225,6 +225,7 @@ async function searchWithCacheWarmup<T>(
   try {
     await search("");
   } catch (error) {
+    // Warmup may report a cold cache while its asynchronous rebuild starts.
     if (!isColdSearchCacheError(error)) throw error;
   }
   await sleep(2000);

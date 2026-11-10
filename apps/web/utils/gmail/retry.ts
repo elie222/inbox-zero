@@ -115,7 +115,9 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
     getFirstErrorValue(cause.errors, "reason") ??
     getFirstErrorValue(responseError.errors, "reason") ??
     undefined;
-  const googleErrorStatus = (responseError.status as string) ?? undefined;
+  const googleErrorStatus = [responseError.status, cause.status].find(
+    (value): value is string => typeof value === "string",
+  );
   const googleErrorMessage =
     typeof responseError.message === "string"
       ? responseError.message
