@@ -1,4 +1,5 @@
 import type { EmailProvider } from "@/utils/email/types";
+import { isInvalidGrantError, isKnownApiError } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { hasVariables } from "@/utils/template";
 
@@ -50,7 +51,11 @@ export async function resolveLabelNameAndId({
       const createdLabel = await emailProvider.createLabel(label);
       return { label, labelId: createdLabel.id };
     } catch (error) {
-      logger.error("Error resolving label", { labelName: label, error });
+      const log =
+        isInvalidGrantError(error) || isKnownApiError(error)
+          ? logger.warn
+          : logger.error;
+      log("Error resolving label", { labelName: label, error });
       return { label, labelId: null };
     }
   }

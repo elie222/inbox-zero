@@ -1,8 +1,64 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { resolveLabelNameAndId } from "./resolve-label";
 import type { EmailProvider } from "@/utils/email/types";
 
 describe("resolveLabelNameAndId", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ["disabled Gmail", new Error("Mail service not enabled"), "warn"],
+    ["disconnected account", new Error("invalid_grant"), "warn"],
+    ["unexpected lookup failure", new Error("Lookup failed"), "error"],
+  ])("preserves the unresolved label for %s", async (_name, error, level) => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const getLabelByName = vi.fn().mockRejectedValue(error);
+    const createLabel = vi.fn();
+
+    await expect(
+      resolveLabelNameAndId({
+        emailProvider: {
+          getLabelByName,
+          createLabel,
+        } as unknown as EmailProvider,
+        label: "Test label",
+      }),
+    ).resolves.toEqual({ label: "Test label", labelId: null });
+
+    expect(createLabel).not.toHaveBeenCalled();
+    expect(level === "warn" ? warnSpy : errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Error resolving label"),
+    );
+    expect(level === "warn" ? errorSpy : warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("keeps unresolved creation conflicts at error level", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = Object.assign(new Error("Label name exists or conflicts"), {
+      code: 409,
+    });
+    const createLabel = vi.fn().mockRejectedValue(error);
+
+    await expect(
+      resolveLabelNameAndId({
+        emailProvider: {
+          getLabelByName: vi.fn().mockResolvedValue(null),
+          createLabel,
+        } as unknown as EmailProvider,
+        label: "Test label",
+      }),
+    ).resolves.toEqual({ label: "Test label", labelId: null });
+
+    expect(createLabel).toHaveBeenCalledWith("Test label");
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Error resolving label"),
+    );
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
   it("should skip resolution for AI templates", async () => {
     const mockEmailProvider = {
       getLabelByName: vi.fn(),

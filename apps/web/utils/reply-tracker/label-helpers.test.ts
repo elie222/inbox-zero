@@ -33,6 +33,7 @@ describe("applyThreadStatusLabel", () => {
         { id: "label-fyi", name: "FYI", type: "user" },
         { id: "label-actioned", name: "Actioned", type: "user" },
       ]),
+      getMessage: vi.fn().mockResolvedValue({ id: messageId }),
       getLabelById: vi.fn().mockResolvedValue(null),
       getLabelByName: vi.fn().mockResolvedValue(null),
       createLabel: vi.fn().mockImplementation(async (name: string) => ({
@@ -228,6 +229,93 @@ describe("applyThreadStatusLabel", () => {
     expect(logSpy).not.toHaveBeenCalledWith(
       expect.stringContaining("Thread status label applied successfully"),
     );
+  });
+
+  test.each([
+    ["confirmed missing message", "missing", false],
+    ["message still exists", "exists", true],
+    ["failed message verification", "unavailable", true],
+  ])("handles a missing-entity label error with %s", async (_name, state, logsError) => {
+    const error = Object.assign(new Error("Requested entity was not found."), {
+      code: 404,
+    });
+    vi.mocked(mockProvider.labelMessage).mockRejectedValueOnce(error);
+    if (state === "missing") {
+      vi.mocked(mockProvider.getMessage).mockRejectedValueOnce(error);
+    } else if (state === "unavailable") {
+      vi.mocked(mockProvider.getMessage).mockRejectedValueOnce(
+        new Error("Message lookup unavailable"),
+      );
+    }
+
+    await applyThreadStatusLabel({
+      emailAccountId,
+      threadId,
+      messageId,
+      systemType: "TO_REPLY",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(mockProvider.getMessage).toHaveBeenCalledWith(messageId);
+    if (logsError) {
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to apply thread status label"),
+      );
+    } else {
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "Message no longer exists, skipping thread status label",
+        ),
+      );
+    }
+    expect(logSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("Thread status label applied successfully"),
+    );
+  });
+
+  test("does not treat unrelated 404s as missing messages", async () => {
+    vi.mocked(mockProvider.labelMessage).mockRejectedValueOnce(
+      Object.assign(new Error("Label configuration not found"), { code: 404 }),
+    );
+
+    await applyThreadStatusLabel({
+      emailAccountId,
+      threadId,
+      messageId,
+      systemType: "TO_REPLY",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(mockProvider.getMessage).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to apply thread status label"),
+    );
+  });
+
+  test("propagates missing-entity errors from label creation", async () => {
+    vi.mocked(prisma.rule.findMany).mockResolvedValue([]);
+    vi.mocked(mockProvider.getLabels).mockResolvedValue([]);
+    const error = Object.assign(new Error("Requested entity was not found."), {
+      code: 404,
+    });
+    vi.mocked(mockProvider.createLabel).mockRejectedValueOnce(error);
+
+    await expect(
+      applyThreadStatusLabel({
+        emailAccountId,
+        threadId,
+        messageId,
+        systemType: "TO_REPLY",
+        provider: mockProvider,
+        logger,
+      }),
+    ).rejects.toBe(error);
+
+    expect(mockProvider.getMessage).not.toHaveBeenCalled();
+    expect(mockProvider.labelMessage).not.toHaveBeenCalled();
   });
 
   test("uses provider label when label ID not in database", async () => {
