@@ -58,6 +58,16 @@ describe("setAnthropicCacheBreakpoints", () => {
     ]);
   });
 
+  it("keeps the newest breakpoint off a trailing assistant message", () => {
+    const messages = setAnthropicCacheBreakpoints(
+      [...HISTORY, ...toolStep("call-1"), { role: "assistant", content: "" }],
+      HISTORY_END_INDEX,
+    );
+
+    expect(countBreakpoints(messages.slice(-2, -1))).toBe(1);
+    expect(hasBreakpoint(messages.at(-1)!)).toBe(false);
+  });
+
   it("keeps other provider options when moving a breakpoint", () => {
     const [system] = setAnthropicCacheBreakpoints(
       [

@@ -15,11 +15,11 @@ export function setAnthropicCacheBreakpoints(
   const lastIndex = messages.length - 1;
   const breakpointIndexes = new Set([
     0,
-    getHistoryBreakpointIndex(
+    getBreakpointIndexAtOrBefore(
       messages,
       Math.max(0, Math.min(stablePrefixEndIndex, lastIndex)),
     ),
-    lastIndex,
+    getBreakpointIndexAtOrBefore(messages, lastIndex),
   ]);
 
   return messages.map((message, index) => {
@@ -61,7 +61,10 @@ function withCacheControl<T extends { providerOptions?: unknown }>(
 
 // OpenRouter ignores cache control on assistant messages, and history usually
 // ends with the assistant's reply, so mark the closest earlier message instead.
-function getHistoryBreakpointIndex(messages: ModelMessage[], endIndex: number) {
+function getBreakpointIndexAtOrBefore(
+  messages: ModelMessage[],
+  endIndex: number,
+) {
   for (let index = endIndex; index > 0; index--) {
     if (messages[index].role !== "assistant") return index;
   }
