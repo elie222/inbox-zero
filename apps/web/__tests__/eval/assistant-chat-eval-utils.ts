@@ -12,6 +12,7 @@ const assistantWriteToolNames = new Set([
   "startSenderCategorization",
   "manageSenderCategory",
   "manageInbox",
+  "bulkManageInbox",
   "createRule",
   "updateRule",
   "deleteRule",

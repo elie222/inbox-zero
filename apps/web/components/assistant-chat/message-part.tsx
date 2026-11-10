@@ -37,6 +37,8 @@ import {
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { ThreadLookup } from "@/components/assistant-chat/tools";
 import { formatToolLabel } from "@/components/assistant-chat/tool-label";
+import { BulkInboxActionCard } from "@/components/assistant-chat/bulk-inbox-action-card";
+import { pendingBulkInboxActionToolOutputSchema } from "@/utils/actions/assistant-chat.validation";
 import {
   isManageInboxAction,
   type ManageInboxAction,
@@ -808,6 +810,39 @@ export function MessagePart({
         return renderToolError(toolCallId, output);
       }
       return <AddToKnowledgeBase key={toolCallId} args={part.input} />;
+    }
+  }
+
+  if (part.type === "tool-bulkManageInbox") {
+    const { toolCallId, state } = part;
+
+    if (state === "input-available") {
+      return (
+        <BasicToolInfo key={toolCallId} text="Checking matching emails..." />
+      );
+    }
+
+    if (state === "output-available") {
+      const parsed = pendingBulkInboxActionToolOutputSchema.safeParse(
+        part.output,
+      );
+      if (parsed.success) {
+        return (
+          <BulkInboxActionCard
+            key={toolCallId}
+            output={parsed.data}
+            chatMessageId={messageId}
+            toolCallId={toolCallId}
+            disableConfirm={disableConfirm || !isPersistedMessage}
+          />
+        );
+      }
+      if (isOutputWithError(part.output)) {
+        return renderToolError(toolCallId, part.output);
+      }
+      return (
+        <BasicToolInfo key={toolCallId} text="No emails matched the search" />
+      );
     }
   }
 

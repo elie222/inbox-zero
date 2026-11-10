@@ -39,6 +39,15 @@
         }
       ]
     },
+    "app/api/bulk-inbox-action/process/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "bulk-inbox-action-process",
+          "retryAfterSeconds": 60
+        }
+      ]
+    },
     "app/api/meeting-recorder/process/queue/route.ts": {
       "experimentalTriggers": [
         {

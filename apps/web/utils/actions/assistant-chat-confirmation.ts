@@ -1,5 +1,6 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import type { Prisma } from "@/generated/prisma/client";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -14,6 +15,7 @@ import {
   type AssistantEmailConfirmationResult,
   type AssistantPendingEmailActionType,
   type AssistantPendingEmailToolOutput,
+  pendingBulkInboxActionToolOutputSchema,
   pendingCreateRuleToolOutputSchema,
   pendingForwardEmailToolOutputSchema,
   pendingReplyEmailToolOutputSchema,
@@ -28,9 +30,12 @@ import {
   type ChatCreateRuleToolInvocation,
 } from "@/utils/ai/assistant/tools/rules/shared";
 import { createRule } from "@/utils/rule/rule";
+import { enqueueBulkInboxActionChunk } from "@/utils/bulk-inbox-action/enqueue";
 
 const CONFIRMATION_IN_PROGRESS_ERROR =
   "Email action confirmation already in progress";
+const BULK_INBOX_ACTION_CONFIRMATION_IN_PROGRESS_ERROR =
+  "Bulk action confirmation already in progress";
 const SAVE_MEMORY_CONFIRMATION_IN_PROGRESS_ERROR =
   "Memory save confirmation already in progress";
 const CONFIRMATION_PROCESSING_LEASE_MS = 5 * 60 * 1000;
@@ -430,6 +435,132 @@ export async function confirmAssistantSaveMemoryForAccount({
   };
 }
 
+export async function confirmAssistantBulkInboxActionForAccount({
+  chatId,
+  chatMessageId,
+  toolCallId,
+  waitForPersistence,
+  emailAccountId,
+  logger,
+}: {
+  chatId: string;
+  chatMessageId?: string;
+  toolCallId: string;
+  waitForPersistence?: boolean;
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  const reservation = await reservePendingAssistantPart({
+    chatId,
+    chatMessageId,
+    emailAccountId,
+    logger,
+    findPart: (parts) =>
+      findPendingAssistantBulkInboxActionPart({ parts, toolCallId }),
+    getConfirmed: (lookup) =>
+      lookup.output.confirmationState === "confirmed" &&
+      lookup.output.confirmationResult
+        ? lookup.output.confirmationResult
+        : null,
+    logPrefix: "Assistant bulk inbox action confirmation",
+    waitForPersistenceMs: waitForPersistence
+      ? PENDING_ACTION_PERSIST_WAIT_MS
+      : undefined,
+    inProgressError: BULK_INBOX_ACTION_CONFIRMATION_IN_PROGRESS_ERROR,
+    onMessageNotFound: () => {
+      throw new SafeError("Chat message not found");
+    },
+    onPartNotFound: () => {
+      throw new SafeError("Pending bulk action not found");
+    },
+    onRaceMessageNotFound: () => {
+      throw new SafeError("Chat message not found");
+    },
+  });
+
+  if (reservation.status === "confirmed") {
+    return {
+      success: true,
+      confirmationState: "confirmed" as const,
+      confirmationResult: reservation.value,
+    };
+  }
+
+  const { pendingAction } = reservation.lookup.output;
+
+  let jobId: string;
+  try {
+    const chunkToken = randomUUID();
+    const job = await prisma.bulkInboxActionJob.upsert({
+      where: { emailAccountId_toolCallId: { emailAccountId, toolCallId } },
+      create: {
+        emailAccountId,
+        chatId,
+        toolCallId,
+        search: pendingAction.search,
+        action: pendingAction.action,
+        labelId: pendingAction.labelId,
+        labelName: pendingAction.labelName,
+        instruction: pendingAction.instruction,
+        chunkToken,
+      },
+      // A retried confirmation reuses the job, and replaces the chunk token
+      // in case the first enqueue never happened.
+      update: { chunkToken },
+      select: { id: true },
+    });
+    jobId = job.id;
+    await enqueueBulkInboxActionChunk({ jobId, chunkToken, logger });
+  } catch (error) {
+    await clearPendingPartProcessing({
+      chatMessageId: reservation.chatMessageId,
+      emailAccountId,
+      findPart: (parts) =>
+        findPendingAssistantBulkInboxActionPart({ parts, toolCallId }),
+    }).catch((processingError) => {
+      logger.error("Failed to clear processing state for bulk inbox action", {
+        error: processingError,
+      });
+    });
+    logger.error("Failed to start bulk inbox action", { error });
+    throw new SafeError("Failed to start the bulk action");
+  }
+
+  const confirmationResult = { jobId, confirmedAt: new Date().toISOString() };
+
+  try {
+    await persistConfirmedAssistantPart({
+      chatMessageId: reservation.chatMessageId,
+      emailAccountId,
+      logger: logger.with({ chatMessageId: reservation.chatMessageId, jobId }),
+      findPart: (parts) =>
+        findPendingAssistantBulkInboxActionPart({ parts, toolCallId }),
+      isConfirmed: (lookup) =>
+        lookup.output.confirmationResult?.jobId === jobId,
+      buildParts: ({ parts, partIndex }) =>
+        updateAssistantEmailPartOutput({
+          parts,
+          partIndex,
+          outputPatch: { confirmationState: "confirmed", confirmationResult },
+        }),
+    });
+  } catch (error) {
+    logger.error("Failed to persist confirmed bulk inbox action", {
+      error,
+      jobId,
+    });
+    throw new SafeError(
+      "The bulk action started but its confirmation could not be saved. Please refresh.",
+    );
+  }
+
+  return {
+    success: true,
+    confirmationState: "confirmed" as const,
+    confirmationResult,
+  };
+}
+
 async function executeAssistantEmailAction({
   output,
   emailProvider,
@@ -681,6 +812,35 @@ function findPendingAssistantSaveMemoryPart({
       parts,
       toolInput: part.input,
     };
+  }
+
+  return null;
+}
+
+function findPendingAssistantBulkInboxActionPart({
+  parts,
+  toolCallId,
+}: {
+  parts: unknown;
+  toolCallId: string;
+}) {
+  if (!Array.isArray(parts)) return null;
+
+  for (const [index, part] of parts.entries()) {
+    if (
+      !isRecord(part) ||
+      part.type !== "tool-bulkManageInbox" ||
+      part.toolCallId !== toolCallId
+    ) {
+      continue;
+    }
+
+    const parsed = pendingBulkInboxActionToolOutputSchema.safeParse(
+      part.output,
+    );
+    if (!parsed.success) return null;
+
+    return { index, output: parsed.data, parts };
   }
 
   return null;

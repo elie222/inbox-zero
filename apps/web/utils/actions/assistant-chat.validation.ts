@@ -4,6 +4,10 @@ import {
   messageContextSchema,
 } from "@/utils/ai/assistant/chat-context-validation";
 import { inlineEmailActionSchema } from "@/utils/ai/assistant/inline-email-actions";
+import {
+  bulkInboxActionSearchSchema,
+  bulkInboxActionTypes,
+} from "@/utils/bulk-inbox-action/validation";
 
 export const ASSISTANT_CHAT_MAX_TEXT_LENGTH = 20_000;
 export const ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE =
@@ -174,6 +178,46 @@ export const confirmAssistantSaveMemoryBody = confirmAssistantActionBaseBody;
 export type ConfirmAssistantSaveMemoryBody = z.infer<
   typeof confirmAssistantSaveMemoryBody
 >;
+
+export const pendingBulkInboxActionToolOutputSchema = z.object({
+  success: z.literal(true),
+  actionType: z.literal("bulk_inbox_action"),
+  requiresConfirmation: z.literal(true),
+  confirmationState: z.enum(["pending", "processing", "confirmed"]),
+  confirmationProcessingAt: z.string().optional(),
+  pendingAction: z.object({
+    search: bulkInboxActionSearchSchema,
+    action: z.enum(bulkInboxActionTypes),
+    labelId: z.string().nullable(),
+    labelName: z.string().nullable(),
+    instruction: z.string().nullable(),
+  }),
+  estimate: z
+    .object({ threadCount: z.number(), isLowerBound: z.boolean() })
+    .optional(),
+  samples: z
+    .array(
+      z.object({ from: z.string(), subject: z.string(), date: z.string() }),
+    )
+    .optional(),
+  confirmationResult: z
+    .object({
+      jobId: z.string().min(1),
+      confirmedAt: z.string().min(1),
+    })
+    .optional(),
+});
+
+export type PendingBulkInboxActionToolOutput = z.infer<
+  typeof pendingBulkInboxActionToolOutputSchema
+>;
+
+export const confirmAssistantBulkInboxActionBody =
+  confirmAssistantActionBaseBody;
+
+export const cancelBulkInboxActionJobBody = z.object({
+  jobId: z.string().min(1),
+});
 
 const assistantChatTextPartSchema = z.object({
   type: z.literal("text"),
