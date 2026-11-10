@@ -265,17 +265,15 @@ export const ListToolbar = memo(function ListToolbar({
 
           {onAddToSplitSelected ? (
             <DropdownMenu>
-              <Tooltip content="More actions">
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="More selection actions"
-                    className={cn(toolbarButton, "w-8 justify-center px-0")}
-                  >
-                    <MoreHorizontalIcon className="size-3.5" />
-                  </button>
-                </DropdownMenuTrigger>
-              </Tooltip>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="More selection actions"
+                  className={cn(toolbarButton, "w-8 justify-center px-0")}
+                >
+                  <MoreHorizontalIcon className="size-3.5" />
+                </button>
+              </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onSelect={onAddToSplitSelected}>
                   <SplitIcon className="mr-2 size-4" />

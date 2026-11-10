@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  type EmailMeta,
   useEmailLookup,
   useKnownThreadIds,
 } from "@/components/assistant-chat/email-lookup-context";
@@ -50,6 +51,9 @@ import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
 import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { useThread } from "@/hooks/useThread";
 import { LoadingMiniSpinner } from "@/components/Loading";
+import { SenderIcon } from "@/components/SenderIcon";
+import { useAtom, useAtomValue } from "jotai";
+import { mailPreviewAtom, mailScreenMountedAtom } from "@/store/mail-preview";
 
 type ActionState = "idle" | "loading" | "done";
 
@@ -333,6 +337,23 @@ export function InlineEmailCard({
   const [expanded, setExpanded] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const threadId = resolveInlineEmailThreadId({ id, threadid, knownThreadIds });
+  const mailScreenMounted = useAtomValue(mailScreenMountedAtom);
+  const [preview, setPreview] = useAtom(mailPreviewAtom);
+  // Beside the mail screen there's room to show the whole email there.
+  const opensOnMailScreen = mailScreenMounted && Boolean(threadId);
+  const isPreviewed =
+    opensOnMailScreen &&
+    preview?.threadId === threadId &&
+    preview?.emailAccountId === emailAccountId;
+
+  function toggleOpen() {
+    if (!threadId) return;
+    if (opensOnMailScreen) {
+      setPreview(isPreviewed ? null : { emailAccountId, threadId });
+      return;
+    }
+    setExpanded(!expanded);
+  }
 
   const meta = threadId ? emailLookup.get(threadId) : undefined;
   const isArchived = !!threadId && !!listState?.archivedThreadIds.has(threadId);
@@ -394,86 +415,68 @@ export function InlineEmailCard({
   const isDone = actionState === "done" || isArchived;
   const markReadComplete = isMarkedRead || markReadState === "done";
   const showArchive = Boolean(threadId);
-  const hasSummary = !!children;
+  const hasSummary = Children.toArray(children).some(
+    (child) => typeof child !== "string" || child.trim() !== "",
+  );
+
+  // An empty card for a thread no tool returned has nothing to show or open.
+  if (!threadId && !hasSummary) return null;
 
   return (
-    <div>
+    <div
+      className={getCardClass({ inList: Boolean(listState), isPreviewed })}
+      data-inline-email-card=""
+    >
       <div
         role={threadId ? "button" : undefined}
         tabIndex={threadId ? 0 : undefined}
-        className={`group flex items-center gap-2 border-b border-border/40 pl-2 pr-3 text-sm last:border-b-0 ${hasSummary ? "py-3" : "py-1.5"} ${threadId ? "cursor-pointer" : ""} ${isDone ? "bg-muted/30 line-through opacity-50" : "hover:bg-muted/50"}`}
-        onClick={() => threadId && setExpanded(!expanded)}
+        className={`group flex items-center gap-2.5 px-3 text-sm ${hasSummary ? "py-3" : "py-2.5"} ${threadId ? "cursor-pointer" : ""} ${getRowStateClass({ isDone, inList: Boolean(listState) })}`}
+        aria-current={isPreviewed ? "true" : undefined}
+        data-chat-email-thread-id={opensOnMailScreen ? threadId : undefined}
+        // The actions menu renders in a portal, but React still bubbles its
+        // events here; only act on events from the row itself.
+        onClick={(e) => {
+          if (isFromRow(e)) toggleOpen();
+        }}
         onKeyDown={(e) => {
+          if (!isFromRow(e)) return;
           if (threadId && (e.key === "Enter" || e.key === " ")) {
             e.preventDefault();
-            setExpanded(!expanded);
+            toggleOpen();
           }
         }}
       >
-        {index !== undefined ? (
+        {/* Outside a list the reply's own markdown list already numbers the card. */}
+        {listState && index !== undefined ? (
           <span className="w-5 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
             {index}.
           </span>
         ) : null}
 
-        {meta ? (
-          hasSummary ? (
-            <div className="min-w-0 flex-1">
-              <div className="text-sm text-foreground">{children}</div>
-              <div className="mt-1 truncate text-xs text-muted-foreground">
-                <Tooltip
-                  content={extractEmailAddress(meta.from) || meta.from}
-                  side="right"
-                >
-                  <span className="font-medium">
-                    {extractNameFromEmail(meta.from)}
-                  </span>
-                </Tooltip>
-                {" · "}
-                <span className="tabular-nums">
-                  {formatShortDate(new Date(meta.date), { lowercase: true })}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <Tooltip
-                content={extractEmailAddress(meta.from) || meta.from}
-                side="right"
-              >
-                <span className="w-40 shrink-0 truncate text-sm font-medium">
-                  {extractNameFromEmail(meta.from)}
-                </span>
-              </Tooltip>
-              <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
-                {meta.subject}
-              </span>
-              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                {formatShortDate(new Date(meta.date), { lowercase: true })}
-              </span>
-            </div>
-          )
-        ) : (
-          <span className="min-w-0 flex-1 truncate">{children}</span>
-        )}
+        <InlineEmailCardBody meta={meta} hasSummary={hasSummary}>
+          {children}
+        </InlineEmailCardBody>
 
         <div className="flex shrink-0 items-center gap-0.5">
+          {meta ? (
+            <span className="mr-1 text-xs tabular-nums text-muted-foreground">
+              {formatShortDate(new Date(meta.date), { lowercase: true })}
+            </span>
+          ) : null}
           {threadId ? (
             <DropdownMenu>
-              <Tooltip content="More actions">
-                <DropdownMenuTrigger
-                  className={iconButtonClass}
-                  aria-label="More actions"
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.stopPropagation();
-                    }
-                  }}
-                >
-                  <MoreVerticalIcon className="size-3.5" />
-                </DropdownMenuTrigger>
-              </Tooltip>
+              <DropdownMenuTrigger
+                className={iconButtonClass}
+                aria-label="More actions"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.stopPropagation();
+                  }
+                }}
+              >
+                <MoreVerticalIcon className="size-3.5" />
+              </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 {showArchive ? (
                   <DropdownMenuItem
@@ -499,15 +502,17 @@ export function InlineEmailCard({
                   )}
                   {markReadComplete ? "Marked read" : "Mark as read"}
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setShowDetails((v) => !v);
-                    if (!expanded) setExpanded(true);
-                  }}
-                >
-                  <InfoIcon className="mr-2 size-4" />
-                  {showDetails ? "Hide details" : "Show details"}
-                </DropdownMenuItem>
+                {opensOnMailScreen ? null : (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setShowDetails((v) => !v);
+                      if (!expanded) setExpanded(true);
+                    }}
+                  >
+                    <InfoIcon className="mr-2 size-4" />
+                    {showDetails ? "Hide details" : "Show details"}
+                  </DropdownMenuItem>
+                )}
                 {externalUrl ? (
                   <DropdownMenuItem asChild>
                     <a
@@ -526,7 +531,7 @@ export function InlineEmailCard({
 
           {threadId ? (
             <span className={iconIndicatorClass} aria-hidden="true">
-              {expanded ? (
+              {expanded && !opensOnMailScreen ? (
                 <ChevronDownIcon className="size-3.5" />
               ) : (
                 <ChevronRightIcon className="size-3.5" />
@@ -536,7 +541,7 @@ export function InlineEmailCard({
         </div>
       </div>
 
-      {expanded && threadId && (
+      {expanded && threadId && !opensOnMailScreen && (
         <EmailPreview threadId={threadId} showDetails={showDetails} />
       )}
     </div>
@@ -605,6 +610,85 @@ export function InlineEmailDetail({
       )}
     </div>
   );
+}
+
+function InlineEmailCardBody({
+  meta,
+  hasSummary,
+  children,
+}: {
+  meta: EmailMeta | undefined;
+  hasSummary: boolean;
+  children?: ReactNode;
+}) {
+  if (!meta) {
+    if (hasSummary) {
+      return <span className="min-w-0 flex-1 truncate">{children}</span>;
+    }
+    return (
+      <span className="min-w-0 flex-1 truncate text-muted-foreground">
+        Open email
+      </span>
+    );
+  }
+
+  const address = extractEmailAddress(meta.from) || meta.from;
+  const name = extractNameFromEmail(meta.from);
+
+  return (
+    <>
+      <SenderIcon email={address} name={name} size={28} />
+      <div className="min-w-0 flex-1">
+        <Tooltip content={address} side="right">
+          <div className="truncate font-medium text-foreground">{name}</div>
+        </Tooltip>
+        {hasSummary ? (
+          <div className="mt-0.5 text-sm text-foreground">{children}</div>
+        ) : (
+          <div className="mt-0.5 truncate text-[13px] text-muted-foreground">
+            {meta.subject || "(no subject)"}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function isFromRow(event: { currentTarget: EventTarget; target: EventTarget }) {
+  return (
+    event.currentTarget instanceof Node &&
+    event.target instanceof Node &&
+    event.currentTarget.contains(event.target)
+  );
+}
+
+function getCardClass({
+  inList,
+  isPreviewed,
+}: {
+  inList: boolean;
+  isPreviewed: boolean;
+}) {
+  if (inList) return "border-b last:border-b-0";
+  // A gray card sets the email apart from the reply's own text. The border is
+  // an inset ring because the chat's scroll area clips anything drawn outside
+  // a card, and hover tints the card so no row background covers the ring.
+  const base = "my-1.5 overflow-hidden rounded-lg ring-1 ring-inset";
+  return isPreviewed
+    ? `${base} bg-primary/10 ring-primary/40`
+    : `${base} bg-muted/60 ring-border hover:bg-muted`;
+}
+
+function getRowStateClass({
+  isDone,
+  inList,
+}: {
+  isDone: boolean;
+  inList: boolean;
+}) {
+  if (isDone) return "line-through opacity-50";
+  // A standalone card handles its own hover; see getCardClass.
+  return inList ? "hover:bg-muted/50" : "";
 }
 
 function collectThreadIds(
@@ -700,13 +784,15 @@ function EmailPreview({
   }
 
   return (
-    <div className="max-h-[32rem] overflow-auto border-t bg-muted/20 px-4 py-3">
-      {showDetails ? (
-        <div className="mb-3">
-          <EmailDetails message={lastMessage} />
-        </div>
-      ) : null}
-      {body}
+    <div className="border-t bg-muted/40 p-3">
+      <div className="max-h-[32rem] overflow-auto rounded-md border bg-background px-4 py-3 shadow-xs">
+        {showDetails ? (
+          <div className="mb-3">
+            <EmailDetails message={lastMessage} />
+          </div>
+        ) : null}
+        {body}
+      </div>
     </div>
   );
 }

@@ -52,6 +52,7 @@ export function MailListPanel({
     <section
       ref={panelRef}
       className="relative flex min-h-0 shrink-0 flex-col border-r border-border"
+      inert={inert}
       style={{
         // The reader keeps a usable width however wide the list was dragged or
         // however narrow the window gets afterwards, until the window is too

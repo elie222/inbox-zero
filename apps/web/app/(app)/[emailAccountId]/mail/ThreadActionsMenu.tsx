@@ -121,13 +121,11 @@ export function ThreadActionsMenu({
       ) : null}
 
       <DropdownMenu onOpenChange={onOpenChange} open={open}>
-        <Tooltip shortcuts={["moreActions"]}>
-          <DropdownMenuTrigger asChild>
-            <Button aria-label="More actions" size="iconXs" variant="ghost">
-              <MoreHorizontalIcon className="size-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-        </Tooltip>
+        <DropdownMenuTrigger asChild>
+          <Button aria-label="More actions" size="iconXs" variant="ghost">
+            <MoreHorizontalIcon className="size-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
 
         <DropdownMenuContent
           align="end"
