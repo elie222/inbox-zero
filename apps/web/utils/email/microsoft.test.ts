@@ -1223,6 +1223,41 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     expect(client.getRequestLog()[1].apiPath).toBe(next);
   });
 
+  it("keeps only mail addressed to the recipient filter in To or Cc", async () => {
+    const message = (id: string, to: string, cc?: string) => {
+      const result = createMessage({
+        id,
+        conversationId: id,
+        parentFolderId: "inbox-folder-id",
+      });
+      result.toRecipients = [{ emailAddress: { address: to } }];
+      result.ccRecipients = cc ? [{ emailAddress: { address: cc } }] : [];
+      return result;
+    };
+    const client = createMockOutlookClient([], {
+      responsesByApiPath: {
+        "/me/messages": {
+          value: [
+            message("to", "security@rakazo.com"),
+            message("cc", "me@example.com", "Hello@Rakazo.com"),
+            message("other", "me@example.com", "hello@notrakazo.com"),
+          ],
+        },
+      },
+    });
+    const provider = new OutlookProvider(client);
+    const ids = async (toEmail: string) =>
+      (
+        await provider.getThreadsWithQuery({
+          query: { type: "inbox", toEmail },
+        })
+      ).threads
+        .map((thread) => thread.id)
+        .sort();
+    expect(await ids("@rakazo.com")).toEqual(["cc", "to"]);
+    expect(await ids("hello@rakazo.com")).toEqual(["cc"]);
+  });
+
   it.each([
     undefined,
     ["INBOX"],

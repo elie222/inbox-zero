@@ -125,6 +125,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const mailScreenActionHandlerRef = useRef<
     ((action: MailScreenAction) => void) | null
   >(null);
+  // A resumed run replays its tool results; each split is shown only once.
+  const shownSplitCallIdsRef = useRef(new Set<string>());
   const pendingRequestRef = useRef<PendingChatRequest | null>(null);
   const pendingRequestContextRef = useRef<MessageContext | null>(null);
   const previousChatIdRef = useRef(chatId);
@@ -208,16 +210,29 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       if ("error" in action) return;
       mailScreenActionHandlerRef.current?.(action);
     },
-    onFinish: async ({ isAbort }) => {
+    onFinish: async ({ message, isAbort }) => {
       pendingInlineActionsRef.current = null;
       pendingRequestRef.current = null;
       pendingRequestContextRef.current = null;
+      const splitChange = getSplitInboxChange(message);
       // An abort is a stop or a reattach, which refetch once the server has
       // saved the reply; refetching now would drop the partial one shown.
       await Promise.all([
         mutate("/api/user/rules"),
+        splitChange ? mutate("/api/mail/settings") : Promise.resolve(),
         chatId && !isAbort ? mutate(`/api/chats/${chatId}`) : Promise.resolve(),
       ]);
+      // Showing the split is the preview: the user sees what it catches and
+      // can ask for a change or a delete.
+      const shown = splitChange?.shown;
+      if (shown && !shownSplitCallIdsRef.current.has(shown.toolCallId)) {
+        shownSplitCallIdsRef.current.add(shown.toolCallId);
+        mailScreenActionHandlerRef.current?.({
+          action: "show_split",
+          splitId: shown.splitId,
+          emailAccountId,
+        });
+      }
     },
     onError: (error) => {
       if (resumingRef.current) {
@@ -782,4 +797,24 @@ function getChatRequestErrorBody(
   } catch {
     return null;
   }
+}
+
+/**
+ * Whether the assistant changed splits in this reply, and the last split it
+ * created or edited, which a later delete of another split doesn't hide.
+ */
+function getSplitInboxChange(
+  message: ChatMessage,
+): { shown?: { toolCallId: string; splitId: string } } | null {
+  let changed = false;
+  let shown: { toolCallId: string; splitId: string } | undefined;
+  for (const part of message.parts) {
+    if (part.type !== "tool-manageSplitInbox") continue;
+    if (part.state !== "output-available" || !part.output.success) continue;
+    if (!("action" in part.output)) continue;
+    changed = true;
+    const splitId = "split" in part.output ? part.output.split?.id : undefined;
+    if (splitId) shown = { toolCallId: part.toolCallId, splitId };
+  }
+  return changed ? { shown } : null;
 }

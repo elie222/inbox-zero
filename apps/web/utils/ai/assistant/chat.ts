@@ -41,6 +41,7 @@ import {
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
 import { getCalendarEventsTool } from "./chat-calendar-tools";
 import { controlMailScreenTool } from "./chat-mail-screen-tool";
+import { manageSplitInboxTool } from "./chat-split-inbox-tool";
 import { hasUsableCalendarConnection } from "@/utils/calendar/event-provider";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 import type { SerializedMatchReason } from "@/utils/ai/choose-rule/types";
@@ -53,12 +54,13 @@ import {
 import { getAssistantChatProvider } from "./chat-provider-shared";
 import { LlmUseCase } from "@/utils/llms/use-cases";
 import { isIntegrationActionEnabledForUserId } from "@/utils/integration-action.server";
+import { setAnthropicCacheBreakpoints } from "@/utils/ai/assistant/cache-breakpoints";
 import { trimStaleToolResults } from "@/utils/ai/assistant/trim-stale-tool-results";
 import { guardChatTools } from "@/utils/ai/assistant/chat-tool-guards";
 
 export const maxDuration = 800;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 18;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 19;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 720_000,
   messaging: 60_000,
@@ -299,7 +301,7 @@ export async function aiProcessAssistantChat({
       contextMessages,
     });
 
-  const messagesWithCacheControl = addAnthropicCacheControl(
+  const messagesWithCacheControl = setAnthropicCacheBreakpoints(
     cacheOptimizedMessages,
     stablePrefixEndIndex,
   );
@@ -342,6 +344,7 @@ export async function aiProcessAssistantChat({
     ...providerPolicy.getTaxonomyTools(toolOptions),
     // Settings
     updateAssistantSettings: updateAssistantSettingsTool(toolOptions),
+    manageSplitInbox: manageSplitInboxTool(toolOptions),
     // Memory
     searchMemories: searchMemoriesTool(toolOptions),
     saveMemory: saveMemoryTool({
@@ -413,15 +416,16 @@ export async function aiProcessAssistantChat({
       messages: stepMessages,
       experimental_steeringMessages: steeringMessages,
     }) => {
-      const trimmedMessages = trimStaleToolResults(stepMessages);
-      const messages =
-        trimmedMessages === stepMessages ? undefined : trimmedMessages;
+      const messages = setAnthropicCacheBreakpoints(
+        trimStaleToolResults(stepMessages),
+        stablePrefixEndIndex,
+      );
 
       if (
         !finalReply.isFinalReplyStep(steeringMessages) &&
         Date.now() - startedAt < ASSISTANT_CHAT_TOOL_BUDGET_MS[responseSurface]
       )
-        return messages && { messages };
+        return { messages };
 
       return {
         messages,
@@ -500,42 +504,6 @@ function buildCacheOptimizedMessages({
   };
 }
 
-function addAnthropicCacheControl(
-  messages: ModelMessage[],
-  stablePrefixEndIndex: number,
-) {
-  const cacheControl: Record<string, JSONValue> = {
-    cacheControl: { type: "ephemeral" },
-  };
-
-  const cacheBreakpointIndexes = new Set([
-    0,
-    Math.max(0, Math.min(stablePrefixEndIndex, messages.length - 1)),
-  ]);
-
-  return messages.map((message, index) => {
-    if (!cacheBreakpointIndexes.has(index)) return message;
-
-    const messageWithOptions = message as ModelMessage & {
-      providerOptions?: Record<string, Record<string, JSONValue>>;
-    };
-
-    return {
-      ...messageWithOptions,
-      providerOptions: {
-        ...messageWithOptions.providerOptions,
-        anthropic: {
-          ...(messageWithOptions.providerOptions?.anthropic as Record<
-            string,
-            JSONValue
-          >),
-          ...cacheControl,
-        },
-      },
-    };
-  });
-}
-
 function formatFixRuleResultContext({
   ruleName,
   reason,
@@ -602,6 +570,11 @@ function getChatProviderOptionsForCaching({ chatId }: { chatId?: string }) {
       ? {
           openai: {
             promptCacheKey: `assistant-chat:${chatId}`,
+          },
+          // Keeps a chat's requests on one upstream provider, where its
+          // prompt cache lives.
+          openrouter: {
+            prompt_cache_key: `assistant-chat:${chatId}`,
           },
         }
       : {}),
