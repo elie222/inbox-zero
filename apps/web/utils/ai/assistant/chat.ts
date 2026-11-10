@@ -58,7 +58,7 @@ import { guardChatTools } from "@/utils/ai/assistant/chat-tool-guards";
 
 export const maxDuration = 800;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 17;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 18;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 720_000,
   messaging: 60_000,
@@ -408,7 +408,7 @@ export async function aiProcessAssistantChat({
     },
     onEnd,
     stopWhen: () => false,
-    steering: finalReply.steering,
+    createSteering: finalReply.createSteering,
     prepareStep: ({
       messages: stepMessages,
       experimental_steeringMessages: steeringMessages,

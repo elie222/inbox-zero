@@ -35,9 +35,6 @@ describe.runIf(shouldRunEvalTests())(
           "summarizes a long tool loop that ended without a reply",
           async () => {
             const finalReply = createFinalReplyStep();
-            // Sent before the run starts, so the request reaches the first step,
-            // as it would after a step that ended without text.
-            finalReply.onStepEnd({ text: "", toolCalls: [] });
 
             const result = await toolCallAgentStream({
               userAi: emailAccount.user,
@@ -50,7 +47,13 @@ describe.runIf(shouldRunEvalTests())(
               messages: buildMessages(),
               tools: {},
               stopWhen: () => false,
-              steering: finalReply.steering,
+              // Steers before the first step, so the request reaches it as it
+              // would after a step that ended without text.
+              createSteering: () => {
+                const steering = finalReply.createSteering();
+                finalReply.onStepEnd({ text: "", toolCalls: [] });
+                return steering;
+              },
               prepareStep: ({ experimental_steeringMessages }) =>
                 finalReply.isFinalReplyStep(experimental_steeringMessages)
                   ? { activeTools: [], toolChoice: "none" }
@@ -61,7 +64,7 @@ describe.runIf(shouldRunEvalTests())(
             const judgeResult = await judgeEvalOutput({
               input: [
                 "The user asked the assistant to archive every newsletter in their inbox.",
-                'The assistant searched with the query "newsletters" and found 40 threads, from news1@example.com through news40@example.com in order.',
+                'The assistant searched with the query "newsletters" across two result pages and found 40 threads, from news1@example.com through news40@example.com in order.',
                 "It archived them in two batches: the first archived threads 1-20; the second archived threads 21-37 and failed for threads 38-40.",
                 "Its last step ended without any reply to the user, so it was asked to reply now, without tools.",
               ].join("\n"),
@@ -114,14 +117,14 @@ function buildMessages(): ModelMessage[] {
   return [
     { role: "system", content: system },
     { role: "user", content: "Archive all the newsletters in my inbox." },
-    toolCall("call-search", "searchInbox", { query: "newsletters" }),
-    toolResult("call-search", "searchInbox", {
-      messages: threadIds.map((threadId, i) => ({
-        threadId,
-        from: `news${i + 1}@example.com`,
-        subject: `Weekly newsletter ${i + 1}`,
-      })),
-    }),
+    toolCall("call-search-1", "searchInbox", { query: "newsletters" }),
+    toolResult(
+      "call-search-1",
+      "searchInbox",
+      searchPage(threadIds, 0, "page-2"),
+    ),
+    toolCall("call-search-2", "searchInbox", { nextPageToken: "page-2" }),
+    toolResult("call-search-2", "searchInbox", searchPage(threadIds, 20)),
     toolCall("call-archive-1", "manageInbox", {
       action: "archive_threads",
       threadIds: threadIds.slice(0, 20),
@@ -170,5 +173,23 @@ function toolResult(
         output: { type: "json", value: value as never },
       },
     ],
+  };
+}
+
+function searchPage(
+  threadIds: string[],
+  start: number,
+  nextPageToken?: string,
+) {
+  const messages = threadIds.slice(start, start + 20).map((threadId, i) => ({
+    threadId,
+    from: `news${start + i + 1}@example.com`,
+    subject: `Weekly newsletter ${start + i + 1}`,
+  }));
+  return {
+    messages,
+    totalReturned: messages.length,
+    nextPageToken,
+    hasMore: Boolean(nextPageToken),
   };
 }

@@ -1,6 +1,6 @@
 import { jsonSchema, streamText, tool } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createFinalReplyStep } from "@/utils/ai/assistant/final-reply-step";
 
 describe("createFinalReplyStep", () => {
@@ -42,6 +42,20 @@ describe("createFinalReplyStep", () => {
 
     expect(calls).toHaveLength(2);
   });
+  it("asks again on a fresh model attempt, such as a fallback model", async () => {
+    const finalReply = createFinalReplyStep();
+    const first = finalReply.createSteering();
+    const firstSteer = vi.spyOn(first, "steer");
+    finalReply.onStepEnd({ text: "", toolCalls: [] });
+
+    const second = finalReply.createSteering();
+    const secondSteer = vi.spyOn(second, "steer");
+    finalReply.onStepEnd({ text: "", toolCalls: [] });
+
+    expect(second).not.toBe(first);
+    expect(firstSteer).toHaveBeenCalledTimes(1);
+    expect(secondSteer).toHaveBeenCalledTimes(1);
+  });
 });
 
 async function runChat(model: MockLanguageModelV4) {
@@ -57,7 +71,7 @@ async function runChat(model: MockLanguageModelV4) {
       }),
     },
     stopWhen: () => false,
-    experimental_steering: finalReply.steering,
+    experimental_steering: finalReply.createSteering(),
     onStepEnd: (step) => finalReply.onStepEnd(step),
     prepareStep: ({ experimental_steeringMessages }) =>
       finalReply.isFinalReplyStep(experimental_steeringMessages)
