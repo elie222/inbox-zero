@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 
 const envMock = vi.hoisted(() => ({
@@ -15,6 +15,124 @@ import { listContactPhotos, searchContacts } from "./contact";
 describe("searchContacts", () => {
   beforeEach(() => {
     envMock.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED = true;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it.each([
+    "saved",
+    "other",
+  ] as const)("warms only the cold %s source before retrying the original query", async (source) => {
+    vi.useFakeTimers();
+    const startedAt = Date.now();
+    const coldSearch = vi.fn(async ({ query }: { query: string }) => {
+      if (query === "") {
+        return {
+          data: {
+            results: [
+              {
+                person: {
+                  emailAddresses: [{ value: "unrelated@example.com" }],
+                },
+              },
+            ],
+          },
+        };
+      }
+      if (Date.now() - startedAt < 2000) throw coldCacheError();
+      return {
+        data: {
+          results: [
+            { person: { emailAddresses: [{ value: "match@example.com" }] } },
+          ],
+        },
+      };
+    });
+    const { client, searchContactsMock, searchOtherContactsMock } =
+      createPeopleClient({
+        ...(source === "saved"
+          ? { searchContactsMock: coldSearch }
+          : { searchOtherContactsMock: coldSearch }),
+      });
+    const result = searchContacts(client, "match", createTestLogger());
+    const assertion = expect(result).resolves.toEqual([
+      {
+        emailAddress: "match@example.com",
+        name: undefined,
+        profilePictureUrl: undefined,
+      },
+    ]);
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(coldSearch.mock.calls.map(([params]) => params.query)).toEqual([
+      "match",
+      "",
+      "match",
+    ]);
+    expect(
+      source === "saved" ? searchOtherContactsMock : searchContactsMock,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it("bounds recovery when the cache stays cold, including during warmup", async () => {
+    vi.useFakeTimers();
+    const error = coldCacheError();
+    const { client, searchContactsMock } = createPeopleClient({
+      searchContactsMock: vi.fn().mockRejectedValue(error),
+    });
+    const assertion = expect(
+      searchContacts(client, "match", createTestLogger()),
+    ).rejects.toBe(error);
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(
+      searchContactsMock.mock.calls.map(([params]) => params.query),
+    ).toEqual(["match", "", "match"]);
+  });
+
+  it("does not warm healthy searches or unrelated precondition failures", async () => {
+    const { client, searchContactsMock, searchOtherContactsMock } =
+      createPeopleClient();
+    await searchContacts(client, "match", createTestLogger());
+    expect(searchContactsMock).toHaveBeenCalledTimes(1);
+    expect(searchOtherContactsMock).toHaveBeenCalledTimes(1);
+
+    const error = coldCacheError();
+    error.response.data.error.message = "A different precondition failed";
+    searchContactsMock.mockRejectedValue(error);
+    await expect(
+      searchContacts(client, "match", createTestLogger()),
+    ).rejects.toBe(error);
+    expect(searchContactsMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves source fallback when access is denied during warmup", async () => {
+    const { client, searchContactsMock } = createPeopleClient({
+      searchContactsMock: vi
+        .fn()
+        .mockRejectedValueOnce(coldCacheError())
+        .mockRejectedValue({ status: "PERMISSION_DENIED" }),
+      searchOtherContactsMock: vi.fn().mockResolvedValue({
+        data: {
+          results: [
+            { person: { emailAddresses: [{ value: "other@example.com" }] } },
+          ],
+        },
+      }),
+    });
+
+    await expect(
+      searchContacts(client, "other", createTestLogger()),
+    ).resolves.toEqual([
+      {
+        emailAddress: "other@example.com",
+        name: undefined,
+        profilePictureUrl: undefined,
+      },
+    ]);
+    expect(searchContactsMock).toHaveBeenCalledTimes(2);
   });
 
   it("maps all usable Google contact addresses to compose suggestions", async () => {
@@ -458,5 +576,19 @@ function createPeopleClient({
     } as never,
     searchContactsMock,
     searchOtherContactsMock,
+  };
+}
+
+function coldCacheError() {
+  return {
+    response: {
+      data: {
+        error: {
+          code: 400,
+          status: "FAILED_PRECONDITION",
+          message: "Request failed due to cold cache data",
+        },
+      },
+    },
   };
 }

@@ -13,6 +13,7 @@ import {
 } from "@/utils/error";
 import { extractErrorInfo } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
+import { sleep } from "@/utils/sleep";
 
 const CONTACT_READ_MASK = "names,emailAddresses,photos";
 const PHOTO_READ_MASK = "emailAddresses,photos";
@@ -182,23 +183,63 @@ function isContactSourceDenied(error: unknown) {
 }
 
 async function searchSavedContacts(client: people_v1.People, query: string) {
-  const res = await client.people.searchContacts({
+  const res = await searchWithCacheWarmup(
+    (searchQuery) =>
+      client.people.searchContacts({
+        query: searchQuery,
+        readMask: CONTACT_READ_MASK,
+        pageSize: MAX_CONTACT_RESULTS,
+      }),
     query,
-    readMask: CONTACT_READ_MASK,
-    pageSize: MAX_CONTACT_RESULTS,
-  });
+  );
 
   return mapSearchResults(res.data.results);
 }
 
 async function searchOtherContacts(client: people_v1.People, query: string) {
-  const res = await client.otherContacts.search({
+  const res = await searchWithCacheWarmup(
+    (searchQuery) =>
+      client.otherContacts.search({
+        query: searchQuery,
+        readMask: CONTACT_READ_MASK,
+        pageSize: MAX_CONTACT_RESULTS,
+      }),
     query,
-    readMask: CONTACT_READ_MASK,
-    pageSize: MAX_CONTACT_RESULTS,
-  });
+  );
 
   return mapSearchResults(res.data.results);
+}
+
+async function searchWithCacheWarmup<T>(
+  search: (query: string) => Promise<T>,
+  query: string,
+): Promise<T> {
+  try {
+    return await search(query);
+  } catch (error) {
+    if (!isColdSearchCacheError(error)) throw error;
+  }
+
+  // People search caches update asynchronously after an empty-query warmup.
+  // https://developers.google.com/people/v1/contacts#search_the_users_contacts
+  try {
+    await search("");
+  } catch (error) {
+    if (!isColdSearchCacheError(error)) throw error;
+  }
+  await sleep(2000);
+  return search(query);
+}
+
+function isColdSearchCacheError(error: unknown) {
+  const { googleErrorStatus, code, reason, errorMessage } =
+    extractErrorInfo(error);
+  return (
+    (googleErrorStatus === "FAILED_PRECONDITION" ||
+      code === "FAILED_PRECONDITION" ||
+      reason === "failedPrecondition") &&
+    /cold cache/i.test(errorMessage)
+  );
 }
 
 function mapSearchResults(
