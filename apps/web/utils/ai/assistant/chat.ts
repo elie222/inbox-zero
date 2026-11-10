@@ -752,21 +752,6 @@ export function buildInboxSnapshotMessage(
   };
 }
 
-// The time changes every turn, so it goes after the history instead of in the
-// system prompt, which must stay identical across turns to hit the prompt cache.
-function buildCurrentTimeMessage({
-  userTimezone,
-  currentTimestamp,
-}: {
-  userTimezone: string;
-  currentTimestamp: string;
-}): ModelMessage {
-  return {
-    role: "user",
-    content: `[Automated context — not a message from the user] User timezone: ${userTimezone}. Current timestamp: ${currentTimestamp}.`,
-  };
-}
-
 export function buildResolvedSystemPrompt({
   emailSendToolsEnabled,
   draftReplyActionsEnabled,
@@ -979,4 +964,19 @@ Inline email cards:
 - Cards show the sender, subject, and date and let the user open and act on the email. Your text carries the meaning, so leave every card empty and don't repeat the subject or date in your text.
 - The threadid must be a threadId from searchInbox results (not the HTML id).
 - Only render email widgets when they add clarity, not for every search result.`;
+}
+
+// The time changes every turn, so it goes after the history instead of in the
+// system prompt, which must stay identical across turns to hit the prompt cache.
+function buildCurrentTimeMessage({
+  userTimezone,
+  currentTimestamp,
+}: {
+  userTimezone: string;
+  currentTimestamp: string;
+}): ModelMessage {
+  return {
+    role: "user",
+    content: `[Automated context — not a message from the user] User timezone: ${userTimezone}. Current timestamp: ${currentTimestamp}.`,
+  };
 }

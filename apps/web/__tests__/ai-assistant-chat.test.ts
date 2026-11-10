@@ -981,9 +981,8 @@ describe("aiProcessAssistantChat", () => {
         );
         expect(timeMessage?.role).toBe("user");
         expect(timeMessage?.content).toContain("User timezone:");
-        expect(messages.indexOf(timeMessage!)).toBeGreaterThan(
-          messages.length - 1 - 3,
-        );
+        // Before the memories and the latest user message.
+        expect(messages.indexOf(timeMessage!)).toBe(messages.length - 3);
       }
     } finally {
       vi.useRealTimers();
