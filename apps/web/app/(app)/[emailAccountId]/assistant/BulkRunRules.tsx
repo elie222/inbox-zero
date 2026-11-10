@@ -137,10 +137,13 @@ export function BulkRunRules() {
           rerun: isRerunEnabled,
           maxEmails: isTrial ? TRIAL_BULK_PROCESS_EMAIL_LIMIT : undefined,
         },
+        // A stopped run's queue can still report after a new run starts.
         (threads) => {
+          if (runIdRef.current !== runId) return;
           dispatch({ type: "THREADS_QUEUED", threads });
         },
         (completionStatus, count) => {
+          if (runIdRef.current !== runId) return;
           if (completionStatus !== "success") {
             dispatch({ type: "STOP", completedCount: count });
             return;
@@ -149,7 +152,6 @@ export function BulkRunRules() {
           dispatch({ type: "COMPLETE", count });
         },
         (resumeAt) => {
-          // A stopped run's queue can still report a wait after a new run starts.
           if (runIdRef.current !== runId) return;
           dispatch({ type: "RATE_LIMIT_WAIT", resumeAt });
         },
