@@ -2249,6 +2249,8 @@ enum MailSplitFilterKind {
   CATEGORY
   FROM
   OLDER_THAN
+  /// Mail addressed to an address or @domain, in To or Cc.
+  TO
 }
 
 enum DraftReplyConfidence {

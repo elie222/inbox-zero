@@ -1,7 +1,42 @@
 import { describe, expect, it, vi } from "vitest";
+import {
+  type EffectiveMessage,
+  messageMatchesPredicate,
+} from "@inboxzero/mail-core/query-semantics";
+import {
+  mailSplitToThreadsQuery,
+  otherMailSplitQuery,
+} from "@/utils/split-inbox/split-query";
 import { threadsQueryToPredicate } from "./threads-query";
 
 describe("threadsQueryToPredicate", () => {
+  it("keeps inbox mail sent to a recipient split's domain in that split, not Other", () => {
+    const split = {
+      id: "rakazo",
+      name: "Rakazo",
+      matchAll: true,
+      filters: [{ kind: "TO" as const, value: "@rakazo.com" }],
+    };
+    const inSplit = threadsQueryToPredicate(mailSplitToThreadsQuery(split));
+    const inMatchAny = threadsQueryToPredicate(
+      mailSplitToThreadsQuery({
+        ...split,
+        matchAll: false,
+        filters: [...split.filters, { kind: "FROM", value: "a@b.com" }],
+      }),
+    );
+    const inOther = threadsQueryToPredicate(otherMailSplitQuery([split]));
+
+    const ccRakazo = inboxMessage({ cc: ["Team <hello@rakazo.com>"] });
+    const unrelated = inboxMessage({ to: ["me@example.com"] });
+    for (const predicate of [inSplit, inMatchAny]) {
+      expect(messageMatchesPredicate(ccRakazo, predicate)).toBe(true);
+      expect(messageMatchesPredicate(unrelated, predicate)).toBe(false);
+    }
+    expect(messageMatchesPredicate(ccRakazo, inOther)).toBe(false);
+    expect(messageMatchesPredicate(unrelated, inOther)).toBe(true);
+  });
+
   it("maps unread inbox queries onto a same-message all-predicate", () => {
     expect(threadsQueryToPredicate({ type: "unread" })).toEqual({
       kind: "all",
@@ -367,3 +402,27 @@ describe("threadsQueryToPredicate", () => {
     });
   });
 });
+
+function inboxMessage(fields: Partial<EffectiveMessage>): EffectiveMessage {
+  return {
+    accountId: "acc-1",
+    messageId: "m1",
+    conversationId: "c1",
+    subject: "Subject",
+    preview: "Preview",
+    from: "ada@example.com",
+    to: [],
+    cc: [],
+    receivedAtMs: 1,
+    read: false,
+    starred: false,
+    folderId: "inbox",
+    inboxSection: null,
+    roles: ["inbox"],
+    labelIds: ["INBOX"],
+    categoryIds: [],
+    hasAttachments: false,
+    pendingOperationIds: [],
+    ...fields,
+  };
+}

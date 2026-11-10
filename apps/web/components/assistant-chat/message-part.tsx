@@ -13,6 +13,7 @@ import {
   BasicToolInfo,
   CreatedRuleToolCard,
   PendingDeleteRuleToolCard,
+  PendingDeleteSplitCard,
   PendingSaveMemoryToolCard,
   PendingCreateRuleToolCard,
   ForwardEmailResult,
@@ -281,6 +282,26 @@ export function MessagePart({
           text={getMailScreenActionLabel(part.input)}
         />
       ),
+    });
+  }
+
+  if (part.type === "tool-manageSplitInbox") {
+    return renderToolStatus({
+      part,
+      loadingText: "Updating your split inbox...",
+      renderSuccess: ({ toolCallId }) =>
+        part.output && "pendingDelete" in part.output ? (
+          <PendingDeleteSplitCard
+            key={toolCallId}
+            split={part.output.pendingDelete}
+            disableConfirm={disableConfirm || !isPersistedMessage}
+          />
+        ) : (
+          <BasicToolInfo
+            key={toolCallId}
+            text={getSplitInboxLabel(part.input?.action, part.input?.name)}
+          />
+        ),
     });
   }
 
@@ -953,6 +974,8 @@ function getMailScreenActionLabel(input: unknown) {
       return "Opening the email on screen";
     case "search":
       return `Searching for "${action.query}" on screen`;
+    case "show_split":
+      return "Showing the split on screen";
   }
 }
 
@@ -1116,4 +1139,16 @@ function toMessageString(value: unknown): string | null {
     return value.message;
   }
   return null;
+}
+
+function getSplitInboxLabel(action?: string, name?: string | null) {
+  const split = name ? `split "${name}"` : "split";
+  switch (action) {
+    case "create":
+      return `Created ${split}`;
+    case "update":
+      return `Updated ${split}`;
+    default:
+      return "Read your split inbox";
+  }
 }

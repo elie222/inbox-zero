@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { canonicalizeEmailAddress } from "@/utils/email";
+import { canonicalizeEmailAddress, extractEmailAddresses } from "@/utils/email";
 
 export const senderFilterSchema = z.string().refine((value) => {
   if (!value.startsWith("@")) return z.email().safeParse(value).success;
@@ -20,4 +20,16 @@ export function matchesSenderFilter(sender: string, filter: string): boolean {
   return normalizedFilter.startsWith("@")
     ? address.endsWith(normalizedFilter)
     : address === canonicalizeEmailAddress(filter);
+}
+
+/** Matches an address filter against a message's To and Cc headers. */
+export function matchesRecipientFilter(
+  headers: { to?: string | null; cc?: string | null },
+  filter: string,
+): boolean {
+  return [headers.to, headers.cc].some((header) =>
+    extractEmailAddresses(header ?? "").some((address) =>
+      matchesSenderFilter(address, filter),
+    ),
+  );
 }

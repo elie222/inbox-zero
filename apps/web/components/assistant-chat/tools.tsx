@@ -44,6 +44,8 @@ import {
   confirmAssistantSaveMemory,
 } from "@/utils/actions/assistant-chat";
 import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
+import { deleteMailSplitAction } from "@/utils/actions/mail-split";
+import { useMailSettings } from "@/hooks/useMailSettings";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useChat } from "@/providers/ChatProvider";
@@ -2440,4 +2442,83 @@ function FieldLabel({
   className?: string;
 }) {
   return <RuleSummaryLabel className={className}>{children}</RuleSummaryLabel>;
+}
+
+export function PendingDeleteSplitCard({
+  split,
+  disableConfirm,
+}: {
+  split: { id: string; name: string };
+  disableConfirm: boolean;
+}) {
+  const { emailAccountId } = useAccount();
+  const { data: settings, mutate } = useMailSettings();
+  const [activeSplitId, setActiveSplitId] = useQueryState("split");
+  const [isDeleting, setIsDeleting] = useState(false);
+  // Read from the account's splits, so the card stays right after a reload.
+  const deleted =
+    !!settings && !settings.splits.some(({ id }) => id === split.id);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const result = await deleteMailSplitAction(emailAccountId, {
+        id: split.id,
+      });
+      if (result?.serverError) {
+        toastError({ description: result.serverError });
+        return;
+      }
+      if (activeSplitId === split.id) setActiveSplitId(null);
+      await mutate();
+      toastSuccess({ description: "The split has been deleted." });
+    } catch {
+      toastError({ description: "Failed to delete split." });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0 border-b px-4 py-3.5">
+        <TrashIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-base font-semibold">{split.name}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {deleted ? "Deleted split" : "Pending deletion"}
+          </p>
+        </div>
+        {deleted && (
+          <Badge color="green" className="shrink-0">
+            Deleted
+          </Badge>
+        )}
+      </CardHeader>
+
+      {!deleted && (
+        <CardContent className="flex items-center justify-between gap-3 px-4 py-3.5">
+          <p className="text-sm text-muted-foreground">
+            Removes this tab. Your mail isn't changed.
+          </p>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleDelete}
+            disabled={disableConfirm || isDeleting || !settings}
+            className="shrink-0 gap-2"
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              "Delete split"
+            )}
+          </Button>
+        </CardContent>
+      )}
+    </Card>
+  );
 }

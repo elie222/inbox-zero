@@ -158,6 +158,9 @@ function matchAllQuery(split: QuerySplit, now: Date): ThreadsQuery {
       case MailSplitFilterKind.FROM:
         query.fromEmail = requireValue(filter, split, "sender");
         break;
+      case MailSplitFilterKind.TO:
+        query.toEmail = requireValue(filter, split, "recipient");
+        break;
       case MailSplitFilterKind.OLDER_THAN: {
         const before = olderThanDate(
           requireValue(filter, split, "age"),
@@ -198,6 +201,8 @@ function matchAnyQuery(split: QuerySplit, now: Date): ThreadsQuery {
       }
       case MailSplitFilterKind.FROM:
         return { fromEmail: requireValue(filter, split, "sender") };
+      case MailSplitFilterKind.TO:
+        return { toEmail: requireValue(filter, split, "recipient") };
       case MailSplitFilterKind.OLDER_THAN:
         return {
           before: olderThanDate(requireValue(filter, split, "age"), split, now),

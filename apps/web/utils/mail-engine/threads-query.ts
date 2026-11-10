@@ -110,6 +110,7 @@ export function threadsQueryToPredicate(
       match: "address",
     });
   }
+  if (query.toEmail) clauses.push(recipientPredicate(query.toEmail));
   if (query.labelId) {
     const label = gmailTokenToPredicate(query.labelId);
     if (label.kind === "membership" && label.membership === "label") {
@@ -172,6 +173,7 @@ export function threadsQueryToPredicate(
 function leafToPredicate(leaf: {
   labelId?: string | null;
   fromEmail?: string | null;
+  toEmail?: string | null;
   isUnread?: true | null;
   inboxSection?: "focused" | "other" | null;
 }): MailPredicate {
@@ -187,7 +189,20 @@ function leafToPredicate(leaf: {
       match: "address",
     };
   }
+  if (leaf.toEmail) return recipientPredicate(leaf.toEmail);
   return { kind: "read", value: false };
+}
+
+function recipientPredicate(value: string): MailPredicate {
+  return {
+    kind: "any",
+    predicates: (["to", "cc"] as const).map((field) => ({
+      kind: "address",
+      field,
+      value,
+      match: "address",
+    })),
+  };
 }
 
 function textQueryPredicates(query: string): MailPredicate[] {
@@ -358,6 +373,9 @@ function splitFilterToPredicate(
       value: filter.value,
       match: "address",
     };
+  }
+  if (filter.kind === "TO" && filter.value) {
+    return recipientPredicate(filter.value);
   }
   if (
     filter.kind === "CATEGORY" &&

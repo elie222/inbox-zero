@@ -8,6 +8,7 @@ const KINDS_REQUIRING_VALUE = new Set<MailSplitFilterKind>([
   MailSplitFilterKind.LABEL,
   MailSplitFilterKind.CATEGORY,
   MailSplitFilterKind.FROM,
+  MailSplitFilterKind.TO,
   MailSplitFilterKind.OLDER_THAN,
 ]);
 
@@ -33,6 +34,15 @@ export const mailSplitFilterSchema = z
       filter.kind !== MailSplitFilterKind.FROM ||
       senderFilterSchema.safeParse(filter.value).success,
     { message: "Enter a sender email address or @domain.com", path: ["value"] },
+  )
+  .refine(
+    (filter) =>
+      filter.kind !== MailSplitFilterKind.TO ||
+      senderFilterSchema.safeParse(filter.value).success,
+    {
+      message: "Enter a recipient email address or @domain.com",
+      path: ["value"],
+    },
   )
   .refine(
     (filter) =>
