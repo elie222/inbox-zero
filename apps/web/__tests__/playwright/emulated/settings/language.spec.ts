@@ -1,4 +1,4 @@
-import { expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { test } from "../playwright-test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { openSettings } from "./settings-test-helpers";
@@ -8,8 +8,7 @@ test("switches the app language from settings and keeps it across reloads", asyn
 }, testInfo) => {
   await openSettings(page);
 
-  await page.getByRole("combobox", { name: "Language" }).click();
-  await page.getByRole("option", { name: "Español" }).click();
+  await chooseLanguage(page, "Language", "Español");
 
   // The page heading and tab title render on the server, the sections on
   // the client.
@@ -28,8 +27,7 @@ test("switches the app language from settings and keeps it across reloads", asyn
   ).toBeVisible({ timeout: 60_000 });
   await capturePlaywrightCheckpoint(page, testInfo, "settings-spanish");
 
-  await page.getByRole("combobox", { name: "Idioma" }).click();
-  await page.getByRole("option", { name: "English" }).click();
+  await chooseLanguage(page, "Idioma", "English");
 
   await expect(
     page.getByRole("heading", { name: "Settings", exact: true }),
@@ -39,3 +37,10 @@ test("switches the app language from settings and keeps it across reloads", asyn
   ).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 });
+
+// Settings sections above the picker load after the page renders, so the open
+// menu can shift out of view. Choosing by keyboard doesn't depend on where it lands.
+async function chooseLanguage(page: Page, label: string, language: string) {
+  await page.getByRole("combobox", { name: label }).press("Enter");
+  await page.getByRole("option", { name: language }).press("Enter");
+}
