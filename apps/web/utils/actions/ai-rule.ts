@@ -17,6 +17,8 @@ import { flushLoggerSafely } from "@/utils/logger-flush";
 import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
+import { retryFailedRuleActions } from "@/utils/ai/choose-rule/retry-failed-actions";
+import { ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { checkHasAccess } from "@/utils/premium/server";
 import {
   RERUN_MINIMUM_TIER,
@@ -104,22 +106,24 @@ export const runRulesAction = actionClient
       const fetchExecutedRule = !isTest && !rerun;
 
       logger.info("Loading existing executed rules", { fetchExecutedRule });
-      const executedRules = await (fetchExecutedRule
-        ? prisma.executedRule.findMany({
-            where: {
-              emailAccountId,
-              threadId,
-              messageId,
-            },
-            select: {
-              id: true,
-              reason: true,
-              actionItems: true,
-              rule: true,
-              createdAt: true,
-              status: true,
-            },
-          })
+      const loadExecutedRules = () =>
+        prisma.executedRule.findMany({
+          where: {
+            emailAccountId,
+            threadId,
+            messageId,
+          },
+          select: {
+            id: true,
+            reason: true,
+            actionItems: true,
+            rule: true,
+            createdAt: true,
+            status: true,
+          },
+        });
+      let executedRules = await (fetchExecutedRule
+        ? loadExecutedRules()
         : Promise.resolve([])
       ).catch((error) => {
         logger.error("Failed to load existing executed rules", { error });
@@ -135,7 +139,22 @@ export const runRulesAction = actionClient
       });
 
       if (executedRules.length > 0) {
-        logger.info("Skipping. Rule already exists.");
+        logger.info("Rule already ran for this message");
+
+        const failedRules = executedRules.filter(
+          (executedRule) => executedRule.status === ExecutedRuleStatus.ERROR,
+        );
+        for (const executedRule of failedRules) {
+          await retryFailedRuleActions({
+            client: emailProvider,
+            executedRuleId: executedRule.id,
+            message,
+            emailAccount,
+            skipDraftReplies,
+            logger,
+          });
+        }
+        if (failedRules.length > 0) executedRules = await loadExecutedRules();
 
         return executedRules.map((executedRule) => ({
           rule: executedRule.rule,
