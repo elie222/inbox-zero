@@ -894,7 +894,7 @@ function getProviderContextSection({
   const lines = [
     "Provider context:",
     `- Current provider: ${provider}.`,
-    "- The user's timezone and the current timestamp are given in the automated context sent with the latest user message. Resolve relative dates like today, tomorrow, this afternoon, Monday, or Friday from that timezone before calling calendar or inbox date-range tools.",
+    "- Resolve relative dates like today, tomorrow, this afternoon, Monday, or Friday from the user's timezone and current timestamp in the automated context before calling calendar or inbox date-range tools.",
   ];
 
   if (calendarConnection.state === "disconnected") {
