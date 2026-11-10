@@ -4,7 +4,6 @@ import { generateText } from "ai";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   saveAiSettingsBody,
-  saveDecisionModelSettingsBody,
   saveSensitiveDataPolicyBody,
   saveEmailUpdateSettingsBody,
   saveDigestScheduleBody,
@@ -127,22 +126,6 @@ export const updateAiSettingsAction = actionClientUser
           ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
         ],
         logger,
-      });
-    },
-  );
-
-export const updateDecisionModelSettingsAction = actionClientUser
-  .metadata({ name: "updateDecisionModelSettings" })
-  .inputSchema(saveDecisionModelSettingsBody)
-  .action(
-    async ({ ctx: { userId }, parsedInput: { decisionModelEnabled } }) => {
-      if (env.NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED) {
-        throw new SafeError("AI model settings are managed by the deployment.");
-      }
-
-      await prisma.user.update({
-        where: { id: userId },
-        data: { decisionModelEnabled },
       });
     },
   );
