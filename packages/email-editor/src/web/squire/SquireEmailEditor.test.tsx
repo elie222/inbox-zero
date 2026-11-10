@@ -740,7 +740,65 @@ describe("Squire email editor", () => {
     expect(onImageFiles).toHaveBeenCalledWith([file]);
     expect(paste.defaultPrevented).toBe(true);
   });
+
+  it("formats pasted Markdown text", async () => {
+    const { textbox } = await renderEditor({});
+
+    pasteText(
+      textbox(),
+      "> **Apps on your PC:** Open **Settings**.\n>\n> - one\n> - two",
+    );
+
+    const quote = textbox().querySelector("blockquote");
+    expect(quote?.querySelector("b")?.textContent).toBe("Apps on your PC:");
+    expect(quote?.querySelectorAll("li")).toHaveLength(2);
+    expect(textbox().textContent).not.toContain("**");
+  });
+
+  it("formats single-marker emphasis and strikethrough", async () => {
+    const { textbox } = await renderEditor({});
+
+    pasteText(textbox(), "An *important* and ~~removed~~ note");
+
+    expect(textbox().querySelector("i, em")?.textContent).toBe("important");
+    expect(textbox().querySelector("s, del")?.textContent).toBe("removed");
+  });
+
+  it("hands a pasted image to the app even with Markdown text alongside", async () => {
+    const onImageFiles = vi.fn();
+    const { textbox } = await renderEditor({ onImageFiles });
+    const file = new File(["x"], "photo.png", { type: "image/png" });
+
+    pasteText(textbox(), "**caption**", [file]);
+
+    expect(onImageFiles).toHaveBeenCalledWith([file]);
+    expect(textbox().querySelector("b")).toBeNull();
+  });
+
+  it("keeps Markdown literal when pasting without formatting", async () => {
+    const { textbox } = await renderEditor({});
+
+    fireEvent.keyDown(textbox(), { key: "Shift", shiftKey: true });
+    pasteText(textbox(), "**bold**");
+
+    expect(textbox().querySelector("b")).toBeNull();
+    expect(textbox().textContent).toContain("**bold**");
+  });
 });
+
+function pasteText(target: HTMLElement, text: string, files: File[] = []) {
+  const paste = new Event("paste", { bubbles: true, cancelable: true });
+  Object.defineProperty(paste, "clipboardData", {
+    value: {
+      files,
+      getData: (type: string) => (type === "text/plain" ? text : ""),
+      types: ["text/plain"],
+    },
+  });
+  act(() => {
+    target.dispatchEvent(paste);
+  });
+}
 
 async function renderEditor(props: Partial<EmailEditorProps>) {
   const ref = createRef<EmailEditorHandle>();
