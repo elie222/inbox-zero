@@ -189,7 +189,8 @@ async function buildSearchTools({
   let mcpCleanup: (() => Promise<void>) | null = null;
 
   // Perplexity search (if configured)
-  if (env.PERPLEXITY_API_KEY) {
+  const perplexityApiKey = env.PERPLEXITY_API_KEY;
+  if (perplexityApiKey) {
     tools.perplexitySearch = tool({
       description: "Search for information using Perplexity",
       inputSchema: searchInputSchema,
@@ -208,7 +209,7 @@ async function buildSearchTools({
         }
 
         try {
-          const model = createPerplexityResearchModel(env.PERPLEXITY_API_KEY);
+          const model = createPerplexityResearchModel(perplexityApiKey);
 
           const perplexityGenerateText = createGenerateText({
             emailAccount,
