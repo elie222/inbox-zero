@@ -56,6 +56,10 @@ describe.runIf(shouldRunEval)(
     setupInboxWorkflowEval();
 
     beforeEach(() => {
+      // Drop *Once values a previous test queued but the model never used.
+      hoisted.mockGetCategoryOverview.mockReset();
+      hoisted.mockStartBulkCategorization.mockReset();
+      hoisted.mockArchiveCategory.mockReset();
       hoisted.mockGetCategoryOverview.mockResolvedValue(
         buildReadyCategoryOverview(),
       );

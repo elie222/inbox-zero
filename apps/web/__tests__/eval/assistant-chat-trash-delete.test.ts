@@ -227,6 +227,9 @@ describe.runIf(shouldRunEval)("Eval: assistant chat trash/delete", () => {
       };
     });
 
+    // clearAllMocks keeps queued *Once values, so a search result a test
+    // queued but the model never consumed would leak into the next test.
+    mockSearchMessages.mockReset();
     mockSearchMessages.mockResolvedValue({
       messages: getDefaultSearchMessages(),
       nextPageToken: undefined,
