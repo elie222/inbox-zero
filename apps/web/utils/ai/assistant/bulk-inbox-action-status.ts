@@ -64,7 +64,7 @@ export async function buildBulkInboxActionStatusMessage({
 
     return {
       role: "user",
-      content: `Bulk inbox actions from this chat, with live totals from the background job. Use these numbers when reporting progress. processed = emails checked so far, matched = emails that qualified for the action, acted = emails the action succeeded on, skipped = emails that did not match the instruction, failed = emails left unchanged after an error. A running job is still going.\n${lines.join("\n")}`,
+      content: `Bulk inbox actions from this chat, with live totals from the background job. Use these numbers when reporting progress. Counts are email threads: processed = threads checked so far, matched = threads that qualified for the action, acted = threads the action succeeded on, skipped = threads that did not match the instruction, failed = threads left unchanged after an error. A running job is still going.\n${lines.join("\n")}`,
     };
   } catch (error) {
     logger.warn("Failed to load bulk inbox action status", { error });

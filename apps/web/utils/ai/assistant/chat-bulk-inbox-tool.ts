@@ -215,7 +215,6 @@ async function prepareBulkInboxAction({
         search,
         pageToken,
         pageSize: ESTIMATE_PAGE_SIZE,
-        logger,
       });
 
       for (const message of page.messages) {
@@ -235,7 +234,8 @@ async function prepareBulkInboxAction({
       if (!pageToken) break;
     }
 
-    if (threadIds.size === 0) {
+    // Filtered Outlook searches can return empty pages before later matches.
+    if (threadIds.size === 0 && !hasMore) {
       return {
         success: true,
         estimatedThreadCount: 0,

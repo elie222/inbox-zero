@@ -24,8 +24,9 @@ const ACTION_CONCURRENCY = 3;
 const DEFAULT_RATE_LIMIT_DELAY_MS = 30_000;
 // Longer than the route's maxDuration, so a live chunk never loses its lease.
 const LEASE_MS = 330_000;
-// Stays well inside the route's maxDuration so the job can save progress.
-export const BULK_INBOX_ACTION_CHUNK_BUDGET_MS = 4 * 60 * 1000;
+// Leaves two minutes of the route's 300s maxDuration for the page that is
+// in flight when the budget runs out, so its progress is always saved.
+export const BULK_INBOX_ACTION_CHUNK_BUDGET_MS = 3 * 60 * 1000;
 
 type ChunkOutcome =
   | { status: "completed" | "stopped" | "stale" | "busy" }
@@ -143,16 +144,14 @@ async function runChunk({
   let rateLimitedUntil = job.rateLimitedUntil?.getTime() ?? 0;
 
   while (Date.now() < deadline) {
-    const current = await prisma.bulkInboxActionJob.findUnique({
-      where: { id: jobId },
-      select: { status: true },
-    });
-    if (current?.status !== "RUNNING") return { status: "stopped" };
+    if (!(await isJobRunning(jobId))) return { status: "stopped" };
 
     const waitMs = rateLimitedUntil - Date.now();
     if (waitMs > 0) {
-      if (waitMs > deadline - Date.now()) return continueLater();
+      if (waitMs >= deadline - Date.now()) return continueLater();
       await sleep(waitMs);
+      rateLimitedUntil = 0;
+      continue;
     }
 
     let page: Awaited<ReturnType<typeof searchBulkInboxActionPage>>;
@@ -163,7 +162,6 @@ async function runChunk({
         search,
         pageToken,
         pageSize: SEARCH_PAGE_SIZE,
-        logger,
       });
     } catch (error) {
       if (!isRateLimitError(error, provider)) throw error;
@@ -182,8 +180,9 @@ async function runChunk({
     // because later matches shift into it.
     if (!unseen.length) {
       if (!page.nextPageToken) {
-        await prisma.bulkInboxActionJob.update({
-          where: { id: jobId },
+        // Only a running job completes, so a Stop that landed meanwhile stays.
+        await prisma.bulkInboxActionJob.updateMany({
+          where: { id: jobId, status: "RUNNING" },
           data: {
             status: "COMPLETED",
             completedAt: new Date(),
@@ -202,6 +201,7 @@ async function runChunk({
     }
 
     const result = await processThreads({
+      jobId,
       threads: unseen,
       action,
       labelId: job.labelId,
@@ -228,12 +228,15 @@ async function runChunk({
       rateLimitedUntil: result.rateLimitError ? rateLimitedUntil : null,
       totals: result.totals,
     });
+
+    if (result.cancelled) return { status: "stopped" };
   }
 
   return continueLater();
 }
 
 async function processThreads({
+  jobId,
   threads,
   action,
   labelId,
@@ -244,6 +247,7 @@ async function processThreads({
   provider,
   logger,
 }: {
+  jobId: string;
   threads: ParsedMessage[];
   action: BulkInboxActionType;
   labelId: string | null;
@@ -292,6 +296,17 @@ async function processThreads({
     }
   }
 
+  // Filtering can take a while, so honour a Stop pressed meanwhile before
+  // touching any mail.
+  if (toAct.length && !(await isJobRunning(jobId))) {
+    return {
+      totals,
+      handledThreadIds,
+      rateLimitError: undefined,
+      cancelled: true,
+    };
+  }
+
   let rateLimitError: unknown;
   const results = await runWithBoundedConcurrency({
     items: toAct,
@@ -337,7 +352,7 @@ async function processThreads({
     }
   }
 
-  return { totals, handledThreadIds, rateLimitError };
+  return { totals, handledThreadIds, rateLimitError, cancelled: false };
 }
 
 async function applyAction({
@@ -412,9 +427,17 @@ async function saveProgress(
   });
 }
 
-async function failJob(jobId: string, error: string) {
-  await prisma.bulkInboxActionJob.update({
+async function isJobRunning(jobId: string) {
+  const job = await prisma.bulkInboxActionJob.findUnique({
     where: { id: jobId },
+    select: { status: true },
+  });
+  return job?.status === "RUNNING";
+}
+
+async function failJob(jobId: string, error: string) {
+  await prisma.bulkInboxActionJob.updateMany({
+    where: { id: jobId, status: "RUNNING" },
     data: {
       status: "FAILED",
       error,

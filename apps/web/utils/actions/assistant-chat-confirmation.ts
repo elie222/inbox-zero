@@ -504,13 +504,18 @@ export async function confirmAssistantBulkInboxActionForAccount({
         instruction: pendingAction.instruction,
         chunkToken,
       },
-      // A retried confirmation reuses the job, and replaces the chunk token
-      // in case the first enqueue never happened.
-      update: { chunkToken },
-      select: { id: true },
+      // A retried confirmation reuses the job and its current chunk token.
+      // Queueing that token again is harmless: a live chunk holds the lease,
+      // and a finished one has already moved the token on.
+      update: {},
+      select: { id: true, chunkToken: true },
     });
     jobId = job.id;
-    await enqueueBulkInboxActionChunk({ jobId, chunkToken, logger });
+    await enqueueBulkInboxActionChunk({
+      jobId,
+      chunkToken: job.chunkToken ?? chunkToken,
+      logger,
+    });
   } catch (error) {
     await clearPendingPartProcessing({
       chatMessageId: reservation.chatMessageId,

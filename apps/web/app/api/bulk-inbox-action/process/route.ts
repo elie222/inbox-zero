@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { enqueueBulkInboxActionChunk } from "@/utils/bulk-inbox-action/enqueue";
 import { processBulkInboxActionJobChunk } from "@/utils/bulk-inbox-action/process-job";
 import { withError } from "@/utils/middleware";
+import prisma from "@/utils/prisma";
 import { withQstashOrInternal } from "@/utils/qstash";
 import { bulkInboxActionProcessBody } from "./validation";
 
@@ -28,11 +29,21 @@ export const POST = withError(
     }
 
     if (outcome.status === "continue") {
-      await enqueueBulkInboxActionChunk({
-        jobId,
-        chunkToken: outcome.nextChunkToken,
-        logger,
-      });
+      try {
+        await enqueueBulkInboxActionChunk({
+          jobId,
+          chunkToken: outcome.nextChunkToken,
+          logger,
+        });
+      } catch (error) {
+        // Hand the job back to this delivery's token, so the queue's retry of
+        // it resumes the job instead of being ignored as stale.
+        await prisma.bulkInboxActionJob.updateMany({
+          where: { id: jobId, chunkToken: outcome.nextChunkToken },
+          data: { chunkToken },
+        });
+        throw error;
+      }
     }
 
     return NextResponse.json({ status: outcome.status });

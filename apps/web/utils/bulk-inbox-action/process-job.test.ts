@@ -124,6 +124,40 @@ describe("processBulkInboxActionJobChunk", () => {
     expect(job).toMatchObject({ processedCount: 10, failedCount: 10 });
   });
 
+  it("does not touch mail when the user stops the job during filtering", async () => {
+    mailbox = createMailbox(10);
+    useMailbox(mailbox);
+    job.instruction = "newsletters";
+    vi.mocked(aiFilterEmailsForBulkAction).mockImplementation(
+      async ({ messages }) => {
+        job.status = "CANCELLED";
+        return new Set(messages.map((message) => message.id));
+      },
+    );
+
+    const outcome = await runChunk();
+
+    expect(outcome.status).toBe("stopped");
+    expect(mailbox.inboxThreadIds()).toHaveLength(10);
+    expect(job).toMatchObject({ status: "CANCELLED", actedCount: 0 });
+  });
+
+  it("keeps a stop that lands after the last page instead of marking it completed", async () => {
+    mailbox = createMailbox(5);
+    const search = mailbox.search;
+    let searches = 0;
+    mailbox.search = async (options) => {
+      searches++;
+      if (searches === 2) job.status = "CANCELLED";
+      return search(options);
+    };
+    useMailbox(mailbox);
+
+    await runChunk();
+
+    expect(job.status).toBe("CANCELLED");
+  });
+
   it("waits out a provider rate limit and retries the threads it skipped", async () => {
     mailbox = createMailbox(20);
     let rateLimited = false;
