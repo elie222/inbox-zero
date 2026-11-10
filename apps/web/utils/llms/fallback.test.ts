@@ -460,6 +460,37 @@ describe("createGenerateText fallback chain", () => {
     );
   });
 
+  it("records Perplexity Agent API cost and the resolved model", async () => {
+    const model = createModel("agent-fast");
+    mockGenerateText.mockResolvedValue(
+      createTextResult({
+        usage: { inputTokens: 100, outputTokens: 30, totalTokens: 130 },
+        providerMetadata: {
+          perplexity: { cost: 0.012, model: "test/resolved-model" },
+        },
+        response: { id: "research-response" },
+      }),
+    );
+    const generateText = createGenerateTextForTest({
+      label: "Perplexity Search",
+      modelOptions: createModelOptions({
+        provider: "perplexity",
+        modelName: "agent-fast",
+        model,
+      }),
+    });
+    await generateText({ model, prompt: "Synthetic research" });
+    expect(mockSaveAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "perplexity",
+        model: "test/resolved-model",
+        providerReportedCost: 0.012,
+        providerCostSource: "perplexity_usage",
+        providerRequestIds: ["research-response"],
+      }),
+    );
+  });
+
   it("uses top-level provider cost when steps carry no cost", async () => {
     const model = createModel("openrouter-model");
     mockGenerateText.mockResolvedValue(

@@ -1,6 +1,6 @@
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
-import { createPerplexity } from "@ai-sdk/perplexity";
+import { createPerplexityResearchModel } from "@/utils/ai/meeting-briefs/perplexity";
 import { env } from "@/env";
 import { createGenerateText } from "@/utils/llms";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
@@ -208,16 +208,14 @@ async function buildSearchTools({
         }
 
         try {
-          const perplexity = createPerplexity({
-            apiKey: env.PERPLEXITY_API_KEY,
-          });
+          const model = createPerplexityResearchModel(env.PERPLEXITY_API_KEY);
 
           const perplexityGenerateText = createGenerateText({
             emailAccount,
             label: "Perplexity Search",
             modelOptions: {
-              modelName: "sonar-pro",
-              model: perplexity("sonar-pro"),
+              modelName: model.modelId,
+              model,
               provider: "perplexity",
               fallbackModels: [],
               hasUserApiKey: false,
@@ -226,11 +224,13 @@ async function buildSearchTools({
           });
 
           const searchResult = await perplexityGenerateText({
-            model: perplexity("sonar-pro"),
+            model,
             prompt: query,
           });
 
           const text = searchResult.text;
+          if (!text.trim())
+            throw new Error("Empty Perplexity research response");
 
           setCachedResearch(
             emailAccount.userId,

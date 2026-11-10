@@ -195,7 +195,10 @@ type LlmFallbackFailure = {
   category: LlmFallbackFailureCategory;
 };
 
-type ProviderCostSource = "openrouter_usage" | "openrouter_step_usage_sum";
+type ProviderCostSource =
+  | "openrouter_usage"
+  | "openrouter_step_usage_sum"
+  | "perplexity_usage";
 
 type UsageMetadata = {
   providerReportedCost?: number;
@@ -1839,7 +1842,19 @@ function dedupeRepairCandidates(
 function getUsageMetadata(result: unknown): UsageMetadata {
   const stepCount = getStepCount(result);
   const toolCallCount = getToolCallCount(result);
-  const providerCost = getOpenRouterProviderCost(result);
+  const perplexity = getObjectProperty(
+    getObjectProperty(result, "providerMetadata"),
+    "perplexity",
+  );
+  const perplexityCost = getFiniteNumber(getProperty(perplexity, "cost"));
+  const providerCost =
+    perplexityCost !== undefined
+      ? {
+          providerReportedCost: perplexityCost,
+          providerCostSource: "perplexity_usage" as const,
+          providerUpstreamInferenceCost: undefined,
+        }
+      : getOpenRouterProviderCost(result);
 
   return {
     stepCount,
@@ -1873,6 +1888,11 @@ async function saveUsageWithMetadata({
   hasUserApiKey: boolean;
 }) {
   const usageMetadata = getUsageMetadata(result);
+  const perplexity = getObjectProperty(
+    getObjectProperty(result, "providerMetadata"),
+    "perplexity",
+  );
+  const resolvedModel = getProperty(perplexity, "model");
 
   await saveAiUsage({
     userId,
@@ -1880,7 +1900,10 @@ async function saveUsageWithMetadata({
     emailAccountId,
     usage,
     provider,
-    model,
+    model:
+      provider === "perplexity" && typeof resolvedModel === "string"
+        ? resolvedModel
+        : model,
     label,
     hasUserApiKey,
     providerReportedCost: usageMetadata.providerReportedCost,
