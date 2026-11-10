@@ -51,7 +51,10 @@ export const InboxBundleRow = memo(function InboxBundleRow({
       [
         ...new Set(
           bundle.threads.flatMap((thread) =>
-            getThreadParticipantNames(thread.messages, userEmail),
+            getThreadParticipantNames(
+              [...(thread.participantMessages ?? []), ...thread.messages],
+              ("account" in thread ? thread.account?.email : null) ?? userEmail,
+            ),
           ),
         ),
       ],
