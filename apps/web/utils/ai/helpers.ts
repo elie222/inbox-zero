@@ -59,12 +59,12 @@ ${writingStyle}
 export const getUserRulesPrompt = ({
   rules,
 }: {
-  rules: { name: string; instructions: string }[];
+  rules: { selectionId?: string; name: string; instructions: string }[];
 }) => `<user_rules>
 ${rules
   .map(
     (rule) => `<rule>
-  <name>${rule.name}</name>
+${rule.selectionId ? `  <id>${rule.selectionId}</id>\n` : ""}  <name>${rule.name}</name>
   <criteria>${rule.instructions}</criteria>
 </rule>`,
   )
