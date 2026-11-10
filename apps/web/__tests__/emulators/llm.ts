@@ -47,7 +47,7 @@ type ChatCompletionRequest = {
 };
 
 export interface LlmEmulatorReply {
-  /** Waits this long before answering, to hold a flow in a state a test wants to see. */
+  /** Waits this long (at most 10s) before answering, to hold a flow in a state a test wants to see. */
   delayMs?: number;
   /** Case-insensitive substring of the prompt text this reply applies to. Omit to match every request. */
   match?: string;
@@ -138,8 +138,12 @@ export async function createLlmEmulator(
       requests.push(summary);
       const scripted = findScriptedReply(summary, replies);
       const completion = resolveCompletion(completionRequest, scripted);
-      if (scripted?.delayMs) {
-        await new Promise((resolve) => setTimeout(resolve, scripted.delayMs));
+      const delayMs = Math.min(
+        Math.max(Number(scripted?.delayMs) || 0, 0),
+        MAX_REPLY_DELAY_MS,
+      );
+      if (delayMs) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
 
       if (completionRequest.stream) {
@@ -180,6 +184,9 @@ export async function createLlmEmulator(
     url: `http://127.0.0.1:${port}`,
   };
 }
+
+// Scripted delays come from test requests, so keep them short.
+const MAX_REPLY_DELAY_MS = 10_000;
 
 type Completion = {
   content: string | null;
