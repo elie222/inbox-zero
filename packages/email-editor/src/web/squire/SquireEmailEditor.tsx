@@ -446,6 +446,7 @@ export const SquireEmailEditor = forwardRef<
     const formatMarkdownPaste = (event: ClipboardEvent) => {
       const clipboard = event.clipboardData;
       if (event.defaultPrevented || !clipboard || shiftDown) return;
+      if (clipboard.files.length) return;
       if (Array.from(clipboard.types).includes("text/html")) return;
       if (closestWithin(squire.getSelection().startContainer, "pre", root)) {
         return;
@@ -456,8 +457,12 @@ export const SquireEmailEditor = forwardRef<
       event.stopImmediatePropagation();
       squire.insertHTML(html, true);
     };
+    const resetShift = () => {
+      shiftDown = false;
+    };
     root.addEventListener("keydown", trackShift);
     root.addEventListener("keyup", trackShift);
+    root.addEventListener("blur", resetShift);
     root.addEventListener("paste", formatMarkdownPaste, true);
 
     const squire = new EmailSquire(root, {
@@ -638,6 +643,7 @@ export const SquireEmailEditor = forwardRef<
       window.removeEventListener("keydown", onWindowKeyDown, true);
       root.removeEventListener("keydown", trackShift);
       root.removeEventListener("keyup", trackShift);
+      root.removeEventListener("blur", resetShift);
       root.removeEventListener("paste", interceptImageFiles, true);
       root.removeEventListener("paste", formatMarkdownPaste, true);
       root.removeEventListener("drop", interceptImageFiles, true);
@@ -1058,7 +1064,7 @@ function closestWithin(node: Node, selector: string, root: HTMLElement) {
 
 const markdown = new Marked({ gfm: true, breaks: true, async: false });
 const MARKDOWN_SYNTAX =
-  /^ {0,3}(?:#{1,6}\s|>|[-*+]\s+\S|\d{1,9}[.)]\s+\S|```|~~~)|\*\*[^*\n]+\*\*|__[^_\n]+__|\[[^\]\n]+\]\([^)\s]+\)|`[^`\n]+`/mu;
+  /^ {0,3}(?:#{1,6}\s|>|[-*+]\s+\S|\d{1,9}[.)]\s+\S|```|~~~)|\*\*[^*\n]+\*\*|__[^_\n]+__|(?<![\w*])\*[^*\s][^*\n]*\*(?![\w*])|~~[^~\n]+~~|\[[^\]\n]+\]\(\S|`[^`\n]+`/mu;
 
 // Text without Markdown syntax goes through Squire's own plain-text paste,
 // which keeps its line handling and link detection.

@@ -755,6 +755,26 @@ describe("Squire email editor", () => {
     expect(textbox().textContent).not.toContain("**");
   });
 
+  it("formats single-marker emphasis and strikethrough", async () => {
+    const { textbox } = await renderEditor({});
+
+    pasteText(textbox(), "An *important* and ~~removed~~ note");
+
+    expect(textbox().querySelector("i, em")?.textContent).toBe("important");
+    expect(textbox().querySelector("s, del")?.textContent).toBe("removed");
+  });
+
+  it("hands a pasted image to the app even with Markdown text alongside", async () => {
+    const onImageFiles = vi.fn();
+    const { textbox } = await renderEditor({ onImageFiles });
+    const file = new File(["x"], "photo.png", { type: "image/png" });
+
+    pasteText(textbox(), "**caption**", [file]);
+
+    expect(onImageFiles).toHaveBeenCalledWith([file]);
+    expect(textbox().querySelector("b")).toBeNull();
+  });
+
   it("keeps Markdown literal when pasting without formatting", async () => {
     const { textbox } = await renderEditor({});
 
@@ -766,11 +786,11 @@ describe("Squire email editor", () => {
   });
 });
 
-function pasteText(target: HTMLElement, text: string) {
+function pasteText(target: HTMLElement, text: string, files: File[] = []) {
   const paste = new Event("paste", { bubbles: true, cancelable: true });
   Object.defineProperty(paste, "clipboardData", {
     value: {
-      files: [],
+      files,
       getData: (type: string) => (type === "text/plain" ? text : ""),
       types: ["text/plain"],
     },
