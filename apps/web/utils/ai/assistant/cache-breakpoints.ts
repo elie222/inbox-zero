@@ -28,11 +28,15 @@ export function setAnthropicCacheBreakpoints(
 
     // OpenRouter copies a tool message's cache control onto every result in
     // it, which would go over the limit after parallel tool calls.
-    const lastPartIndex = message.content.length - 1;
+    const lastResultIndex = message.content.findLastIndex(
+      (part) => part.type === "tool-result",
+    );
     return {
       ...withCacheControl(message, false),
       content: message.content.map((part, partIndex) =>
-        withCacheControl(part, enabled && partIndex === lastPartIndex),
+        part.type === "tool-result"
+          ? withCacheControl(part, enabled && partIndex === lastResultIndex)
+          : part,
       ) as ToolContent,
     };
   });

@@ -166,8 +166,10 @@ function toolResult(toolCallId: string) {
   };
 }
 
-function hasBreakpoint(target: { providerOptions?: unknown }) {
-  return JSON.stringify(target.providerOptions ?? {}).includes("cacheControl");
+function hasBreakpoint(target: object) {
+  const providerOptions =
+    "providerOptions" in target ? target.providerOptions : undefined;
+  return JSON.stringify(providerOptions ?? {}).includes("cacheControl");
 }
 
 function countBreakpoints(messages: ModelMessage[]) {
