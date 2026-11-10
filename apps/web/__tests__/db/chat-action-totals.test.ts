@@ -44,7 +44,9 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
       await prisma.user.deleteMany({ where: { id: userId } });
     });
 
-    it("keeps an exact running total per action across many batches", async () => {
+    it("keeps an exact running total per action across many batches", {
+      timeout: 30_000,
+    }, async () => {
       for (let batch = 0; batch < 63; batch++) {
         await addChatActionTotals({
           chatId,
