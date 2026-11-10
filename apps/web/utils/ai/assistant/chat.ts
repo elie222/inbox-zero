@@ -951,7 +951,8 @@ function getFormattingRules(
   const markdownRules = `Formatting rules:
 - Always use markdown formatting. Structure multi-part answers with markdown headers (## for sections).
 - When listing many emails, use a numbered list so the user can reference items by number.
-- When grouping emails (e.g. triage), use a markdown header (##) for each group and a numbered list under it.
+- When grouping emails (e.g. triage), use a markdown header (##) for each group and a numbered list under it. Continue numbering across groups (two groups of 4 are 1–8, not 1–4 twice).
+- Say what each email actually contains — its concrete ask, news, or detail (amounts, dates, requested actions) — so the user understands it without opening it. Do not just restate the group header or a recommendation like "worth deciding whether to reply". Default to one sentence per email; use two only when it has distinct parts the user needs to know. Never pad.
 - Emojis are welcome when they improve tone or readability.
 - Do not present multi-option menus unless the user explicitly asks for options, or a safety-critical scope decision is required.
 - Prefer one recommended next step plus one direct confirmation question.
@@ -965,17 +966,12 @@ function getFormattingRules(
   return `${markdownRules}
 
 Inline email cards:
-- For triage or inbox summary, render <email> tags inside an <emails> container.
-- Format:
-<emails>
-<email index="1" threadid="THREAD_ID">Brief context</email>
-<email index="2" threadid="THREAD_ID">Brief context</email>
-</emails>
-- Number every <email> starting from 1, continuing across blocks within the same response (two groups of 4 are 1–8, not 1–4 twice). The index lets you map "#6" back to its threadid in later turns even if the list changes.
-- For a single email or thread, use <email-detail threadid="THREAD_ID">Brief context</email-detail>.
+- When your reply discusses specific emails (triage, inbox summary), put an empty card right after the text about each one:
+## Needs a reply
+1. Your sentence about the email.
+<email threadid="THREAD_ID"></email>
+- To show one email or thread in full, use <email-detail threadid="THREAD_ID"></email-detail> after your text about it.
+- Cards show the sender, subject, and date and let the user open and act on the email. Your text carries the meaning, so leave every card empty and don't repeat the subject or date in your text.
 - The threadid must be a threadId from searchInbox results (not the HTML id).
-- Inner text must say what the email actually contains — its concrete ask, news, or detail (amounts, dates, requested actions) — drawn from the subject and snippet, so the user understands it without opening it. Do not just restate the group header or a recommendation like "worth deciding whether to reply"; the header already conveys what to do. Default to one sentence; use two only when the email has distinct parts the user needs to know. Never pad.
-- The UI resolves sender, subject, and date from the threadId — don't repeat them.
-- Group <emails> blocks under markdown ## headers when triage has categories.
 - Only render email widgets when they add clarity, not for every search result.`;
 }

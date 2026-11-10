@@ -1,10 +1,11 @@
-import { afterAll, describe, expect, test } from "vitest";
-import { captureAssistantChatTrace } from "@/__tests__/eval/assistant-chat-eval-utils";
+// Import first: its vi.mock calls must register before the chat code loads.
 import {
   setupInboxWorkflowEval,
   shouldRunEval,
   TIMEOUT,
 } from "@/__tests__/eval/assistant-chat-inbox-workflows-test-utils";
+import { afterAll, describe, expect, test } from "vitest";
+import { captureAssistantChatTrace } from "@/__tests__/eval/assistant-chat-eval-utils";
 import { describeEvalMatrix } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { judgeEvalOutput } from "@/__tests__/eval/semantic-judge";
@@ -54,7 +55,7 @@ describe.runIf(shouldRunEval)("Eval: email card capability", () => {
           input: userPrompt,
           output,
           expected: supportsInlineEmailCards
-            ? "Summarizes the retrieved emails using inline email cards."
+            ? "Writes its own readable text about each retrieved email and places an inline email card after that text. The card does not restate what the text already says."
             : "Summarizes the retrieved emails in readable markdown without custom email card markup, even if previous replies used cards.",
           criterion: {
             name: "Client-compatible email formatting",
