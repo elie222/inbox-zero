@@ -477,6 +477,45 @@ export const SquireEmailEditor = forwardRef<
     });
     editorRef.current = squire;
 
+    const exitEmptyQuote = (event: KeyboardEvent) => {
+      if (
+        !(event.target instanceof Node) ||
+        !root.contains(event.target) ||
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.keyCode === 229 ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        (event.key !== "Backspace" && event.key !== "Delete")
+      ) {
+        return;
+      }
+      const range = squire.getSelection();
+      if (!range.collapsed) return;
+      const block = closestWithin(
+        range.startContainer,
+        [...BLOCK_TAGS].join(","),
+        root,
+      );
+      if (
+        !block ||
+        closestWithin(block, "table, ol, ul", root) ||
+        block.textContent?.replace(/\u200B/gu, "").trim() ||
+        block.querySelector(
+          "img, hr, table, input, [contenteditable='false']",
+        ) ||
+        !closestWithin(block, "blockquote", root)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      squire.decreaseQuoteLevel(range);
+    };
+    // Run before Squire merges an empty line with its quoted neighbour.
+    window.addEventListener("keydown", exitEmptyQuote, true);
+
     squire.setKeyHandler(`${MODIFIER_KEY}d`, null);
     squire.setKeyHandler(`${MODIFIER_KEY}k`, (_editor, event) => {
       event.preventDefault();
@@ -641,6 +680,7 @@ export const SquireEmailEditor = forwardRef<
 
     return () => {
       window.removeEventListener("keydown", onWindowKeyDown, true);
+      window.removeEventListener("keydown", exitEmptyQuote, true);
       root.removeEventListener("keydown", trackShift);
       root.removeEventListener("keyup", trackShift);
       root.removeEventListener("blur", resetShift);
