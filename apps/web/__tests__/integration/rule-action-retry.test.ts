@@ -47,10 +47,15 @@ vi.mock("@/utils/prisma", () => ({
         where,
         data,
       }: {
-        where: { status: string };
+        where: { id: string; status: string };
         data: Record<string, unknown>;
       }) => {
-        if (store.executedRule?.status !== where.status) return { count: 0 };
+        if (
+          store.executedRule?.id !== where.id ||
+          store.executedRule.status !== where.status
+        ) {
+          return { count: 0 };
+        }
         Object.assign(store.executedRule, data);
         return { count: 1 };
       },
