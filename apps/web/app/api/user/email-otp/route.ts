@@ -13,6 +13,7 @@ export const GET = withAuth("user/email-otp", async (request) => {
     !!request.auth.emailOtp,
   );
   if (!settings) {
+    request.logger.warn("Email OTP settings requested for missing user");
     return NextResponse.json(
       { error: "Unauthorized", isKnownError: true },
       { status: 401, headers: { "Cache-Control": "no-store" } },
