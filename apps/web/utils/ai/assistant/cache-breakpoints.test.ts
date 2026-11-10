@@ -167,9 +167,10 @@ function toolResult(toolCallId: string) {
 }
 
 function hasBreakpoint(target: object) {
-  const providerOptions =
-    "providerOptions" in target ? target.providerOptions : undefined;
-  return JSON.stringify(providerOptions ?? {}).includes("cacheControl");
+  const providerOptions = (
+    "providerOptions" in target ? target.providerOptions : undefined
+  ) as { anthropic?: { cacheControl?: { type?: string } } } | undefined;
+  return providerOptions?.anthropic?.cacheControl?.type === "ephemeral";
 }
 
 function countBreakpoints(messages: ModelMessage[]) {
