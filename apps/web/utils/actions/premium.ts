@@ -1,7 +1,7 @@
 "use server";
 
 import { createHash } from "node:crypto";
-import type Stripe from "stripe";
+import Stripe from "stripe";
 import { z } from "zod";
 import { after } from "next/server";
 import { cookies } from "next/headers";
@@ -717,25 +717,12 @@ const UNSUPPORTED_PORTAL_PLAN_CHANGE_MESSAGES = [
 ];
 
 function isUnsupportedStripePortalPlanChange(error: unknown): boolean {
-  if (!isStripeInvalidRequestError(error)) return false;
+  if (!(error instanceof Stripe.errors.StripeInvalidRequestError)) return false;
   if (error.param?.startsWith("flow_data")) return true;
 
   const message = error.message.toLowerCase();
   return UNSUPPORTED_PORTAL_PLAN_CHANGE_MESSAGES.some((fragment) =>
     message.includes(fragment),
-  );
-}
-
-function isStripeInvalidRequestError(
-  error: unknown,
-): error is { type: string; message: string; param?: string } {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "type" in error &&
-    (error as { type: unknown }).type === "invalid_request_error" &&
-    "message" in error &&
-    typeof (error as { message: unknown }).message === "string"
   );
 }
 

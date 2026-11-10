@@ -1,3 +1,4 @@
+import Stripe from "stripe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getMockOrganizationMembership } from "@/__tests__/helpers";
 import { getStripePriceId } from "@/app/(app)/premium/config";
@@ -627,9 +628,10 @@ function stripeSubscription({
 }
 
 function stripeInvalidRequestError(message: string, param?: string) {
-  return Object.assign(new Error(message), {
+  return new Stripe.errors.StripeInvalidRequestError({
     type: "invalid_request_error",
-    ...(param ? { param } : {}),
+    message,
+    param,
   });
 }
 
