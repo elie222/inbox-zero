@@ -343,7 +343,7 @@ export function InlineEmailCard({
   const isPreviewed =
     opensOnMailScreen &&
     preview?.threadId === threadId &&
-    preview.emailAccountId === emailAccountId;
+    preview?.emailAccountId === emailAccountId;
 
   function toggleOpen() {
     if (!threadId) return;
