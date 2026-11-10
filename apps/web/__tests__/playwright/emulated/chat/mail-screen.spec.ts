@@ -121,6 +121,48 @@ test("the assistant's search shows over an open email", async ({ page }) => {
   ).toHaveCount(0);
 });
 
+test("the assistant creates a split and shows it", async ({ page }) => {
+  const { conversations } = await openMail(page);
+  await page.getByRole("button", { name: "Toggle the assistant" }).click();
+  await expect(page.getByTestId("chat-input")).toBeVisible();
+
+  await scriptReply({
+    match: "mail i send to dana",
+    toolCall: {
+      name: "manageSplitInbox",
+      arguments: {
+        action: "create",
+        name: "Dana",
+        conditions: [{ kind: "TO", value: "dana@example.com" }],
+      },
+    },
+  });
+  await scriptReply({
+    match: '"action":"create"',
+    text: "I made a Dana split and switched you to it.",
+  });
+  await sendChatMessage(page, "Make a split for mail I send to Dana");
+
+  await expect(
+    page.getByText("I made a Dana split and switched you to it."),
+  ).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("button", { name: "Dana" })).toHaveAttribute(
+    "aria-current",
+    "true",
+    { timeout: 60_000 },
+  );
+  await expect(
+    conversations
+      .locator("[data-mail-thread-key]")
+      .filter({ hasText: "Reader Navigation Message" }),
+  ).toHaveCount(1, { timeout: 60_000 });
+  await expect(
+    conversations
+      .locator("[data-mail-thread-key]")
+      .filter({ hasText: "Playwright Test Message" }),
+  ).toHaveCount(0);
+});
+
 async function readThreadId(conversations: Locator, subject: string) {
   const row = conversations
     .locator("[data-mail-thread-key]")
