@@ -190,9 +190,10 @@ function SwitchBillingIntervalButton({
           const url = result?.data?.url;
           if (result?.serverError || !url) {
             toastError({
+              title: SWITCH_INTERVAL_ERROR,
               description: getActionErrorMessage(
                 result ?? {},
-                SWITCH_INTERVAL_ERROR,
+                "Please try again.",
               ),
             });
             return;

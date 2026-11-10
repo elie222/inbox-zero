@@ -33,7 +33,7 @@ export function PermissionsConsent() {
             ? error.message
             : "Please try again or contact support",
       });
-    } finally {
+      // Only reset on failure: on success the browser is navigating away.
       setIsReconnecting(false);
     }
   };
@@ -67,7 +67,7 @@ export function PermissionsConsent() {
         className="mt-4"
         onClick={handleReconnect}
         loading={isReconnecting}
-        disabled={isReconnecting || accountLoading}
+        disabled={isReconnecting || accountLoading || !provider}
       >
         Reconnect account
       </Button>

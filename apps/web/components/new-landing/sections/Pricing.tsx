@@ -299,6 +299,7 @@ function PricingCard({
             <Paragraph size="xs" color="light" className="-mt-4">
               {INCLUDED_EMAIL_ACCOUNTS_PER_PERSON} email accounts included, then{" "}
               {formatPrice(getExtraAccountPrice(price))}/mo each
+              {isAnnual ? ", billed annually" : ""}
             </Paragraph>
           )}
           <Button auto size="lg" variant={tier.button.variant} asChild>

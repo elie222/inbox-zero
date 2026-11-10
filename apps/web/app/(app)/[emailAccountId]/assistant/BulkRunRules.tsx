@@ -84,6 +84,7 @@ export function BulkRunRules() {
   const [generateDraftReplies, setGenerateDraftReplies] = useState(false);
 
   const abortRef = useRef<() => void>(undefined);
+  const runIdRef = useRef(0);
 
   // Derived state
   const remaining = new Set(
@@ -106,6 +107,7 @@ export function BulkRunRules() {
   useBeforeUnload(isBusy);
 
   const handleStart = async () => {
+    const runId = ++runIdRef.current;
     dispatch({ type: "START" });
 
     if (!startDate) {
@@ -147,6 +149,8 @@ export function BulkRunRules() {
           dispatch({ type: "COMPLETE", count });
         },
         (resumeAt) => {
+          // A stopped run's queue can still report a wait after a new run starts.
+          if (runIdRef.current !== runId) return;
           dispatch({ type: "RATE_LIMIT_WAIT", resumeAt });
         },
       );

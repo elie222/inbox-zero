@@ -64,6 +64,12 @@ const OLDER_THAN_DAYS: Record<string, number> = {
   "1m": 30,
 };
 
+export function olderThanCutoff(token: string, now: Date): Date | undefined {
+  const days = OLDER_THAN_DAYS[token];
+  if (!days) return;
+  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+}
+
 export const OLDER_THAN_OPTIONS = [
   { value: "3d", name: "3 days" },
   { value: "1w", name: "a week" },
@@ -213,10 +219,10 @@ function requireValue(
 }
 
 function olderThanDate(token: string, split: QuerySplit, now: Date): Date {
-  const days = OLDER_THAN_DAYS[token];
-  if (!days)
+  const before = olderThanCutoff(token, now);
+  if (!before)
     throw new Error(`Split "${split.name ?? "Other"}" has an unknown age`);
-  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  return before;
 }
 
 export function labelIdsToThreadsQuery(labelIds: string[]): ThreadsQuery {

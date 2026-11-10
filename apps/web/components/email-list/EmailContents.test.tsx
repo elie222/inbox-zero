@@ -92,7 +92,10 @@ describe("HtmlEmail", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (_input: string, init?: RequestInit) =>
-        Response.json({ html: JSON.parse(String(init?.body)).html }),
+        Response.json({
+          html: JSON.parse(String(init?.body)).html,
+          remoteAssetsProxied: true,
+        }),
       ),
     );
   });
@@ -207,6 +210,7 @@ describe("HtmlEmail", () => {
       preparation.resolve(
         Response.json({
           html: '<p>Hello</p><img src="https://app.example.com/api/image-proxy?u=photo" />',
+          remoteAssetsProxied: true,
         }),
       ),
     );
@@ -256,7 +260,7 @@ describe("HtmlEmail", () => {
   it("shows prepared html immediately when the email is reopened", async () => {
     const html = '<p>Hello</p><img src="https://example.com/logo.png">';
     vi.mocked(fetch).mockImplementation(async () =>
-      Response.json({ html: "<p>proxied</p>" }),
+      Response.json({ html: "<p>proxied</p>", remoteAssetsProxied: true }),
     );
 
     const firstRender = render(<HtmlEmail html={html} messageId="message-1" />);
@@ -292,7 +296,12 @@ describe("HtmlEmail", () => {
     expect(view.getByTitle("Email content preview")).toBe(frame);
 
     await act(async () =>
-      preparation.resolve(Response.json({ html: "<p>Reply</p><p>Sent</p>" })),
+      preparation.resolve(
+        Response.json({
+          html: "<p>Reply</p><p>Sent</p>",
+          remoteAssetsProxied: true,
+        }),
+      ),
     );
   });
 
@@ -303,6 +312,7 @@ describe("HtmlEmail", () => {
         ok: true,
         json: async () => ({
           html: '<img src="https://cdn.example.com/photo.png" />',
+          remoteAssetsProxied: true,
         }),
       }),
     );
@@ -325,6 +335,7 @@ describe("HtmlEmail", () => {
         ok: true,
         json: async () => ({
           html: '<img src="https://app.example.com/api/image-proxy?u=https%3A%2F%2Fcdn.example.com%2Fphoto.png&amp;e=1&amp;s=test" />',
+          remoteAssetsProxied: true,
         }),
       }),
     );
@@ -593,7 +604,7 @@ describe("HtmlEmail", () => {
         input === "/api/email/render-html"
           ? {
               ok: true,
-              json: async () => ({ html }),
+              json: async () => ({ html, remoteAssetsProxied: true }),
             }
           : {
               ok: true,
@@ -656,7 +667,10 @@ describe("HtmlEmail", () => {
     const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL");
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html }) }),
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ html, remoteAssetsProxied: true }),
+      }),
     );
     const inlineAttachment = () => ({
       attachmentId: "attachment-logo",
@@ -703,7 +717,10 @@ describe("HtmlEmail", () => {
     vi.spyOn(URL, "createObjectURL").mockReturnValue(objectUrl);
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html }) }),
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ html, remoteAssetsProxied: true }),
+      }),
     );
     const renderEmail = (inlineAttachments: ParsedMessage["inline"]) => (
       <HtmlEmail
@@ -738,7 +755,10 @@ describe("HtmlEmail", () => {
     const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL");
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html }) }),
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ html, remoteAssetsProxied: true }),
+      }),
     );
     const renderEmail = () => (
       <HtmlEmail
@@ -777,7 +797,10 @@ describe("HtmlEmail", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (_input: string, init?: RequestInit) =>
-        Response.json({ html: JSON.parse(String(init?.body)).html }),
+        Response.json({
+          html: JSON.parse(String(init?.body)).html,
+          remoteAssetsProxied: true,
+        }),
       ),
     );
     const messageIds = Array.from(
