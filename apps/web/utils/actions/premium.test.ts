@@ -281,15 +281,24 @@ describe("getBillingPortalUrlAction", () => {
     });
   });
 
-  it("still switches to the annual price when Stripe cannot confirm the interval change in the portal", async () => {
-    prisma.user.findUnique.mockResolvedValue(billingPortalUser());
-    mocks.retrieveSubscription.mockResolvedValue(stripeSubscription());
-    mocks.createBillingPortalSession.mockRejectedValue(
+  it.each([
+    [
+      "the interval change",
       stripeInvalidRequestError(
         "The customer portal cannot update this subscription to a price with a different billing interval.",
         "flow_data[subscription_update_confirm][items][0][price]",
       ),
-    );
+    ],
+    [
+      "a price missing from the portal configuration",
+      stripeInvalidRequestError(
+        "The item `si_live` cannot be updated to price `price_annual` because the configuration `bpc_test` does not include the price in its `features[subscription_update][products]`.",
+      ),
+    ],
+  ])("still switches to the annual price when Stripe cannot confirm %s in the portal", async (_case, portalError) => {
+    prisma.user.findUnique.mockResolvedValue(billingPortalUser());
+    mocks.retrieveSubscription.mockResolvedValue(stripeSubscription());
+    mocks.createBillingPortalSession.mockRejectedValue(portalError);
     mocks.updateSubscription.mockResolvedValue({
       id: "sub_test",
       status: "active",

@@ -12,7 +12,7 @@ export const footerNavigation = {
       href: EXTENSION_URL,
       target: "_blank",
     },
-    { name: "AI Email Assistant", href: "/ai-automation" },
+    { name: "AI Email Assistant", href: "/ai-email-assistant" },
     { name: "Email App", href: "/email-client" },
     { name: "Mobile App", href: "/mobile-app" },
     { name: "Download", href: "/download" },

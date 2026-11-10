@@ -622,6 +622,19 @@ export async function deleteRule({
   ruleId: string;
   groupId?: string | null;
 }) {
+  let deletedGroup = false;
+  if (groupId) {
+    const deletedGroups = await prisma.group.deleteMany({
+      where: { id: groupId, emailAccountId },
+    });
+
+    deletedGroup = deletedGroups.count > 0;
+  }
+
+  if (!deletedGroup) {
+    await prisma.rule.delete({ where: { id: ruleId, emailAccountId } });
+  }
+
   after(() =>
     trackRuleEvent({
       emailAccountId,
@@ -629,16 +642,6 @@ export async function deleteRule({
       properties: { ruleId },
     }),
   );
-
-  if (groupId) {
-    const deletedGroups = await prisma.group.deleteMany({
-      where: { id: groupId, emailAccountId },
-    });
-
-    if (deletedGroups.count > 0) return;
-  }
-
-  await prisma.rule.delete({ where: { id: ruleId, emailAccountId } });
 }
 
 type RuleScopeKey =

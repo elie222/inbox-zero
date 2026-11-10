@@ -1,7 +1,10 @@
 import { internalDateToDate } from "@/utils/date";
 import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
 import type { ParsedMessage } from "@/utils/types";
-import { mailSplitToThreadsQuery } from "@/utils/split-inbox/split-query";
+import {
+  mailSplitToThreadsQuery,
+  type MailSplit,
+} from "@/utils/split-inbox/split-query";
 import type {
   ThreadsQuery,
   ThreadsQueryLeaf,
@@ -12,14 +15,16 @@ type SplitMessage = Pick<
   "labelIds" | "headers" | "internalDate"
 >;
 
+type MatchableSplit = Pick<MailSplit, "matchAll" | "filters">;
+
 export function createOtherSplitFilter(
   splits: NonNullable<ThreadsQuery["excludeSplits"]>,
   now: Date = new Date(),
 ) {
-  const queries = splits
+  const matchers = splits
     .filter((split) => split.filters.length)
     .map((split) =>
-      mailSplitToThreadsQuery(
+      createSplitMatcher(
         {
           ...split,
           filters: split.filters.map((filter) => ({
@@ -30,18 +35,24 @@ export function createOtherSplitFilter(
         now,
       ),
     );
+  return (thread: { messages: SplitMessage[] }): boolean =>
+    !matchers.some((matches) => matches(thread));
+}
+
+/** Matches a split against a loaded thread, mirroring the provider query. */
+export function createSplitMatcher(
+  split: MatchableSplit,
+  now: Date = new Date(),
+) {
+  const query = mailSplitToThreadsQuery(split, now);
   // Gmail matches all AND conditions on the same message. Inspect the full
   // conversation so mixed-label threads cannot also leak into Other.
   return (thread: { messages: SplitMessage[] }): boolean =>
-    !queries.some((query) =>
-      thread.messages.some(
-        (message) =>
-          matchesMessage(message, query) &&
-          (!query.anyOf?.length ||
-            query.anyOf.some((condition) =>
-              matchesMessage(message, condition),
-            )),
-      ),
+    thread.messages.some(
+      (message) =>
+        matchesMessage(message, query) &&
+        (!query.anyOf?.length ||
+          query.anyOf.some((condition) => matchesMessage(message, condition))),
     );
 }
 

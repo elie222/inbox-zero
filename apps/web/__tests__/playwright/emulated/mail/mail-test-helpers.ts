@@ -285,6 +285,8 @@ export async function insertInboxMailInConversation(
     messageId: string;
     subject: string;
     from: string;
+    bodyText?: string;
+    bodyHtml?: string;
   },
 ) {
   const token = await readProviderAccessToken();
@@ -307,7 +309,8 @@ export async function insertInboxMailInConversation(
         from: input.from,
         to: email,
         subject: input.subject,
-        body_text: "New mail in the archived conversation.",
+        body_text: input.bodyText ?? "New mail in the archived conversation.",
+        ...(input.bodyHtml ? { body_html: input.bodyHtml } : {}),
         labelIds: ["INBOX", "UNREAD"],
         internalDate: String(Date.now()),
       },
@@ -321,7 +324,7 @@ export async function insertInboxMailInConversation(
 async function insertOutlookInboxReply(
   page: Page,
   token: string,
-  input: { messageId: string; subject: string },
+  input: { messageId: string; subject: string; bodyHtml?: string },
 ) {
   const baseUrl = process.env.MICROSOFT_BASE_URL;
   if (!baseUrl) throw new Error("MICROSOFT_BASE_URL is missing");
@@ -342,10 +345,12 @@ async function insertOutlookInboxReply(
       headers,
       data: {
         subject: input.subject,
-        body: {
-          contentType: "text",
-          content: "New mail in the archived conversation.",
-        },
+        body: input.bodyHtml
+          ? { contentType: "html", content: input.bodyHtml }
+          : {
+              contentType: "text",
+              content: "New mail in the archived conversation.",
+            },
         isRead: false,
       },
     },
@@ -385,3 +390,53 @@ type ReplyHandoffFrame = { composer: boolean; rows: number };
 type ReplyHandoffWindow = {
   __replyHandoff: { frames: ReplyHandoffFrame[]; raf: number };
 };
+
+/** Removes a message a test inserted, so retries start from the seed. */
+export async function deleteProviderMessage(page: Page, messageId: string) {
+  const token = await readProviderAccessToken();
+  const url = isMicrosoftPlaywright()
+    ? `${process.env.MICROSOFT_BASE_URL}/v1.0/me/messages/${messageId}`
+    : `${process.env.GOOGLE_BASE_URL}/gmail/v1/users/me/messages/${messageId}`;
+  const response = await page.request.delete(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
+/** Drafts in the seeded reply conversation, as the mailbox reports them. */
+export async function countReplyThreadDrafts(
+  page: Page,
+  emailAccountId: string,
+) {
+  const messages = await readReplyThreadMessages(page, emailAccountId);
+  return messages.filter((message) => message.labelIds?.includes("DRAFT"))
+    .length;
+}
+
+export async function countReplyThreadSentCopies(
+  page: Page,
+  emailAccountId: string,
+  text: string,
+) {
+  const messages = await readReplyThreadMessages(page, emailAccountId);
+  // Outlook discards a draft by moving it to Deleted Items, so only the Sent
+  // copy counts as delivered.
+  return messages.filter(
+    (message) =>
+      message.labelIds?.includes("SENT") &&
+      `${message.textPlain ?? ""}${message.textHtml ?? ""}`.includes(text),
+  ).length;
+}
+
+export async function readReplyThreadMessages(
+  page: Page,
+  emailAccountId: string,
+) {
+  const response = await page.request.get(
+    "/api/threads/thr_playwright_reply?includeDrafts=true",
+    { headers: { "X-Email-Account-ID": emailAccountId } },
+  );
+  expect(response.ok(), await response.text()).toBe(true);
+  const { thread }: ThreadResponse = await response.json();
+  return thread.messages;
+}

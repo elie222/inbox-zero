@@ -28,7 +28,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useEmailLookup } from "@/components/assistant-chat/email-lookup-context";
+import {
+  useEmailLookup,
+  useKnownThreadIds,
+} from "@/components/assistant-chat/email-lookup-context";
 import { useInlineEmailActionContext } from "@/components/assistant-chat/inline-email-action-context";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
@@ -82,7 +85,10 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
     () => numberInlineEmailCards(children),
     [children],
   );
-  const threadIds = normalizeInlineEmailThreadIds(collectThreadIds(children));
+  const knownThreadIds = useKnownThreadIds();
+  const threadIds = normalizeInlineEmailThreadIds(
+    collectThreadIds(children, knownThreadIds),
+  );
   const remainingArchiveThreadIds = threadIds.filter(
     (threadId) => !archivedThreadIds.has(threadId),
   );
@@ -293,7 +299,7 @@ function numberInlineEmailCards(children: ReactNode): ReactNode {
     ) {
       return child;
     }
-    if (!resolveInlineEmailThreadId(child.props)) return child;
+    if (!getRawInlineEmailThreadId(child.props)) return child;
     if (child.props.index !== undefined) {
       const explicit = Number(child.props.index);
       if (Number.isFinite(explicit)) {
@@ -318,6 +324,7 @@ export function InlineEmailCard({
   children?: ReactNode;
 }) {
   const emailLookup = useEmailLookup();
+  const knownThreadIds = useKnownThreadIds();
   const listState = useContext(InlineEmailListContext);
   const inlineEmailActionContext = useInlineEmailActionContext();
   const { emailAccountId, provider, userEmail } = useAccount();
@@ -325,7 +332,7 @@ export function InlineEmailCard({
   const [markReadState, setMarkReadState] = useState<ActionState>("idle");
   const [expanded, setExpanded] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const threadId = resolveInlineEmailThreadId({ id, threadid });
+  const threadId = resolveInlineEmailThreadId({ id, threadid, knownThreadIds });
 
   const meta = threadId ? emailLookup.get(threadId) : undefined;
   const isArchived = !!threadId && !!listState?.archivedThreadIds.has(threadId);
@@ -546,8 +553,9 @@ export function InlineEmailDetail({
   children?: ReactNode;
 }) {
   const emailLookup = useEmailLookup();
+  const knownThreadIds = useKnownThreadIds();
   const { provider, userEmail } = useAccount();
-  const threadId = resolveInlineEmailThreadId({ id, threadid });
+  const threadId = resolveInlineEmailThreadId({ id, threadid, knownThreadIds });
   const meta = threadId ? emailLookup.get(threadId) : undefined;
   const externalUrl = getInlineEmailExternalUrl({
     threadId,
@@ -599,12 +607,18 @@ export function InlineEmailDetail({
   );
 }
 
-function collectThreadIds(children: ReactNode): string[] {
+function collectThreadIds(
+  children: ReactNode,
+  knownThreadIds: Set<string> | null,
+): string[] {
   const ids: string[] = [];
   Children.forEach(children, (child) => {
     if (!isValidElement<{ id?: string; threadid?: string }>(child)) return;
 
-    const threadId = resolveInlineEmailThreadId(child.props);
+    const threadId = resolveInlineEmailThreadId({
+      ...child.props,
+      knownThreadIds,
+    });
     if (threadId) {
       ids.push(threadId);
     }
@@ -697,7 +711,24 @@ function EmailPreview({
   );
 }
 
+// Models sometimes drop or change a character when copying a thread ID. Only
+// link a card to IDs a tool actually returned, so a mistyped one renders as
+// plain text instead of a card that fails to load.
 function resolveInlineEmailThreadId({
+  id,
+  threadid,
+  knownThreadIds,
+}: {
+  id?: string;
+  threadid?: string;
+  knownThreadIds: Set<string> | null;
+}) {
+  const threadId = getRawInlineEmailThreadId({ id, threadid });
+  if (!threadId || !knownThreadIds) return threadId;
+  return knownThreadIds.has(threadId) ? threadId : undefined;
+}
+
+function getRawInlineEmailThreadId({
   id,
   threadid,
 }: {

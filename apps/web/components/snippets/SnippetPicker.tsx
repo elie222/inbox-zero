@@ -136,7 +136,7 @@ export const SnippetPicker = forwardRef<SnippetPickerRef, SnippetPickerProps>(
           {filteredSnippets.length === 0 ? (
             <p className="px-3 py-2 text-sm text-muted-foreground">
               {snippets.length === 0
-                ? "No snippets yet. Save one to reuse it with /."
+                ? "No snippets yet."
                 : "No matching snippets."}
             </p>
           ) : null}

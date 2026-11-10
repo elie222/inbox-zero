@@ -4,8 +4,14 @@ FROM node:24-alpine AS builder
 WORKDIR /app
 
 RUN apk add --no-cache openssl
-RUN npm install -g pnpm@11.19.0
+RUN npm install -g pnpm@12.18.0
 RUN pnpm config set store-dir /app/.pnpm-store
+# Hoisted node_modules so Turbopack resolves packages from the workspace instead
+# of following pnpm store symlinks outside package peer dependency boundaries.
+# Set as env, not an install flag: pnpm exec verifies deps against the current
+# config before running, and a linker mismatch triggers a reinstall into the
+# global virtual store that fails with cross-device symlink errors.
+ENV pnpm_config_node_linker=hoisted
 
 # Docker build layers are non-interactive; let pnpm handle module purges without a TTY.
 ENV CI=true
@@ -42,12 +48,9 @@ COPY apps/web/prisma/schema.prisma apps/web/prisma/schema.prisma
 COPY clone-marketing.sh clone-marketing.sh
 COPY scripts/pnpm-install-without-desktop.sh scripts/pnpm-install-without-desktop.sh
 
-# Install deps with a hoisted node_modules layout so Turbopack resolves packages
-# from the workspace instead of following pnpm store symlinks outside package
-# peer dependency boundaries. Skip @inboxzero/desktop so the image does not
-# download Electron.
+# Skip @inboxzero/desktop so the image does not download Electron.
 RUN chmod +x scripts/pnpm-install-without-desktop.sh \
- && ./scripts/pnpm-install-without-desktop.sh --frozen-lockfile --prefer-offline --config.node-linker=hoisted
+ && ./scripts/pnpm-install-without-desktop.sh --frozen-lockfile --prefer-offline
 
  # Copy the full repo
 COPY . .
@@ -116,10 +119,13 @@ RUN rm -f /app/apps/web/.env && touch /app/apps/web/.env
 
 RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
 
+# Legacy deploy reports the @sqlite.org/sqlite-wasm patch as unused. That patch
+# only touches browser worker code, which next build has already bundled.
 RUN cd /app/apps/web \
  && pnpm exec next build \
  && pnpm exec serwist build serwist.config.mjs \
  && cd /app \
+ && export pnpm_config_allow_unused_patches=true \
  && pnpm --filter inbox-zero-ai deploy --legacy --prod /tmp/apps/web \
  && pnpm --filter @inboxzero/worker deploy --legacy --prod /tmp/apps/worker \
  && rm -rf apps/web/.next/cache

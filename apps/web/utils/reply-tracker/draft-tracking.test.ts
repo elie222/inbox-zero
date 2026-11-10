@@ -364,6 +364,18 @@ describe("trackSentDraftStatus", () => {
       );
     });
 
+    it("still tracks drafts left in the mailbox when cleanup was skipped", async () => {
+      useDraftActions([
+        { id: "action-1", draftStatus: DraftEmailStatus.CLEANUP_SKIPPED },
+      ]);
+
+      await trackManualReply();
+
+      expect(prisma.executedAction.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "action-1" } }),
+      );
+    });
+
     it("still tracks drafts saved before draft statuses existed", async () => {
       useDraftActions([{ id: "action-1", draftStatus: null }]);
 

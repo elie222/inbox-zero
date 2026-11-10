@@ -1,3 +1,5 @@
+import type { LabelColorName } from "@/utils/label";
+
 export const OUTLOOK_CATEGORY_COLORS = [
   { id: "preset0", name: "Red", value: "#E74C3C" },
   { id: "preset1", name: "Orange", value: "#E67E22" },
@@ -43,4 +45,25 @@ export function getOutlookCategoryPreset(
   return OUTLOOK_CATEGORY_COLORS.find(
     (option) => option.value.toLowerCase() === backgroundColor.toLowerCase(),
   )?.id;
+}
+
+const DEFAULT_OUTLOOK_CATEGORY_COLORS: Record<
+  LabelColorName,
+  OutlookCategoryColor
+> = {
+  blue: "preset7",
+  cyan: "preset5",
+  purple: "preset8",
+  pink: "preset9",
+  red: "preset0",
+  coral: "preset1",
+  orange: "preset1",
+  yellow: "preset3",
+  green: "preset4",
+  rose: "preset9",
+  gray: "preset12",
+};
+
+export function getDefaultOutlookCategoryColor(colorName: LabelColorName) {
+  return DEFAULT_OUTLOOK_CATEGORY_COLORS[colorName];
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getMockOrganizationMembership } from "@/__tests__/helpers";
-import { canManageBilling } from "./billing-access";
+import { canManageBilling, getBillingAccessDenial } from "./billing-access";
 
 describe("canManageBilling", () => {
   it("denies an organization member without a premium record", () => {
@@ -238,5 +238,64 @@ describe("canManageBilling", () => {
     });
 
     expect(result).toBe(false);
+  });
+});
+
+describe("getBillingAccessDenial", () => {
+  it("reports a plan managed elsewhere for an owner whose organization lacks the plan admin", () => {
+    const result = getBillingAccessDenial("user-1", {
+      premium: { id: "premium-1", admins: [{ id: "premium-admin" }] },
+      emailAccounts: [
+        {
+          members: [
+            getMockOrganizationMembership({
+              role: "owner",
+              ownerUserId: "user-1",
+              ownerPremiumId: "premium-1",
+            }),
+          ],
+        },
+      ],
+    });
+
+    expect(result).toBe("plan_managed_elsewhere");
+  });
+
+  it("reports a missing admin role for a member of the plan admin's organization who administers another one", () => {
+    const result = getBillingAccessDenial("user-1", {
+      premium: { id: "premium-1", admins: [{ id: "premium-admin" }] },
+      emailAccounts: [
+        {
+          members: [
+            getMockOrganizationMembership({
+              role: "admin",
+              ownerPremiumId: "other-premium",
+            }),
+          ],
+        },
+        {
+          members: [
+            getMockOrganizationMembership({
+              role: "member",
+              ownerUserId: "premium-admin",
+              ownerPremiumId: "premium-1",
+            }),
+          ],
+        },
+      ],
+    });
+
+    expect(result).toBe("not_organization_admin");
+  });
+
+  it("reports a missing admin role for an organization member without a premium record", () => {
+    const result = getBillingAccessDenial("user-1", {
+      premium: null,
+      emailAccounts: [
+        { members: [getMockOrganizationMembership({ role: "member" })] },
+      ],
+    });
+
+    expect(result).toBe("not_organization_admin");
   });
 });

@@ -46,6 +46,17 @@ export function withoutHiddenDrafts(
   };
 }
 
+/** Gmail leaves Trash and Spam out of a label's view and its count. */
+export function userLabelViewPredicate(labelId: string): MailPredicate {
+  return {
+    kind: "all",
+    predicates: [
+      { kind: "membership", membership: "label", id: labelId },
+      { kind: "mailbox", mailbox: "all" },
+    ],
+  };
+}
+
 export function threadsQueryToPredicate(query: ThreadsQuery): MailPredicate {
   const clauses: MailPredicate[] = [];
   if (query.q) {
@@ -95,7 +106,14 @@ export function threadsQueryToPredicate(query: ThreadsQuery): MailPredicate {
       match: "address",
     });
   }
-  if (query.labelId) clauses.push(gmailTokenToPredicate(query.labelId));
+  if (query.labelId) {
+    const label = gmailTokenToPredicate(query.labelId);
+    clauses.push(
+      label.kind === "membership" && label.membership === "label"
+        ? userLabelViewPredicate(query.labelId)
+        : label,
+    );
+  }
   for (const labelId of query.labelIds ?? []) {
     clauses.push(gmailTokenToPredicate(labelId));
   }

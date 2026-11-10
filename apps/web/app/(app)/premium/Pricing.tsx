@@ -18,7 +18,10 @@ import {
 } from "@/app/(app)/premium/PricingFrequencyToggle";
 import { getUserTier, hasActiveAppleSubscription } from "@/utils/premium";
 import {
+  formatPrice,
+  getExtraAccountPrice,
   getPremiumTierName,
+  INCLUDED_EMAIL_ACCOUNTS_PER_PERSON,
   shouldShowLegacyStripePricingNotice,
   type Tier,
   tiers,
@@ -124,13 +127,24 @@ export default function Pricing(props: PricingProps) {
   ]);
 
   if (isLoggedIn && !canManageBilling) {
+    const isPlanManagedElsewhere =
+      data?.billingAccessDenial === "plan_managed_elsewhere";
+
     return (
       <div className="mx-auto max-w-2xl px-6 py-12">
-        <AlertBasic
-          variant="blue"
-          title="Billing access restricted"
-          description="Only organization owners and admins can manage billing."
-        />
+        {isPlanManagedElsewhere ? (
+          <AlertBasic
+            variant="blue"
+            title="Your plan is managed by another account"
+            description={`Your access comes from a plan someone else set up. To manage billing yourself, contact ${env.NEXT_PUBLIC_SUPPORT_EMAIL}.`}
+          />
+        ) : (
+          <AlertBasic
+            variant="blue"
+            title="Billing access restricted"
+            description="Only organization owners and admins can manage billing."
+          />
+        )}
       </div>
     );
   }
@@ -174,7 +188,7 @@ export default function Pricing(props: PricingProps) {
                 <AlertBasic
                   variant="blue"
                   title="Grandfathered pricing"
-                  description={`You're on a legacy ${getPremiumTierName(premium?.tier)} Stripe plan. The prices below are the current rates for new subscriptions and may be higher than your actual billing.`}
+                  description={`You're on a legacy ${getPremiumTierName(premium?.tier)} Stripe plan, and your price stays the same. The prices below are for new subscriptions.`}
                 />
               </div>
             )}
@@ -299,7 +313,7 @@ function PriceTier({
           ) : (
             <>
               <span className="text-4xl font-bold tracking-tight text-gray-900">
-                ${tier.price[frequency.value]}
+                {formatPrice(tier.price[frequency.value])}
               </span>
               <span className="text-sm font-semibold leading-6 text-gray-600">
                 /user
@@ -319,6 +333,10 @@ function PriceTier({
         <p className="mt-2 text-sm leading-6 text-gray-600">
           {tier.price[frequency.value] ? frequency.priceSuffix : "\u00A0"}
         </p>
+
+        {!!tier.price[frequency.value] && (
+          <ExtraAccountPricing price={tier.price[frequency.value]} />
+        )}
 
         <ul className="mt-8 space-y-3 text-sm leading-6 text-gray-600">
           {tier.features.map((feature) => (
@@ -451,5 +469,19 @@ function PriceTier({
         )}
       </button>
     </div>
+  );
+}
+
+function ExtraAccountPricing({ price }: { price: number }) {
+  const extraAccountPrice = `${formatPrice(getExtraAccountPrice(price))}/mo`;
+
+  return (
+    <p className="mt-1 flex items-center gap-2 text-sm leading-6 text-gray-600">
+      {INCLUDED_EMAIL_ACCOUNTS_PER_PERSON} email accounts included, then{" "}
+      {extraAccountPrice} each
+      <TooltipExplanation
+        text={`Connect your personal and work email at no extra cost. Each extra email account is ${extraAccountPrice}. Each team member is billed as a separate user.`}
+      />
+    </p>
   );
 }

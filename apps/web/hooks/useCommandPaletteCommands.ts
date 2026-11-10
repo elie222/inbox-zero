@@ -16,6 +16,7 @@ import {
   ZapIcon,
   InboxIcon,
   MailsIcon,
+  SlidersHorizontalIcon,
 } from "lucide-react";
 import type { Command } from "@/lib/commands/types";
 import { useSettingsDialog } from "@/hooks/useSettingsDialog";
@@ -62,6 +63,16 @@ export function useCommandPaletteCommands({
         action: () => {
           openSettings();
         },
+      },
+      {
+        id: "settings-mail-setup",
+        label: "Mail setup",
+        description: "Layout, tabs and bundles",
+        icon: SlidersHorizontalIcon,
+        section: "settings",
+        priority: 2,
+        keywords: ["mail onboarding", "setup", "layout", "tabs", "split"],
+        action: () => router.push(prefixPath(emailAccountId, "/mail?setup=1")),
       },
     ];
     // Kept even while a conversation is selected: jumping to another mailbox

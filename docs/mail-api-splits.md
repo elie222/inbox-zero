@@ -27,7 +27,7 @@ Create and update use the existing web action schemas in
 `apps/web/utils/actions/mail-split.validation.ts`. PATCH replaces the name and
 entire filter list; it is not a partial field patch. Its ID comes from the path,
 not the body. `matchAll` defaults to true on both create and update. Names are
-trimmed and must contain 1–60 characters. There are at most 10 filters per split
+trimmed and must contain 1–60 characters. There are at most 25 filters per split
 and 14 persisted splits per account. Filter kinds are `LABEL`, `CATEGORY`,
 `FROM`, `UNREAD`, `STARRED`, and `OLDER_THAN`; value requirements and allowed age
 values follow `split-filters.ts` and `split-query.ts`. Multiple distinct senders

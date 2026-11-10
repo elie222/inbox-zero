@@ -56,4 +56,16 @@ describe("buildPrintDocument", () => {
     expect(document).toContain("Attachments: ticket.pdf");
     expect(document).not.toContain("To:");
   });
+
+  it("keeps sender images from loading when the proxy could not prepare them", () => {
+    const document = buildPrintDocument({
+      subject: "Subject",
+      messages: [],
+      allowRemoteImages: false,
+    });
+
+    const policy = document.match(/img-src([^;]*);/)?.[1] ?? "";
+    // An https proxy origin may stay; the bare https: source must not.
+    expect(policy.trim().split(/\s+/)).not.toContain("https:");
+  });
 });

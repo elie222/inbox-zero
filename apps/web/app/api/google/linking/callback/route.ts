@@ -8,7 +8,10 @@ import { getLinkingOAuth2Client } from "@/utils/gmail/client";
 import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
 import { withError } from "@/utils/middleware";
 import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
-import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
+import {
+  createAccountLinkingRedirect,
+  createTokensUpdatedRedirect,
+} from "@/utils/oauth/account-linking-redirect";
 import {
   hashOAuthAuditIdentifier,
   logOAuthLinkingCallbackValidation,
@@ -90,6 +93,14 @@ export const GET = withError("google/linking/callback", async (request) => {
     logger.info("OAuth code already processed, returning cached result", {
       targetUserId,
     });
+    if (cachedResult.params.success === "tokens_updated") {
+      return createTokensUpdatedRedirect({
+        userId: targetUserId,
+        reconnectEmailAccountId,
+        stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+        logger,
+      });
+    }
     return createAccountLinkingRedirect({
       query: cachedResult.params,
       stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
@@ -199,6 +210,7 @@ export const GET = withError("google/linking/callback", async (request) => {
         logger,
         success: "tokens_updated",
         targetUserId,
+        reconnectEmailAccountId,
       });
     }
 
@@ -236,6 +248,7 @@ export const GET = withError("google/linking/callback", async (request) => {
             logger,
             success: "tokens_updated",
             targetUserId,
+            reconnectEmailAccountId,
           });
         }
       }
@@ -328,6 +341,7 @@ export const GET = withError("google/linking/callback", async (request) => {
         logger,
         success: "account_created_and_linked",
         targetUserId,
+        reconnectEmailAccountId,
       });
     }
 
@@ -360,6 +374,7 @@ export const GET = withError("google/linking/callback", async (request) => {
         logger,
         success: "tokens_updated",
         targetUserId,
+        reconnectEmailAccountId,
       });
     }
 
@@ -410,6 +425,7 @@ export const GET = withError("google/linking/callback", async (request) => {
       logger,
       success: successMessage,
       targetUserId,
+      reconnectEmailAccountId,
     });
   } catch (error) {
     await clearOAuthCode(code);
@@ -435,11 +451,13 @@ async function completeGoogleAccountLinking({
   logger,
   success,
   targetUserId,
+  reconnectEmailAccountId,
 }: {
   code: string;
   logger: Parameters<typeof handleOAuthCallbackError>[0]["logger"];
   success: "account_created_and_linked" | "account_merged" | "tokens_updated";
   targetUserId: string;
+  reconnectEmailAccountId: string | null;
 }) {
   await setOAuthCodeResult(code, { success });
 
@@ -460,6 +478,15 @@ async function completeGoogleAccountLinking({
         );
       }),
   );
+
+  if (success === "tokens_updated") {
+    return createTokensUpdatedRedirect({
+      userId: targetUserId,
+      reconnectEmailAccountId,
+      stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+      logger,
+    });
+  }
 
   return createAccountLinkingRedirect({
     query: { success },

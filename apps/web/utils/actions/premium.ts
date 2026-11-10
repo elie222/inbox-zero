@@ -712,6 +712,8 @@ const UNSUPPORTED_PORTAL_PLAN_CHANGE_MESSAGES = [
   "not available in the customer portal",
   "not updatable",
   "must belong to the same product",
+  // The portal configuration doesn't list the target price.
+  "does not include the price",
 ];
 
 function isUnsupportedStripePortalPlanChange(error: unknown): boolean {

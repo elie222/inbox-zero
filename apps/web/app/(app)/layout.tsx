@@ -21,6 +21,7 @@ import { SentryIdentify } from "@/app/(app)/sentry-identify";
 import { AiAutomationStatusBanner } from "@/app/(app)/AiAutomationStatusBanner";
 import { ErrorMessages } from "@/app/(app)/ErrorMessages";
 import { DesktopMailIndicators } from "@/app/(app)/DesktopMailIndicators";
+import { DesktopMailboxOpeningToast } from "@/app/(app)/DesktopMailboxOpeningToast";
 import { DesktopUpdateToast } from "@/app/(app)/DesktopUpdateToast";
 import { ProviderRateLimitBanner } from "@/app/(app)/ProviderRateLimitBanner";
 import { MailEngineRuntime } from "@/utils/mail-engine/MailEngineHost";
@@ -109,6 +110,7 @@ export default async function AppLayout({
             >
               <DesktopMailIndicators />
               <DesktopUpdateToast />
+              <DesktopMailboxOpeningToast />
               <AiAutomationStatusBanner />
               <ErrorMessages />
               <ProviderRateLimitBanner />

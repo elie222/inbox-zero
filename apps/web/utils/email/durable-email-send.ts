@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
+import { discardDraftReplacedBySend } from "@/utils/email/compose-draft";
 import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 import type { EmailProvider } from "@/utils/email/types";
@@ -56,6 +57,14 @@ export async function executeDurableEmailSend({
     return { status: "rejected" as const, error: "Mutation ID was reused" };
   }
   if (existing.status === EmailSendOperationStatus.SENT) {
+    // A repeated dispatch retries cleanup an earlier one could not finish.
+    if (input.email.replacesDraftOfSession)
+      await removeReplacedDraft({
+        emailAccountId,
+        sessionId: input.email.replacesDraftOfSession,
+        getEmailProvider,
+        logger,
+      });
     return { status: "already_applied" as const, result: existing.result };
   }
   if (existing.status === EmailSendOperationStatus.UNCERTAIN) {
@@ -93,6 +102,13 @@ export async function executeDurableEmailSend({
       where: { id: existing.id },
       data: { result, status: EmailSendOperationStatus.SENT },
     });
+    if (input.email.replacesDraftOfSession)
+      await removeReplacedDraft({
+        emailAccountId,
+        sessionId: input.email.replacesDraftOfSession,
+        getEmailProvider: async () => emailProvider,
+        logger,
+      });
     return { status: "applied" as const, result };
   } catch (error) {
     logger.error("Email send operation failed", { error, stage });
@@ -181,5 +197,28 @@ async function createEmailSendOperation({
     const operation = await findEmailSendOperation(emailAccountId, mutationId);
     if (!operation) throw error;
     return { ...operation, created: false };
+  }
+}
+
+// The email is out; a leftover draft must not turn that into a failure.
+async function removeReplacedDraft({
+  emailAccountId,
+  sessionId,
+  getEmailProvider,
+  logger,
+}: {
+  emailAccountId: string;
+  sessionId: string;
+  getEmailProvider: () => Promise<EmailProvider>;
+  logger: Logger;
+}) {
+  try {
+    await discardDraftReplacedBySend({
+      emailAccountId,
+      sessionId,
+      provider: await getEmailProvider(),
+    });
+  } catch (error) {
+    logger.warn("Could not remove the draft a send replaced", { error });
   }
 }

@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import type { EmailProvider } from "@/utils/email/types";
+import { getGmailDefaultLabelColor } from "@/utils/label";
 
 /**
  * Creates a mock EmailProvider for testing
@@ -121,6 +122,7 @@ export const createMockEmailProvider = (
     .fn()
     .mockResolvedValue({ id: "label1", name: "Test Label", type: "user" }),
   deleteLabel: vi.fn().mockResolvedValue(undefined),
+  getDefaultLabelColor: vi.fn(getGmailDefaultLabelColor),
   updateLabel: vi.fn().mockResolvedValue(undefined),
   getOrCreateInboxZeroLabel: vi
     .fn()

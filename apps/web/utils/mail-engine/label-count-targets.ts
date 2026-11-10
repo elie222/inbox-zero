@@ -2,7 +2,10 @@ import {
   MAX_MAILBOX_COUNT_TARGETS,
   type MailPredicate,
 } from "@inboxzero/mail-core/queries";
-import { withoutHiddenDrafts } from "@/utils/mail-engine/threads-query";
+import {
+  userLabelViewPredicate,
+  withoutHiddenDrafts,
+} from "@/utils/mail-engine/threads-query";
 
 export const MAX_MAILBOX_COUNT_LABELS = 100;
 
@@ -59,7 +62,7 @@ export function mailboxCountTargets(input: {
       id: label.id,
       name: label.name,
       kind: "label",
-      predicate: { kind: "membership", membership: "label", id: label.id },
+      predicate: userLabelViewPredicate(label.id),
     });
   }
 

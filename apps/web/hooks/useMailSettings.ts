@@ -2,17 +2,26 @@ import { useEffect, useMemo } from "react";
 import useSWR from "swr";
 import { z } from "zod";
 import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
-import { MailLayout, MailSplitFilterKind } from "@/generated/prisma/enums";
+import {
+  MailLayout,
+  MailSetupState,
+  MailSplitFilterKind,
+} from "@/generated/prisma/enums";
 
 const mailSettingsSchema = z.object({
   layout: z.enum(MailLayout).nullable(),
   expandedPreview: z.boolean(),
+  bundleInbox: z.boolean(),
+  defaultSplitId: z.string().nullable(),
+  setup: z.enum(MailSetupState),
   splits: z.array(
     z.object({
       id: z.string(),
       name: z.string(),
       order: z.number(),
       matchAll: z.boolean(),
+      bundleInInbox: z.boolean(),
+      hideFromAll: z.boolean(),
       filters: z.array(
         z.object({
           kind: z.enum(MailSplitFilterKind),

@@ -16,6 +16,7 @@ export type MailSplit = {
   /** False means "show mail matching any of these conditions". */
   matchAll: boolean;
   filters: MailSplitFilter[];
+  hideFromAll?: boolean;
 };
 
 type QuerySplit = Pick<MailSplit, "matchAll" | "filters"> & { name?: string };
@@ -35,6 +36,23 @@ export function otherMailSplitQuery(splits: MailSplit[]): ThreadsQuery {
         filters: filters.map(({ kind, value }) => ({ kind, value })),
       })),
   };
+}
+
+/** All is the inbox minus whichever splits the reader left out of it. */
+export function allMailSplitQuery(splits: MailSplit[]): ThreadsQuery {
+  const hidden = splits.filter((split) => split.hideFromAll);
+  return hidden.length ? otherMailSplitQuery(hidden) : { type: "inbox" };
+}
+
+/** The list query for a tab, shared by the thread list and its count. */
+export function splitToThreadsQuery(
+  split: MailSplit,
+  splits: MailSplit[],
+  now: Date = new Date(),
+): ThreadsQuery {
+  if (split.id === OTHER_SPLIT_ID) return otherMailSplitQuery(splits);
+  if (!split.filters.length) return allMailSplitQuery(splits);
+  return mailSplitToThreadsQuery(split, now);
 }
 
 export type PortableLabelSplit = MailSplit & { labelNames: string[] };

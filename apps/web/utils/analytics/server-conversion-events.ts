@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import type { HeadersInit } from "@upstash/qstash";
 import { env } from "@/env";
+import { getStripePerPersonAmount } from "@/app/(app)/premium/config";
 import type { Logger } from "@/utils/logger";
 import type { Prisma } from "@/generated/prisma/client";
 import { publishToQstash } from "@/utils/upstash";
@@ -97,10 +98,11 @@ export function getStripeSubscriptionConversionProperties(
 ) {
   const item = subscription.items.data[0];
   const price = item?.price;
+  const quantity = item?.quantity || 1;
   const amount =
     typeof price?.unit_amount === "number"
-      ? price.unit_amount * (item.quantity || 1)
-      : undefined;
+      ? price.unit_amount * quantity
+      : price && getStripePerPersonAmount({ priceId: price.id, quantity });
 
   const clickIds = getConversionClickIdsFromMetadata(
     subscription.metadata || {},

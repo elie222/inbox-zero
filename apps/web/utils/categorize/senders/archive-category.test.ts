@@ -23,7 +23,7 @@ describe("archiveCategory", () => {
       { email: " Second@example.com " },
     ] as never);
 
-    const bulkArchiveFromSenders = vi.fn().mockResolvedValue(undefined);
+    const bulkArchiveFromSenders = vi.fn().mockResolvedValue(7);
 
     const result = await archiveCategory({
       email: "owner@example.com",
@@ -46,8 +46,9 @@ describe("archiveCategory", () => {
         name: "Newsletters",
       },
       sendersCount: 2,
+      archivedMessagesCount: 7,
       senders: ["first@example.com", "second@example.com"],
-      message: 'Archived mail from 2 senders in "Newsletters".',
+      message: 'Archived 7 messages from 2 senders in "Newsletters".',
     });
   });
 
@@ -114,8 +115,40 @@ describe("archiveCategory", () => {
         name: "Uncategorized",
       },
       sendersCount: 0,
+      archivedMessagesCount: 0,
       senders: [],
       message: 'No senders are currently assigned to "Uncategorized".',
+    });
+  });
+
+  it("says no messages were archived when the provider moved none", async () => {
+    prisma.category.findFirst.mockResolvedValue({
+      id: "cat-1",
+      name: "Newsletters",
+    } as never);
+    prisma.newsletter.findMany.mockResolvedValue([
+      { email: "sender@example.com" },
+    ] as never);
+
+    const bulkArchiveFromSenders = vi.fn().mockResolvedValue(0);
+
+    const result = await archiveCategory({
+      email: "owner@example.com",
+      emailAccountId: "account-1",
+      emailProvider: { bulkArchiveFromSenders } as never,
+      logger,
+      categoryId: "cat-1",
+    });
+
+    expect(bulkArchiveFromSenders).toHaveBeenCalledWith(
+      ["sender@example.com"],
+      "owner@example.com",
+      "account-1",
+    );
+    expect(result).toMatchObject({
+      sendersCount: 1,
+      archivedMessagesCount: 0,
+      message: 'No messages were archived from the 1 sender in "Newsletters".',
     });
   });
 

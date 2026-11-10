@@ -7,6 +7,7 @@ import {
   addUserErrorMessageWithNotification,
 } from "@/utils/error-messages";
 import { createTestLogger } from "@/__tests__/helpers";
+import { DraftEmailStatus } from "@/generated/prisma/enums";
 
 const logger = createTestLogger();
 
@@ -103,6 +104,12 @@ describe("cleanupInvalidTokens", () => {
         }),
       }),
     );
+    expect(prisma.executedAction.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        executedRule: { emailAccountId: "ea_1" },
+      }),
+      data: { draftStatus: DraftEmailStatus.CLEANUP_SKIPPED },
+    });
     expect(sendReconnectionEmail).toHaveBeenCalled();
     expect(sendReconnectionEmail).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -146,6 +153,43 @@ describe("cleanupInvalidTokens", () => {
         logger,
       }),
     );
+  });
+
+  it("still disconnects and notifies when skipping draft cleanup fails", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(mockEmailAccount as any);
+    prisma.account.updateMany.mockResolvedValue({ count: 1 });
+    prisma.executedAction.updateMany.mockRejectedValue(
+      new Error("database unavailable"),
+    );
+
+    await cleanupInvalidTokens({
+      emailAccountId: "ea_1",
+      failedAccessToken: "access-token",
+      reason: "invalid_grant",
+      logger,
+    });
+
+    expect(prisma.account.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ disconnectedAt: expect.any(Date) }),
+      }),
+    );
+    expect(sendReconnectionEmail).toHaveBeenCalled();
+    expect(addUserErrorMessage).toHaveBeenCalled();
+  });
+
+  it("does not skip draft cleanup when the account changed before disconnecting", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(mockEmailAccount as any);
+    prisma.account.updateMany.mockResolvedValue({ count: 0 });
+
+    await cleanupInvalidTokens({
+      emailAccountId: "ea_1",
+      failedAccessToken: "access-token",
+      reason: "invalid_grant",
+      logger,
+    });
+
+    expect(prisma.executedAction.updateMany).not.toHaveBeenCalled();
   });
 
   it("clears stale credentials if account is already disconnected", async () => {

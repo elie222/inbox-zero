@@ -424,7 +424,7 @@ function createPagingClient(
 
     const builder = {
       filter: (value: string) => {
-        filters.push(value);
+        filters.push(decodeURIComponent(value));
         return builder;
       },
       select: () => builder,
