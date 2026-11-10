@@ -436,13 +436,16 @@ describe("Squire email editor", () => {
     expect(screen.queryByRole("button", { name: /signature/u })).toBeNull();
   });
 
-  it.each([
-    "Backspace",
-    "Delete",
-  ])("breaks out of an empty quoted line with %s without deleting adjacent text", async (key) => {
+  it.each(
+    ["Backspace", "Delete"].flatMap((key) =>
+      ["<br>", "   ", "&nbsp;"].map((blank) => ({ key, blank })),
+    ),
+  )("breaks out of a blank quoted line ($blank) with $key without deleting adjacent text", async ({
+    key,
+    blank,
+  }) => {
     const { textbox, handle } = await renderEditor({
-      initialHtml:
-        "<blockquote><div>First question</div><div><br></div><div>Second question</div></blockquote>",
+      initialHtml: `<blockquote><div>First question</div><div>${blank}</div><div>Second question</div></blockquote>`,
     });
     const emptyLine = textbox().querySelector("blockquote > div:nth-child(2)");
     if (!emptyLine) throw new Error("Missing empty quoted line");
@@ -476,7 +479,7 @@ describe("Squire email editor", () => {
     expect(textbox().querySelectorAll("blockquote")[1].textContent).toBe(
       "Second question",
     );
-    expect(textbox().children[1].textContent).toBe("My answer");
+    expect(textbox().children[1].textContent?.trim()).toBe("My answer");
   });
 
   it("quotes text and leaves the caret on a new line below it", async () => {

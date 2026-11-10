@@ -500,7 +500,7 @@ export const SquireEmailEditor = forwardRef<
       );
       if (
         !block ||
-        block.textContent?.replace(/\u200B/gu, "") ||
+        block.textContent?.replace(/\u200B/gu, "").trim() ||
         block.querySelector(
           "img, hr, table, input, [contenteditable='false']",
         ) ||
