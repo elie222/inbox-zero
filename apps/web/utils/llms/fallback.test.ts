@@ -816,7 +816,7 @@ function createOpenRouterUsageMetadata(
     openrouter: {
       usage: {
         cost,
-        cost_details: { upstream_inference_cost: upstreamInferenceCost },
+        costDetails: { upstreamInferenceCost },
       },
     },
   };
