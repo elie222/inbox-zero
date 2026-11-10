@@ -4,6 +4,18 @@ import type { EmailProvider } from "@/utils/email/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 
+vi.mock("@/env", async (importActual) => {
+  const actual = await importActual<typeof import("@/env")>();
+  return {
+    ...actual,
+    env: {
+      ...actual.env,
+      AXIOM_TOKEN: undefined,
+      NEXT_PUBLIC_LOG_SCOPES: undefined,
+    },
+  };
+});
+
 const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");

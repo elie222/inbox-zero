@@ -4,6 +4,18 @@ import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import type { EmailProvider } from "@/utils/email/types";
 import { createLabel } from "./label";
 
+vi.mock("@/env", async (importActual) => {
+  const actual = await importActual<typeof import("@/env")>();
+  return {
+    ...actual,
+    env: {
+      ...actual.env,
+      AXIOM_TOKEN: undefined,
+      NEXT_PUBLIC_LOG_SCOPES: undefined,
+    },
+  };
+});
+
 describe("createLabel conflict handling", () => {
   beforeEach(() => {
     vi.clearAllMocks();

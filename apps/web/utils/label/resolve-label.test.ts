@@ -2,6 +2,18 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 import { resolveLabelNameAndId } from "./resolve-label";
 import type { EmailProvider } from "@/utils/email/types";
 
+vi.mock("@/env", async (importActual) => {
+  const actual = await importActual<typeof import("@/env")>();
+  return {
+    ...actual,
+    env: {
+      ...actual.env,
+      AXIOM_TOKEN: undefined,
+      NEXT_PUBLIC_LOG_SCOPES: undefined,
+    },
+  };
+});
+
 describe("resolveLabelNameAndId", () => {
   afterEach(() => {
     vi.restoreAllMocks();
