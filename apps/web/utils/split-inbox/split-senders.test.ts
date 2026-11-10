@@ -160,4 +160,18 @@ describe("getThreadSenders", () => {
       ),
     ).toEqual(["a@x.com"]);
   });
+
+  it("falls back to an earlier valid sender when the latest is malformed", () => {
+    expect(
+      getThreadSenders(
+        [
+          [
+            { headers: { from: "old@y.com" }, internalDate: "1000" },
+            { headers: { from: "not an address" } },
+          ],
+        ],
+        ["me@example.com"],
+      ),
+    ).toEqual(["old@y.com"]);
+  });
 });

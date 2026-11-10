@@ -95,14 +95,19 @@ export function getThreadSenders(
         }).getTime(),
         index,
       }))
-      .filter(({ address }) => address && !own.has(address));
+      // The action rejects the whole request over one malformed address.
+      .filter(
+        ({ address }) =>
+          address &&
+          !own.has(address) &&
+          address.length <= 320 &&
+          isValidEmail(address),
+      );
     const allDated = candidates.every(({ time }) => Number.isFinite(time));
     const address = candidates
       .sort((a, b) => (allDated ? a.time - b.time : 0) || a.index - b.index)
       .at(-1)?.address;
-    // The action rejects the whole request over one malformed address.
-    if (address && address.length <= 320 && isValidEmail(address))
-      senders.add(address);
+    if (address) senders.add(address);
   }
   return [...senders];
 }

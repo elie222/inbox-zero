@@ -33,7 +33,7 @@ export function PermissionsConsent() {
             ? error.message
             : "Please try again or contact support",
       });
-      // Only reset on failure: on success the browser is navigating away.
+    } finally {
       setIsReconnecting(false);
     }
   };

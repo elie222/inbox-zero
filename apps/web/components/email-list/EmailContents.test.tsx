@@ -305,14 +305,14 @@ describe("HtmlEmail", () => {
     );
   });
 
-  it("keeps https images allowed when proxy rewriting leaves the html unchanged", async () => {
+  it("keeps https images blocked when the server did not proxy them", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           html: '<img src="https://cdn.example.com/photo.png" />',
-          remoteAssetsProxied: true,
+          remoteAssetsProxied: false,
         }),
       }),
     );
@@ -325,7 +325,7 @@ describe("HtmlEmail", () => {
     );
 
     await findByTitle("Email content preview");
-    await showLoadedEmailDocument("img-src data: https:;");
+    await showLoadedEmailDocument("img-src data:;");
   });
 
   it("locks image loading to the proxy origin after rewriting succeeds", async () => {

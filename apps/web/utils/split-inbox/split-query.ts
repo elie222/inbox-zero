@@ -66,7 +66,7 @@ const OLDER_THAN_DAYS: Record<string, number> = {
 
 export function olderThanCutoff(token: string, now: Date): Date | undefined {
   const days = OLDER_THAN_DAYS[token];
-  if (!days) return;
+  if (!Object.hasOwn(OLDER_THAN_DAYS, token)) return;
   return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 }
 
