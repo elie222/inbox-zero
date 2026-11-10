@@ -188,8 +188,6 @@ function buildPrompt(
     provider: "google",
     responseSurface: "web",
     supportsInlineEmailCards: false,
-    userTimezone: "UTC",
-    currentTimestamp: "2026-05-12T00:00:00.000Z",
     ...overrides,
   });
 }

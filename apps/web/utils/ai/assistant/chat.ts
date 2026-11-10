@@ -172,8 +172,6 @@ export async function aiProcessAssistantChat({
     responseSurface,
     supportsInlineEmailCards,
     messagingPlatform,
-    userTimezone,
-    currentTimestamp,
   });
   const toolOptions = {
     email: user.email,
@@ -292,6 +290,7 @@ export async function aiProcessAssistantChat({
       : null;
 
   const contextMessages = [
+    buildCurrentTimeMessage({ userTimezone, currentTimestamp }),
     ...inboxContextMessage,
     ...(memories && memories.length > 0
       ? [
@@ -753,6 +752,21 @@ export function buildInboxSnapshotMessage(
   };
 }
 
+// The time changes every turn, so it goes after the history instead of in the
+// system prompt, which must stay identical across turns to hit the prompt cache.
+function buildCurrentTimeMessage({
+  userTimezone,
+  currentTimestamp,
+}: {
+  userTimezone: string;
+  currentTimestamp: string;
+}): ModelMessage {
+  return {
+    role: "user",
+    content: `[Automated context — not a message from the user] User timezone: ${userTimezone}. Current timestamp: ${currentTimestamp}.`,
+  };
+}
+
 export function buildResolvedSystemPrompt({
   emailSendToolsEnabled,
   draftReplyActionsEnabled,
@@ -762,8 +776,6 @@ export function buildResolvedSystemPrompt({
   responseSurface,
   supportsInlineEmailCards,
   messagingPlatform,
-  userTimezone,
-  currentTimestamp,
 }: {
   emailSendToolsEnabled: boolean;
   draftReplyActionsEnabled: boolean;
@@ -773,8 +785,6 @@ export function buildResolvedSystemPrompt({
   responseSurface: "web" | "messaging";
   supportsInlineEmailCards: boolean;
   messagingPlatform?: MessagingPlatform;
-  userTimezone: string;
-  currentTimestamp: string;
 }) {
   const providerPolicy = getAssistantChatProvider(provider);
   // Web chat has bulkManageInbox for cleanup across many pages.
@@ -845,12 +855,7 @@ export function buildResolvedSystemPrompt({
 - Use the latest rule state already provided in this request. If the current rule state is not available yet, call getUserRulesAndSettings before changing an existing rule.
 - If the user asks why a specific processed email was handled a certain way, identify the exact email first and then call getRuleExecutionForMessage with that messageId. Do not guess from unrelated recent executions.
 - If a rule write reports stale rule state, refresh with getUserRulesAndSettings and retry from that latest state.`,
-    getProviderContextSection({
-      provider,
-      userTimezone,
-      currentTimestamp,
-      calendarConnection,
-    }),
+    getProviderContextSection({ provider, calendarConnection }),
     providerPolicy.searchSyntaxPolicy,
     `Search strategy:
 - If the user names a sender or brand but the actual email address is not known yet, search first, inspect the returned \`from\` values, and then refine to an exact sender search before writing when needed.
@@ -896,19 +901,15 @@ ${manualBulkCleanupPolicy}- Never claim or report that the inbox is empty, fully
 
 function getProviderContextSection({
   provider,
-  userTimezone,
-  currentTimestamp,
   calendarConnection,
 }: {
   provider: string;
-  userTimezone: string;
-  currentTimestamp: string;
   calendarConnection: CalendarConnectionStatus;
 }) {
   const lines = [
     "Provider context:",
     `- Current provider: ${provider}.`,
-    `- User timezone: ${userTimezone}. Current timestamp: ${currentTimestamp}. Resolve relative dates like today, tomorrow, this afternoon, Monday, or Friday from this timezone before calling calendar or inbox date-range tools.`,
+    "- The user's timezone and the current timestamp are given in the automated context sent with the latest user message. Resolve relative dates like today, tomorrow, this afternoon, Monday, or Friday from that timezone before calling calendar or inbox date-range tools.",
   ];
 
   if (calendarConnection.state === "disconnected") {
