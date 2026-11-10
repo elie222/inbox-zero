@@ -5,6 +5,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger, getMockMessage } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
 import { SafeError } from "@/utils/error";
+import { addChatActionTotals } from "@/utils/ai/assistant/chat-action-totals";
 import {
   forwardEmailTool,
   getAccountOverviewTool,
@@ -17,6 +18,7 @@ import {
 } from "./chat-inbox-tools";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/ai/assistant/chat-action-totals");
 vi.mock("@/utils/email/provider");
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn().mockResolvedValue(undefined),
@@ -317,6 +319,60 @@ describe("chat inbox tools", () => {
       successCount: 2,
       requestedCount: 2,
     });
+  });
+
+  it("reports the chat's running totals alongside this call's counts", async () => {
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      markReadThread: vi.fn().mockResolvedValue(undefined),
+    } as any);
+    vi.mocked(addChatActionTotals).mockResolvedValue({
+      threads_archived: 1595,
+      threads_marked_unread: 2,
+    });
+
+    const result = await (
+      manageInboxTool({
+        email: TEST_EMAIL,
+        emailAccountId: "email-account-1",
+        provider: "google",
+        logger,
+        chatId: "chat-1",
+      }).execute as any
+    )({
+      action: "mark_read_threads",
+      read: false,
+      threadIds: ["thread-1", "thread-2"],
+    });
+
+    expect(addChatActionTotals).toHaveBeenCalledWith({
+      chatId: "chat-1",
+      counts: { threads_marked_unread: 2 },
+    });
+    expect(result).toMatchObject({
+      success: true,
+      successCount: 2,
+      totalsInThisChat: { threads_archived: 1595, threads_marked_unread: 2 },
+    });
+  });
+
+  it("still reports a completed action when the chat totals cannot be saved", async () => {
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      archiveThreadWithLabel: vi.fn().mockResolvedValue(undefined),
+    } as any);
+    vi.mocked(addChatActionTotals).mockRejectedValue(new Error("db down"));
+
+    const result = await (
+      manageInboxTool({
+        email: TEST_EMAIL,
+        emailAccountId: "email-account-1",
+        provider: "google",
+        logger,
+        chatId: "chat-1",
+      }).execute as any
+    )({ action: "archive_threads", threadIds: ["thread-1"] });
+
+    expect(result).toMatchObject({ success: true, successCount: 1 });
+    expect(result).not.toHaveProperty("totalsInThisChat");
   });
 
   it("requires action-specific Gmail manageInbox fields", async () => {

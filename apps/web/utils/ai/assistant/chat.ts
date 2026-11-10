@@ -173,6 +173,7 @@ export async function aiProcessAssistantChat({
   const toolOptions = {
     email: user.email,
     emailAccountId,
+    chatId,
     userId: user.userId,
     provider: user.account.provider,
     integrationActionsEnabled,
@@ -349,7 +350,6 @@ export async function aiProcessAssistantChat({
     searchMemories: searchMemoriesTool(toolOptions),
     saveMemory: saveMemoryTool({
       ...toolOptions,
-      chatId,
       conversationMessages: memoryConversationMessages,
     }),
     // Knowledge
