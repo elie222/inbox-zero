@@ -56,10 +56,14 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.afterEach(async ({ page }) => {
+  const cleanupErrors: unknown[] = [];
   for (const message of seeded) {
-    await deleteProviderMessage(page, message.id).catch(() => {});
+    await deleteProviderMessage(page, message.id).catch((error: unknown) => {
+      cleanupErrors.push(error);
+    });
   }
   if (emailAccountId) await deleteBulkJobs(emailAccountId);
+  expect(cleanupErrors).toEqual([]);
 });
 
 test("archives unread newsletters in the background and leaves conversations alone", async ({
@@ -91,7 +95,6 @@ test("archives unread newsletters in the background and leaves conversations alo
       }),
     );
   }
-  seeded = [...newsletters, ...conversations];
 
   await scriptReply({
     match: "newsletters i never read",
@@ -215,7 +218,10 @@ async function insertInboxMessage(
     },
   );
   expect(response.ok(), await response.text()).toBe(true);
-  return (await response.json()) as SeededMessage;
+  const message = (await response.json()) as SeededMessage;
+  // Tracked straight away so a failed seed still cleans up what it added.
+  seeded.push(message);
+  return message;
 }
 
 async function readLabelIds(page: Page, token: string, messageId: string) {

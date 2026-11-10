@@ -67,6 +67,22 @@ describe("confirmAssistantBulkInboxActionForAccount", () => {
     );
   });
 
+  it("keeps a reused job when queueing it again fails", async () => {
+    const pending = buildPendingPart();
+    prisma.chatMessage.findFirst.mockResolvedValue(chatMessage(pending) as any);
+    prisma.bulkInboxActionJob.findUnique.mockResolvedValue({
+      id: "job-1",
+      chunkToken: "existing-token",
+    } as any);
+    vi.mocked(enqueueBulkInboxActionChunk).mockRejectedValue(
+      new Error("queue down"),
+    );
+
+    await expect(confirm()).rejects.toThrow("Failed to start the bulk action");
+
+    expect(prisma.bulkInboxActionJob.delete).not.toHaveBeenCalled();
+  });
+
   it("does not start another job when the action was already confirmed", async () => {
     mockChatMessage({
       ...buildPendingPart(),
