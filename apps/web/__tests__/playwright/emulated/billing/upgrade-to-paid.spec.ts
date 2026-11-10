@@ -56,11 +56,11 @@ test("starts a trial from the post-onboarding upgrade page", async ({
     page.locator(`button[aria-describedby="${STARTER_TIER}"]`),
   ).toHaveText("Current plan", { timeout: 60_000 });
 
-  await page.goto("/settings");
-  await page
-    .getByRole("button", { name: "Switch to monthly" })
-    .click({ timeout: 60_000 });
-  await expect(page.getByRole("alertdialog")).toContainText("per user");
+  // The same plan on the other billing interval is offered as a plan change.
+  await page.getByRole("radio", { name: "Monthly" }).click();
+  await expect(
+    page.locator(`button[aria-describedby="${STARTER_TIER}"]`),
+  ).toHaveText("Switch to this plan");
   await capturePlaywrightCheckpoint(
     page,
     test.info(),
