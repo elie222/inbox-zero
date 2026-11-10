@@ -1993,7 +1993,10 @@ export function MailShell() {
         <MailEngineConnectionBanner />
         <div className="relative flex min-h-0 min-w-0 flex-1">
           {showList && (
-            <MailListPanel layout={layout} inert={readerPreparing}>
+            <MailListPanel
+              layout={layout}
+              inert={readerPreparing || Boolean(previewThreadId)}
+            >
               <ListToolbar
                 onOpenMailNav={() => setIsMailNavOpen(true)}
                 layout={layout}
@@ -2152,6 +2155,8 @@ export function MailShell() {
                 "flex min-h-0 min-w-0 flex-1 flex-col",
                 readerPreparing && "invisible absolute inset-0",
               )}
+              // The chat's email preview covers the reader; keep focus out of it.
+              inert={Boolean(previewThreadId)}
             >
               <MailReaderPane
                 readerEmailAccount={readerEmailAccount}
@@ -2181,7 +2186,7 @@ export function MailShell() {
                 onPrint={printOpenThread}
                 isMenuOpen={isMenuOpen}
                 onMenuOpenChange={setIsMenuOpen}
-                enableMessageNavigation={!sidePanelThreadId}
+                enableMessageNavigation={!sidePanelThreadId && !previewThreadId}
                 thread={openThread ?? null}
                 threadId={openThreadId}
                 detailSelectionSettled={readerSelectionSettled}

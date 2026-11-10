@@ -33,6 +33,25 @@ export function MailPreviewOverlay({
     getChatCard(threadId)?.scrollIntoView({ block: "nearest" });
   }, [threadId]);
 
+  // Cards keep arriving while the chat streams, so recount when the page changes.
+  useEffect(() => {
+    let frame = 0;
+    const observer = new MutationObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const next = getPosition(threadId);
+        setPosition((current) =>
+          samePosition(current, next) ? current : next,
+        );
+      });
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [threadId]);
+
   useEffect(() => {
     function step(offset: number) {
       const { threadIds, index } = getPosition(threadId);
@@ -119,6 +138,17 @@ function getPosition(threadId: string) {
     ),
   ];
   return { threadIds, index: threadIds.indexOf(threadId) };
+}
+
+function samePosition(
+  a: ReturnType<typeof getPosition>,
+  b: ReturnType<typeof getPosition>,
+) {
+  return (
+    a.index === b.index &&
+    a.threadIds.length === b.threadIds.length &&
+    a.threadIds.every((threadId, index) => threadId === b.threadIds[index])
+  );
 }
 
 function getChatCard(threadId: string) {

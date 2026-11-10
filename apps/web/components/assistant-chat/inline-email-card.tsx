@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  type EmailMeta,
   useEmailLookup,
   useKnownThreadIds,
 } from "@/components/assistant-chat/email-lookup-context";
@@ -447,38 +448,9 @@ export function InlineEmailCard({
           </span>
         ) : null}
 
-        {meta ? (
-          <>
-            <SenderIcon
-              email={extractEmailAddress(meta.from) || meta.from}
-              name={extractNameFromEmail(meta.from)}
-              size={28}
-            />
-            <div className="min-w-0 flex-1">
-              <Tooltip
-                content={extractEmailAddress(meta.from) || meta.from}
-                side="right"
-              >
-                <div className="truncate font-medium text-foreground">
-                  {extractNameFromEmail(meta.from)}
-                </div>
-              </Tooltip>
-              {hasSummary ? (
-                <div className="mt-0.5 text-sm text-foreground">{children}</div>
-              ) : (
-                <div className="mt-0.5 truncate text-[13px] text-muted-foreground">
-                  {meta.subject || "(no subject)"}
-                </div>
-              )}
-            </div>
-          </>
-        ) : hasSummary ? (
-          <span className="min-w-0 flex-1 truncate">{children}</span>
-        ) : (
-          <span className="min-w-0 flex-1 truncate text-muted-foreground">
-            Open email
-          </span>
-        )}
+        <InlineEmailCardBody meta={meta} hasSummary={hasSummary}>
+          {children}
+        </InlineEmailCardBody>
 
         <div className="flex shrink-0 items-center gap-0.5">
           {meta ? (
@@ -632,6 +604,48 @@ export function InlineEmailDetail({
         </div>
       )}
     </div>
+  );
+}
+
+function InlineEmailCardBody({
+  meta,
+  hasSummary,
+  children,
+}: {
+  meta: EmailMeta | undefined;
+  hasSummary: boolean;
+  children?: ReactNode;
+}) {
+  if (!meta) {
+    if (hasSummary) {
+      return <span className="min-w-0 flex-1 truncate">{children}</span>;
+    }
+    return (
+      <span className="min-w-0 flex-1 truncate text-muted-foreground">
+        Open email
+      </span>
+    );
+  }
+
+  const address = extractEmailAddress(meta.from) || meta.from;
+  const name = extractNameFromEmail(meta.from);
+
+  return (
+    <>
+      <SenderIcon email={address} name={name} size={28} />
+      <div className="min-w-0 flex-1">
+        <Tooltip content={address} side="right">
+          <div className="truncate font-medium text-foreground">{name}</div>
+        </Tooltip>
+        {hasSummary ? (
+          <div className="mt-0.5 text-sm text-foreground">{children}</div>
+        ) : (
+          <div className="mt-0.5 truncate text-[13px] text-muted-foreground">
+            {meta.subject || "(no subject)"}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
