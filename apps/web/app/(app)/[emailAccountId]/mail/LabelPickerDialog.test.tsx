@@ -25,6 +25,8 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
 
 vi.mock("@/hooks/useLabels", () => ({
   isLabelsKey: () => true,
+  isHiddenLabel: (label: { labelListVisibility?: string }) =>
+    label.labelListVisibility === "labelHide",
   useLabels: () => mockUseLabels(),
 }));
 
@@ -171,5 +173,39 @@ describe("LabelPickerDialog", () => {
       kind: "label",
       id: "category-1",
     });
+  });
+
+  it("lists labels in sidebar order with hidden labels last", () => {
+    mockUseAccount.mockReturnValue({
+      emailAccountId: "account-1",
+      provider: "google",
+    });
+    mockUseLabels.mockReturnValue({
+      userLabels: [
+        {
+          id: "hidden",
+          name: "Archive Later",
+          type: "user",
+          labelListVisibility: "labelHide",
+        },
+        { id: "zeta", name: "Zeta", type: "user" },
+        { id: "bracket", name: "[Superhuman]/Muted", type: "user" },
+      ],
+      isLoading: false,
+      error: undefined,
+      mutate: vi.fn(),
+    });
+
+    render(
+      <LabelPickerDialog
+        threadKeys={["thread-1"]}
+        onClose={vi.fn()}
+        onApply={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getAllByRole("option").map((option) => option.textContent),
+    ).toEqual(["Zeta", "[Superhuman]/Muted", "Archive Later"]);
   });
 });

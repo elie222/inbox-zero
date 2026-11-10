@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useFolders } from "@/hooks/useFolders";
-import { isLabelsKey, useLabels } from "@/hooks/useLabels";
+import { isHiddenLabel, isLabelsKey, useLabels } from "@/hooks/useLabels";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { createLabelAction } from "@/utils/actions/mail";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
@@ -70,24 +70,29 @@ export function LabelPickerDialog({
   const createdLabel = useRef<{ name: string; id: string } | null>(null);
   const name = search.trim();
   const labels = useMemo(() => {
-    const options = isFolderMove
-      ? flattenOutlookFolders(folders)
-          .filter((folder) => !folder.systemType)
-          .map((folder) => ({
-            id: folder.id,
-            name: folder.displayName,
-            displayName: folder.path.split(FOLDER_SEPARATOR).join(" / "),
-          }))
-      : userLabels.map((label) => ({
-          id: label.id,
-          name: label.name,
-          displayName: getLabelDisplayName(label.id, label.name),
-        }));
-    return options.sort(
-      (a, b) =>
-        a.displayName.localeCompare(b.displayName, "en") ||
-        a.id.localeCompare(b.id, "en"),
-    );
+    if (isFolderMove) {
+      return flattenOutlookFolders(folders)
+        .filter((folder) => !folder.systemType)
+        .map((folder) => ({
+          id: folder.id,
+          name: folder.displayName,
+          displayName: folder.path.split(FOLDER_SEPARATOR).join(" / "),
+        }))
+        .sort(
+          (a, b) =>
+            a.displayName.localeCompare(b.displayName, "en") ||
+            a.id.localeCompare(b.id, "en"),
+        );
+    }
+    // Match the sidebar: its label order, with hidden labels last.
+    return [
+      ...userLabels.filter((label) => !isHiddenLabel(label)),
+      ...userLabels.filter(isHiddenLabel),
+    ].map((label) => ({
+      id: label.id,
+      name: label.name,
+      displayName: getLabelDisplayName(label.id, label.name),
+    }));
   }, [isFolderMove, folders, userLabels]);
   const canCreate =
     !isFolderMove &&
