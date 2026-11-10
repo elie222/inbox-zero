@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
@@ -462,6 +462,7 @@ test("moves a sent reply from its composer into the thread without a gap", async
       .getByRole("region", { name: "Notifications alt+T" })
       .getByRole("button", { name: /^Undo/ }),
   ).toBeVisible();
+  await expectSelectionBarOn(page, sentRow);
   await expectThreadReaderBody(page, replyBody, 3000);
   await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-with-undo");
 
@@ -965,5 +966,25 @@ async function expectReaderMatchesMailbox(page: Page, emailAccountId: string) {
       },
       { timeout: 60_000 },
     )
+    .toBe(true);
+}
+
+// Offline first: the bar marks the sent reply from the moment it shows, not
+// once the provider confirms it.
+async function expectSelectionBarOn(page: Page, row: Locator) {
+  const bar = page.getByTestId("thread-selection-bar");
+  await expect(bar).toBeVisible();
+  await expect
+    .poll(async () => {
+      const [barBox, rowBox] = await Promise.all([
+        bar.boundingBox(),
+        row.boundingBox(),
+      ]);
+      if (!barBox || !rowBox) return false;
+      return (
+        Math.abs(barBox.y - rowBox.y) < 1 &&
+        Math.abs(barBox.height - rowBox.height) < 1
+      );
+    })
     .toBe(true);
 }
