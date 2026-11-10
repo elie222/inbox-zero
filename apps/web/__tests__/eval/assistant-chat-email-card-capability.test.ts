@@ -68,7 +68,9 @@ describe.runIf(shouldRunEval)("Eval: email card capability", () => {
         );
         // The model's text carries the meaning, so cards must stay empty.
         const cardsAreEmpty = [
-          ...output.matchAll(/<(email|email-detail)\b[^>]*>([\s\S]*?)<\/\1>/gi),
+          ...output.matchAll(
+            /<(email-detail|email)(?![-\w])[^>]*>([\s\S]*?)<\/\1>/gi,
+          ),
         ].every((match) => match[2].trim() === "");
         const pass =
           judgement.pass &&
