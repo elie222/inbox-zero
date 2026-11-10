@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Marked } from "marked";
 import Squire from "squire-rte";
 import { prepareEmailBodySignatureHtml } from "../../core/email-body";
 import type { EmailBodyMode } from "../../core/email-html";
@@ -434,6 +435,31 @@ export const SquireEmailEditor = forwardRef<
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
+
+    // Plain-text Markdown (from a chat, notes app or terminal) pastes
+    // formatted. Shift+paste keeps the text as typed. Registered before
+    // Squire so it runs ahead of Squire's own capturing paste handler.
+    let shiftDown = false;
+    const trackShift = (event: KeyboardEvent) => {
+      shiftDown = event.shiftKey;
+    };
+    const formatMarkdownPaste = (event: ClipboardEvent) => {
+      const clipboard = event.clipboardData;
+      if (event.defaultPrevented || !clipboard || shiftDown) return;
+      if (Array.from(clipboard.types).includes("text/html")) return;
+      if (closestWithin(squire.getSelection().startContainer, "pre", root)) {
+        return;
+      }
+      const html = markdownToHtml(clipboard.getData("text/plain"));
+      if (!html) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      squire.insertHTML(html, true);
+    };
+    root.addEventListener("keydown", trackShift);
+    root.addEventListener("keyup", trackShift);
+    root.addEventListener("paste", formatMarkdownPaste, true);
+
     const squire = new EmailSquire(root, {
       addLinks: true,
       blockTag: "DIV",
@@ -610,7 +636,10 @@ export const SquireEmailEditor = forwardRef<
 
     return () => {
       window.removeEventListener("keydown", onWindowKeyDown, true);
+      root.removeEventListener("keydown", trackShift);
+      root.removeEventListener("keyup", trackShift);
       root.removeEventListener("paste", interceptImageFiles, true);
+      root.removeEventListener("paste", formatMarkdownPaste, true);
       root.removeEventListener("drop", interceptImageFiles, true);
       root.removeEventListener("click", onClick);
       root.removeEventListener("compositionend", onCompositionEnd);
@@ -1025,6 +1054,17 @@ function closestWithin(node: Node, selector: string, root: HTMLElement) {
   const element = node instanceof Element ? node : node.parentElement;
   const match = element?.closest(selector);
   return match && root.contains(match) ? match : null;
+}
+
+const markdown = new Marked({ gfm: true, breaks: true, async: false });
+const MARKDOWN_SYNTAX =
+  /^ {0,3}(?:#{1,6}\s|>|[-*+]\s+\S|\d{1,9}[.)]\s+\S|```|~~~)|\*\*[^*\n]+\*\*|__[^_\n]+__|\[[^\]\n]+\]\([^)\s]+\)|`[^`\n]+`/mu;
+
+// Text without Markdown syntax goes through Squire's own plain-text paste,
+// which keeps its line handling and link detection.
+function markdownToHtml(text: string) {
+  if (!MARKDOWN_SYNTAX.test(text)) return null;
+  return markdown.parse(text) as string;
 }
 
 function escapeHtml(value: string) {

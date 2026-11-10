@@ -1073,6 +1073,9 @@ importers:
 
   packages/email-editor:
     dependencies:
+      marked:
+        specifier: 18.1.1
+        version: 18.1.1
       parse5:
         specifier: 8.1.1
         version: 8.1.1

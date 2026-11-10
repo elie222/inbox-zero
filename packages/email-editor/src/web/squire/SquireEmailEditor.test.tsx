@@ -740,7 +740,45 @@ describe("Squire email editor", () => {
     expect(onImageFiles).toHaveBeenCalledWith([file]);
     expect(paste.defaultPrevented).toBe(true);
   });
+
+  it("formats pasted Markdown text", async () => {
+    const { textbox } = await renderEditor({});
+
+    pasteText(
+      textbox(),
+      "> **Apps on your PC:** Open **Settings**.\n>\n> - one\n> - two",
+    );
+
+    const quote = textbox().querySelector("blockquote");
+    expect(quote?.querySelector("b")?.textContent).toBe("Apps on your PC:");
+    expect(quote?.querySelectorAll("li")).toHaveLength(2);
+    expect(textbox().textContent).not.toContain("**");
+  });
+
+  it("keeps Markdown literal when pasting without formatting", async () => {
+    const { textbox } = await renderEditor({});
+
+    fireEvent.keyDown(textbox(), { key: "Shift", shiftKey: true });
+    pasteText(textbox(), "**bold**");
+
+    expect(textbox().querySelector("b")).toBeNull();
+    expect(textbox().textContent).toContain("**bold**");
+  });
 });
+
+function pasteText(target: HTMLElement, text: string) {
+  const paste = new Event("paste", { bubbles: true, cancelable: true });
+  Object.defineProperty(paste, "clipboardData", {
+    value: {
+      files: [],
+      getData: (type: string) => (type === "text/plain" ? text : ""),
+      types: ["text/plain"],
+    },
+  });
+  act(() => {
+    target.dispatchEvent(paste);
+  });
+}
 
 async function renderEditor(props: Partial<EmailEditorProps>) {
   const ref = createRef<EmailEditorHandle>();
