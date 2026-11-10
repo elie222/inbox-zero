@@ -208,16 +208,25 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       if ("error" in action) return;
       mailScreenActionHandlerRef.current?.(action);
     },
-    onFinish: async ({ isAbort }) => {
+    onFinish: async ({ message, isAbort }) => {
       pendingInlineActionsRef.current = null;
       pendingRequestRef.current = null;
       pendingRequestContextRef.current = null;
+      const splitChange = getSplitInboxChange(message);
       // An abort is a stop or a reattach, which refetch once the server has
       // saved the reply; refetching now would drop the partial one shown.
       await Promise.all([
         mutate("/api/user/rules"),
+        splitChange ? mutate("/api/mail/settings") : Promise.resolve(),
         chatId && !isAbort ? mutate(`/api/chats/${chatId}`) : Promise.resolve(),
       ]);
+      // Showing the split is the preview: the user sees what it catches and
+      // can ask for a change or a delete.
+      if (splitChange?.splitId)
+        mailScreenActionHandlerRef.current?.({
+          action: "show_split",
+          splitId: splitChange.splitId,
+        });
     },
     onError: (error) => {
       if (resumingRef.current) {
@@ -782,4 +791,19 @@ function getChatRequestErrorBody(
   } catch {
     return null;
   }
+}
+
+/** The last split the assistant changed in this reply, if any. */
+function getSplitInboxChange(
+  message: ChatMessage,
+): { splitId?: string } | null {
+  for (const part of message.parts.toReversed()) {
+    if (part.type !== "tool-manageSplitInbox") continue;
+    if (part.state !== "output-available" || !part.output.success) continue;
+    if (!("action" in part.output)) continue;
+    return {
+      splitId: "split" in part.output ? part.output.split?.id : undefined,
+    };
+  }
+  return null;
 }

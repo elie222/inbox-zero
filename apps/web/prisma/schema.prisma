@@ -2248,6 +2248,8 @@ enum MailSplitFilterKind {
   LABEL
   CATEGORY
   FROM
+  /// Mail addressed to an address or @domain, in To or Cc.
+  TO
   OLDER_THAN
 }
 

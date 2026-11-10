@@ -1784,19 +1784,38 @@ export function MailShell() {
   const appliedAssistantKeys = useRef<ReadonlySet<string>>(new Set());
   const applyMailScreenAction = useStableCallback(
     (action: MailScreenAction) => {
+      // A search or selection lands in the list, which an open email or
+      // preview would otherwise keep covering.
+      const revealList = () => {
+        setPreview(null);
+        if (layout === "list") setOpenThread(null);
+      };
       switch (action.action) {
         case "open_thread":
           setOpenThread({ emailAccountId, threadId: action.threadId });
           return;
         case "search":
+          revealList();
           setSearch(action.query);
           return;
         case "select_threads":
+          revealList();
           // Replaces the selection outright, so an older one can't be left
           // looking like the assistant's pick if no requested row shows up.
           appliedAssistantKeys.current = new Set();
           selection.clear();
           setAssistantSelection(action.threadIds);
+          return;
+        case "show_split":
+          // Split tabs only show on this account's unscoped, unsearched inbox.
+          revealList();
+          selection.clear();
+          setSearch("");
+          setScopeType(null);
+          setScopeLabelId(null);
+          setScopeFolderId(null);
+          setAccountScope(null);
+          setActiveSplitId(action.splitId);
           return;
       }
     },

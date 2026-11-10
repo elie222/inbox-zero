@@ -48,6 +48,7 @@ export const GET = withEmailProvider(
     const query = threadsQuery.parse({
       limit,
       fromEmail,
+      toEmail: searchParams.get("toEmail"),
       type,
       folderId,
       inboxSection,

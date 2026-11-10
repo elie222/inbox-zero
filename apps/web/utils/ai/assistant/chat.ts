@@ -41,6 +41,7 @@ import {
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
 import { getCalendarEventsTool } from "./chat-calendar-tools";
 import { controlMailScreenTool } from "./chat-mail-screen-tool";
+import { manageSplitInboxTool } from "./chat-split-inbox-tool";
 import { hasUsableCalendarConnection } from "@/utils/calendar/event-provider";
 import type { MessagingPlatform } from "@/utils/messaging/platforms";
 import type { SerializedMatchReason } from "@/utils/ai/choose-rule/types";
@@ -342,6 +343,7 @@ export async function aiProcessAssistantChat({
     ...providerPolicy.getTaxonomyTools(toolOptions),
     // Settings
     updateAssistantSettings: updateAssistantSettingsTool(toolOptions),
+    manageSplitInbox: manageSplitInboxTool(toolOptions),
     // Memory
     searchMemories: searchMemoriesTool(toolOptions),
     saveMemory: saveMemoryTool({

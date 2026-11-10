@@ -284,6 +284,19 @@ export function MessagePart({
     });
   }
 
+  if (part.type === "tool-manageSplitInbox") {
+    return renderToolStatus({
+      part,
+      loadingText: "Updating your split inbox...",
+      renderSuccess: ({ toolCallId }) => (
+        <BasicToolInfo
+          key={toolCallId}
+          text={getSplitInboxLabel(part.input?.action, part.input?.name)}
+        />
+      ),
+    });
+  }
+
   if (part.type === "tool-readEmail") {
     const { toolCallId, state } = part;
     if (state === "input-available") {
@@ -953,6 +966,8 @@ function getMailScreenActionLabel(input: unknown) {
       return "Opening the email on screen";
     case "search":
       return `Searching for "${action.query}" on screen`;
+    case "show_split":
+      return "Showing the split on screen";
   }
 }
 
@@ -1116,4 +1131,18 @@ function toMessageString(value: unknown): string | null {
     return value.message;
   }
   return null;
+}
+
+function getSplitInboxLabel(action?: string, name?: string | null) {
+  const split = name ? `split "${name}"` : "split";
+  switch (action) {
+    case "create":
+      return `Created ${split}`;
+    case "update":
+      return `Updated ${split}`;
+    case "delete":
+      return "Deleted split";
+    default:
+      return "Read your split inbox";
+  }
 }

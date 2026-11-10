@@ -786,6 +786,54 @@ describe("GmailProvider.getThreadsWithQuery", () => {
     );
   });
 
+  it("finds recipient-domain mail in To or Cc and drops look-alike domains", async () => {
+    const list = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValueOnce({
+        threads: [{ id: "miss" }, { id: "hit" }],
+        nextPageToken: undefined,
+      });
+    const headers = (to: string, cc?: string) => ({
+      headers: [
+        { name: "From", value: "customer@example.com" },
+        { name: "To", value: to },
+        ...(cc ? [{ name: "Cc", value: cc }] : []),
+      ],
+    });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch").mockResolvedValueOnce([
+      {
+        id: "miss",
+        messages: [
+          {
+            id: "miss",
+            labelIds: ["INBOX"],
+            payload: headers("hello@notrakazo.com"),
+          },
+        ],
+      },
+      {
+        id: "hit",
+        messages: [
+          {
+            id: "hit",
+            labelIds: ["INBOX"],
+            payload: headers("me@example.com", "Team <Hello@Rakazo.com>"),
+          },
+        ],
+      },
+    ]);
+    const oauth = new auth.OAuth2();
+    oauth.setCredentials({ access_token: "access-token" });
+    const provider = new GmailProvider(new gmail_v1.Gmail({ auth: oauth }));
+    const result = await provider.getThreadsWithQuery({
+      query: { toEmail: "@rakazo.com", labelIds: ["INBOX"] },
+    });
+    expect(result.threads.map(({ id }) => id)).toEqual(["hit"]);
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({ q: "{to:rakazo.com cc:rakazo.com}" }),
+    );
+  });
+
   it.each([
     { type: "spam", labelIds: [GmailLabel.SPAM] },
     { type: "trash", labelIds: [GmailLabel.TRASH] },

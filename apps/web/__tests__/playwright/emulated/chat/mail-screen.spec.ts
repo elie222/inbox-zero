@@ -80,6 +80,47 @@ test("the assistant knows the mail screen and selects emails on it", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "chat-selects-emails");
 });
 
+test("the assistant's search shows over an open email", async ({ page }) => {
+  const { conversations } = await openMail(page);
+  await page.getByRole("button", { name: "Toggle the assistant" }).click();
+  await expect(page.getByTestId("chat-input")).toBeVisible();
+  // In the list layout an open email replaces the list, so a search that
+  // only refreshed the list would change nothing the user can see.
+  await conversations
+    .locator("[data-mail-thread-key]")
+    .filter({ hasText: "Alice Example" })
+    .first()
+    .click();
+  await expect(conversations).toBeHidden();
+
+  await scriptReply({
+    match: "show me the promotion",
+    toolCall: {
+      name: "controlMailScreen",
+      arguments: { action: "search", query: "subject:Promotion" },
+    },
+  });
+  await scriptReply({
+    match: "sentToScreen",
+    text: "I put that search on your screen.",
+  });
+  await sendChatMessage(page, "Show me the promotion email");
+
+  await expect(page.getByText("I put that search on your screen.")).toBeVisible(
+    { timeout: 60_000 },
+  );
+  await expect(
+    conversations
+      .locator("[data-mail-thread-key]")
+      .filter({ hasText: "Promotion Category Message" }),
+  ).toHaveCount(1, { timeout: 60_000 });
+  await expect(
+    conversations
+      .locator("[data-mail-thread-key]")
+      .filter({ hasText: "Alice Example" }),
+  ).toHaveCount(0);
+});
+
 async function readThreadId(conversations: Locator, subject: string) {
   const row = conversations
     .locator("[data-mail-thread-key]")

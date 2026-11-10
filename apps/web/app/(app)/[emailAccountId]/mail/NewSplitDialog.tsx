@@ -42,6 +42,7 @@ const YOUR_SPLITS = "Your splits";
 const FIELDS = [
   { kind: MailSplitFilterKind.LABEL, name: "Has label" },
   { kind: MailSplitFilterKind.FROM, name: "From" },
+  { kind: MailSplitFilterKind.TO, name: "Sent to" },
   { kind: MailSplitFilterKind.CATEGORY, name: "In category" },
   { kind: MailSplitFilterKind.UNREAD, name: "Is unread" },
   { kind: MailSplitFilterKind.STARRED, name: "Is starred" },
@@ -857,7 +858,9 @@ function ConditionRow({
   onChangeValue: (value: string) => void;
   onRemove: () => void;
 }) {
-  const takesFreeText = condition.kind === MailSplitFilterKind.FROM;
+  const takesFreeText =
+    condition.kind === MailSplitFilterKind.FROM ||
+    condition.kind === MailSplitFilterKind.TO;
   const takesNoValue =
     condition.kind === MailSplitFilterKind.UNREAD ||
     condition.kind === MailSplitFilterKind.STARRED;
@@ -886,7 +889,9 @@ function ConditionRow({
           value={condition.value ?? ""}
           onChange={(event) => onChangeValue(event.target.value)}
           placeholder="name@company.com or @company.com"
-          aria-label="Sender"
+          aria-label={
+            condition.kind === MailSplitFilterKind.TO ? "Recipient" : "Sender"
+          }
           className="h-8 min-w-0 flex-1 text-xs"
         />
       ) : (
@@ -962,6 +967,8 @@ function conditionLabel(
       return "Starred";
     case MailSplitFilterKind.FROM:
       return condition.value ?? "From";
+    case MailSplitFilterKind.TO:
+      return condition.value ? `To ${condition.value}` : "Sent to";
     case MailSplitFilterKind.OLDER_THAN:
       return `Older than ${
         OLDER_THAN_OPTIONS.find((o) => o.value === condition.value)?.name ??
