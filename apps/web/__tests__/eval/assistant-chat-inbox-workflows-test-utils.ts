@@ -355,7 +355,7 @@ export async function judgeSearchInboxQuery({
     criterion: {
       name: "Search query semantics",
       description:
-        "The generated inbox search query would retrieve the requested messages, even if the exact wording differs from the prompt. A broader query that still returns them is fine, because the assistant chooses the matching threads from the results. Fail only if the query would likely miss the requested messages or targets unrelated ones.",
+        "The generated inbox search query would retrieve the requested messages, even if the exact wording differs from the prompt. When the user wants a set of messages, a broader query that still returns them is fine, because the assistant chooses the matching threads from the results. When the user wants one specific email, the query must include a term, sender or topic from the request; a generic filter alone, such as unread state, fails. Otherwise fail only if the query would likely miss the requested messages or targets unrelated ones.",
     },
   });
 }
