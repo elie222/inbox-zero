@@ -2123,7 +2123,7 @@ async function extractAttachmentText(
 
 function getThreadActionTotalKey(
   action: ManageInboxAction,
-  read: boolean | undefined,
+  read: boolean | null | undefined,
 ) {
   if (action === "mark_read_threads") {
     return read === false ? "threads_marked_unread" : "threads_marked_read";
