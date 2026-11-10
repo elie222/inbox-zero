@@ -115,7 +115,14 @@ export function BillingSection() {
             {/* Customers can't pause or resume in the Stripe portal, so a
                 paused subscription is resumed by support. */}
             <ItemDescription>
-              Paused. Contact {env.NEXT_PUBLIC_SUPPORT_EMAIL} to resume it.
+              Paused. Contact{" "}
+              <a
+                href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
+                className="underline"
+              >
+                {env.NEXT_PUBLIC_SUPPORT_EMAIL}
+              </a>{" "}
+              to resume it.
             </ItemDescription>
           </ItemContent>
           <ItemActions className="flex-wrap justify-end">
