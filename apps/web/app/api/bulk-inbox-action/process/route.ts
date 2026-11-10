@@ -38,8 +38,14 @@ export const POST = withError(
       } catch (error) {
         // Hand the job back to this delivery's token, so the queue's retry of
         // it resumes the job instead of being ignored as stale.
+        // Skip it if the next chunk was delivered after all and holds a lease.
         await prisma.bulkInboxActionJob.updateMany({
-          where: { id: jobId, chunkToken: outcome.nextChunkToken },
+          where: {
+            id: jobId,
+            status: "RUNNING",
+            chunkToken: outcome.nextChunkToken,
+            leaseExpiresAt: null,
+          },
           data: { chunkToken },
         });
         throw error;

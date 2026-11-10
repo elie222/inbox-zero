@@ -82,6 +82,18 @@ export async function processBulkInboxActionJobChunk({
     outcome = await runChunk({ jobId, deadline, logger });
     return outcome;
   } catch (error) {
+    // A cooldown can reject the provider before the page loop handles it.
+    if (isEmailProviderRateLimitError({ error, provider: undefined })) {
+      logger.warn("Bulk inbox action paused by a provider rate limit");
+      await saveProgress(jobId, {
+        rateLimitedUntil: getRateLimitedUntil(error, ""),
+      });
+      outcome = {
+        status: "continue",
+        nextChunkToken: randomUUID(),
+      };
+      return outcome;
+    }
     logger.error("Bulk inbox action failed", { error });
     await failJob(jobId, "The email provider returned an error.");
     outcome = { status: "stopped" };
@@ -148,7 +160,13 @@ async function runChunk({
 
     const waitMs = rateLimitedUntil - Date.now();
     if (waitMs > 0) {
-      if (waitMs >= deadline - Date.now()) return continueLater();
+      // A cooldown longer than this chunk waits out the budget first, so
+      // chunks don't spin through the queue until it ends.
+      const remainingMs = deadline - Date.now();
+      if (waitMs >= remainingMs) {
+        await sleep(Math.max(remainingMs, 0));
+        return continueLater();
+      }
       await sleep(waitMs);
       rateLimitedUntil = 0;
       continue;

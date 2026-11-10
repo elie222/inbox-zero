@@ -194,7 +194,8 @@ async function prepareBulkInboxAction({
             emailProvider,
             labelName,
             action,
-            matchNestedLabels: isGoogleProvider(provider),
+            // A bulk write must hit exactly the label the user named.
+            matchNestedLabels: false,
             missingLabelError: (name) =>
               `"${name}" does not exist. Create it first if the user wants it.`,
           }).catch((error: unknown) => ({

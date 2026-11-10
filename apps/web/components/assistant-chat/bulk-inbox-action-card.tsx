@@ -28,9 +28,16 @@ const ACTION_TITLES: Record<BulkInboxActionType, string> = {
   label_threads: "Label emails",
 };
 
+const ACTED_LABELS: Record<BulkInboxActionType, string> = {
+  archive_threads: "Archived",
+  trash_threads: "Trashed",
+  mark_read_threads: "Marked read",
+  label_threads: "Labeled",
+};
+
 const STATUS_BADGES: Record<string, { label: string; color: Color }> = {
   RUNNING: { label: "Running", color: "blue" },
-  COMPLETED: { label: "Done", color: "green" },
+  COMPLETED: { label: "Completed", color: "green" },
   FAILED: { label: "Failed", color: "red" },
   CANCELLED: { label: "Stopped", color: "gray" },
 };
@@ -110,6 +117,8 @@ export function BulkInboxActionCard({
         return;
       }
       await mutate();
+    } catch {
+      toastError({ description: "Could not stop this action. Try again." });
     } finally {
       setIsStopping(false);
     }
@@ -118,13 +127,13 @@ export function BulkInboxActionCard({
   const statusBadge = job ? STATUS_BADGES[job.status] : null;
 
   return (
-    <Card>
+    <Card data-testid="bulk-inbox-action-card">
       <CardHeader className="px-4 py-3.5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-medium">{title}</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              {jobId ? "Running in the background" : "Pending confirmation"}
+              {getSubtitle({ jobId, status: job?.status })}
             </p>
           </div>
           {statusBadge && (
@@ -150,7 +159,7 @@ export function BulkInboxActionCard({
               <dt className="text-muted-foreground">Matches</dt>
               <dd>
                 {estimate.isLowerBound
-                  ? `More than ${estimate.threadCount} threads`
+                  ? `At least ${estimate.threadCount} threads`
                   : `${estimate.threadCount} threads`}
                 {pendingAction.instruction
                   ? ", each checked against the condition"
@@ -162,7 +171,11 @@ export function BulkInboxActionCard({
 
         {!jobId && samples && samples.length > 0 && (
           <div className="space-y-1">
-            <p className="text-xs text-muted-foreground">Examples</p>
+            <p className="text-xs text-muted-foreground">
+              {pendingAction.instruction
+                ? "Some search matches, before the condition is checked"
+                : "Some of the matching emails"}
+            </p>
             <ul className="space-y-1 rounded-md border bg-muted/30 px-3 py-2">
               {samples.map((sample, index) => (
                 <li
@@ -181,7 +194,10 @@ export function BulkInboxActionCard({
         {job && (
           <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-4">
             <JobCount label="Checked" value={job.processedCount} />
-            <JobCount label="Done" value={job.actedCount} />
+            <JobCount
+              label={ACTED_LABELS[pendingAction.action]}
+              value={job.actedCount}
+            />
             <JobCount label="Skipped" value={job.skippedCount} />
             <JobCount label="Failed" value={job.failedCount} />
           </dl>
@@ -224,6 +240,21 @@ export function BulkInboxActionCard({
       )}
     </Card>
   );
+}
+
+function getSubtitle({
+  jobId,
+  status,
+}: {
+  jobId: string | null;
+  status?: string;
+}) {
+  if (!jobId) return "Pending confirmation";
+  if (status === "COMPLETED") return "Finished";
+  if (status === "FAILED") return "Stopped by an error";
+  if (status === "CANCELLED")
+    return "Stopped. Emails already handled stay that way.";
+  return "Running in the background. You can leave this chat.";
 }
 
 function JobCount({ label, value }: { label: string; value: number }) {

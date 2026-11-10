@@ -20,6 +20,7 @@ export async function enqueueBulkInboxActionChunk({
       queueName: BULK_INBOX_ACTION_TOPIC,
       parallelism: 5,
       path: "/api/bulk-inbox-action/process",
+      deduplicationId: `${jobId}-${chunkToken}`,
     },
     logger,
   });

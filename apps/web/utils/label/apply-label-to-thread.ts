@@ -13,15 +13,23 @@ export async function applyLabelToThread({
   labelName: string | null;
 }) {
   const messages = await emailProvider.getThreadMessages(threadId);
+  let firstFailure: unknown;
   const results = await runWithBoundedConcurrency({
     items: messages,
     concurrency: 1,
     run: async (message) => {
-      await emailProvider.labelMessage({
-        messageId: message.id,
-        labelId,
-        labelName,
-      });
+      // After one failure (often a rate limit), stop writing to this thread.
+      if (firstFailure) throw firstFailure;
+      await emailProvider
+        .labelMessage({
+          messageId: message.id,
+          labelId,
+          labelName,
+        })
+        .catch((error: unknown) => {
+          firstFailure ??= error;
+          throw error;
+        });
     },
   });
 
@@ -32,7 +40,7 @@ export async function applyLabelToThread({
   if (failures.length > 0) {
     // Keep the provider error so callers can tell rate limits apart.
     throw new Error(`Failed to label ${failures.length} messages in thread`, {
-      cause: failures[0],
+      cause: firstFailure,
     });
   }
 }

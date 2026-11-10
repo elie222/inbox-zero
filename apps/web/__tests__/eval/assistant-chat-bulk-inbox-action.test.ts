@@ -55,6 +55,10 @@ describe.runIf(shouldRunEval)("Eval: assistant chat bulk inbox action", () => {
           const usedBulkTool =
             bulkCalls.length === 1 &&
             getInputField(bulkCalls[0].input, "action") === "archive_threads" &&
+            // The search must stay on the sender the user named.
+            JSON.stringify(bulkCalls[0].input)
+              .toLowerCase()
+              .includes("deals@shop.example") &&
             manageInboxCalls.length === 0;
 
           const judge = usedBulkTool
@@ -97,7 +101,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat bulk inbox action", () => {
 
           const prompt =
             "My inbox has thousands of emails. Archive all the newsletters, but keep any that are from people I actually correspond with or that mention an invoice.";
-          const { toolCalls, actual } = await runAssistantChat({
+          const { toolCalls, finalText, actual } = await runAssistantChat({
             emailAccount: cloneEmailAccountForProvider(emailAccount, "google"),
             inboxStats: { total: 5100, unread: 2200 },
             messages: [{ role: "user", content: prompt }],
@@ -119,7 +123,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat bulk inbox action", () => {
                 criterion: {
                   name: "Bulk action scope matches the request",
                   description:
-                    "The query and instruction together must target newsletters and must preserve the exceptions the user named. Exceptions that a search query cannot express must appear in the instruction.",
+                    "The action only applies to search matches that also pass the instruction, which AI checks for every email. So a broad query is fine when the instruction carries the scope. Together the query and instruction must target newsletters and preserve the exceptions the user named; exceptions a search query cannot express must appear in the instruction.",
                 },
               })
             : null;
@@ -131,7 +135,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat bulk inbox action", () => {
             pass,
             actual: judge
               ? `${actual} | ${formatSemanticJudgeActual(JSON.stringify(bulkInput), judge)}`
-              : actual,
+              : `${actual} | reply=${JSON.stringify(finalText)}`,
           });
 
           expect(pass).toBe(true);
@@ -179,7 +183,8 @@ describe.runIf(shouldRunEval)("Eval: assistant chat bulk inbox action", () => {
             });
           const pass =
             getToolCalls(toolCalls, "bulkManageInbox").length === 0 &&
-            new Set(archivedThreadIds).size === 3;
+            [...new Set(archivedThreadIds)].sort().join(",") ===
+              "thread-shipping-1,thread-shipping-2,thread-shipping-3";
 
           evalReporter.record({
             testName: `handful uses manageInbox (${provider})`,
@@ -210,7 +215,12 @@ function mockPagedMailbox({
   snippet: string;
 }) {
   mockSearchMessages.mockImplementation(
-    async ({ pageToken }: { pageToken?: string }) => {
+    async ({ query, pageToken }: { query?: string; pageToken?: string }) => {
+      // Searches outside the bulk mail return what a real mailbox would, so
+      // checking sent mail or invoices does not surface the same newsletters.
+      const otherMail = getOtherMailForQuery(query ?? "");
+      if (otherMail) return { messages: otherMail, nextPageToken: undefined };
+
       const page = pageToken ? Number(pageToken.replace("PAGE_", "")) : 1;
       return {
         messages: Array.from({ length: PAGE_SIZE }, (_, index) => {
@@ -229,6 +239,41 @@ function mockPagedMailbox({
     },
   );
 }
+
+function getOtherMailForQuery(query: string) {
+  const normalized = query.toLowerCase();
+  if (normalized.includes("in:sent")) {
+    return CORRESPONDENTS.map((person, index) =>
+      getMockMessage({
+        id: `msg-sent-${index + 1}`,
+        threadId: `thread-person-${index + 1}`,
+        from: "user@test.com",
+        to: person.email,
+        subject: person.subject,
+        snippet: "Thanks, sounds good. Talk soon.",
+        labelIds: ["SENT"],
+      }),
+    );
+  }
+  if (normalized.includes("invoice")) {
+    return [
+      getMockMessage({
+        id: "msg-invoice-1",
+        threadId: "thread-invoice-1",
+        from: "Billing <billing@vendor.example>",
+        subject: "Invoice INV-2207 for October",
+        snippet: "Your invoice for October is attached.",
+        labelIds: ["INBOX"],
+      }),
+    ];
+  }
+  return null;
+}
+
+const CORRESPONDENTS = [
+  { email: "dana@partner.example", subject: "Re: Contract redlines" },
+  { email: "sam@client.example", subject: "Re: Call on Thursday" },
+];
 
 function getToolCalls(toolCalls: RecordedToolCall[], toolName: string) {
   return toolCalls.filter((toolCall) => toolCall.toolName === toolName);

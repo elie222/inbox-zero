@@ -26,7 +26,8 @@ export async function buildBulkInboxActionStatusMessage({
           { updatedAt: { gte: new Date(Date.now() - STATUS_LOOKBACK_MS) } },
         ],
       },
-      orderBy: { createdAt: "desc" },
+      // RUNNING sorts first, so a running job is never cut by the cap.
+      orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       take: MAX_JOBS,
       select: {
         id: true,

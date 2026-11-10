@@ -489,34 +489,51 @@ export async function confirmAssistantBulkInboxActionForAccount({
   const { pendingAction } = reservation.lookup.output;
 
   let jobId: string;
+  let createdJobId: string | null = null;
   try {
-    const chunkToken = randomUUID();
-    const job = await prisma.bulkInboxActionJob.upsert({
+    // A retried confirmation reuses the job and its current chunk token.
+    // Queueing that token again is harmless: a live chunk holds the lease,
+    // and a finished one has already moved the token on.
+    const existingJob = await prisma.bulkInboxActionJob.findUnique({
       where: { emailAccountId_toolCallId: { emailAccountId, toolCallId } },
-      create: {
-        emailAccountId,
-        chatId,
-        toolCallId,
-        search: pendingAction.search,
-        action: pendingAction.action,
-        labelId: pendingAction.labelId,
-        labelName: pendingAction.labelName,
-        instruction: pendingAction.instruction,
-        chunkToken,
-      },
-      // A retried confirmation reuses the job and its current chunk token.
-      // Queueing that token again is harmless: a live chunk holds the lease,
-      // and a finished one has already moved the token on.
-      update: {},
       select: { id: true, chunkToken: true },
     });
+    const job =
+      existingJob ??
+      (await prisma.bulkInboxActionJob.create({
+        data: {
+          emailAccountId,
+          chatId,
+          toolCallId,
+          search: pendingAction.search,
+          action: pendingAction.action,
+          labelId: pendingAction.labelId,
+          labelName: pendingAction.labelName,
+          instruction: pendingAction.instruction,
+          chunkToken: randomUUID(),
+        },
+        select: { id: true, chunkToken: true },
+      }));
+    if (!existingJob) createdJobId = job.id;
     jobId = job.id;
+    if (!job.chunkToken) throw new Error("Bulk inbox action job has no token");
     await enqueueBulkInboxActionChunk({
       jobId,
-      chunkToken: job.chunkToken ?? chunkToken,
+      chunkToken: job.chunkToken,
       logger,
     });
   } catch (error) {
+    // Nothing will run a job that never reached the queue, so don't leave
+    // it behind looking like it is running.
+    if (createdJobId) {
+      await prisma.bulkInboxActionJob
+        .delete({ where: { id: createdJobId } })
+        .catch((deleteError: unknown) => {
+          logger.error("Failed to remove unqueued bulk inbox action job", {
+            error: deleteError,
+          });
+        });
+    }
     await clearPendingPartProcessing({
       chatMessageId: reservation.chatMessageId,
       emailAccountId,
