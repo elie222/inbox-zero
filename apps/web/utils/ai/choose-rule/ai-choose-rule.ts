@@ -50,7 +50,7 @@ export async function aiChooseRule<
 
   const orderedRules = sortRulesByCanonicalOrder(rules);
   // Schema values bypass prompt redaction, so only generated IDs belong there.
-  const rulesById = new Map(
+  const rulesById = new Map<string, T>(
     orderedRules.map((rule, index) => [`rule-${index + 1}`, rule] as const),
   );
   const offeredRules = Array.from(rulesById, ([selectionId, rule]) => ({
