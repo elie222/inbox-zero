@@ -436,6 +436,7 @@ export function EmailThread({
         <ul className="relative flex flex-col gap-2 pt-1">
           {enableMessageNavigation && (
             <SelectionBar
+              animateSelection={selectedMessageId === selectedId}
               selectedId={selectedId}
               selectedConcealed={organizedMessages.some(
                 ({ message, outgoing }) =>
@@ -705,12 +706,14 @@ function draftRecency(draft: ThreadMessage) {
 }
 
 // One bar for the whole thread so it can slide between messages. It only
-// animates when the selection moves; layout changes (expanding, bodies
-// loading) reposition it instantly so it never trails the card.
+// animates for deliberate selection changes; automatic selection and layout
+// changes reposition it instantly so it never trails the card.
 function SelectionBar({
+  animateSelection,
   selectedId,
   selectedConcealed,
 }: {
+  animateSelection: boolean;
   selectedId?: string;
   selectedConcealed: boolean;
 }) {
@@ -744,7 +747,9 @@ function SelectionBar({
       );
     };
     measure(
-      previousId.current !== undefined && previousId.current !== selectedId,
+      animateSelection &&
+        previousId.current !== undefined &&
+        previousId.current !== selectedId,
     );
     previousId.current = selectedId;
     // The composer can close after the initial measurement. Even the first
