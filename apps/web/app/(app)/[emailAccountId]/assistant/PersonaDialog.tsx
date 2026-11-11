@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ButtonList } from "@/components/ButtonList";
 import type { Personas } from "./examples";
@@ -19,7 +20,7 @@ export function PersonaDialog({
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent>
         <DialogTitle className="text-lg font-medium">
-          Choose a persona
+          <Trans>Choose a persona</Trans>
         </DialogTitle>
 
         <ButtonList

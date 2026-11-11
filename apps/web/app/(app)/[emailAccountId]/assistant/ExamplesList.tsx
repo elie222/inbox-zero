@@ -1,36 +1,35 @@
 import { memo } from "react";
+import { Trans } from "@lingui/react/macro";
 import { convertLabelsToDisplay } from "@/utils/mention";
 import { SectionHeader } from "@/components/Typography";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { getExamplePrompts } from "@/app/(app)/[emailAccountId]/assistant/examples";
+import type { Personas } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { getActionIcon } from "@/utils/action-display";
 import { getActionColor } from "@/components/PlanBadge";
-import { ActionType } from "@/generated/prisma/enums";
 import type { Color } from "@/components/Badge";
 import { cn } from "@/utils";
+
+type Example = Personas[keyof Personas]["examples"][number];
 
 function PureExamples({
   examples,
   onSelect,
-  provider,
   className = "mt-1.5 sm:h-[60vh] sm:max-h-[60vh]",
 }: {
-  examples: string[];
+  examples: Example[];
   onSelect: (example: string) => void;
-  provider: string;
   className?: string;
 }) {
-  const examplePrompts = getExamplePrompts(provider, examples);
-
   return (
     <div>
-      <SectionHeader className="text-xl">Examples</SectionHeader>
+      <SectionHeader className="text-xl">
+        <Trans>Examples</Trans>
+      </SectionHeader>
 
       <ScrollArea className={className}>
         <div className="grid grid-cols-1 gap-2">
-          {examplePrompts.map((example) => {
-            const actionType = getActionType(example);
+          {examples.map(({ text: example, action: actionType }) => {
             const Icon = actionType ? getActionIcon(actionType) : null;
             const color = actionType ? getActionColor(actionType) : "gray";
 
@@ -68,19 +67,14 @@ export const Examples = memo(PureExamples);
 function PureExamplesGrid({
   examples,
   onSelect,
-  provider,
 }: {
-  examples: string[];
+  examples: Example[];
   onSelect: (example: string) => void;
-  provider: string;
   className?: string;
 }) {
-  const examplePrompts = getExamplePrompts(provider, examples);
-
   return (
     <div className="grid grid-cols-2 gap-4">
-      {examplePrompts.map((example) => {
-        const actionType = getActionType(example);
+      {examples.map(({ text: example, action: actionType }) => {
         const Icon = actionType ? getActionIcon(actionType) : null;
         const color = actionType ? getActionColor(actionType) : "gray";
 
@@ -110,34 +104,6 @@ function PureExamplesGrid({
 }
 
 export const ExamplesGrid = memo(PureExamplesGrid);
-
-function getActionType(example: string): ActionType | null {
-  const lowerExample = example.toLowerCase();
-
-  if (lowerExample.includes("forward")) {
-    return ActionType.FORWARD;
-  }
-  if (lowerExample.includes("draft")) {
-    return ActionType.DRAFT_EMAIL;
-  }
-  if (lowerExample.includes("reply")) {
-    return ActionType.REPLY;
-  }
-  if (lowerExample.includes("archive")) {
-    return ActionType.ARCHIVE;
-  }
-  if (lowerExample.includes("spam")) {
-    return ActionType.MARK_SPAM;
-  }
-  if (lowerExample.includes("mark")) {
-    return ActionType.MARK_READ;
-  }
-  if (lowerExample.includes("label") || lowerExample.includes("categorize")) {
-    return ActionType.LABEL;
-  }
-
-  return null;
-}
 
 function getIconColorClass(color: Color): string {
   switch (color) {

@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { AboutSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/AboutSetting";
 import { SensitiveDataPolicySetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting";
 import { DigestSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DigestSetting";
@@ -31,13 +32,17 @@ export function SettingsTab() {
       )}
 
       <div className="space-y-2">
-        <SectionHeader>Updates</SectionHeader>
+        <SectionHeader>
+          <Trans>Updates</Trans>
+        </SectionHeader>
         <FollowUpRemindersSetting />
         {env.NEXT_PUBLIC_DIGEST_ENABLED && <DigestSetting />}
       </div>
 
       <div className="space-y-2">
-        <SectionHeader>Your voice</SectionHeader>
+        <SectionHeader>
+          <Trans>Your voice</Trans>
+        </SectionHeader>
         <WritingStyleSetting />
         <AboutSetting />
         <PersonalSignatureSetting />
@@ -48,14 +53,18 @@ export function SettingsTab() {
 
       {!autoDraftDisabled && (
         <div className="space-y-2">
-          <SectionHeader>Knowledge</SectionHeader>
+          <SectionHeader>
+            <Trans>Knowledge</Trans>
+          </SectionHeader>
           <DraftKnowledgeSetting />
           <LearnedPatternsSetting />
         </div>
       )}
 
       <div className="space-y-2">
-        <SectionHeader>Advanced</SectionHeader>
+        <SectionHeader>
+          <Trans>Advanced</Trans>
+        </SectionHeader>
         <SyncToExtensionSetting />
         <MultiRuleSetting />
         <ReferralSignatureSetting />

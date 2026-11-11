@@ -35,9 +35,9 @@ export function ExamplesDialog({
   open,
   onOpenChange,
 }: ExamplesDialogProps) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const { provider } = useAccount();
-  const personas = getPersonas(provider);
+  const personas = getPersonas(provider, i18n);
   const [internalOpen, setInternalOpen] = useState(false);
   const [selectedExamples, setSelectedExamples] = useState<number[]>([]);
 

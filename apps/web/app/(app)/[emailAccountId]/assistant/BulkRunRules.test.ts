@@ -5,6 +5,7 @@ import { fetchWithAccount } from "@/utils/fetch";
 import { runAiRules } from "@/utils/queue/email-actions";
 import { toastError } from "@/components/Toast";
 import { sleep } from "@/utils/sleep";
+import { setupI18n } from "@lingui/core";
 import { onRun } from "./bulk-run";
 
 vi.mock("@/utils/fetch", () => ({ fetchWithAccount: vi.fn() }));
@@ -15,6 +16,8 @@ vi.mock("@/utils/queue/ai-queue", () => ({
 }));
 vi.mock("@/utils/sleep", () => ({ sleep: vi.fn() }));
 vi.mock("@/components/Toast", () => ({ toastError: vi.fn() }));
+
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
 
 describe("onRun", () => {
   beforeEach(() => {
@@ -35,7 +38,7 @@ describe("onRun", () => {
 
     const abort = await onRun(
       "account-id",
-      { startDate: new Date("2026-01-01T00:00:00.000Z") },
+      { i18n, startDate: new Date("2026-01-01T00:00:00.000Z") },
       onThreadsQueued,
       onComplete,
     );
@@ -70,7 +73,7 @@ describe("onRun", () => {
 
     const abort = await onRun(
       "account-id",
-      { startDate: new Date("2026-01-01T00:00:00.000Z") },
+      { i18n, startDate: new Date("2026-01-01T00:00:00.000Z") },
       vi.fn(),
       onComplete,
     );
@@ -103,7 +106,7 @@ describe("onRun", () => {
 
     await onRun(
       "account-id",
-      { startDate: new Date("2026-01-01T00:00:00.000Z") },
+      { i18n, startDate: new Date("2026-01-01T00:00:00.000Z") },
       vi.fn(),
       onComplete,
     );
@@ -130,7 +133,7 @@ describe("onRun", () => {
 
     await onRun(
       "account-id",
-      { startDate: new Date("2026-01-01T00:00:00.000Z") },
+      { i18n, startDate: new Date("2026-01-01T00:00:00.000Z") },
       vi.fn(),
       onComplete,
     );
@@ -150,7 +153,7 @@ describe("onRun", () => {
 
     await onRun(
       "account-id",
-      { startDate: new Date("2026-01-01T00:00:00.000Z") },
+      { i18n, startDate: new Date("2026-01-01T00:00:00.000Z") },
       vi.fn(),
       onComplete,
     );
@@ -176,7 +179,7 @@ describe("onRun", () => {
 
     await onRun(
       "account-id",
-      { startDate: new Date("2026-01-01T00:00:00.000Z"), rerun: true },
+      { i18n, startDate: new Date("2026-01-01T00:00:00.000Z"), rerun: true },
       vi.fn(),
       onComplete,
     );
@@ -206,6 +209,7 @@ describe("onRun", () => {
     await onRun(
       "account-id",
       {
+        i18n,
         startDate: new Date("2026-01-01T00:00:00.000Z"),
         rerun: true,
         maxEmails: 1,
