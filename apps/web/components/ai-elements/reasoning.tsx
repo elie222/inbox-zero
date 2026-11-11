@@ -137,7 +137,7 @@ const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
     <span>
       <Plural
         value={duration}
-        one="Thought for # seconds"
+        one="Thought for # second"
         other="Thought for # seconds"
       />
     </span>

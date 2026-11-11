@@ -92,8 +92,8 @@ msgid "{description} Details: {details}"
 msgstr "{description} Details: {details}"
 
 #: components/ai-elements/reasoning.tsx
-msgid "{duration, plural, one {Thought for # seconds} other {Thought for # seconds}}"
-msgstr "{duration, plural, one {Thought for # seconds} other {Thought for # seconds}}"
+msgid "{duration, plural, one {Thought for # second} other {Thought for # seconds}}"
+msgstr "{duration, plural, one {Thought for # second} other {Thought for # seconds}}"
 
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "{errorCount, plural, one {Failed to send # invitation} other {Failed to send # invitations}}"

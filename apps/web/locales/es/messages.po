@@ -92,7 +92,7 @@ msgid "{description} Details: {details}"
 msgstr "{description} Detalles: {details}"
 
 #: components/ai-elements/reasoning.tsx
-msgid "{duration, plural, one {Thought for # seconds} other {Thought for # seconds}}"
+msgid "{duration, plural, one {Thought for # second} other {Thought for # seconds}}"
 msgstr "{duration, plural, one {Pensó durante # segundo} other {Pensó durante # segundos}}"
 
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
