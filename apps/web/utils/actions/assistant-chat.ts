@@ -5,12 +5,14 @@ import prisma from "@/utils/prisma";
 import {
   cancelBulkInboxActionJobBody,
   confirmAssistantBulkInboxActionBody,
+  dismissAssistantBulkInboxActionBody,
   confirmAssistantCreateRuleBody,
   confirmAssistantEmailActionBody,
   confirmAssistantSaveMemoryBody,
 } from "./assistant-chat.validation";
 import {
   confirmAssistantBulkInboxActionForAccount,
+  dismissAssistantBulkInboxActionForAccount,
   confirmAssistantCreateRuleForAccount,
   confirmAssistantEmailActionForAccount,
   confirmAssistantSaveMemoryForAccount,
@@ -93,6 +95,23 @@ export const confirmAssistantBulkInboxAction = actionClient
         chatMessageId,
         toolCallId,
         waitForPersistence: true,
+        emailAccountId,
+        logger,
+      }),
+  );
+
+export const dismissAssistantBulkInboxAction = actionClient
+  .metadata({ name: "dismissAssistantBulkInboxAction" })
+  .inputSchema(dismissAssistantBulkInboxActionBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { chatId, chatMessageId, toolCallId },
+    }) =>
+      dismissAssistantBulkInboxActionForAccount({
+        chatId,
+        chatMessageId,
+        toolCallId,
         emailAccountId,
         logger,
       }),

@@ -72,54 +72,12 @@ test("archives unread newsletters in the background and leaves conversations alo
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
 
-  const marker = `bulkdemo${Date.now().toString(36)}`;
-  const newsletters: SeededMessage[] = [];
-  for (let index = 0; index < NEWSLETTER_COUNT; index++) {
-    const from = NEWSLETTER_SENDERS[index % NEWSLETTER_SENDERS.length];
-    newsletters.push(
-      await insertInboxMessage(page, {
-        from,
-        subject: `${from.split(" <")[0]} issue #${index + 1}`,
-        body: `This week's highlights, deals and updates. Unsubscribe any time. ${marker}`,
-        internalDate: Date.now() - index * 60_000,
-      }),
-    );
-  }
-  const conversations: SeededMessage[] = [];
-  for (const [index, conversation] of CONVERSATIONS.entries()) {
-    conversations.push(
-      await insertInboxMessage(page, {
-        ...conversation,
-        body: `Hi, quick note from me before our meeting. ${marker}`,
-        internalDate: Date.now() - (index + 1) * 90_000,
-      }),
-    );
-  }
-
-  await scriptReply({
-    match: "newsletters i never read",
-    toolCall: {
-      name: "bulkManageInbox",
-      arguments: {
-        query: `in:inbox is:unread ${marker}`,
-        action: "archive_threads",
-        instruction: INSTRUCTION,
-      },
-    },
-  });
-  await scriptReply({
-    match: "bulk_inbox_action",
-    text: "I found the unread mail and will check each one, archiving only the newsletters and promotions. Nothing has changed yet: confirm in the card to start.",
+  const { newsletters, conversations } = await seedMailboxAndScript(page, {
+    newsletterCount: NEWSLETTER_COUNT,
   });
   await scriptReply({
     match: '"status":"completed"',
-    text: "Done. I checked 60 unread emails, archived 56 newsletters and promotions, and left your 4 conversations in the inbox.",
-  });
-  // Slow enough to see the job running, fast enough to finish in seconds.
-  await scriptReply({
-    match: "decide which emails a bulk inbox action",
-    object: { matchingEmailIds: newsletters.map((message) => message.id) },
-    slow: true,
+    text: "Done: archived 56 newsletters and kept your 4 conversations.",
   });
 
   await page.goto(`/${emailAccountId}/assistant`);
@@ -127,10 +85,16 @@ test("archives unread newsletters in the background and leaves conversations alo
 
   const card = page.getByTestId("bulk-inbox-action-card");
   await expect(card).toBeVisible({ timeout: 90_000 });
-  await expect(card.getByText("60 threads")).toBeVisible();
-  await expect(card.getByText(INSTRUCTION)).toBeVisible();
-  const confirm = card.getByRole("button", { name: "Confirm" });
-  await expect(confirm).toBeEnabled({ timeout: 30_000 });
+  // The preview filters sample emails, so the title counts what will change.
+  await expect(
+    card.getByText(/^Archive ~\d+ newsletters and promotions$/),
+  ).toBeVisible();
+  await expect(card.getByText(/Tech Weekly.*\+ more/)).toBeVisible();
+  // Conversations the instruction keeps are not shown as examples.
+  await expect(card.getByText(/Dana Levi|Sam Ortiz/)).toHaveCount(0);
+  await expect(card.getByText(INSTRUCTION)).toBeHidden();
+  const archive = card.getByRole("button", { name: "Archive", exact: true });
+  await expect(archive).toBeEnabled({ timeout: 30_000 });
   await card.scrollIntoViewIfNeeded();
   await capturePlaywrightCheckpoint(
     page,
@@ -138,17 +102,16 @@ test("archives unread newsletters in the background and leaves conversations alo
     "bulk-inbox-action-1-confirmation",
   );
 
-  await confirm.click();
-  await expect(card.getByText("Running", { exact: true })).toBeVisible({
-    timeout: 30_000,
-  });
+  await archive.click();
+  await expect(card.getByText("Archiving…")).toBeVisible({ timeout: 30_000 });
+  await expect(card.getByRole("button", { name: "Stop" })).toBeVisible();
   await capturePlaywrightCheckpoint(
     page,
     testInfo,
     "bulk-inbox-action-2-in-progress",
   );
 
-  await expect(card.getByText("Completed", { exact: true })).toBeVisible({
+  await expect(card.getByText("Archived 56 · kept 4")).toBeVisible({
     timeout: 120_000,
   });
 
@@ -189,6 +152,90 @@ test("archives unread newsletters in the background and leaves conversations alo
     "bulk-inbox-action-3-final-totals",
   );
 });
+
+test("cancelling the card leaves the mailbox untouched", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
+  const { newsletters } = await seedMailboxAndScript(page, {
+    newsletterCount: 6,
+  });
+
+  await page.goto(`/${emailAccountId}/assistant`);
+  await sendChatMessage(page, PROMPT);
+
+  const card = page.getByTestId("bulk-inbox-action-card");
+  await expect(
+    card.getByRole("button", { name: "Archive", exact: true }),
+  ).toBeEnabled({
+    timeout: 90_000,
+  });
+  await card.getByRole("button", { name: "Cancel" }).click();
+  await expect(card.getByText("Cancelled. Nothing changed.")).toBeVisible();
+
+  expect(await readLatestBulkJob(emailAccountId)).toBeUndefined();
+  const token = await readProviderAccessToken();
+  for (const message of newsletters) {
+    expect(await readLabelIds(page, token, message.id)).toContain("INBOX");
+  }
+});
+
+async function seedMailboxAndScript(
+  page: Page,
+  { newsletterCount }: { newsletterCount: number },
+) {
+  const marker = `bulkdemo${Date.now().toString(36)}`;
+  const newsletters: SeededMessage[] = [];
+  for (let index = 0; index < newsletterCount; index++) {
+    const from = NEWSLETTER_SENDERS[index % NEWSLETTER_SENDERS.length];
+    newsletters.push(
+      await insertInboxMessage(page, {
+        from,
+        subject: `${from.split(" <")[0]} issue #${index + 1}`,
+        body: `This week's highlights, deals and updates. Unsubscribe any time. ${marker}`,
+        internalDate: Date.now() - index * 60_000,
+      }),
+    );
+  }
+  const conversations: SeededMessage[] = [];
+  for (const [index, conversation] of CONVERSATIONS.entries()) {
+    conversations.push(
+      await insertInboxMessage(page, {
+        ...conversation,
+        body: `Hi, quick note from me before our meeting. ${marker}`,
+        internalDate: Date.now() - (index + 1) * 90_000,
+      }),
+    );
+  }
+
+  await scriptReply({
+    match: "newsletters i never read",
+    toolCall: {
+      name: "bulkManageInbox",
+      arguments: {
+        query: `in:inbox is:unread ${marker}`,
+        action: "archive_threads",
+        instruction: INSTRUCTION,
+      },
+    },
+  });
+  await scriptReply({
+    match: "bulk_inbox_action",
+    text: "Ready to archive your unread newsletters once you confirm.",
+  });
+  // Serves both the card's preview and the job. Slow enough to see the job
+  // running, fast enough to finish in seconds.
+  await scriptReply({
+    match: "decide which emails a bulk inbox action",
+    object: {
+      matchingEmailIds: newsletters.map((message) => message.id),
+      matchSummary: "newsletters and promotions",
+    },
+    slow: true,
+  });
+
+  return { newsletters, conversations };
+}
 
 async function insertInboxMessage(
   page: Page,

@@ -841,7 +841,13 @@ export function MessagePart({
         return renderToolError(toolCallId, part.output);
       }
       return (
-        <BasicToolInfo key={toolCallId} text="No emails matched the search" />
+        <BasicToolInfo
+          key={toolCallId}
+          text={
+            getOutputField<string>(part.output, "message") ||
+            "No emails matched, so nothing changed."
+          }
+        />
       );
     }
   }

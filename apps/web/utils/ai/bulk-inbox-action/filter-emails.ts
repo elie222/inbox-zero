@@ -20,17 +20,31 @@ const filterResultSchema = z.object({
     .describe("IDs of the emails that match the user's instruction."),
 });
 
-/** Returns the IDs of the messages that match the user's plain-language instruction. */
+const previewResultSchema = filterResultSchema.extend({
+  matchSummary: z
+    .string()
+    .describe(
+      'A plural noun phrase of 2 to 5 words naming the kind of emails that match, in the language of the instruction, such as "newsletters and promotions". Empty when none match.',
+    ),
+});
+
+/**
+ * Returns the IDs of the messages that match the user's plain-language
+ * instruction. With `describeMatches`, also names the matching emails, so a
+ * preview can say what the action will affect.
+ */
 export async function aiFilterEmailsForBulkAction({
   emailAccount,
   instruction,
   messages,
+  describeMatches = false,
 }: {
   emailAccount: EmailAccountWithAI;
   instruction: string;
   messages: ParsedMessage[];
-}): Promise<Set<string>> {
-  if (!messages.length) return new Set();
+  describeMatches?: boolean;
+}): Promise<{ matchingIds: Set<string>; matchSummary: string | null }> {
+  if (!messages.length) return { matchingIds: new Set(), matchSummary: null };
 
   const system = `You decide which emails a bulk inbox action should apply to.
 The user gave an instruction describing which emails to include. For each email, decide whether it matches the instruction.
@@ -85,11 +99,18 @@ The current date is ${formatDateForLLM(new Date())}.`;
     ...modelOptions,
     instructions: system,
     prompt,
-    schema: filterResultSchema,
+    schema: describeMatches ? previewResultSchema : filterResultSchema,
   });
 
   const knownIds = new Set(messages.map((message) => message.id));
-  return new Set(
-    result.object.matchingEmailIds.filter((id) => knownIds.has(id)),
-  );
+  const matchSummary =
+    "matchSummary" in result.object
+      ? String(result.object.matchSummary).trim()
+      : "";
+  return {
+    matchingIds: new Set(
+      result.object.matchingEmailIds.filter((id) => knownIds.has(id)),
+    ),
+    matchSummary: matchSummary || null,
+  };
 }

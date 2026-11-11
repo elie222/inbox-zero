@@ -62,12 +62,14 @@ describe("processBulkInboxActionJobChunk", () => {
     useMailbox(mailbox);
     job.instruction = "newsletters";
     vi.mocked(aiFilterEmailsForBulkAction).mockImplementation(
-      async ({ messages }) =>
-        new Set(
+      async ({ messages }) => ({
+        matchingIds: new Set(
           messages
             .filter((message) => message.headers.from === "news@letter.com")
             .map((message) => message.id),
         ),
+        matchSummary: null,
+      }),
     );
 
     const outcome = await runChunk();
@@ -131,7 +133,10 @@ describe("processBulkInboxActionJobChunk", () => {
     vi.mocked(aiFilterEmailsForBulkAction).mockImplementation(
       async ({ messages }) => {
         job.status = "CANCELLED";
-        return new Set(messages.map((message) => message.id));
+        return {
+          matchingIds: new Set(messages.map((message) => message.id)),
+          matchSummary: null,
+        };
       },
     );
 

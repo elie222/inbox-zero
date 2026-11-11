@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2 } from "lucide-react";
-import { Badge, type Color } from "@/components/Badge";
+import { type ReactNode, useState } from "react";
+import { CheckIcon, ChevronDownIcon, Loader2 } from "lucide-react";
 import { toastError } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,35 +10,42 @@ import {
   CardFooter,
   CardHeader,
 } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
 import { useBulkInboxActionJob } from "@/hooks/useBulkInboxActionJob";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useChat } from "@/providers/ChatProvider";
 import {
   cancelBulkInboxActionJob,
   confirmAssistantBulkInboxAction,
+  dismissAssistantBulkInboxAction,
 } from "@/utils/actions/assistant-chat";
 import type { PendingBulkInboxActionToolOutput } from "@/utils/actions/assistant-chat.validation";
 import type { BulkInboxActionType } from "@/utils/bulk-inbox-action/validation";
 
-const ACTION_TITLES: Record<BulkInboxActionType, string> = {
-  archive_threads: "Archive emails",
-  trash_threads: "Move emails to trash",
-  mark_read_threads: "Mark emails as read",
-  label_threads: "Label emails",
+const ACTION_COPY: Record<
+  BulkInboxActionType,
+  { verb: string; running: string; done: string }
+> = {
+  archive_threads: { verb: "Archive", running: "Archiving", done: "Archived" },
+  trash_threads: { verb: "Trash", running: "Trashing", done: "Trashed" },
+  mark_read_threads: {
+    verb: "Mark read",
+    running: "Marking read",
+    done: "Marked read",
+  },
+  label_threads: { verb: "Label", running: "Labeling", done: "Labeled" },
 };
 
-const ACTED_LABELS: Record<BulkInboxActionType, string> = {
-  archive_threads: "Archived",
-  trash_threads: "Trashed",
-  mark_read_threads: "Marked read",
-  label_threads: "Labeled",
-};
+const MAX_SENDER_NAMES = 3;
 
-const STATUS_BADGES: Record<string, { label: string; color: Color }> = {
-  RUNNING: { label: "Running", color: "blue" },
-  COMPLETED: { label: "Completed", color: "green" },
-  FAILED: { label: "Failed", color: "red" },
-  CANCELLED: { label: "Stopped", color: "gray" },
+const RESULT_PREFIXES: Record<string, string> = {
+  CANCELLED: "Stopped · ",
+  FAILED: "Couldn't finish · ",
 };
 
 export function BulkInboxActionCard({
@@ -56,28 +62,18 @@ export function BulkInboxActionCard({
   const { emailAccountId } = useAccount();
   const { chatId } = useChat();
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isDismissing, setIsDismissing] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [confirmedJobId, setConfirmedJobId] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState(false);
 
   const jobId = confirmedJobId ?? output.confirmationResult?.jobId ?? null;
   const { data: job, mutate } = useBulkInboxActionJob(jobId);
-  const isProcessing = output.confirmationState === "processing";
 
-  const { pendingAction, estimate, samples } = output;
-  const title =
-    pendingAction.action === "label_threads" && pendingAction.labelName
-      ? `Label emails "${pendingAction.labelName}"`
-      : ACTION_TITLES[pendingAction.action];
-  const searchText = [
-    pendingAction.search.query,
-    pendingAction.search.fromEmail && `from ${pendingAction.search.fromEmail}`,
-    pendingAction.search.readState,
-    pendingAction.search.folderName && `in ${pendingAction.search.folderName}`,
-    pendingAction.search.categoryName &&
-      `category ${pendingAction.search.categoryName}`,
-  ]
-    .filter(Boolean)
-    .join(", ");
+  const { pendingAction, estimate, samples = [] } = output;
+  const copy = ACTION_COPY[pendingAction.action];
+  const isCancelled = dismissed || output.confirmationState === "cancelled";
+  const isProcessing = output.confirmationState === "processing";
 
   const handleConfirm = async () => {
     if (!chatId) {
@@ -107,6 +103,27 @@ export function BulkInboxActionCard({
     }
   };
 
+  const handleDismiss = async () => {
+    if (!chatId) return;
+    setIsDismissing(true);
+    try {
+      const result = await dismissAssistantBulkInboxAction(emailAccountId, {
+        chatId,
+        chatMessageId,
+        toolCallId,
+      });
+      if (result?.serverError) {
+        toastError({ description: result.serverError });
+        return;
+      }
+      setDismissed(true);
+    } catch {
+      toastError({ description: "Could not cancel this action." });
+    } finally {
+      setIsDismissing(false);
+    }
+  };
+
   const handleStop = async () => {
     if (!jobId) return;
     setIsStopping(true);
@@ -124,144 +141,229 @@ export function BulkInboxActionCard({
     }
   };
 
-  const statusBadge = job ? STATUS_BADGES[job.status] : null;
+  if (isCancelled) {
+    return (
+      <StatusCard>
+        <span className="text-muted-foreground">
+          Cancelled. Nothing changed.
+        </span>
+      </StatusCard>
+    );
+  }
+
+  if (jobId) {
+    if (!job || job.status === "RUNNING") {
+      const acted = job?.actedCount ?? 0;
+      const total = estimate?.searchThreadCount ?? 0;
+      // The total is an estimate, so the bar never claims to be finished.
+      const progress = total
+        ? Math.min(95, ((job?.processedCount ?? 0) / total) * 100)
+        : 0;
+      return (
+        <StatusCard
+          action={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleStop}
+              disabled={isStopping}
+            >
+              Stop
+            </Button>
+          }
+        >
+          <div className="flex items-center gap-2">
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            <span className="font-medium">{copy.running}…</span>
+            {acted > 0 && (
+              <span className="tabular-nums text-muted-foreground">
+                {acted.toLocaleString()} so far
+              </span>
+            )}
+          </div>
+          <Progress
+            value={progress}
+            className="mt-2 h-1.5"
+            aria-label={`${copy.running} progress`}
+          />
+        </StatusCard>
+      );
+    }
+
+    return (
+      <StatusCard>
+        <div className="flex items-center gap-2">
+          {job.status === "COMPLETED" && (
+            <CheckIcon className="size-4 shrink-0 text-green-600" />
+          )}
+          <span className="font-medium">
+            {getResultSentence({
+              status: job.status,
+              doneLabel: copy.done,
+              acted: job.actedCount,
+              kept: job.skippedCount,
+              failed: job.failedCount,
+            })}
+          </span>
+        </div>
+        {job.error && (
+          <p className="mt-1 text-xs text-muted-foreground">{job.error}</p>
+        )}
+      </StatusCard>
+    );
+  }
+
+  const senders = getSenderNames(samples);
+  const hasMore = (estimate?.threadCount ?? 0) > senders.length;
 
   return (
     <Card data-testid="bulk-inbox-action-card">
-      <CardHeader className="px-4 py-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-medium">{title}</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {getSubtitle({ jobId, status: job?.status })}
-            </p>
-          </div>
-          {statusBadge && (
-            <Badge color={statusBadge.color} className="text-xs">
-              {statusBadge.label}
-            </Badge>
-          )}
-        </div>
+      <CardHeader className="space-y-1 border-b px-4 py-3.5">
+        <h3 className="text-sm font-semibold leading-tight">
+          {getTitle({ output, verb: copy.verb })}
+        </h3>
+        {senders.length > 0 && (
+          <p className="truncate text-xs text-muted-foreground">
+            {senders.join(", ")}
+            {hasMore ? " + more" : ""}
+          </p>
+        )}
       </CardHeader>
 
-      <CardContent className="space-y-3 px-4 py-3.5 text-sm">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-          <dt className="text-muted-foreground">Search</dt>
-          <dd className="break-words">{searchText}</dd>
-          {pendingAction.instruction && (
-            <>
-              <dt className="text-muted-foreground">Only if</dt>
-              <dd className="break-words">{pendingAction.instruction}</dd>
-            </>
-          )}
-          {estimate && !jobId && (
-            <>
-              <dt className="text-muted-foreground">Matches</dt>
-              <dd>
-                {estimate.isLowerBound
-                  ? `At least ${estimate.threadCount} threads`
-                  : `${estimate.threadCount} threads`}
-                {pendingAction.instruction
-                  ? ", each checked against the condition"
-                  : ""}
-              </dd>
-            </>
-          )}
-        </dl>
-
-        {!jobId && samples && samples.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-xs text-muted-foreground">
-              {pendingAction.instruction
-                ? "Some search matches, before the condition is checked"
-                : "Some of the matching emails"}
-            </p>
-            <ul className="space-y-1 rounded-md border bg-muted/30 px-3 py-2">
-              {samples.map((sample, index) => (
-                <li
-                  key={`${sample.subject}-${index}`}
-                  className="truncate text-xs"
-                >
-                  <span className="font-medium">{sample.from}</span>
-                  {" · "}
-                  {sample.subject}
-                </li>
-              ))}
-            </ul>
+      <Collapsible>
+        <CardFooter className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="ghostMuted"
+              size="sm"
+              className="group h-8 gap-1 text-xs"
+            >
+              Details
+              <ChevronDownIcon className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
+            </Button>
+          </CollapsibleTrigger>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDismiss}
+              disabled={isDismissing || isConfirming || isProcessing}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant={
+                pendingAction.action === "trash_threads"
+                  ? "destructive"
+                  : "default"
+              }
+              onClick={handleConfirm}
+              disabled={
+                disableConfirm || isConfirming || isProcessing || isDismissing
+              }
+              className="gap-2"
+            >
+              {(isConfirming || isProcessing) && (
+                <Loader2 className="size-4 animate-spin" />
+              )}
+              {copy.verb}
+            </Button>
           </div>
-        )}
-
-        {job && (
-          <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-4">
-            <JobCount label="Checked" value={job.processedCount} />
-            <JobCount
-              label={ACTED_LABELS[pendingAction.action]}
-              value={job.actedCount}
-            />
-            <JobCount label="Skipped" value={job.skippedCount} />
-            <JobCount label="Failed" value={job.failedCount} />
-          </dl>
-        )}
-        {job?.error && <p className="text-xs text-red-600">{job.error}</p>}
-      </CardContent>
-
-      {!jobId && (
-        <CardFooter className="justify-end border-t px-4 py-3">
-          <Button
-            onClick={handleConfirm}
-            disabled={disableConfirm || isConfirming || isProcessing}
-            size="sm"
-            variant={
-              pendingAction.action === "trash_threads"
-                ? "destructive"
-                : "default"
-            }
-            className="gap-2"
-          >
-            {(isConfirming || isProcessing) && (
-              <Loader2 className="size-4 animate-spin" />
+        </CardFooter>
+        <CollapsibleContent>
+          <CardContent className="space-y-1 border-t px-4 py-3 text-xs text-muted-foreground">
+            <p className="break-words">
+              Search: {formatSearch(pendingAction.search)}
+            </p>
+            {pendingAction.instruction && (
+              <p className="break-words">
+                Only if: {pendingAction.instruction}
+              </p>
             )}
-            {isConfirming || isProcessing ? "Starting..." : "Confirm"}
-          </Button>
-        </CardFooter>
-      )}
-
-      {job?.status === "RUNNING" && (
-        <CardFooter className="justify-end border-t px-4 py-3">
-          <Button
-            onClick={handleStop}
-            disabled={isStopping}
-            size="sm"
-            variant="outline"
-          >
-            Stop
-          </Button>
-        </CardFooter>
-      )}
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   );
 }
 
-function getSubtitle({
-  jobId,
-  status,
+function StatusCard({
+  children,
+  action,
 }: {
-  jobId: string | null;
-  status?: string;
+  children: ReactNode;
+  action?: ReactNode;
 }) {
-  if (!jobId) return "Pending confirmation";
-  if (status === "COMPLETED") return "Finished";
-  if (status === "FAILED") return "Stopped by an error";
-  if (status === "CANCELLED")
-    return "Stopped. Emails already handled stay that way.";
-  return "Running in the background. You can leave this chat.";
+  return (
+    <Card data-testid="bulk-inbox-action-card">
+      <CardContent className="flex items-center gap-3 px-4 py-3 text-sm">
+        <div className="min-w-0 flex-1">{children}</div>
+        {action}
+      </CardContent>
+    </Card>
+  );
 }
 
-function JobCount({ label, value }: { label: string; value: number }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="font-medium tabular-nums">{value.toLocaleString()}</dd>
-    </div>
-  );
+function getTitle({
+  output,
+  verb,
+}: {
+  output: PendingBulkInboxActionToolOutput;
+  verb: string;
+}) {
+  const { estimate, matchSummary, pendingAction, samples = [] } = output;
+  const count = estimate
+    ? `${estimate.isApproximate ? "~" : ""}${estimate.threadCount.toLocaleString()}`
+    : "";
+  const senders = getSenderNames(samples);
+  const what =
+    matchSummary ||
+    (senders.length === 1 ? `emails from ${senders[0]}` : "emails");
+  const label =
+    pendingAction.action === "label_threads" && pendingAction.labelName
+      ? ` as "${pendingAction.labelName}"`
+      : "";
+  return [verb, count, what].filter(Boolean).join(" ") + label;
+}
+
+function getResultSentence({
+  status,
+  doneLabel,
+  acted,
+  kept,
+  failed,
+}: {
+  status: string;
+  doneLabel: string;
+  acted: number;
+  kept: number;
+  failed: number;
+}) {
+  const parts = [`${doneLabel} ${acted.toLocaleString()}`];
+  if (kept) parts.push(`kept ${kept.toLocaleString()}`);
+  if (failed) parts.push(`${failed.toLocaleString()} failed`);
+  return (RESULT_PREFIXES[status] ?? "") + parts.join(" · ");
+}
+
+function getSenderNames(samples: Array<{ from: string }>) {
+  const names = samples.map((sample) => {
+    const match = sample.from.match(/^\s*"?([^"<]+?)"?\s*</);
+    return (match?.[1] ?? sample.from).trim();
+  });
+  return [...new Set(names.filter(Boolean))].slice(0, MAX_SENDER_NAMES);
+}
+
+function formatSearch(
+  search: PendingBulkInboxActionToolOutput["pendingAction"]["search"],
+) {
+  return [
+    search.query,
+    search.fromEmail && `from ${search.fromEmail}`,
+    search.readState,
+    search.folderName && `in ${search.folderName}`,
+    search.categoryName && `category ${search.categoryName}`,
+  ]
+    .filter(Boolean)
+    .join(", ");
 }

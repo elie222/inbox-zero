@@ -183,7 +183,12 @@ export const pendingBulkInboxActionToolOutputSchema = z.object({
   success: z.literal(true),
   actionType: z.literal("bulk_inbox_action"),
   requiresConfirmation: z.literal(true),
-  confirmationState: z.enum(["pending", "processing", "confirmed"]),
+  confirmationState: z.enum([
+    "pending",
+    "processing",
+    "confirmed",
+    "cancelled",
+  ]),
   confirmationProcessingAt: z.string().optional(),
   pendingAction: z.object({
     search: bulkInboxActionSearchSchema,
@@ -193,8 +198,13 @@ export const pendingBulkInboxActionToolOutputSchema = z.object({
     instruction: z.string().nullable(),
   }),
   estimate: z
-    .object({ threadCount: z.number(), isLowerBound: z.boolean() })
+    .object({
+      threadCount: z.number(),
+      isApproximate: z.boolean(),
+      searchThreadCount: z.number(),
+    })
     .optional(),
+  matchSummary: z.string().nullish(),
   samples: z
     .array(
       z.object({ from: z.string(), subject: z.string(), date: z.string() }),
@@ -213,6 +223,9 @@ export type PendingBulkInboxActionToolOutput = z.infer<
 >;
 
 export const confirmAssistantBulkInboxActionBody =
+  confirmAssistantActionBaseBody;
+
+export const dismissAssistantBulkInboxActionBody =
   confirmAssistantActionBaseBody;
 
 export const cancelBulkInboxActionJobBody = z.object({

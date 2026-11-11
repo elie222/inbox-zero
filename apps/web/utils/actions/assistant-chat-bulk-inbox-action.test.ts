@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
-import { confirmAssistantBulkInboxActionForAccount } from "@/utils/actions/assistant-chat-confirmation";
+import {
+  confirmAssistantBulkInboxActionForAccount,
+  dismissAssistantBulkInboxActionForAccount,
+} from "@/utils/actions/assistant-chat-confirmation";
 import { enqueueBulkInboxActionChunk } from "@/utils/bulk-inbox-action/enqueue";
 
 vi.mock("server-only", () => ({}));
@@ -171,8 +174,66 @@ function buildPendingPart() {
         labelName: null,
         instruction: "only newsletters",
       },
-      estimate: { threadCount: 150, isLowerBound: true },
+      estimate: {
+        threadCount: 150,
+        isApproximate: true,
+        searchThreadCount: 150,
+      },
       samples: [],
     },
   };
+}
+
+describe("dismissAssistantBulkInboxActionForAccount", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 });
+  });
+
+  it("marks a pending action cancelled without starting a job", async () => {
+    mockChatMessage(buildPendingPart());
+
+    const result = await dismiss();
+
+    expect(result.confirmationState).toBe("cancelled");
+    const parts = (prisma.chatMessage.updateMany.mock.calls[0][0] as any).data
+      .parts;
+    expect(parts[0].output.confirmationState).toBe("cancelled");
+    expect(prisma.bulkInboxActionJob.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses to cancel an action that already started", async () => {
+    const pending = buildPendingPart();
+    mockChatMessage({
+      ...pending,
+      output: {
+        ...pending.output,
+        confirmationState: "confirmed",
+        confirmationResult: { jobId: "job-1", confirmedAt: "2026-11-11" },
+      },
+    });
+
+    await expect(dismiss()).rejects.toThrow("already started");
+  });
+
+  it("does not let a cancelled action be confirmed later", async () => {
+    const pending = buildPendingPart();
+    mockChatMessage({
+      ...pending,
+      output: { ...pending.output, confirmationState: "cancelled" },
+    });
+
+    await expect(confirm()).rejects.toThrow("cancelled");
+    expect(enqueueBulkInboxActionChunk).not.toHaveBeenCalled();
+  });
+});
+
+function dismiss() {
+  return dismissAssistantBulkInboxActionForAccount({
+    chatId: "chat-1",
+    chatMessageId: "chat-message-1",
+    toolCallId: "tool-1",
+    emailAccountId: "ea_1",
+    logger: createTestLogger(),
+  });
 }

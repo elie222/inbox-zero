@@ -462,6 +462,11 @@ export async function confirmAssistantBulkInboxActionForAccount({
       lookup.output.confirmationResult
         ? lookup.output.confirmationResult
         : null,
+    validateLookup: (lookup) => {
+      if (lookup.output.confirmationState === "cancelled") {
+        throw new SafeError("This action was cancelled.");
+      }
+    },
     logPrefix: "Assistant bulk inbox action confirmation",
     waitForPersistenceMs: waitForPersistence
       ? PENDING_ACTION_PERSIST_WAIT_MS
@@ -584,6 +589,63 @@ export async function confirmAssistantBulkInboxActionForAccount({
     confirmationState: "confirmed" as const,
     confirmationResult,
   };
+}
+
+/** Records that the user dismissed a pending bulk action, so chat knows nothing ran. */
+export async function dismissAssistantBulkInboxActionForAccount({
+  chatId,
+  chatMessageId,
+  toolCallId,
+  emailAccountId,
+  logger,
+}: {
+  chatId: string;
+  chatMessageId?: string;
+  toolCallId: string;
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  const findPart = (parts: unknown) =>
+    findPendingAssistantBulkInboxActionPart({ parts, toolCallId });
+  const chatMessage = await findChatMessageForPendingAction({
+    chatId,
+    chatMessageId,
+    emailAccountId,
+    logger,
+    matchParts: (parts) => !!findPart(parts),
+    logPrefix: "Assistant bulk inbox action dismissal",
+  });
+  const lookup = chatMessage ? findPart(chatMessage.parts) : null;
+  if (!chatMessage || !lookup) {
+    throw new SafeError("Pending bulk action not found");
+  }
+
+  const state = lookup.output.confirmationState;
+  if (state === "cancelled") return { confirmationState: "cancelled" as const };
+  if (state !== "pending") {
+    throw new SafeError("This action has already started.");
+  }
+
+  await persistConfirmedAssistantPart({
+    chatMessageId: chatMessage.id,
+    emailAccountId,
+    logger: logger.with({ chatMessageId: chatMessage.id, toolCallId }),
+    findPart,
+    isConfirmed: (current) => current.output.confirmationState === "cancelled",
+    buildParts: ({ parts, partIndex }) => {
+      const current = findPart(parts);
+      if (current?.output.confirmationState !== "pending") {
+        throw new SafeError("This action has already started.");
+      }
+      return updateAssistantEmailPartOutput({
+        parts,
+        partIndex,
+        outputPatch: { confirmationState: "cancelled" },
+      });
+    },
+  });
+
+  return { confirmationState: "cancelled" as const };
 }
 
 async function executeAssistantEmailAction({

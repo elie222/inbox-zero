@@ -15,10 +15,15 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import type { Logger } from "@/utils/logger";
 import { posthogCaptureEvent } from "@/utils/posthog";
+import { aiFilterEmailsForBulkAction } from "@/utils/ai/bulk-inbox-action/filter-emails";
+import type { ParsedMessage } from "@/utils/types";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const ESTIMATE_PAGE_SIZE = 50;
 const ESTIMATE_MAX_PAGES = 3;
 const SAMPLE_COUNT = 5;
+// One economy call on the first matches previews what the instruction keeps.
+const PREVIEW_FILTER_SIZE = 25;
 
 const instructionSchema = z
   .string()
@@ -107,7 +112,7 @@ const description = (searchToolTerms: string) =>
 
 Before calling, search to check the ${searchToolTerms} returns the intended emails, and ask the user about anything unclear. Add instruction when the search alone cannot separate which emails qualify. Only use trash_threads when the user explicitly asks to delete or trash.
 
-Nothing changes when this is called: it returns an estimate and samples, and the user must confirm in the UI before the job starts. Tell the user it is waiting for their confirmation. Once confirmed, the job's progress and totals appear in later context; report those numbers, not estimates.`;
+Nothing changes when this is called: it returns a card with an estimate and examples, and the user must confirm in the UI before the job starts. The card already shows those details, so reply in one short line that it is ready to confirm. Once confirmed, the job's progress and totals appear in later context; report those numbers, not estimates.`;
 
 const gmailBulkInboxTool = (options: BulkInboxToolOptions) =>
   tool({
@@ -204,8 +209,8 @@ async function prepareBulkInboxAction({
         : null;
     if (label && "error" in label) return hideToolErrorFromUser(label);
 
+    const threads: ParsedMessage[] = [];
     const threadIds = new Set<string>();
-    const samples: Array<{ from: string; subject: string; date: string }> = [];
     let pageToken: string | undefined;
     let hasMore = false;
 
@@ -221,13 +226,7 @@ async function prepareBulkInboxAction({
       for (const message of page.messages) {
         if (!message.threadId || threadIds.has(message.threadId)) continue;
         threadIds.add(message.threadId);
-        if (samples.length < SAMPLE_COUNT) {
-          samples.push({
-            from: message.headers.from,
-            subject: message.headers.subject,
-            date: message.date,
-          });
-        }
+        threads.push(message);
       }
 
       pageToken = page.nextPageToken;
@@ -244,6 +243,33 @@ async function prepareBulkInboxAction({
       };
     }
 
+    const preview = instruction
+      ? await previewInstruction({
+          emailAccountId,
+          instruction,
+          threads: threads.slice(0, PREVIEW_FILTER_SIZE),
+          logger,
+        })
+      : null;
+
+    if (preview && preview.matches.length === 0) {
+      return {
+        success: true,
+        estimatedThreadCount: 0,
+        message: `None of the ${preview.checkedCount} emails checked match "${instruction}", so nothing was prepared and nothing changed.`,
+      };
+    }
+
+    const matchingThreads = preview?.matches ?? threads;
+    const estimatedThreadCount = preview
+      ? Math.max(
+          preview.matches.length,
+          Math.round(
+            (threadIds.size * preview.matches.length) / preview.checkedCount,
+          ),
+        )
+      : threadIds.size;
+
     return {
       success: true,
       actionType: "bulk_inbox_action" as const,
@@ -257,15 +283,54 @@ async function prepareBulkInboxAction({
         instruction: instruction ?? null,
       },
       estimate: {
-        threadCount: threadIds.size,
-        isLowerBound: hasMore,
+        threadCount: estimatedThreadCount,
+        isApproximate: hasMore || Boolean(preview),
+        searchThreadCount: threadIds.size,
       },
-      samples,
+      matchSummary: preview?.matchSummary ?? null,
+      samples: matchingThreads.slice(0, SAMPLE_COUNT).map((message) => ({
+        from: message.headers.from,
+        subject: message.headers.subject,
+        date: message.date,
+      })),
       nextStep:
-        "Nothing has changed yet. Tell the user the action is waiting for them to confirm it in the card.",
+        "Nothing has changed yet. It is waiting for the user's confirmation.",
     };
   } catch (error) {
     logger.error("Failed to prepare bulk inbox action", { error });
     return { error: "Failed to search the inbox for this bulk action." };
+  }
+}
+
+// Without a working preview the card falls back to the unfiltered search, and
+// the job still filters every email.
+async function previewInstruction({
+  emailAccountId,
+  instruction,
+  threads,
+  logger,
+}: {
+  emailAccountId: string;
+  instruction: string;
+  threads: ParsedMessage[];
+  logger: Logger;
+}) {
+  try {
+    const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+    if (!emailAccount) return null;
+    const { matchingIds, matchSummary } = await aiFilterEmailsForBulkAction({
+      emailAccount,
+      instruction,
+      messages: threads,
+      describeMatches: true,
+    });
+    return {
+      matches: threads.filter((message) => matchingIds.has(message.id)),
+      matchSummary,
+      checkedCount: threads.length,
+    };
+  } catch (error) {
+    logger.warn("Failed to preview bulk inbox action instruction", { error });
+    return null;
   }
 }

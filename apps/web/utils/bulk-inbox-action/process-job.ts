@@ -289,11 +289,11 @@ async function processThreads({
 
     let matchingIds: Set<string>;
     try {
-      matchingIds = await aiFilterEmailsForBulkAction({
+      ({ matchingIds } = await aiFilterEmailsForBulkAction({
         emailAccount,
         instruction,
         messages: batch,
-      });
+      }));
     } catch (error) {
       // Leave these threads untouched rather than guess.
       logger.warn("Failed to filter bulk inbox action batch", { error });
