@@ -5,7 +5,6 @@ import type {
   ScopeDescriptor,
 } from "@inboxzero/mail-core/ports/mailbox-source";
 import type { MessageKey, Provider } from "@inboxzero/mail-core/identities";
-import { MAX_SYNC_PAGE_CHANGES } from "@inboxzero/mail-core/sync";
 import type {
   BodyObservation,
   ProviderChange,
@@ -206,17 +205,6 @@ export function createEmailProviderMailboxSource(input: {
           (message) =>
             parsedMessagePatch(accountId, provider.name, message) ?? [],
         );
-        // A Gmail history record can expand to more messages than the requested
-        // page size. Rebuild from a fresh snapshot rather than dropping changes
-        // or advancing a checkpoint the client cannot apply.
-        if (
-          patches.length +
-            page.deletedMessageIds.length +
-            (page.removedMessageIds?.length ?? 0) >
-          MAX_SYNC_PAGE_CHANGES
-        ) {
-          return { status: "reset_required", scopeId: position.streamId };
-        }
         return {
           status: "page" as const,
           page: {
