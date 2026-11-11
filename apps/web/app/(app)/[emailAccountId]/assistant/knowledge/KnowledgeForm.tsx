@@ -4,6 +4,7 @@ import { useRef } from "react";
 import type { KeyedMutator } from "swr";
 import { CrownIcon } from "lucide-react";
 import Link from "next/link";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { useForm, Controller } from "react-hook-form";
@@ -42,6 +43,7 @@ export function KnowledgeForm({
   knowledgeItemsCount: number;
 }) {
   const { emailAccountId } = useAccount();
+  const { t } = useLingui();
   const { tier } = usePremium();
 
   const hasFullAccess = hasTierAccess({
@@ -65,7 +67,7 @@ export function KnowledgeForm({
           content: editingItem.content,
         }
       : {
-          title: "How to draft replies",
+          title: t`How to draft replies`,
           content: "",
         },
   });
@@ -89,14 +91,18 @@ export function KnowledgeForm({
 
     if (result?.serverError) {
       toastError({
-        title: `Error ${editingItem ? "updating" : "creating"} knowledge base entry`,
+        title: editingItem
+          ? t`Error updating knowledge base entry`
+          : t`Error creating knowledge base entry`,
         description: result.serverError || "",
       });
       return;
     }
 
     toastSuccess({
-      description: `Knowledge base entry ${editingItem ? "updated" : "created"} successfully`,
+      description: editingItem
+        ? t`Knowledge base entry updated successfully`
+        : t`Knowledge base entry created successfully`,
     });
 
     refetch();
@@ -109,14 +115,18 @@ export function KnowledgeForm({
         !hasFullAccess &&
         knowledgeItemsCount >= KNOWLEDGE_BASIC_MAX_ITEMS && (
           <AlertWithButton
-            title="Upgrade to add more knowledge base entries"
+            title={t`Upgrade to add more knowledge base entries`}
             description={
-              <>Switch to the Plus plan to add more knowledge base entries.</>
+              <Trans>
+                Switch to the Plus plan to add more knowledge base entries.
+              </Trans>
             }
             icon={<CrownIcon className="h-4 w-4" />}
             button={
               <Button asChild>
-                <Link href="/premium">Upgrade</Link>
+                <Link href="/premium">
+                  <Trans>Upgrade</Trans>
+                </Link>
               </Button>
             }
             variant="blue"
@@ -126,7 +136,7 @@ export function KnowledgeForm({
       <Input
         type="text"
         name="title"
-        label="Title"
+        label={t`Title`}
         registerProps={register("title")}
         error={errors.title}
       />
@@ -135,7 +145,7 @@ export function KnowledgeForm({
           htmlFor="content"
           className={cn(errors.content && "text-destructive")}
         >
-          Content (supports markdown)
+          <Trans>Content (supports markdown)</Trans>
         </Label>
         <Controller
           name="content"
@@ -159,7 +169,7 @@ export function KnowledgeForm({
         )}
       </div>
       <Button type="submit" loading={isSubmitting}>
-        {editingItem ? "Update" : "Create"}
+        {editingItem ? <Trans>Update</Trans> : <Trans>Create</Trans>}
       </Button>
     </form>
   );

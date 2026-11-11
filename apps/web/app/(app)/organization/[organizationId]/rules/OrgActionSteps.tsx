@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import type {
   Control,
   UseFormRegister,
@@ -86,11 +87,12 @@ function OrgActionCard({
   setValue: UseFormSetValue<OrgRuleFormValues>;
   onRemove: () => void;
 }) {
+  const { i18n } = useLingui();
   const actionTypeOptions = getAvailableOrganizationRuleActionTypes(
     id ? type : undefined,
   ).map((value) => ({
     value,
-    label: ACTION_TYPE_LABELS[value],
+    label: i18n._(ACTION_TYPE_LABELS[value]),
     icon: getActionIcon(value),
   }));
   const selectedOption = actionTypeOptions.find(

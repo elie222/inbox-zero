@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { SettingCard } from "@/components/SettingCard";
@@ -24,6 +25,7 @@ import { usePremium } from "@/hooks/usePremium";
 import { hasTierAccess } from "@/utils/premium";
 
 export function DigestSetting() {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const { data, isLoading, mutate } = useEmailAccountFull();
   const { tier, isLoading: isLoadingPremium } = usePremium();
@@ -40,7 +42,7 @@ export function DigestSetting() {
       onError: (error) => {
         mutate();
         toastError({
-          description: error.error?.serverError ?? "Failed to update settings",
+          description: error.error?.serverError ?? t`Failed to update settings`,
         });
       },
     },
@@ -70,7 +72,9 @@ export function DigestSetting() {
 
     if (!hasDigestAccess) {
       return (
-        <UpgradeToPlusButton tooltip="Upgrade to the Plus plan to enable daily digest emails." />
+        <UpgradeToPlusButton
+          tooltip={t`Upgrade to the Plus plan to enable daily digest emails.`}
+        />
       );
     }
 
@@ -80,7 +84,7 @@ export function DigestSetting() {
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
-                Configure
+                <Trans>Configure</Trans>
               </Button>
             </DialogTrigger>
             <DigestSettingsDialogContent onSuccess={() => setOpen(false)} />
@@ -97,8 +101,8 @@ export function DigestSetting() {
 
   return (
     <SettingCard
-      title="Digest"
-      description="Get a summary of emails matched by the rules you pick, on your schedule."
+      title={t`Digest`}
+      description={t`Get a summary of emails matched by the rules you pick, on your schedule.`}
       right={renderRight()}
     />
   );
@@ -114,10 +118,14 @@ export function DigestSettingsDialogContent({
   return (
     <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
-        <DialogTitle>Digest settings</DialogTitle>
+        <DialogTitle>
+          <Trans>Digest settings</Trans>
+        </DialogTitle>
         <DialogDescription>
-          Configure when your digest emails are sent and which rules are
-          included.
+          <Trans>
+            Configure when your digest emails are sent and which rules are
+            included.
+          </Trans>
         </DialogDescription>
       </DialogHeader>
 
