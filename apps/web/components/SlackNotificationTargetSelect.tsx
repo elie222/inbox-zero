@@ -79,9 +79,10 @@ export function SlackNotificationTargetSelect({
       },
       onError: (actionError) => {
         toastError({
-          description:
-            getActionErrorMessage(actionError.error) ??
+          description: getActionErrorMessage(
+            actionError.error,
             t`Failed to update destination`,
+          ),
         });
       },
     },

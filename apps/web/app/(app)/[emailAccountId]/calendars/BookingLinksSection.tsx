@@ -88,9 +88,10 @@ function InboxZeroBookingLinkPanel() {
       },
       onError: (actionError) => {
         toastError({
-          description:
-            getActionErrorMessage(actionError.error) ??
+          description: getActionErrorMessage(
+            actionError.error,
             t`Failed to create booking link`,
+          ),
         });
       },
     },
@@ -102,9 +103,10 @@ function InboxZeroBookingLinkPanel() {
       onSuccess: () => mutate(),
       onError: (actionError) => {
         toastError({
-          description:
-            getActionErrorMessage(actionError.error) ??
+          description: getActionErrorMessage(
+            actionError.error,
             t`Failed to update booking link`,
+          ),
         });
       },
     },

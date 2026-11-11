@@ -31,8 +31,7 @@ export function DeliveryChannelsSetting() {
       },
       onError: (error) => {
         toastError({
-          description:
-            getActionErrorMessage(error.error) ?? t`Failed to update`,
+          description: getActionErrorMessage(error.error, t`Failed to update`),
         });
       },
     },

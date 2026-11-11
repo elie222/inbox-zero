@@ -167,9 +167,10 @@ function GeneralTab({
     {
       onError: (error) => {
         toastError({
-          description:
-            getActionErrorMessage(error.error) ??
+          description: getActionErrorMessage(
+            error.error,
             t`Failed to update booking link`,
+          ),
         });
       },
     },
@@ -364,9 +365,10 @@ function AdvancedTab({
     {
       onError: (error) => {
         toastError({
-          description:
-            getActionErrorMessage(error.error) ??
+          description: getActionErrorMessage(
+            error.error,
             t`Failed to delete booking link`,
+          ),
         });
       },
     },

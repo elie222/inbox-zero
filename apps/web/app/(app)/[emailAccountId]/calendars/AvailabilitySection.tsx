@@ -79,9 +79,10 @@ function AvailabilityEditor({
       },
       onError: (actionError) => {
         toastError({
-          description:
-            getActionErrorMessage(actionError.error) ??
+          description: getActionErrorMessage(
+            actionError.error,
             t`Failed to update availability`,
+          ),
         });
       },
     },

@@ -369,8 +369,10 @@ function ConnectedChannelSection({
       },
       onError: (error) => {
         toastError({
-          description:
-            getActionErrorMessage(error.error) ?? t`Failed to disconnect`,
+          description: getActionErrorMessage(
+            error.error,
+            t`Failed to disconnect`,
+          ),
         });
       },
     },
@@ -572,8 +574,10 @@ function UnconnectedProviderSection({
       },
       onError: (error) => {
         toastError({
-          description:
-            getActionErrorMessage(error.error) ?? t`Failed to generate code`,
+          description: getActionErrorMessage(
+            error.error,
+            t`Failed to generate code`,
+          ),
         });
       },
     },
@@ -725,8 +729,7 @@ function RuleToggle({
       },
       onError: (error) => {
         toastError({
-          description:
-            getActionErrorMessage(error.error) ?? t`Failed to update`,
+          description: getActionErrorMessage(error.error, t`Failed to update`),
         });
       },
     },
@@ -848,8 +851,7 @@ function FeatureRouteToggle({
       },
       onError: (error) => {
         toastError({
-          description:
-            getActionErrorMessage(error.error) ?? t`Failed to update`,
+          description: getActionErrorMessage(error.error, t`Failed to update`),
         });
       },
     },

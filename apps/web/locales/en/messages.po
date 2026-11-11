@@ -788,10 +788,6 @@ msgstr "All rules disabled"
 msgid "All stale drafts were edited by you, so none were removed."
 msgstr "All stale drafts were edited by you, so none were removed."
 
-#: app/(app)/organization/[organizationId]/stats/OrgStats.tsx
-msgid "All time"
-msgstr "All time"
-
 #: app/(app)/organization/[organizationId]/OrgAnalyticsConsentBanner.tsx
 msgid "Allow Access"
 msgstr "Allow Access"
@@ -3506,10 +3502,6 @@ msgstr "Labels are ready"
 msgid "Language"
 msgstr "Language"
 
-#: app/(app)/organization/[organizationId]/stats/OrgStats.tsx
-msgid "Last 3 months"
-msgstr "Last 3 months"
-
 #: utils/date.ts
 msgid "Last 7 days"
 msgstr "Last 7 days"
@@ -3518,10 +3510,6 @@ msgstr "Last 7 days"
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Last delivery failed {0}"
 msgstr "Last delivery failed {0}"
-
-#: app/(app)/organization/[organizationId]/stats/OrgStats.tsx
-msgid "Last month"
-msgstr "Last month"
 
 #: app/(app)/organization/[organizationId]/Members.tsx
 msgid "Last processed email {relativeDate}."
@@ -3535,10 +3523,6 @@ msgstr "Last sent {0}"
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Last used"
 msgstr "Last used"
-
-#: app/(app)/organization/[organizationId]/stats/OrgStats.tsx
-msgid "Last week"
-msgstr "Last week"
 
 #: hooks/useCommandPaletteCommands.ts
 msgid "Layout, tabs and bundles"

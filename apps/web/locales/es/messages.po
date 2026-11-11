@@ -788,10 +788,6 @@ msgstr "Todas las reglas desactivadas"
 msgid "All stale drafts were edited by you, so none were removed."
 msgstr "Todos los borradores antiguos fueron editados por ti, así que no se eliminó ninguno."
 
-#: app/(app)/organization/[organizationId]/stats/OrgStats.tsx
-msgid "All time"
-msgstr "Todo el tiempo"
-
 #: app/(app)/organization/[organizationId]/OrgAnalyticsConsentBanner.tsx
 msgid "Allow Access"
 msgstr "Permitir acceso"
@@ -3506,10 +3502,6 @@ msgstr "Las etiquetas están listas"
 msgid "Language"
 msgstr "Idioma"
 
-#: app/(app)/organization/[organizationId]/stats/OrgStats.tsx
-msgid "Last 3 months"
-msgstr "Últimos 3 meses"
-
 #: utils/date.ts
 msgid "Last 7 days"
 msgstr "Últimos 7 días"
@@ -3518,10 +3510,6 @@ msgstr "Últimos 7 días"
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Last delivery failed {0}"
 msgstr "Falló el último envío: {0}"
-
-#: app/(app)/organization/[organizationId]/stats/OrgStats.tsx
-msgid "Last month"
-msgstr "El mes pasado"
 
 #: app/(app)/organization/[organizationId]/Members.tsx
 msgid "Last processed email {relativeDate}."
@@ -3535,10 +3523,6 @@ msgstr "Último envío {0}"
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Last used"
 msgstr "Último uso"
-
-#: app/(app)/organization/[organizationId]/stats/OrgStats.tsx
-msgid "Last week"
-msgstr "La semana pasada"
 
 #: hooks/useCommandPaletteCommands.ts
 msgid "Layout, tabs and bundles"

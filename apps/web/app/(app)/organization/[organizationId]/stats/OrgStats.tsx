@@ -4,7 +4,6 @@ import { useState, useMemo, useCallback } from "react";
 import type { DateRange } from "react-day-picker";
 import { subDays } from "date-fns/subDays";
 import { Mail, Sparkles, Users } from "lucide-react";
-import { msg } from "@lingui/core/macro";
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,34 +18,22 @@ import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
 import { AccessDenied } from "@/components/AccessDenied";
 
 const selectOptions = [
-  { label: msg`Last week`, value: "7" },
-  { label: msg`Last month`, value: "30" },
-  { label: msg`Last 3 months`, value: "90" },
-  { label: msg`All time`, value: "0" },
+  { label: "Last week", value: "7" },
+  { label: "Last month", value: "30" },
+  { label: "Last 3 months", value: "90" },
+  { label: "All time", value: "0" },
 ];
 const defaultSelected = selectOptions[1];
 
 export function OrgStats({ organizationId }: { organizationId: string }) {
-  const { t, i18n } = useLingui();
+  const { t } = useLingui();
   const { data: membership, isLoading: membershipLoading } =
     useOrganizationMembership();
   const isAdmin = hasOrganizationAdminRole(membership?.role ?? "");
 
-  const [dateDropdownValue, setDateDropdownValue] = useState<string>(
-    defaultSelected.value,
+  const [dateDropdown, setDateDropdown] = useState<string>(
+    defaultSelected.label,
   );
-
-  const translatedSelectOptions = useMemo(
-    () =>
-      selectOptions.map((option) => ({
-        label: i18n._(option.label),
-        value: option.value,
-      })),
-    [i18n],
-  );
-  const dateDropdown =
-    translatedSelectOptions.find((option) => option.value === dateDropdownValue)
-      ?.label ?? "";
 
   const now = useMemo(() => new Date(), []);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -56,7 +43,7 @@ export function OrgStats({ organizationId }: { organizationId: string }) {
 
   const onSetDateDropdown = useCallback(
     (option: { label: string; value: string }) => {
-      setDateDropdownValue(option.value);
+      setDateDropdown(option.label);
     },
     [],
   );
@@ -114,7 +101,7 @@ export function OrgStats({ organizationId }: { organizationId: string }) {
         <DatePickerWithRange
           dateRange={dateRange}
           onSetDateRange={setDateRange}
-          selectOptions={translatedSelectOptions}
+          selectOptions={selectOptions}
           dateDropdown={dateDropdown}
           onSetDateDropdown={onSetDateDropdown}
         />
