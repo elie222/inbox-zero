@@ -3875,6 +3875,10 @@ msgid "Couldn't reach the server to undo. Try again."
 msgstr "Couldn't reach the server to undo. Try again."
 
 #: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Couldn't refresh search results. Showing previously loaded emails."
+msgstr "Couldn't refresh search results. Showing previously loaded emails."
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
 msgid "Couldn't remove label"
 msgstr "Couldn't remove label"
 

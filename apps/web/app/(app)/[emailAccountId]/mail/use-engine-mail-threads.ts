@@ -93,8 +93,17 @@ export function useEngineMailThreads({
   return {
     threads,
     searchError: undefined,
-    isLoading: enabled && Boolean(client) && mailbox.status === "loading",
-    error: mailboxQueryError(mailbox.error),
+    isLoading:
+      enabled &&
+      Boolean(client) &&
+      (mailbox.status === "loading" ||
+        mailbox.data?.searchStatus === "loading"),
+    error: mailboxQueryError(
+      mailbox.error ??
+        (mailbox.data?.searchStatus === "error"
+          ? { code: "unavailable" }
+          : null),
+    ),
     hasMore: mailbox.canLoadMore,
     isLoadingMore: mailbox.isLoadingMore,
     loadMore: mailbox.loadMore,

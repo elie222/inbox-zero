@@ -3875,6 +3875,10 @@ msgid "Couldn't reach the server to undo. Try again."
 msgstr "No se pudo contactar con el servidor para deshacer. Inténtalo de nuevo."
 
 #: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Couldn't refresh search results. Showing previously loaded emails."
+msgstr "No se pudieron actualizar los resultados de búsqueda. Se muestran los correos cargados anteriormente."
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
 msgid "Couldn't remove label"
 msgstr "No se pudo quitar la etiqueta"
 

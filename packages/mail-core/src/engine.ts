@@ -206,7 +206,7 @@ export function createMailEngine(input: {
       return queries.observe(mailboxQueryKey(query), () =>
         store.readMailboxView(query).then((result) => ({
           revision: result.revision,
-          data: result.view,
+          data: { ...result.view, searchStatus: mailboxSearchStatus(query) },
         })),
       );
     },
@@ -228,7 +228,7 @@ export function createMailEngine(input: {
             databaseEpoch: `${result.revision.databaseEpoch}:pages:${pageCount}`,
             sequence: result.revision.sequence,
           },
-          data: result.view,
+          data: { ...result.view, searchStatus: mailboxSearchStatus(query) },
         })),
       );
       return {
@@ -526,13 +526,19 @@ export function createMailEngine(input: {
             });
             continue;
           }
-          const hydrated = await source.hydrate({
-            session: work.session,
-            requestId: work.jobId,
-            signal: signal ?? new AbortController().signal,
-            keys: work.keys,
-            purpose: work.purpose,
-          });
+          const hydrated = await source
+            .hydrate({
+              session: work.session,
+              requestId: work.jobId,
+              signal: signal ?? new AbortController().signal,
+              keys: work.keys,
+              purpose: work.purpose,
+            })
+            .catch(async (error) => {
+              updateSearchHydration(work.keys, "error");
+              await queries.refreshAll();
+              throw error;
+            });
           if (hydrated.status === "ok") {
             await store.applyHydration({
               session: work.session,
@@ -541,29 +547,72 @@ export function createMailEngine(input: {
               changes: hydrated.value.changes,
               bodies: hydrated.value.bodies,
             });
+            const unavailableKeys = hydrated.value.unresolved
+              .filter((item) => item.reason === "unavailable")
+              .map((item) => item.key);
+            updateSearchHydration(
+              work.keys.filter(
+                (key) =>
+                  !unavailableKeys.some(
+                    (unavailable) =>
+                      unavailable.accountId === key.accountId &&
+                      unavailable.messageId === key.messageId,
+                  ),
+              ),
+              "ready",
+            );
+            updateSearchHydration(unavailableKeys, "error");
             await queries.refreshAll();
             for (const jobId of work.jobIds ?? [work.jobId])
               await store.completeJob({ jobId, attemptId: work.attemptId });
+          } else if (
+            hydrated.status === "blocked_auth" ||
+            hydrated.reason === "unavailable"
+          ) {
+            updateSearchHydration(work.keys, "error");
+            await queries.refreshAll();
           }
           continue;
         }
         if (work.kind === "search") {
-          const searched = await source.search({
-            session: work.session,
-            requestId: work.jobId,
-            signal: signal ?? new AbortController().signal,
-            predicate: work.predicate,
-            page: work.page,
-            pageSize: 50,
-          });
+          const search = remoteSearches.get(
+            remoteSearchKey(work.accountId, work.predicate),
+          );
+          const searched = await source
+            .search({
+              session: work.session,
+              requestId: work.jobId,
+              signal: signal ?? new AbortController().signal,
+              predicate: work.predicate,
+              page: work.page,
+              pageSize: 50,
+            })
+            .catch(async (error) => {
+              if (search) search.failed = true;
+              await queries.refreshAll();
+              throw error;
+            });
+          if (search) {
+            search.failed =
+              searched.status === "blocked_auth" ||
+              (searched.status === "paused" &&
+                searched.reason === "unavailable");
+          }
           if (searched.status === "ok") {
+            for (const key of searched.value.matches)
+              search?.hydration.set(key.messageId, "loading");
             if (searched.value.matches.length > 0) {
-              await store.enqueueHydration({
-                keys: searched.value.matches,
-                purpose: "body",
-              });
+              await store
+                .enqueueHydration({
+                  keys: searched.value.matches,
+                  purpose: "body",
+                })
+                .catch(async (error) => {
+                  if (search) search.failed = true;
+                  await queries.refreshAll();
+                  throw error;
+                });
             }
-            await queries.refreshAll();
           }
           if (
             searched.status !== "paused" &&
@@ -578,9 +627,10 @@ export function createMailEngine(input: {
               predicate: work.predicate,
               page: work.page,
               nextPage:
-                searched.status === "ok" ? searched.value.nextPage : undefined,
+                searched.status === "ok" ? searched.value.nextPage : null,
             });
           }
+          await queries.refreshAll();
           continue;
         }
         const readFence = openChangeRead();
@@ -644,7 +694,11 @@ export function createMailEngine(input: {
       for (const predicate of extractTextPredicates(query.predicate)) {
         const key = remoteSearchKey(accountId, predicate);
         const search = remoteSearches.get(key);
-        if (!search) {
+        if (
+          !search ||
+          search.failed ||
+          [...search.hydration.values()].includes("error")
+        ) {
           const created: RemoteSearch = {
             accountId,
             predicate,
@@ -652,6 +706,8 @@ export function createMailEngine(input: {
             fetchedPages: 0,
             nextPage: null,
             pendingPage: undefined,
+            failed: false,
+            hydration: new Map(),
           };
           remoteSearches.set(key, created);
           enqueueRemoteSearchPage(created, null);
@@ -667,18 +723,13 @@ export function createMailEngine(input: {
     accountId: string;
     predicate: MailPredicate;
     page: string | null;
-    nextPage: string | null | undefined;
+    nextPage: string | null;
   }) {
     const key = remoteSearchKey(input.accountId, input.predicate);
     const search = remoteSearches.get(key);
     // A page no view is waiting on, like one queued before a restart, ends
     // there instead of continuing into the next page.
     if (!search || search.pendingPage !== input.page) return;
-    // A failed search starts over the next time a view asks for it.
-    if (input.nextPage === undefined) {
-      remoteSearches.delete(key);
-      return;
-    }
     search.fetchedPages += 1;
     search.nextPage = input.nextPage;
     search.pendingPage = undefined;
@@ -704,11 +755,49 @@ export function createMailEngine(input: {
         predicate: search.predicate,
         page,
       })
-      .catch(() => {
-        remoteSearches.delete(
-          remoteSearchKey(search.accountId, search.predicate),
-        );
+      .catch(async () => {
+        search.failed = true;
+        await queries.refreshAll();
       });
+  }
+
+  function mailboxSearchStatus(
+    query: ConversationQuery,
+  ): MailboxView["searchStatus"] {
+    const predicates = extractTextPredicates(query.predicate);
+    if (!predicates.length) return;
+    let loading = false;
+    for (const accountId of query.accountIds) {
+      for (const predicate of predicates) {
+        const search = remoteSearches.get(
+          remoteSearchKey(accountId, predicate),
+        );
+        if (!search) continue;
+        if (search.failed || [...search.hydration.values()].includes("error"))
+          return "error";
+        if (search.pendingPage !== undefined || search.hydration.size)
+          loading = true;
+      }
+    }
+    return loading ? "loading" : "ready";
+  }
+
+  function updateSearchHydration(
+    keys: MessageKey[],
+    status: "ready" | "error",
+  ) {
+    for (const search of remoteSearches.values()) {
+      if (!search.hydration.size) continue;
+      for (const key of keys) {
+        if (
+          search.accountId !== key.accountId ||
+          !search.hydration.has(key.messageId)
+        )
+          continue;
+        if (status === "ready") search.hydration.delete(key.messageId);
+        else search.hydration.set(key.messageId, "error");
+      }
+    }
   }
 
   function forgetRemoteSearches(accountId: string) {
@@ -1643,6 +1732,8 @@ type RemoteSearch = {
   nextPage: string | null;
   // The page queued for this search, or undefined when none is.
   pendingPage: string | null | undefined;
+  failed: boolean;
+  hydration: Map<string, "loading" | "error">;
 };
 
 function remoteSearchKey(accountId: string, predicate: MailPredicate) {

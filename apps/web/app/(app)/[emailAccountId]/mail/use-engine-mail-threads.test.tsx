@@ -18,6 +18,36 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 describe("useEngineMailThreads", () => {
+  it.each([
+    "loading",
+    "ready",
+    "error",
+  ] as const)("reflects provider search status %s after the local read is ready", async (searchStatus) => {
+    const snapshot = mailboxSnapshot([]);
+    if (!snapshot.data) throw new Error("missing mailbox data");
+    snapshot.data.searchStatus = searchStatus;
+    const client = {
+      observeMailbox: () => staticMailboxHandle(snapshot),
+      requestSync: async () => ({ status: "scheduled" }),
+    } as unknown as MailClient;
+    const { result } = renderHook(
+      () =>
+        useEngineMailThreads({
+          emailAccountId: "acc-1",
+          query: { q: "invoice" },
+        }),
+      {
+        wrapper: ({ children }) => (
+          <MailEngineProvider client={client}>{children}</MailEngineProvider>
+        ),
+      },
+    );
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(searchStatus === "loading");
+      expect(Boolean(result.current.error)).toBe(searchStatus === "error");
+    });
+  });
+
   it("keeps the disabled empty result stable across query identity changes", async () => {
     const { result, rerender } = renderHook(
       ({ query }: { query: ThreadsQuery }) =>

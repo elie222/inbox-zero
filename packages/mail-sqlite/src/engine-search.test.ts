@@ -58,6 +58,117 @@ describe("engine search and body hydration", () => {
     await engine.close();
   });
 
+  it.each([
+    "mailbox",
+    "window",
+  ] as const)("%s stays pending until provider search finishes, including an empty result", async (kind) => {
+    const { engine } = await pagedSearchEngine({
+      async search() {
+        return {
+          status: "ok",
+          value: { matches: [], nextPage: null, semantics: "exact" },
+        };
+      },
+    });
+    const handle =
+      kind === "mailbox"
+        ? engine.observeMailbox(bodySearchQuery())
+        : engine.observeMailboxWindow?.(bodySearchQuery());
+    if (!handle) throw new Error("missing mailbox handle");
+    await waitForReady(handle);
+    expect(handle.getSnapshot().data?.searchStatus).toBe("loading");
+
+    await engine.runUntil(Date.now() + 500);
+
+    expect(handle.getSnapshot().data?.searchStatus).toBe("ready");
+    expect(handle.getSnapshot().data?.conversations).toEqual([]);
+    await engine.close();
+  });
+
+  it("stays pending while provider matches are being hydrated", async () => {
+    const gate = deferred();
+    let hydrating = false;
+    const { engine } = await pagedSearchEngine({
+      search: searchSource().search,
+      async hydrate(input) {
+        hydrating = true;
+        await gate.promise;
+        return searchSource().hydrate(input);
+      },
+    });
+    const handle = engine.observeMailboxWindow?.(bodySearchQuery());
+    if (!handle) throw new Error("missing mailbox handle");
+    await waitForReady(handle);
+    const run = engine.runUntil(Date.now() + 2000);
+    try {
+      await expect.poll(() => hydrating).toBe(true);
+      expect(handle.getSnapshot().data?.searchStatus).toBe("loading");
+    } finally {
+      gate.resolve();
+      await run;
+    }
+    expect(handle.getSnapshot().data?.searchStatus).toBe("ready");
+    expect(handle.getSnapshot().data?.conversations[0]?.subject).toBe(
+      "Invoice",
+    );
+    await engine.close();
+  });
+
+  it("reports provider failure instead of a successful empty search", async () => {
+    const { engine } = await pagedSearchEngine({
+      async search() {
+        return {
+          status: "paused",
+          retryAfterMs: 60_000,
+          reason: "unavailable",
+        };
+      },
+    });
+    const handle = engine.observeMailboxWindow?.(bodySearchQuery());
+    if (!handle) throw new Error("missing mailbox handle");
+    await engine.runUntil(Date.now() + 500);
+    await waitForReady(handle);
+    expect(handle.getSnapshot().data?.searchStatus).toBe("error");
+    await engine.close();
+  });
+
+  it("reports a thrown provider error to the active search", async () => {
+    const { engine } = await pagedSearchEngine({
+      async search() {
+        throw new Error("provider unavailable");
+      },
+    });
+    const handle = engine.observeMailboxWindow?.(bodySearchQuery());
+    if (!handle) throw new Error("missing mailbox handle");
+    await expect(engine.runUntil(Date.now() + 500)).rejects.toThrow(
+      "provider unavailable",
+    );
+    expect(handle.getSnapshot().data?.searchStatus).toBe("error");
+    await engine.close();
+  });
+
+  it("reports unavailable provider matches instead of completing the search", async () => {
+    const { engine } = await pagedSearchEngine({
+      search: searchSource().search,
+      async hydrate({ keys }) {
+        return {
+          status: "ok",
+          value: {
+            changes: [],
+            bodies: [],
+            unresolved: keys.map((key) => ({ key, reason: "unavailable" })),
+          },
+        };
+      },
+    });
+    const handle = engine.observeMailboxWindow?.(bodySearchQuery());
+    if (!handle) throw new Error("missing mailbox handle");
+    await engine.runUntil(Date.now() + 500);
+    expect(handle.getSnapshot().data?.searchStatus).toBe("error");
+    expect(handle.getSnapshot().data?.conversations).toEqual([]);
+    await engine.close();
+  });
+
   it("fetches another provider search page only when the view asks for more", async () => {
     const { engine, searchedPages } = await pagedSearchEngine();
     const search = engine.observeMailboxWindow?.(bodySearchQuery());
@@ -113,7 +224,7 @@ describe("engine search and body hydration", () => {
   });
 });
 
-async function pagedSearchEngine() {
+async function pagedSearchEngine(sourceOverrides: Partial<MailboxSource> = {}) {
   const store = await createSqliteMailStore(createNodeSqliteDriver());
   await store.ensureAccount({
     accountId: "acc-1",
@@ -137,6 +248,7 @@ async function pagedSearchEngine() {
           },
         };
       },
+      ...sourceOverrides,
     },
     executor: {
       async execute() {
@@ -261,4 +373,12 @@ function searchSource(): MailboxSource {
       return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
     },
   };
+}
+
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
 }

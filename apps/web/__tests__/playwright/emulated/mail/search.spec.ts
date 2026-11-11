@@ -54,24 +54,35 @@ for (const accountScope of ["single", "all"] as const) {
     if (accountScope === "all")
       await page.goto(`/${emailAccountId}/mail?accountScope=all`);
     await expect(page.getByRole("option").first()).toBeVisible();
-    await page.clock.install();
-    await page.clock.pauseAt(new Date());
-
-    await page.getByPlaceholder("Search mail").fill("no-matching-mail-947263");
+    let releaseSearch!: () => void;
+    const providerResponse = new Promise<void>((resolve) => {
+      releaseSearch = resolve;
+    });
+    await page.route("**/api/mail/v1/accounts/*/search", async (route) => {
+      await providerResponse;
+      await route.continue();
+    });
+    const requested = page.waitForRequest("**/api/mail/v1/accounts/*/search");
     const loading = page
       .getByRole("status")
       .filter({ hasText: "Searching mail" });
-    await expect(loading).toBeVisible();
-    await expect(
-      page.getByText("No emails found", { exact: true }),
-    ).toHaveCount(0);
-    await capturePlaywrightCheckpoint(
-      page,
-      testInfo,
-      `mail-search-loading-${accountScope}`,
-    );
-
-    await page.clock.resume();
+    try {
+      await page
+        .getByPlaceholder("Search mail")
+        .fill("no-matching-mail-947263");
+      await requested;
+      await expect(loading).toBeVisible();
+      await expect(
+        page.getByText("No emails found", { exact: true }),
+      ).toHaveCount(0);
+      await capturePlaywrightCheckpoint(
+        page,
+        testInfo,
+        `mail-search-loading-${accountScope}`,
+      );
+    } finally {
+      releaseSearch();
+    }
     await expect(
       page.getByText("No emails found", { exact: true }),
     ).toBeVisible();
@@ -80,6 +91,41 @@ for (const accountScope of ["single", "all"] as const) {
       page,
       testInfo,
       `mail-search-empty-${accountScope}`,
+    );
+  });
+
+  test(`${accountScope}: provider failure keeps existing search results visible`, async ({
+    page,
+  }, testInfo) => {
+    const { conversations, emailAccountId } = await openMail(page);
+    if (accountScope === "all")
+      await page.goto(`/${emailAccountId}/mail?accountScope=all`);
+    const matching = conversationWithSubject(
+      page,
+      conversations,
+      "Archive Action Message",
+    );
+    await expect(matching).toBeVisible();
+    await page.route("**/api/mail/v1/accounts/*/search", (route) =>
+      route.fulfill({ status: 503, json: { error: "Search unavailable" } }),
+    );
+
+    await page.getByPlaceholder("Search mail").fill("Archive Action");
+    await page.getByPlaceholder("Search mail").press("Enter");
+
+    await expect(
+      page
+        .getByRole("alert")
+        .filter({ hasText: "Couldn't refresh search results" }),
+    ).toBeVisible();
+    await expect(matching).toBeVisible();
+    await expect(
+      page.getByText("No emails found", { exact: true }),
+    ).toHaveCount(0);
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      `mail-search-error-with-results-${accountScope}`,
     );
   });
 
