@@ -454,6 +454,7 @@ msgid "All"
 msgstr "All"
 
 #: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
+#: lib/shortcuts/registry.ts
 msgid "All accounts"
 msgstr "All accounts"
 
@@ -558,6 +559,7 @@ msgstr "Applying label…"
 #: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
 #: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
 #: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+#: lib/shortcuts/registry.ts
 msgid "Archive"
 msgstr "Archive"
 
@@ -569,6 +571,10 @@ msgstr "Archive after 7 days"
 msgid "Archive all newsletters from last week"
 msgstr "Archive all newsletters from last week"
 
+#: lib/shortcuts/registry.ts
+msgid "Archive current email"
+msgstr "Archive current email"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Archive shipping updates once they're delivered"
 msgstr "Archive shipping updates once they're delivered"
@@ -579,8 +585,13 @@ msgid "Archived"
 msgstr "Archived"
 
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+#: lib/shortcuts/registry.ts
 msgid "Assistant"
 msgstr "Assistant"
+
+#: lib/shortcuts/registry.ts
+msgid "Assistant & rules"
+msgstr "Assistant & rules"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Assistant chat"
@@ -595,6 +606,7 @@ msgid "at"
 msgstr "at"
 
 #: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+#: lib/shortcuts/registry.ts
 msgid "Attach files"
 msgstr "Attach files"
 
@@ -629,6 +641,14 @@ msgstr "Back"
 #: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
 msgid "Back to inbox"
 msgstr "Back to inbox"
+
+#: lib/shortcuts/registry.ts
+msgid "Back to the app"
+msgstr "Back to the app"
+
+#: lib/shortcuts/registry.ts
+msgid "Back to the list"
+msgstr "Back to the list"
 
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "BASIC LABELS"
@@ -892,12 +912,18 @@ msgstr "Collapse all messages"
 msgid "Command"
 msgstr "Command"
 
+#: lib/shortcuts/registry.ts
+msgid "Command palette"
+msgstr "Command palette"
+
 #: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
 #: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+#: lib/shortcuts/registry.ts
 msgid "Comment"
 msgstr "Comment"
 
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: lib/shortcuts/registry.ts
 msgid "Compose"
 msgstr "Compose"
 
@@ -1302,6 +1328,7 @@ msgstr "Definition"
 #: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
 #: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+#: lib/shortcuts/registry.ts
 msgid "Delete"
 msgstr "Delete"
 
@@ -1391,6 +1418,7 @@ msgid "Disabling auto archive for {senderName}"
 msgstr "Disabling auto archive for {senderName}"
 
 #: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+#: lib/shortcuts/registry.ts
 msgid "Discard draft"
 msgstr "Discard draft"
 
@@ -1683,6 +1711,14 @@ msgstr "Expires"
 msgid "Expiry"
 msgstr "Expiry"
 
+#: lib/shortcuts/registry.ts
+msgid "Extend the selection down"
+msgstr "Extend the selection down"
+
+#: lib/shortcuts/registry.ts
+msgid "Extend the selection up"
+msgstr "Extend the selection up"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Failed to connect Slack"
 msgstr "Failed to connect Slack"
@@ -1792,6 +1828,7 @@ msgid "Forums"
 msgstr "Forums"
 
 #: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: lib/shortcuts/registry.ts
 msgid "Forward"
 msgstr "Forward"
 
@@ -2090,6 +2127,7 @@ msgid "Junk Email"
 msgstr "Junk Email"
 
 #: app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx
+#: lib/shortcuts/registry.ts
 msgid "Keyboard shortcuts"
 msgstr "Keyboard shortcuts"
 
@@ -2110,6 +2148,7 @@ msgstr "label"
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 #: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
+#: lib/shortcuts/registry.ts
 msgid "Label"
 msgstr "Label"
 
@@ -2215,6 +2254,10 @@ msgstr "List"
 msgid "List and inspect automation rules for this inbox."
 msgstr "List and inspect automation rules for this inbox."
 
+#: lib/shortcuts/registry.ts
+msgid "List view / split view"
+msgstr "List view / split view"
+
 #: app/(app)/[emailAccountId]/mail/ThreadList.tsx
 msgid "Load more"
 msgstr "Load more"
@@ -2295,11 +2338,13 @@ msgstr "Mark as read"
 
 #: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
 #: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+#: lib/shortcuts/registry.ts
 msgid "Mark as spam"
 msgstr "Mark as spam"
 
 #: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
 #: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+#: lib/shortcuts/registry.ts
 msgid "Mark as unread"
 msgstr "Mark as unread"
 
@@ -2374,6 +2419,7 @@ msgid "More"
 msgstr "More"
 
 #: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+#: lib/shortcuts/registry.ts
 msgid "More actions"
 msgstr "More actions"
 
@@ -2387,6 +2433,7 @@ msgstr "More selection actions"
 
 #: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
 #: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+#: lib/shortcuts/registry.ts
 msgid "Move"
 msgstr "Move"
 
@@ -2451,6 +2498,10 @@ msgstr "Name this split"
 msgid "name@company.com or @company.com"
 msgstr "name@company.com or @company.com"
 
+#: lib/shortcuts/registry.ts
+msgid "Navigate"
+msgstr "Navigate"
+
 #: components/CommandK.tsx
 msgid "Navigation"
 msgstr "Navigation"
@@ -2466,6 +2517,10 @@ msgstr "Never"
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 msgid "New {labelSingular} name"
 msgstr "New {labelSingular} name"
+
+#: lib/shortcuts/registry.ts
+msgid "New message"
+msgstr "New message"
 
 #: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
 msgid "New split"
@@ -2495,6 +2550,14 @@ msgstr "Next delivery around {0}."
 #: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
 msgid "Next email from chat"
 msgstr "Next email from chat"
+
+#: lib/shortcuts/registry.ts
+msgid "Next message"
+msgstr "Next message"
+
+#: lib/shortcuts/registry.ts
+msgid "Next split"
+msgstr "Next split"
 
 #: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
 msgid "Next week"
@@ -2651,12 +2714,17 @@ msgstr "Open"
 
 #: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
 #: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+#: lib/shortcuts/registry.ts
 msgid "Open in email provider"
 msgstr "Open in email provider"
 
 #: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
 msgid "Open in reader"
 msgstr "Open in reader"
+
+#: lib/shortcuts/registry.ts
+msgid "Open message"
+msgstr "Open message"
 
 #: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
 msgid "Open navigation"
@@ -2744,6 +2812,7 @@ msgid "Plus a deep dive on pricing pages that convert"
 msgstr "Plus a deep dive on pricing pages that convert"
 
 #: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+#: lib/shortcuts/registry.ts
 msgid "Pop out draft"
 msgstr "Pop out draft"
 
@@ -2758,6 +2827,14 @@ msgstr "Preview"
 #: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
 msgid "Previous email from chat"
 msgstr "Previous email from chat"
+
+#: lib/shortcuts/registry.ts
+msgid "Previous message"
+msgstr "Previous message"
+
+#: lib/shortcuts/registry.ts
+msgid "Previous split"
+msgstr "Previous split"
 
 #: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
 #: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
@@ -2886,6 +2963,7 @@ msgid "Regenerate secret"
 msgstr "Regenerate secret"
 
 #: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+#: lib/shortcuts/registry.ts
 msgid "Remind me"
 msgstr "Remind me"
 
@@ -2929,6 +3007,14 @@ msgstr "Remove unedited drafts created by {BRAND_NAME} that are older than {save
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Removes your Inbox Zero data. Your emails aren't affected."
 msgstr "Removes your Inbox Zero data. Your emails aren't affected."
+
+#: lib/shortcuts/registry.ts
+msgid "Reply"
+msgstr "Reply"
+
+#: lib/shortcuts/registry.ts
+msgid "Reply all"
+msgstr "Reply all"
 
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "Reply queued, but its local draft copy could not be cleared."
@@ -3045,6 +3131,7 @@ msgstr "Scheduled emails"
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
 #: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
+#: lib/shortcuts/registry.ts
 msgid "Search"
 msgstr "Search"
 
@@ -3093,6 +3180,10 @@ msgstr "See when recipients open emails you send."
 msgid "See which emails you never read. One-click unsubscribe and archive them in bulk."
 msgstr "See which emails you never read. One-click unsubscribe and archive them in bulk."
 
+#: lib/shortcuts/registry.ts
+msgid "Select"
+msgstr "Select"
+
 #. placeholder {0}: rule.name
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "Select {0}"
@@ -3107,6 +3198,7 @@ msgid "Select action"
 msgstr "Select action"
 
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+#: lib/shortcuts/registry.ts
 msgid "Select all"
 msgstr "Select all"
 
@@ -3140,12 +3232,17 @@ msgstr "Selected rules are combined into one digest email."
 
 #: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
+#: lib/shortcuts/registry.ts
 msgid "Send"
 msgstr "Send"
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Send a Test Brief"
 msgstr "Send a Test Brief"
+
+#: lib/shortcuts/registry.ts
+msgid "Send and mark done"
+msgstr "Send and mark done"
 
 #: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
 msgid "Send anyway"
@@ -3172,6 +3269,7 @@ msgid "Send invites"
 msgstr "Send invites"
 
 #: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+#: lib/shortcuts/registry.ts
 msgid "Send later"
 msgstr "Send later"
 
@@ -3278,6 +3376,10 @@ msgstr "Settings updated! Please check it works on the Assistant page."
 msgid "Share your plan by inviting teammates to your organization."
 msgstr "Share your plan by inviting teammates to your organization."
 
+#: lib/shortcuts/registry.ts
+msgid "Short / expanded preview text"
+msgstr "Short / expanded preview text"
+
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "Should we draft replies for you?"
 msgstr "Should we draft replies for you?"
@@ -3377,6 +3479,10 @@ msgstr "Slack session validation failed. Please try connecting again."
 msgid "Small Business Owner"
 msgstr "Small Business Owner"
 
+#: lib/shortcuts/registry.ts
+msgid "Snooze"
+msgstr "Snooze"
+
 #: components/CommandK.tsx
 msgid "Snooze until"
 msgstr "Snooze until"
@@ -3441,6 +3547,10 @@ msgstr "Splits you build yourself land here."
 msgid "Star"
 msgstr "Star"
 
+#: lib/shortcuts/registry.ts
+msgid "Star / unstar"
+msgstr "Star / unstar"
+
 #: app/(app)/[emailAccountId]/mail/mail-search-query.ts
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
@@ -3479,6 +3589,10 @@ msgstr "SUGGESTED FOR YOU"
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Sunday"
 msgstr "Sunday"
+
+#: lib/shortcuts/registry.ts
+msgid "Switch account"
+msgstr "Switch account"
 
 #: components/CommandK.tsx
 msgid "Switch Account"
@@ -3643,6 +3757,10 @@ msgstr "Today"
 msgid "Toggle 'Sent with {BRAND_NAME}'"
 msgstr "Toggle 'Sent with {BRAND_NAME}'"
 
+#: lib/shortcuts/registry.ts
+msgid "Toggle auto archive for sender"
+msgstr "Toggle auto archive for sender"
+
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "Toggle automatic AI draft cleanup"
 msgstr "Toggle automatic AI draft cleanup"
@@ -3688,10 +3806,18 @@ msgstr "Transfer rules to {targetAccountEmail}"
 msgid "Translate"
 msgstr "Translate"
 
+#: lib/shortcuts/registry.ts
+msgid "Translate / show original"
+msgstr "Translate / show original"
+
 #: app/(app)/[emailAccountId]/mail/mail-search-query.ts
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 msgid "Trash"
 msgstr "Trash"
+
+#: lib/shortcuts/registry.ts
+msgid "Triage"
+msgstr "Triage"
 
 #: components/CommandK.tsx
 msgid "Try a date like tomorrow at 3pm."
@@ -3746,6 +3872,10 @@ msgstr "Unable to show this conversation"
 msgid "Unable to show your mail list"
 msgstr "Unable to show your mail list"
 
+#: lib/shortcuts/registry.ts
+msgid "Undo last action"
+msgstr "Undo last action"
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 msgid "Unknown error"
@@ -3778,6 +3908,10 @@ msgstr "Unsubscribe from {0}"
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Unsubscribe from senders for this inbox."
 msgstr "Unsubscribe from senders for this inbox."
+
+#: lib/shortcuts/registry.ts
+msgid "Unsubscribe or block sender"
+msgstr "Unsubscribe or block sender"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Unsubscribe senders"
@@ -3827,6 +3961,7 @@ msgstr "Usually sent within 5 minutes."
 
 #: app/(app)/[emailAccountId]/compose/undo-send.ts
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+#: lib/shortcuts/registry.ts
 msgid "View"
 msgstr "View"
 
