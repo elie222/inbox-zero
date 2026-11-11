@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import {
   TrashIcon,
@@ -57,6 +58,7 @@ function OptionsMenu({
   isManualMode?: boolean;
   extraOptions?: React.ReactNode;
 }) {
+  const { t } = useLingui();
   const hasOptions =
     onAddDelay ||
     onRemoveDelay ||
@@ -75,7 +77,7 @@ function OptionsMenu({
           size="iconSm"
           variant="ghost"
           className="mt-1"
-          aria-label="More options"
+          aria-label={t`More options`}
         >
           <MoreHorizontalIcon className="size-4 text-muted-foreground" />
         </Button>
@@ -85,37 +87,37 @@ function OptionsMenu({
         {onUsePrompt && !isPromptMode && (
           <DropdownMenuItem onClick={onUsePrompt}>
             <SparklesIcon className="mr-2 size-4" />
-            Use prompt
+            <Trans>Use prompt</Trans>
           </DropdownMenuItem>
         )}
         {onUseLabel && isPromptMode && (
           <DropdownMenuItem onClick={onUseLabel}>
             <SparklesIcon className="mr-2 size-4" />
-            Use label
+            <Trans>Use label</Trans>
           </DropdownMenuItem>
         )}
         {onSetManually && !isManualMode && (
           <DropdownMenuItem onClick={onSetManually}>
             <PenLineIcon className="mr-2 size-4" />
-            Set content manually
+            <Trans>Set content manually</Trans>
           </DropdownMenuItem>
         )}
         {onUseAiDraft && isManualMode && (
           <DropdownMenuItem onClick={onUseAiDraft}>
             <SparklesIcon className="mr-2 size-4" />
-            Use AI draft
+            <Trans>Use AI draft</Trans>
           </DropdownMenuItem>
         )}
         {onAddDelay && !hasDelay && (
           <DropdownMenuItem onClick={onAddDelay}>
             <ClockIcon className="mr-2 size-4" />
-            Add delay
+            <Trans>Add delay</Trans>
           </DropdownMenuItem>
         )}
         {onRemoveDelay && hasDelay && (
           <DropdownMenuItem onClick={onRemoveDelay}>
             <ClockIcon className="mr-2 size-4" />
-            Remove delay
+            <Trans>Remove delay</Trans>
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

@@ -1,8 +1,10 @@
 import { Suspense } from "react";
+import { t } from "@lingui/core/macro";
 import { SparklesIcon } from "lucide-react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
+import { initLingui } from "@/utils/i18n/server";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { EmailLabelsProvider } from "@/providers/EmailLabelsProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
@@ -44,6 +46,8 @@ export default async function AutomationPage({
     }
   }
 
+  const i18n = await initLingui();
+
   return (
     <EmailLabelsProvider>
       <Suspense>
@@ -53,11 +57,12 @@ export default async function AutomationPage({
           <div className="flex items-center justify-between">
             <div>
               <PageHeader
-                title="AI Assistant"
+                title={t(i18n)`AI Assistant`}
                 video={{
-                  title: "Getting started with AI Personal Assistant",
-                  description:
-                    "Learn how to use the AI Personal Assistant to automatically label, archive, and more.",
+                  title: t(i18n)`Getting started with AI Personal Assistant`,
+                  description: t(
+                    i18n,
+                  )`Learn how to use the AI Personal Assistant to automatically label, archive, and more.`,
                   muxPlaybackId:
                     "TYo3SIMdhg008x022H79400CxeRSiB6mLyuwHx8Szc00Rec",
                 }}
@@ -74,8 +79,10 @@ export default async function AutomationPage({
           <DismissibleVideoCard
             className="my-4"
             icon={<SparklesIcon className="h-5 w-5" />}
-            title="Getting started with AI Assistant"
-            description="Learn how to use the AI Assistant to automatically label, archive, and more."
+            title={t(i18n)`Getting started with AI Assistant`}
+            description={t(
+              i18n,
+            )`Learn how to use the AI Assistant to automatically label, archive, and more.`}
             muxPlaybackId="TYo3SIMdhg008x022H79400CxeRSiB6mLyuwHx8Szc00Rec"
             storageKey="ai-assistant-onboarding-video"
             videoAnalytics={{

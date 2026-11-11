@@ -2,6 +2,7 @@
 
 import { format } from "date-fns/format";
 import { CalendarIcon } from "lucide-react";
+import { Trans } from "@lingui/react/macro";
 import { cn } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -36,7 +37,7 @@ export function SetDateDropdown({
           {value ? (
             format(value, "PPP")
           ) : (
-            <span>{placeholder || "Set a date"}</span>
+            <span>{placeholder || <Trans>Set a date</Trans>}</span>
           )}
           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
         </Button>

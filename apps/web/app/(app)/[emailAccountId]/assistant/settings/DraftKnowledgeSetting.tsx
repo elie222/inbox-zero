@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { SettingCard } from "@/components/SettingCard";
 import { useDraftReplies } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftReplies";
 import { Tooltip } from "@/components/Tooltip";
@@ -16,6 +17,7 @@ import { KnowledgeBase } from "@/app/(app)/[emailAccountId]/assistant/knowledge/
 import { DraftDocsSites } from "@/app/(app)/[emailAccountId]/assistant/knowledge/DraftDocsSites";
 
 export function DraftKnowledgeSetting() {
+  const { t } = useLingui();
   const { enabled, loading } = useDraftReplies();
 
   const isEnabled = !loading && enabled;
@@ -24,13 +26,13 @@ export function DraftKnowledgeSetting() {
 
   return (
     <SettingCard
-      title="Draft knowledge base"
-      description="Information the assistant uses when writing replies."
+      title={t`Draft knowledge base`}
+      description={t`Information the assistant uses when writing replies.`}
       right={
         isEnabled ? (
           kb
         ) : (
-          <Tooltip content="Enable draft replies to edit the knowledge base">
+          <Tooltip content={t`Enable draft replies to edit the knowledge base`}>
             <span>{kb}</span>
           </Tooltip>
         )
@@ -44,14 +46,16 @@ function KnowledgeDialog({ enabled }: { enabled: boolean }) {
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" disabled={!enabled}>
-          Manage
+          <Trans>Manage</Trans>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[80vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Draft knowledge base</DialogTitle>
+          <DialogTitle>
+            <Trans>Draft knowledge base</Trans>
+          </DialogTitle>
           <DialogDescription>
-            This is used to help the assistant draft replies.
+            <Trans>This is used to help the assistant draft replies.</Trans>
           </DialogDescription>
         </DialogHeader>
         <KnowledgeBase />

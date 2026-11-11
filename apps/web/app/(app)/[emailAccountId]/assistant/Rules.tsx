@@ -12,6 +12,7 @@ import {
   CopyIcon,
 } from "lucide-react";
 import { useMemo } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader } from "@/components/ui/card";
@@ -44,11 +45,8 @@ import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import type { RulesResponse } from "@/app/api/user/rules/route";
-import {
-  getActionDisplay,
-  getActionIcon,
-  getVisibleActions,
-} from "@/utils/action-display";
+import { getActionIcon, getVisibleActions } from "@/utils/action-display";
+import { getActionDisplayText } from "@/utils/action-display-messages";
 import { RuleDialog } from "./RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useChat } from "@/providers/ChatProvider";
@@ -72,6 +70,7 @@ export function Rules({
 }: {
   showAddRuleButton?: boolean;
 }) {
+  const { t } = useLingui();
   const { data, isLoading, error, mutate } = useRules();
   const { setOpen } = useSidebar();
   const { setInput } = useChat();
@@ -124,7 +123,9 @@ export function Rules({
 
     if (result?.serverError) {
       toastError({
-        description: `There was an error ${enabled ? "enabling" : "disabling"} the rule. ${result.serverError || ""}`,
+        description: enabled
+          ? t`There was an error enabling the rule. ${result.serverError || ""}`
+          : t`There was an error disabling the rule. ${result.serverError || ""}`,
       });
     }
 
@@ -192,19 +193,25 @@ export function Rules({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16 px-2 sm:px-4">Enabled</TableHead>
-                  <TableHead className="px-2 sm:px-4">Name</TableHead>
-                  <TableHead className="hidden sm:table-cell px-2 sm:px-4">
-                    Prompt
+                  <TableHead className="w-16 px-2 sm:px-4">
+                    <Trans>Enabled</Trans>
                   </TableHead>
-                  <TableHead className="px-2 sm:px-4">Action</TableHead>
+                  <TableHead className="px-2 sm:px-4">
+                    <Trans>Name</Trans>
+                  </TableHead>
+                  <TableHead className="hidden sm:table-cell px-2 sm:px-4">
+                    <Trans>Prompt</Trans>
+                  </TableHead>
+                  <TableHead className="px-2 sm:px-4">
+                    <Trans>Action</Trans>
+                  </TableHead>
                   <TableHead className="w-fit whitespace-nowrap px-1">
                     {showAddRuleButton && (
                       <div className="flex justify-end">
                         <div className="my-2">
                           <Button size="sm" onClick={onCreateRule}>
                             <PlusIcon className="mr-2 hidden size-4 md:block" />
-                            Add Rule
+                            <Trans>Add Rule</Trans>
                           </Button>
                         </div>
                       </div>
@@ -237,7 +244,7 @@ export function Rules({
                         className="text-center p-2 sm:p-4"
                       >
                         <Tooltip
-                          content="Disabled by your organization"
+                          content={t`Disabled by your organization`}
                           hide={!isDisabledByOrg}
                         >
                           <span>
@@ -256,8 +263,10 @@ export function Rules({
                         <div className="flex items-center gap-2">
                           {rule.name}
                           {isOrgManaged && (
-                            <Tooltip content="Managed by Organization">
-                              <Badge color="blue">Org</Badge>
+                            <Tooltip content={t`Managed by Organization`}>
+                              <Badge color="blue">
+                                <Trans>Org</Trans>
+                              </Badge>
                             </Tooltip>
                           )}
                         </div>
@@ -287,7 +296,9 @@ export function Rules({
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <MoreHorizontalIcon className="size-4" />
-                                <span className="sr-only">Toggle menu</span>
+                                <span className="sr-only">
+                                  <Trans>Toggle menu</Trans>
+                                </span>
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
@@ -305,7 +316,7 @@ export function Rules({
                                     }}
                                   >
                                     <PenIcon className="mr-2 size-4" />
-                                    Edit manually
+                                    <Trans>Edit manually</Trans>
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() => {
@@ -319,7 +330,7 @@ export function Rules({
                                     }}
                                   >
                                     <SparklesIcon className="mr-2 size-4" />
-                                    Edit via AI
+                                    <Trans>Edit via AI</Trans>
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() => {
@@ -329,7 +340,7 @@ export function Rules({
                                     }}
                                   >
                                     <CopyIcon className="mr-2 size-4" />
-                                    Duplicate
+                                    <Trans>Duplicate</Trans>
                                   </DropdownMenuItem>
                                 </>
                               )}
@@ -341,7 +352,7 @@ export function Rules({
                                   )}
                                 >
                                   <HistoryIcon className="mr-2 size-4" />
-                                  History
+                                  <Trans>History</Trans>
                                 </Link>
                               </DropdownMenuItem>
                               {!rule.systemType && !isOrgManaged && (
@@ -351,7 +362,7 @@ export function Rules({
                                   <DropdownMenuItem
                                     onClick={async () => {
                                       const yes = confirm(
-                                        `Are you sure you want to delete the rule "${rule.name}"?`,
+                                        t`Are you sure you want to delete the rule "${rule.name}"?`,
                                       );
                                       if (yes) {
                                         toast.promise(
@@ -367,7 +378,7 @@ export function Rules({
                                             ) {
                                               throw new Error(
                                                 res?.serverError ||
-                                                  "There was an error deleting your rule",
+                                                  t`There was an error deleting your rule`,
                                               );
                                             }
 
@@ -382,13 +393,13 @@ export function Rules({
                                             mutate();
                                           },
                                           {
-                                            loading: "Deleting rule...",
-                                            success: "Rule deleted",
+                                            loading: t`Deleting rule...`,
+                                            success: t`Rule deleted`,
                                             error: (error: unknown) =>
-                                              `Error deleting rule. ${
+                                              t`Error deleting rule. ${
                                                 error instanceof Error
                                                   ? error.message
-                                                  : "There was an error deleting your rule"
+                                                  : t`There was an error deleting your rule`
                                               }`,
                                             finally: () => {
                                               mutate();
@@ -399,7 +410,7 @@ export function Rules({
                                     }}
                                   >
                                     <Trash2Icon className="mr-2 size-4" />
-                                    Delete
+                                    <Trans>Delete</Trans>
                                   </DropdownMenuItem>
                                 </>
                               )}
@@ -451,6 +462,7 @@ export function ActionBadges({
   provider: string;
   labels: Array<{ id: string; name: string }>;
 }) {
+  const { i18n } = useLingui();
   const visibleActions = getVisibleActions(actions);
 
   return (
@@ -465,7 +477,7 @@ export function ActionBadges({
             className="w-fit sm:text-nowrap shrink-0"
           >
             <Icon className="size-3 mr-1.5 hidden sm:block" />
-            {getActionDisplay(action, provider, labels)}
+            {getActionDisplayText(action, provider, labels, i18n)}
           </Badge>
         );
       })}
@@ -479,13 +491,13 @@ function NoRules() {
   return (
     <CardHeader>
       <CardDescription className="flex flex-col items-center gap-4 py-20">
-        You don't have any rules yet.
+        <Trans>You don't have any rules yet.</Trans>
         <div>
           <Button asChild size="sm">
             <Link
               href={getOnboardingStepHref(emailAccountId, STEP_KEYS.LABELS)}
             >
-              Set up default rules
+              <Trans>Set up default rules</Trans>
             </Link>
           </Button>
         </div>

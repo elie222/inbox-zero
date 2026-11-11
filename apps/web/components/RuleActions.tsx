@@ -1,11 +1,9 @@
+import { useLingui } from "@lingui/react/macro";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import type { ActionType } from "@/generated/prisma/enums";
-import {
-  getActionDisplay,
-  getActionIcon,
-  getVisibleActions,
-} from "@/utils/action-display";
+import { getActionIcon, getVisibleActions } from "@/utils/action-display";
+import { getActionDisplayText } from "@/utils/action-display-messages";
 
 export function RuleActions({
   actions,
@@ -30,6 +28,7 @@ export function RuleActions({
   labels: Array<{ id: string; name: string }>;
   showDetails?: boolean;
 }) {
+  const { i18n } = useLingui();
   return (
     <div className="flex flex-col gap-2 flex-wrap">
       {getVisibleActions(actions).map((action) => {
@@ -50,7 +49,7 @@ export function RuleActions({
               className="w-fit max-w-full whitespace-normal break-words"
             >
               <Icon className="size-3 shrink-0 mr-1.5" />
-              {getActionDisplay(action, provider, labels)}
+              {getActionDisplayText(action, provider, labels, i18n)}
             </Badge>
             {showDetails && fields.length > 0 && (
               <div className="ml-1 space-y-0.5 text-sm text-muted-foreground">
