@@ -15,6 +15,7 @@ import {
   PictureInPicture2Icon,
   TrashIcon,
 } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   type CSSProperties,
   useCallback,
@@ -305,6 +306,7 @@ function ComposeEmailFormContent({
   selectedEmailAccountId: string;
   onSelectEmailAccount: (emailAccountId: string) => void;
 }) {
+  const { t, i18n } = useLingui();
   const isComposeWindow = layout === "window";
   const isInlineReply = Boolean(draftKeyMessageId && replyingToEmail?.threadId);
   const canScheduleDelivery = isInlineReply || isComposeWindow;
@@ -320,7 +322,7 @@ function ComposeEmailFormContent({
   );
   const [submissionError, setSubmissionError] = useState(() => {
     const times = parseDeliveryTimes(sendAt, remindAt);
-    return times.valid ? "" : times.error;
+    return times.valid ? "" : i18n._(times.error);
   });
   const editorInitialized = useRef(false);
   const [editorReady, setEditorReady] = useState(false);
@@ -542,7 +544,7 @@ function ComposeEmailFormContent({
   const popOutButton = onPopOut && (
     <Tooltip shortcuts={["popOutDraft"]}>
       <Button
-        aria-label="Pop out draft"
+        aria-label={t`Pop out draft`}
         className="ml-auto size-7 shrink-0 hover:bg-transparent"
         disabled={isSubmitting}
         onClick={handlePopOut}
@@ -647,7 +649,7 @@ function ComposeEmailFormContent({
         onStateChange={handleEditorStateChange}
         onImageFiles={(files) => {
           addFiles(files, "inline").catch(() =>
-            toastError({ description: "The image could not be read." }),
+            toastError({ description: t`The image could not be read.` }),
           );
         }}
         preservedBlocks={preservedBlocks}
@@ -690,7 +692,7 @@ function ComposeEmailFormContent({
           >
             <Button disabled={isSubmitting} type="submit" variant="gradient">
               {isSubmitting && <ButtonLoader />}
-              Send
+              <Trans>Send</Trans>
             </Button>
           </Tooltip>
           <button
@@ -753,7 +755,7 @@ function ComposeEmailFormContent({
           />
           <Tooltip shortcuts={["attachFiles"]}>
             <Button
-              aria-label="Attach files"
+              aria-label={t`Attach files`}
               className="hover:bg-transparent"
               disabled={isSubmitting}
               onClick={() => attachmentInputRef.current?.click()}
@@ -774,7 +776,7 @@ function ComposeEmailFormContent({
             type="file"
           />
           <Button
-            aria-label="Insert inline images"
+            aria-label={t`Insert inline images`}
             className="hover:bg-transparent"
             disabled={isSubmitting}
             onClick={() => inlineImageInputRef.current?.click()}
@@ -787,7 +789,7 @@ function ComposeEmailFormContent({
           {onDiscard && (
             <Tooltip shortcuts={["discardDraft"]}>
               <Button
-                aria-label="Discard draft"
+                aria-label={t`Discard draft`}
                 className="hover:bg-transparent"
                 disabled={isSubmitting || isDiscarding}
                 onClick={handleDiscard}

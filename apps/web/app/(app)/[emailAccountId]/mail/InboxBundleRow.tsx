@@ -2,6 +2,7 @@
 
 import { memo, useMemo, type Ref } from "react";
 import { ChevronDownIcon, LayersIcon } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { MailThreadRow } from "@inboxzero/mail-ui/MailThreadRow";
 import type { InboxBundle } from "@/app/(app)/[emailAccountId]/mail/inbox-bundles";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
@@ -45,6 +46,7 @@ export const InboxBundleRow = memo(function InboxBundleRow({
   onSelectRangeTo: (index: number) => void;
   rowRef?: Ref<HTMLDivElement>;
 }) {
+  const { t } = useLingui();
   const senders = useMemo(
     () =>
       // Deduplicated in recency order, so the newest senders are named first.
@@ -54,11 +56,12 @@ export const InboxBundleRow = memo(function InboxBundleRow({
             getThreadParticipantNames(
               [...(thread.participantMessages ?? []), ...thread.messages],
               ("account" in thread ? thread.account?.email : null) ?? userEmail,
+              t`me`,
             ),
           ),
         ),
       ],
-    [bundle.threads, userEmail],
+    [bundle.threads, userEmail, t],
   );
   const newest = bundle.threads[0];
   if (!newest) return null;
@@ -130,7 +133,9 @@ export function InboxBundleHeader({
       <LayersIcon aria-hidden className="size-3.5 text-primary" />
       <span className="font-medium text-foreground">{bundle.name}</span>
       <span>{bundle.threads.length}</span>
-      <span className="ml-auto">Collapse</span>
+      <span className="ml-auto">
+        <Trans>Collapse</Trans>
+      </span>
     </button>
   );
 }

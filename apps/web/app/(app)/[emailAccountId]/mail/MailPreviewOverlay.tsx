@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -24,6 +25,7 @@ export function MailPreviewOverlay({
   onNavigate: (threadId: string) => void;
   onOpenInReader: () => void;
 }) {
+  const { t } = useLingui();
   const { provider } = useAccount();
   // The chat's cards live in another part of the page, so their order is read
   // from the document. It's re-read on every step, so new cards are picked up.
@@ -95,19 +97,22 @@ export function MailPreviewOverlay({
   return (
     <section
       ref={sectionRef}
-      aria-label="Email from chat"
+      aria-label={t`Email from chat`}
       className="absolute inset-0 z-30 flex flex-col bg-background"
     >
       <div className="flex items-center gap-1 border-b bg-muted/40 px-3 py-1.5">
         <MessageCircleIcon className="size-3.5 text-muted-foreground" />
         <span className="text-muted-foreground text-xs">
-          From chat
-          {position.index !== -1 && position.threadIds.length > 1
-            ? ` · ${position.index + 1} of ${position.threadIds.length}`
-            : null}
+          {position.index !== -1 && position.threadIds.length > 1 ? (
+            <Trans>
+              From chat · {position.index + 1} of {position.threadIds.length}
+            </Trans>
+          ) : (
+            <Trans>From chat</Trans>
+          )}
         </span>
         <Button
-          aria-label="Previous email from chat"
+          aria-label={t`Previous email from chat`}
           className="ml-1"
           disabled={!previous}
           Icon={ChevronUpIcon}
@@ -116,7 +121,7 @@ export function MailPreviewOverlay({
           variant="ghost"
         />
         <Button
-          aria-label="Next email from chat"
+          aria-label={t`Next email from chat`}
           disabled={!next}
           Icon={ChevronDownIcon}
           onClick={() => next && onNavigate(next)}
@@ -125,10 +130,10 @@ export function MailPreviewOverlay({
         />
         <div className="ml-auto flex items-center gap-1">
           <Button size="xs-2" variant="ghost" onClick={onOpenInReader}>
-            Open in reader
+            <Trans>Open in reader</Trans>
           </Button>
           <Button
-            aria-label="Close email"
+            aria-label={t`Close email`}
             size="iconXs"
             variant="ghost"
             Icon={XIcon}
