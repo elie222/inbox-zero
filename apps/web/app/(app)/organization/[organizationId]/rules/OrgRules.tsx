@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import {
   MoreHorizontalIcon,
   PenIcon,
@@ -46,6 +47,7 @@ import { OrgRuleDialog } from "./OrgRuleDialog";
 type OrgRule = OrganizationRulesResponse["rules"][number];
 
 export function OrgRules({ organizationId }: { organizationId: string }) {
+  const { i18n } = useLingui();
   const { data: membership, isLoading: membershipLoading } =
     useOrganizationMembership();
   const isAdmin = hasOrganizationAdminRole(membership?.role ?? "");
@@ -163,7 +165,7 @@ export function OrgRules({ organizationId }: { organizationId: string }) {
                             variant="secondary"
                             className="text-xs"
                           >
-                            {ACTION_TYPE_LABELS[action.type]}
+                            {i18n._(ACTION_TYPE_LABELS[action.type])}
                           </Badge>
                         ))}
                       </div>

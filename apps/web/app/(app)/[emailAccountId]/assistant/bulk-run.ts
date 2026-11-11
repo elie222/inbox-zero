@@ -1,5 +1,7 @@
 import { addDays } from "date-fns/addDays";
 import { startOfDay } from "date-fns/startOfDay";
+import type { I18n } from "@lingui/core";
+import { plural, t } from "@lingui/core/macro";
 import type { ThreadsResponse } from "@/app/api/threads/route";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { runAiRules } from "@/utils/queue/email-actions";
@@ -30,6 +32,7 @@ export async function onRun(
     generateDraftReplies = false,
     rerun,
     maxEmails,
+    i18n,
   }: {
     startDate: Date;
     endDate?: Date;
@@ -37,6 +40,7 @@ export async function onRun(
     generateDraftReplies?: boolean;
     rerun?: boolean;
     maxEmails?: number;
+    i18n: I18n;
   },
   onThreadsQueued: (threads: ThreadsResponse["threads"]) => void,
   onComplete: (
@@ -107,7 +111,7 @@ export async function onRun(
         if (completeIfCancelled()) return;
         if (error instanceof BulkRunRequestError) {
           toastError({
-            title: "Failed to fetch emails",
+            title: t(i18n)`Failed to fetch emails`,
             description: error.message,
           });
           onComplete("error", totalProcessed);
@@ -120,8 +124,8 @@ export async function onRun(
 
       if (!data.threads) {
         toastError({
-          title: "Invalid response",
-          description: "Failed to process emails. Please try again.",
+          title: t(i18n)`Invalid response`,
+          description: t(i18n)`Failed to process emails. Please try again.`,
         });
         onComplete("error", totalProcessed);
         return;
@@ -181,15 +185,21 @@ export async function onRun(
       const processedCount = totalProcessed + completedInBatch;
       if (error instanceof BulkRunRateLimitGiveUpError) {
         toastError({
-          title: "Processing stopped",
-          description: `Your email provider kept limiting requests, so processing stopped after ${processedCount} emails. Run it again later to ${rerun ? "try again" : "continue with the rest"}.`,
+          title: t(i18n)`Processing stopped`,
+          description: rerun
+            ? t(
+                i18n,
+              )`${plural(processedCount, { one: "Your email provider kept limiting requests, so processing stopped after # email. Run it again later to try again.", other: "Your email provider kept limiting requests, so processing stopped after # emails. Run it again later to try again." })}`
+            : t(
+                i18n,
+              )`${plural(processedCount, { one: "Your email provider kept limiting requests, so processing stopped after # email. Run it again later to continue with the rest.", other: "Your email provider kept limiting requests, so processing stopped after # emails. Run it again later to continue with the rest." })}`,
         });
       } else {
         captureException(error);
         toastError({
-          title: "Failed to process emails",
+          title: t(i18n)`Failed to process emails`,
           description:
-            error instanceof Error ? error.message : "Please try again.",
+            error instanceof Error ? error.message : t(i18n)`Please try again.`,
         });
       }
       onComplete("error", processedCount);

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PlusIcon } from "lucide-react";
+import { Trans } from "@lingui/react/macro";
 import { RulesPrompt } from "@/app/(app)/[emailAccountId]/assistant/RulesPromptNew";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ export function AddRuleDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" Icon={PlusIcon}>
-          Add Rule
+          <Trans>Add Rule</Trans>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-5xl">
