@@ -42,8 +42,9 @@ export function getActionDisplayText(
       );
       const labelName = getActionLabelName(action, labels);
       if (!labelName) return labelAction;
-      const truncatedLabelName = truncate(labelName, 15);
-      return i18n._(msg`${labelAction} as '${truncatedLabelName}'`);
+      // ICU reads '{x}' as literal text, so the quotes go in the value.
+      const quotedLabelName = `'${truncate(labelName, 15)}'`;
+      return i18n._(msg`${labelAction} as ${quotedLabelName}`);
     }
     case ActionType.ARCHIVE:
       return i18n._(msg`Archive`);
@@ -68,10 +69,9 @@ export function getActionDisplayText(
       return i18n._(msg`Forward to ${to}`);
     }
     case ActionType.MOVE_FOLDER: {
-      const folderName = action.folderName;
-      return folderName
-        ? i18n._(msg`Move to '${folderName}' folder`)
-        : i18n._(msg`Move to folder`);
+      if (!action.folderName) return i18n._(msg`Move to folder`);
+      const quotedFolderName = `'${action.folderName}'`;
+      return i18n._(msg`Move to ${quotedFolderName} folder`);
     }
     case ActionType.DIGEST:
       return i18n._(msg`Digest`);

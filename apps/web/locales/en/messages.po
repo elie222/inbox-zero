@@ -127,8 +127,8 @@ msgid "{label} (Disconnected)"
 msgstr "{label} (Disconnected)"
 
 #: utils/action-display-messages.ts
-msgid "{labelAction} as '{truncatedLabelName}'"
-msgstr "{labelAction} as '{truncatedLabelName}'"
+msgid "{labelAction} as {quotedLabelName}"
+msgstr "{labelAction} as {quotedLabelName}"
 
 #. placeholder {0}: connection.name
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
@@ -794,6 +794,308 @@ msgstr "Categorise"
 msgctxt "action"
 msgid "Categorize"
 msgstr "Categorize"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize brand partnership emails as @[Brand Deal] and forward to manager@example.com"
+msgstr "Categorize brand partnership emails as @[Brand Deal] and forward to manager@example.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize bug reports as @[Bug] and forward to engineering@company.com"
+msgstr "Categorize bug reports as @[Bug] and forward to engineering@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize collaboration requests as @[Collab] and draft a reply asking about their audience size and engagement rates"
+msgstr "Categorize collaboration requests as @[Collab] and draft a reply asking about their audience size and engagement rates"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize customer requests for help as @[Support Ticket]"
+msgstr "Categorize customer requests for help as @[Support Ticket]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize due diligence related emails as @[Due Diligence]"
+msgstr "Categorize due diligence related emails as @[Due Diligence]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about account access issues as @[Access Issue] and draft a reply asking for their account details"
+msgstr "Categorize emails about account access issues as @[Access Issue] and draft a reply asking for their account details"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about affiliate programs as @[Affiliate] and archive them"
+msgstr "Categorize emails about affiliate programs as @[Affiliate] and archive them"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about API integration issues as @[API Support]"
+msgstr "Categorize emails about API integration issues as @[API Support]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about assignments and homework as @[Assignment]"
+msgstr "Categorize emails about assignments and homework as @[Assignment]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about background checks as @[Background Check]"
+msgstr "Categorize emails about background checks as @[Background Check]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about bug reports as @[Bug]"
+msgstr "Categorize emails about bug reports as @[Bug]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about campus events as @[Event] and archive them"
+msgstr "Categorize emails about campus events as @[Event] and archive them"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about closing documents as @[Closing] and forward to transactions@realty.com"
+msgstr "Categorize emails about closing documents as @[Closing] and forward to transactions@realty.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about content marketing as @[Content]"
+msgstr "Categorize emails about content marketing as @[Content]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about deal negotiations as @[Deal Discussion]"
+msgstr "Categorize emails about deal negotiations as @[Deal Discussion]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about design conferences as @[Conference]"
+msgstr "Categorize emails about design conferences as @[Conference]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about exam schedules as @[Exam]"
+msgstr "Categorize emails about exam schedules as @[Exam]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about fund administration as @[Fund Admin]"
+msgstr "Categorize emails about fund administration as @[Fund Admin]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about internships as @[Internship] and forward to my personal email me@example.com"
+msgstr "Categorize emails about internships as @[Internship] and forward to my personal email me@example.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about interview scheduling as @[Interview Scheduling]"
+msgstr "Categorize emails about interview scheduling as @[Interview Scheduling]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about job interviews as @[Job Search]"
+msgstr "Categorize emails about job interviews as @[Job Search]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about portfolio company exits as @[Exit Opportunity]"
+msgstr "Categorize emails about portfolio company exits as @[Exit Opportunity]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about recruitment events or job fairs as @[Recruiting Event]"
+msgstr "Categorize emails about recruitment events or job fairs as @[Recruiting Event]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about reference checks as @[References]"
+msgstr "Categorize emails about reference checks as @[References]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about salary negotiations as @[Compensation]"
+msgstr "Categorize emails about salary negotiations as @[Compensation]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about sales opportunities as @[Sales Opportunity]"
+msgstr "Categorize emails about sales opportunities as @[Sales Opportunity]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about service outages as @[Service Issue] and forward to status@company.com"
+msgstr "Categorize emails about service outages as @[Service Issue] and forward to status@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about speaking at investment conferences as @[Speaking Opportunity]"
+msgstr "Categorize emails about speaking at investment conferences as @[Speaking Opportunity]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about travel as @[Travel]"
+msgstr "Categorize emails about travel as @[Travel]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about tutoring opportunities as @[Tutoring] and draft a reply with that my rate is $70/hour or $40/hour for group tutoring"
+msgstr "Categorize emails about tutoring opportunities as @[Tutoring] and draft a reply with that my rate is $70/hour or $40/hour for group tutoring"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails about user research as @[Research]"
+msgstr "Categorize emails about user research as @[Research]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails containing resumes or CVs as @[Resume]"
+msgstr "Categorize emails containing resumes or CVs as @[Resume]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails containing signed contracts as @[Signed Contract] and forward to legal@company.com"
+msgstr "Categorize emails containing signed contracts as @[Signed Contract] and forward to legal@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails containing term sheets as @[Term Sheet]"
+msgstr "Categorize emails containing term sheets as @[Term Sheet]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from @mycompany.com addresses as @[Team]"
+msgstr "Categorize emails from @mycompany.com addresses as @[Team]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from ad platforms (Google, Meta, LinkedIn) as @[Advertising]"
+msgstr "Categorize emails from ad platforms (Google, Meta, LinkedIn) as @[Advertising]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from candidates as @[Candidate]"
+msgstr "Categorize emails from candidates as @[Candidate]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from clients as @[Client]"
+msgstr "Categorize emails from clients as @[Client]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from customers as @[Customer]"
+msgstr "Categorize emails from customers as @[Customer]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from customers who need our help and support as @[Customer Support]"
+msgstr "Categorize emails from customers who need our help and support as @[Customer Support]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from Dribbble, Behance, and other design inspiration sites as @[Inspiration] and archive them"
+msgstr "Categorize emails from Dribbble, Behance, and other design inspiration sites as @[Inspiration] and archive them"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from Figma as @[Design] and archive them"
+msgstr "Categorize emails from Figma as @[Design] and archive them"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from Figma, Adobe, Sketch, and other design tools as @[Design] and archive them"
+msgstr "Categorize emails from Figma, Adobe, Sketch, and other design tools as @[Design] and archive them"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from GitHub as @[GitHub] and archive them"
+msgstr "Categorize emails from GitHub as @[GitHub] and archive them"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from hiring managers as @[Hiring Manager]"
+msgstr "Categorize emails from hiring managers as @[Hiring Manager]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from home inspectors as @[Inspector] and forward to scheduling@realty.com"
+msgstr "Categorize emails from home inspectors as @[Inspector] and forward to scheduling@realty.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from influencers as @[Influencer]"
+msgstr "Categorize emails from influencers as @[Influencer]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from investors as @[Investor]"
+msgstr "Categorize emails from investors as @[Investor]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from job boards as @[Job Board] and archive them"
+msgstr "Categorize emails from job boards as @[Job Board] and archive them"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from LinkedIn as @[LinkedIn] and archive them"
+msgstr "Categorize emails from LinkedIn as @[LinkedIn] and archive them"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from LPs as @[LP]"
+msgstr "Categorize emails from LPs as @[LP]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from mortgage brokers and lenders as @[Lender] and archive them"
+msgstr "Categorize emails from mortgage brokers and lenders as @[Lender] and archive them"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from potential buyers as @[Buyer Lead] and draft a reply asking about their budget and preferred neighborhoods"
+msgstr "Categorize emails from potential buyers as @[Buyer Lead] and draft a reply asking about their budget and preferred neighborhoods"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from potential sellers as @[Seller Lead] and draft a reply with my calendar link to schedule a home evaluation: https://cal.com/example"
+msgstr "Categorize emails from potential sellers as @[Seller Lead] and draft a reply with my calendar link to schedule a home evaluation: https://cal.com/example"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from professors and teaching assistants as @[School]"
+msgstr "Categorize emails from professors and teaching assistants as @[School]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from prospects as @[Prospect]"
+msgstr "Categorize emails from prospects as @[Prospect]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from recruiters as @[Recruiter] and archive them"
+msgstr "Categorize emails from recruiters as @[Recruiter] and archive them"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from recruiters as @[Recruiter] and draft a reply with our hiring process overview link: https://company.com/hiring-process"
+msgstr "Categorize emails from recruiters as @[Recruiter] and draft a reply with our hiring process overview link: https://company.com/hiring-process"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from sales tools as @[Sales Tool] and archive them"
+msgstr "Categorize emails from sales tools as @[Sales Tool] and archive them"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from Slack as @[Slack] and archive them"
+msgstr "Categorize emails from Slack as @[Slack] and archive them"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails from Stripe as @[Stripe] and archive them"
+msgstr "Categorize emails from Stripe as @[Stripe] and archive them"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize emails with feedback from customers about our product as @[Customer Feedback]"
+msgstr "Categorize emails with feedback from customers about our product as @[Customer Feedback]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize feature requests as @[Feature Request] and forward to product@company.com"
+msgstr "Categorize feature requests as @[Feature Request] and forward to product@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize high priority emails as @[High Priority]"
+msgstr "Categorize high priority emails as @[High Priority]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize legal documents as @[Legal]"
+msgstr "Categorize legal documents as @[Legal]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize media inquiries to us as @[Press] and draft a polite reply"
+msgstr "Categorize media inquiries to us as @[Press] and draft a polite reply"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize positive feedback as @[Testimonial] and forward to marketing@company.com"
+msgstr "Categorize positive feedback as @[Testimonial] and forward to marketing@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize press inquiries to us as @[Press] and forward to pr@company.com"
+msgstr "Categorize press inquiries to us as @[Press] and forward to pr@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize recruitment related emails as @[Hiring]"
+msgstr "Categorize recruitment related emails as @[Hiring]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize server errors as @[Error]"
+msgstr "Categorize server errors as @[Error]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize server errors, deployment failures, and other server alerts as @[Alert] and forward to oncall@company.com"
+msgstr "Categorize server errors, deployment failures, and other server alerts as @[Alert] and forward to oncall@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize sponsorship inquiries as @[Sponsorship] and draft a reply as follows:\n"
+"> Hey NAME,\n"
+">\n"
+"> I've attached my media kit and pricing"
+msgstr "Categorize sponsorship inquiries as @[Sponsorship] and draft a reply as follows:\n"
+"> Hey NAME,\n"
+">\n"
+"> I've attached my media kit and pricing"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize Stripe emails as @[Stripe]"
+msgstr "Categorize Stripe emails as @[Stripe]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Categorize urgent emails as @[Urgent]"
+msgstr "Categorize urgent emails as @[Urgent]"
 
 #: utils/terminology-messages.ts
 msgid "category"
@@ -1819,8 +2121,16 @@ msgid "Forward emails about industry research reports to research@vc.com"
 msgstr "Forward emails about industry research reports to research@vc.com"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Forward pitch decks to analyst@vc.com that asks them to review it and categorize them @[Pitch Deck]"
+msgstr "Forward pitch decks to analyst@vc.com that asks them to review it and categorize them @[Pitch Deck]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Forward pitch decks to analyst@vc.com that asks them to review it and label them @[Pitch Deck]"
 msgstr "Forward pitch decks to analyst@vc.com that asks them to review it and label them @[Pitch Deck]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Forward pitch decks to john@investing.com and categorize them @[Pitch Deck]"
+msgstr "Forward pitch decks to john@investing.com and categorize them @[Pitch Deck]"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Forward pitch decks to john@investing.com and label them @[Pitch Deck]"
@@ -1829,6 +2139,10 @@ msgstr "Forward pitch decks to john@investing.com and label them @[Pitch Deck]"
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Forward receipts and invoices to my accountant"
 msgstr "Forward receipts and invoices to my accountant"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Forward receipts to jane@accounting.com and categorize them @[Receipt]"
+msgstr "Forward receipts to jane@accounting.com and categorize them @[Receipt]"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Forward receipts to jane@accounting.com and label them @[Receipt]"
@@ -2004,8 +2318,16 @@ msgid "I've already cancelled my subscription"
 msgstr "I've already cancelled my subscription"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If a candidate asks about application status, categorize as @[Status Update] and draft a reply asking for their position and date applied"
+msgstr "If a candidate asks about application status, categorize as @[Status Update] and draft a reply asking for their position and date applied"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If a candidate asks about application status, label as @[Status Update] and draft a reply asking for their position and date applied"
 msgstr "If a candidate asks about application status, label as @[Status Update] and draft a reply asking for their position and date applied"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If a customer mentions churn risk, categorize as @[Churn Risk] and draft an urgent notification to the customer success team"
+msgstr "If a customer mentions churn risk, categorize as @[Churn Risk] and draft an urgent notification to the customer success team"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If a customer mentions churn risk, label as @[Churn Risk] and draft an urgent notification to the customer success team"
@@ -2016,28 +2338,56 @@ msgid "If a founder asks to set up a call, draft a reply with my calendar link: 
 msgstr "If a founder asks to set up a call, draft a reply with my calendar link: https://cal.com/example"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If a founder sends me an investor update, categorize it @[Investor Update] and archive it"
+msgstr "If a founder sends me an investor update, categorize it @[Investor Update] and archive it"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If a founder sends me an investor update, label it @[Investor Update] and archive it"
 msgstr "If a founder sends me an investor update, label it @[Investor Update] and archive it"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If a portfolio company reports bad news, categorize as @[Portfolio Alert] and draft a reply to schedule an emergency call"
+msgstr "If a portfolio company reports bad news, categorize as @[Portfolio Alert] and draft a reply to schedule an emergency call"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If a portfolio company reports bad news, label as @[Portfolio Alert] and draft a reply to schedule an emergency call"
 msgstr "If a portfolio company reports bad news, label as @[Portfolio Alert] and draft a reply to schedule an emergency call"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If an internal employee refers someone, categorize as @[Employee Referral]"
+msgstr "If an internal employee refers someone, categorize as @[Employee Referral]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If an internal employee refers someone, label as @[Employee Referral]"
 msgstr "If an internal employee refers someone, label as @[Employee Referral]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If people ask me to speak at an event, categorize the email @[Speaker Opportunity] and archive it"
+msgstr "If people ask me to speak at an event, categorize the email @[Speaker Opportunity] and archive it"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If people ask me to speak at an event, label the email @[Speaker Opportunity] and archive it"
 msgstr "If people ask me to speak at an event, label the email @[Speaker Opportunity] and archive it"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone accepts a job offer, categorize as @[Offer Accepted] and forward to onboarding@company.com"
+msgstr "If someone accepts a job offer, categorize as @[Offer Accepted] and forward to onboarding@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone accepts a job offer, label as @[Offer Accepted] and forward to onboarding@company.com"
 msgstr "If someone accepts a job offer, label as @[Offer Accepted] and forward to onboarding@company.com"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone accepts an interview invite, categorize as @[Interview Confirmed] and forward to calendar@company.com"
+msgstr "If someone accepts an interview invite, categorize as @[Interview Confirmed] and forward to calendar@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone accepts an interview invite, label as @[Interview Confirmed] and forward to calendar@company.com"
 msgstr "If someone accepts an interview invite, label as @[Interview Confirmed] and forward to calendar@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone applies for a job, categorize as @[New Application] and draft a reply acknowledging their application"
+msgstr "If someone applies for a job, categorize as @[New Application] and draft a reply acknowledging their application"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone applies for a job, label as @[New Application] and draft a reply acknowledging their application"
@@ -2052,8 +2402,16 @@ msgid "If someone asks about enterprise pricing, draft a reply asking about thei
 msgstr "If someone asks about enterprise pricing, draft a reply asking about their company size and requirements"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks about home prices in a specific area, categorize as @[Market Inquiry] and draft a reply with recent comparable sales data"
+msgstr "If someone asks about home prices in a specific area, categorize as @[Market Inquiry] and draft a reply with recent comparable sales data"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone asks about home prices in a specific area, label as @[Market Inquiry] and draft a reply with recent comparable sales data"
 msgstr "If someone asks about home prices in a specific area, label as @[Market Inquiry] and draft a reply with recent comparable sales data"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks about partnership opportunities, categorize as @[Partnership] and draft a reply asking for their media kit"
+msgstr "If someone asks about partnership opportunities, categorize as @[Partnership] and draft a reply asking for their media kit"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone asks about partnership opportunities, label as @[Partnership] and draft a reply asking for their media kit"
@@ -2062,6 +2420,10 @@ msgstr "If someone asks about partnership opportunities, label as @[Partnership]
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone asks about product features, draft a reply with relevant feature documentation links"
 msgstr "If someone asks about product features, draft a reply with relevant feature documentation links"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks about sponsorship, categorize as @[Sponsorship] and draft a reply asking about their audience size"
+msgstr "If someone asks about sponsorship, categorize as @[Sponsorship] and draft a reply asking about their audience size"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone asks about sponsorship, label as @[Sponsorship] and draft a reply asking about their audience size"
@@ -2104,12 +2466,20 @@ msgid "If someone asks to cancel a plan, draft a reply with the cancellation lin
 msgstr "If someone asks to cancel a plan, draft a reply with the cancellation link: https://company.com/cancel"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks to schedule a showing, categorize as @[Showing Request] and draft a reply with available time slots"
+msgstr "If someone asks to schedule a showing, categorize as @[Showing Request] and draft a reply with available time slots"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone asks to schedule a showing, label as @[Showing Request] and draft a reply with available time slots"
 msgstr "If someone asks to schedule a showing, label as @[Showing Request] and draft a reply with available time slots"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone asks to set up a call, draft a reply with my calendar link: https://cal.com/example"
 msgstr "If someone asks to set up a call, draft a reply with my calendar link: https://cal.com/example"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone declines a job offer, categorize as @[Offer Declined] and forward to hiring-updates@company.com"
+msgstr "If someone declines a job offer, categorize as @[Offer Declined] and forward to hiring-updates@company.com"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone declines a job offer, label as @[Offer Declined] and forward to hiring-updates@company.com"
@@ -2120,32 +2490,64 @@ msgid "If someone needs technical assistance, draft a reply asking for their acc
 msgstr "If someone needs technical assistance, draft a reply asking for their account details and specific error messages"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone pitches me their startup, categorize it as @[Investing], archive it, and draft a friendly reply that I no longer have time to look at the email but if they get a warm intro, that's their best bet to get funding from me"
+msgstr "If someone pitches me their startup, categorize it as @[Investing], archive it, and draft a friendly reply that I no longer have time to look at the email but if they get a warm intro, that's their best bet to get funding from me"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone pitches me their startup, label it as @[Investing], archive it, and draft a friendly reply that I no longer have time to look at the email but if they get a warm intro, that's their best bet to get funding from me"
 msgstr "If someone pitches me their startup, label it as @[Investing], archive it, and draft a friendly reply that I no longer have time to look at the email but if they get a warm intro, that's their best bet to get funding from me"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone refers a client to me, categorize as @[Referral] and draft a thank you reply with my calendar link to schedule a consultation"
+msgstr "If someone refers a client to me, categorize as @[Referral] and draft a thank you reply with my calendar link to schedule a consultation"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone refers a client to me, label as @[Referral] and draft a thank you reply with my calendar link to schedule a consultation"
 msgstr "If someone refers a client to me, label as @[Referral] and draft a thank you reply with my calendar link to schedule a consultation"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone replies to me that they're interested, categorize it @[Interested] and draft a reply with my calendar link: https://cal.com/example"
+msgstr "If someone replies to me that they're interested, categorize it @[Interested] and draft a reply with my calendar link: https://cal.com/example"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone replies to me that they're interested, label it @[Interested] and draft a reply with my calendar link: https://cal.com/example"
 msgstr "If someone replies to me that they're interested, label it @[Interested] and draft a reply with my calendar link: https://cal.com/example"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone reports a critical issue, categorize as @[Urgent Support] and forward to urgent@company.com"
+msgstr "If someone reports a critical issue, categorize as @[Urgent Support] and forward to urgent@company.com"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone reports a critical issue, label as @[Urgent Support] and forward to urgent@company.com"
 msgstr "If someone reports a critical issue, label as @[Urgent Support] and forward to urgent@company.com"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone reports a security vulnerability, categorize as @[Security] and forward to security@company.com"
+msgstr "If someone reports a security vulnerability, categorize as @[Security] and forward to security@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone reports a security vulnerability, label as @[Security] and forward to security@company.com"
 msgstr "If someone reports a security vulnerability, label as @[Security] and forward to security@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone reports broken marketing links, categorize as @[Bug] and forward to tech@company.com"
+msgstr "If someone reports broken marketing links, categorize as @[Bug] and forward to tech@company.com"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone reports broken marketing links, label as @[Bug] and forward to tech@company.com"
 msgstr "If someone reports broken marketing links, label as @[Bug] and forward to tech@company.com"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone reports data privacy concerns, categorize as @[Privacy], and draft a reply with our privacy policy link: https://company.com/privacy-policy"
+msgstr "If someone reports data privacy concerns, categorize as @[Privacy], and draft a reply with our privacy policy link: https://company.com/privacy-policy"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone reports data privacy concerns, label as @[Privacy], and draft a reply with our privacy policy link: https://company.com/privacy-policy"
 msgstr "If someone reports data privacy concerns, label as @[Privacy], and draft a reply with our privacy policy link: https://company.com/privacy-policy"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone reports implementation issues, categorize as @[Support Need] and forward to support@company.com"
+msgstr "If someone reports implementation issues, categorize as @[Support Need] and forward to support@company.com"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone reports implementation issues, label as @[Support Need] and forward to support@company.com"
@@ -2160,16 +2562,32 @@ msgid "If someone requests brand assets, draft a reply with a link to our brand 
 msgstr "If someone requests brand assets, draft a reply with a link to our brand portal: https://brand.company.com"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone requests to guest post, categorize as @[Guest Post] and draft a reply with our guidelines"
+msgstr "If someone requests to guest post, categorize as @[Guest Post] and draft a reply with our guidelines"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone requests to guest post, label as @[Guest Post] and draft a reply with our guidelines"
 msgstr "If someone requests to guest post, label as @[Guest Post] and draft a reply with our guidelines"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone sends class notes or study materials, categorize as @[Study Materials]"
+msgstr "If someone sends class notes or study materials, categorize as @[Study Materials]"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone sends class notes or study materials, label as @[Study Materials]"
 msgstr "If someone sends class notes or study materials, label as @[Study Materials]"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone sends design assets, categorize as @[Design Assets] and forward to assets@company.com"
+msgstr "If someone sends design assets, categorize as @[Design Assets] and forward to assets@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone sends design assets, label as @[Design Assets] and forward to assets@company.com"
 msgstr "If someone sends design assets, label as @[Design Assets] and forward to assets@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone withdraws their application, categorize as @[Withdrawn]"
+msgstr "If someone withdraws their application, categorize as @[Withdrawn]"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "If someone withdraws their application, label as @[Withdrawn]"
@@ -2885,8 +3303,8 @@ msgid "Morning"
 msgstr "Morning"
 
 #: utils/action-display-messages.ts
-msgid "Move to '{folderName}' folder"
-msgstr "Move to '{folderName}' folder"
+msgid "Move to {quotedFolderName} folder"
+msgstr "Move to {quotedFolderName} folder"
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
