@@ -23,10 +23,25 @@ msgstr "- Your weekly roundup of the latest..."
 msgid "(no subject)"
 msgstr "(no subject)"
 
+#. placeholder {0}: stats.done
+#: app/(app)/[emailAccountId]/clean/EmailFirehose.tsx
+msgid "{0, plural, one {# archived.} other {# archived.}}"
+msgstr "{0, plural, one {# archived.} other {# archived.}}"
+
 #. placeholder {0}: result.skippedModified
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "{0, plural, one {# draft was kept because you edited it} other {# drafts were kept because you edited them}}"
 msgstr "{0, plural, one {# draft was kept because you edited it} other {# drafts were kept because you edited them}}"
+
+#. placeholder {0}: stats.total
+#: app/(app)/[emailAccountId]/clean/EmailFirehose.tsx
+msgid "{0, plural, one {# email processed.} other {# emails processed.}}"
+msgstr "{0, plural, one {# email processed.} other {# emails processed.}}"
+
+#. placeholder {0}: job._count.threads
+#: app/(app)/[emailAccountId]/clean/CleanHistory.tsx
+msgid "{0, plural, one {# email processed} other {# emails processed}}"
+msgstr "{0, plural, one {# email processed} other {# emails processed}}"
 
 #. placeholder {0}: delivery.queuedItemCount
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
@@ -38,10 +53,80 @@ msgstr "{0, plural, one {# email queued} other {# emails queued}}"
 msgid "{0, plural, one {# email} other {# emails}}"
 msgstr "{0, plural, one {# email} other {# emails}}"
 
+#. placeholder {0}: stats.done
+#: app/(app)/[emailAccountId]/clean/EmailFirehose.tsx
+msgid "{0, plural, one {# marked read.} other {# marked read.}}"
+msgstr "{0, plural, one {# marked read.} other {# marked read.}}"
+
+#. placeholder {0}: groupedByConfidence.medium.length
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "{0, plural, one {# probably safe} other {# probably safe}}"
+msgstr "{0, plural, one {# probably safe} other {# probably safe}}"
+
+#. placeholder {0}: groupedByConfidence.high.length
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "{0, plural, one {# safe to archive} other {# safe to archive}}"
+msgstr "{0, plural, one {# safe to archive} other {# safe to archive}}"
+
+#. placeholder {0}: senders.length
+#: components/BulkArchiveCards.tsx
+msgid "{0, plural, one {# sender} other {# senders}}"
+msgstr "{0, plural, one {# sender} other {# senders}}"
+
+#. placeholder {0}: groupedByConfidence.low.length
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "{0, plural, one {# to review} other {# to review}}"
+msgstr "{0, plural, one {# to review} other {# to review}}"
+
+#. placeholder {0}: status.threadsTotal
+#: components/BulkArchiveCards.tsx
+msgid "{0, plural, one {Archived #!} other {Archived #!}}"
+msgstr "{0, plural, one {Archived #!} other {Archived #!}}"
+
+#. placeholder {0}: status.threadsTotal
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "{0, plural, one {Archived #} other {Archived #}}"
+msgstr "{0, plural, one {Archived #} other {Archived #}}"
+
+#. placeholder {0}: result.data.totalUncategorizedSenders
+#: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
+msgid "{0, plural, one {Categorizing # sender... This may take a few minutes.} other {Categorizing # senders... This may take a few minutes.}}"
+msgstr "{0, plural, one {Categorizing # sender... This may take a few minutes.} other {Categorizing # senders... This may take a few minutes.}}"
+
+#. placeholder {0}: data.totalUncategorizedSenders
+#: app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton.tsx
+msgid "{0, plural, one {Categorizing # sender...} other {Categorizing # senders...}}"
+msgstr "{0, plural, one {Categorizing # sender...} other {Categorizing # senders...}}"
+
+#. placeholder {0}: selectedToProcess.length
+#: components/BulkArchiveCards.tsx
+msgid "{0, plural, one {Delete emails from # sender? This action cannot be undone.} other {Delete emails from # senders? This action cannot be undone.}}"
+msgstr "{0, plural, one {Delete emails from # sender? This action cannot be undone.} other {Delete emails from # senders? This action cannot be undone.}}"
+
+#. placeholder {0}: status.threadsTotal
+#: components/BulkArchiveCards.tsx
+msgid "{0, plural, one {Deleted #!} other {Deleted #!}}"
+msgstr "{0, plural, one {Deleted #!} other {Deleted #!}}"
+
+#. placeholder {0}: status.threadsTotal
+#: components/BulkArchiveCards.tsx
+msgid "{0, plural, one {Marked # read!} other {Marked # read!}}"
+msgstr "{0, plural, one {Marked # read!} other {Marked # read!}}"
+
 #. placeholder {0}: data.updated
 #: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
 msgid "{0, plural, one {Reset # label to the default colors.} other {Reset # labels to the default colors.}}"
 msgstr "{0, plural, one {Reset # label to the default colors.} other {Reset # labels to the default colors.}}"
+
+#. placeholder {0}: suggestedRows.length
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "{0, plural, one {Select # suggested} other {Select # suggested}}"
+msgstr "{0, plural, one {Select # suggested} other {Select # suggested}}"
+
+#. placeholder {0}: suggestedRows.length
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "{0, plural, one {Showing # suggested} other {Showing # suggested}}"
+msgstr "{0, plural, one {Showing # suggested} other {Showing # suggested}}"
 
 #. placeholder {0}: selectedRuleIds.size
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
@@ -65,9 +150,72 @@ msgstr "{0} of {1} selected"
 msgid "{0} plan"
 msgstr "{0} plan"
 
+#. placeholder {0}: data.completed
+#. placeholder {1}: data.total
+#: components/SetupProgressCard.tsx
+msgid "{0}/{1} Completed"
+msgstr "{0}/{1} Completed"
+
+#. placeholder {0}: Math.round((selectedCount / totalCount) * 100)
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "{0}% inbox cleanup"
+msgstr "{0}% inbox cleanup"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
 msgid "{archivedEmailCount, plural, one {# email} other {# emails}}"
 msgstr "{archivedEmailCount, plural, one {# email} other {# emails}}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "{completed} of {total} completed"
+msgstr "{completed} of {total} completed"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "{completedCount} of {totalSteps} completed"
+msgstr "{completedCount} of {totalSteps} completed"
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveProgress.tsx
+msgid "{completedItems, plural, one {Archiving complete! # sender processed!} other {Archiving complete! # senders processed!}}"
+msgstr "{completedItems, plural, one {Archiving complete! # sender processed!} other {Archiving complete! # senders processed!}}"
+
+#: app/(app)/[emailAccountId]/smart-categories/CategorizeProgress.tsx
+msgid "{completedItems, plural, one {Categorization complete! # categorized!} other {Categorization complete! # categorized!}}"
+msgstr "{completedItems, plural, one {Categorization complete! # categorized!} other {Categorization complete! # categorized!}}"
+
+#: components/BulkArchiveCards.tsx
+msgid "{count, plural, one {# sender archived} other {# senders archived}}"
+msgstr "{count, plural, one {# sender archived} other {# senders archived}}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "{count, plural, one {# sender blocked} other {# senders blocked}}"
+msgstr "{count, plural, one {# sender blocked} other {# senders blocked}}"
+
+#: components/BulkArchiveCards.tsx
+msgid "{count, plural, one {# sender deleted} other {# senders deleted}}"
+msgstr "{count, plural, one {# sender deleted} other {# senders deleted}}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "{count, plural, one {# sender kept} other {# senders kept}}"
+msgstr "{count, plural, one {# sender kept} other {# senders kept}}"
+
+#: components/BulkArchiveCards.tsx
+msgid "{count, plural, one {# sender marked as read} other {# senders marked as read}}"
+msgstr "{count, plural, one {# sender marked as read} other {# senders marked as read}}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "{count, plural, one {# sender moved to review} other {# senders moved to review}}"
+msgstr "{count, plural, one {# sender moved to review} other {# senders moved to review}}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "{count, plural, one {# sender processed} other {# senders processed}}"
+msgstr "{count, plural, one {# sender processed} other {# senders processed}}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "{count, plural, one {# sender set to auto archive} other {# senders set to auto archive}}"
+msgstr "{count, plural, one {# sender set to auto archive} other {# senders set to auto archive}}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "{count, plural, one {# sender unsubscribed} other {# senders unsubscribed}}"
+msgstr "{count, plural, one {# sender unsubscribed} other {# senders unsubscribed}}"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "{description} Details: {details}"
@@ -82,6 +230,22 @@ msgstr "{errorCount, plural, one {Failed to send # invitation} other {Failed to 
 msgid "{labelText} for {0}"
 msgstr "{labelText} for {0}"
 
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "{percentChange}% faster"
+msgstr "{percentChange}% faster"
+
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "{percentChange}% slower"
+msgstr "{percentChange}% slower"
+
+#: app/(app)/[emailAccountId]/clean/ConfirmationStep.tsx
+msgid "{PREVIEW_RUN_COUNT, plural, one {We'll process # email in an initial clean up.} other {We'll process # emails in an initial clean up.}}"
+msgstr "{PREVIEW_RUN_COUNT, plural, one {We'll process # email in an initial clean up.} other {We'll process # emails in an initial clean up.}}"
+
+#: app/(app)/[emailAccountId]/clean/PreviewBatch.tsx
+msgid "{PREVIEW_RUN_COUNT, plural, one {We're cleaning up # email so you can see how it works.} other {We're cleaning up # emails so you can see how it works.}}"
+msgstr "{PREVIEW_RUN_COUNT, plural, one {We're cleaning up # email so you can see how it works.} other {We're cleaning up # emails so you can see how it works.}}"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "{providerName} disconnected"
 msgstr "{providerName} disconnected"
@@ -90,21 +254,102 @@ msgstr "{providerName} disconnected"
 msgid "{readPercentage}% read"
 msgstr "{readPercentage}% read"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+msgid "{selectedCount, plural, one {# selected} other {# selected}}"
+msgstr "{selectedCount, plural, one {# selected} other {# selected}}"
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "{selectedCount, plural, one {Archive # Sender} other {Archive # Senders}}"
+msgstr "{selectedCount, plural, one {Archive # Sender} other {Archive # Senders}}"
+
+#. placeholder {0}: senders.length
+#: components/BulkArchiveCards.tsx
+msgid "{selectedCount} of {0} selected"
+msgstr "{selectedCount} of {0} selected"
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "{selectedCount} of {totalCount, plural, one {# sender selected} other {# senders selected}}"
+msgstr "{selectedCount} of {totalCount, plural, one {# sender selected} other {# senders selected}}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeShareCard.tsx
+msgid "{senderCount, plural, one {after unsubscribing from # sender} other {after unsubscribing from # senders}}"
+msgstr "{senderCount, plural, one {after unsubscribing from # sender} other {after unsubscribing from # senders}}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeShareCard.tsx
+msgid "{senderCount, plural, one {sender unsubscribed} other {senders unsubscribed}}"
+msgstr "{senderCount, plural, one {sender unsubscribed} other {senders unsubscribed}}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeCelebrationDialog.tsx
+msgid "{senderCount, plural, one {You unsubscribed from # sender} other {You unsubscribed from # senders}}"
+msgstr "{senderCount, plural, one {You unsubscribed from # sender} other {You unsubscribed from # senders}}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "{succeeded} of {total} succeeded"
+msgstr "{succeeded} of {total} succeeded"
+
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "{successCount, plural, one {# invitation sent successfully!} other {# invitations sent successfully!}}"
 msgstr "{successCount, plural, one {# invitation sent successfully!} other {# invitations sent successfully!}}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "{successful} of {total} completed; stopped to avoid more requests"
+msgstr "{successful} of {total} completed; stopped to avoid more requests"
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveProgress.tsx
+msgid "{totalItems, plural, one {Archiving {current} of # sender... {failedItems} failed.} other {Archiving {current} of # senders... {failedItems} failed.}}"
+msgstr "{totalItems, plural, one {Archiving {current} of # sender... {failedItems} failed.} other {Archiving {current} of # senders... {failedItems} failed.}}"
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveProgress.tsx
+msgid "{totalItems, plural, one {Archiving {current} of # sender...} other {Archiving {current} of # senders...}}"
+msgstr "{totalItems, plural, one {Archiving {current} of # sender...} other {Archiving {current} of # senders...}}"
+
+#: components/ProgressPanel.tsx
+msgid "{totalProcessed} of {totalItems} {itemLabel} processed"
+msgstr "{totalProcessed} of {totalItems} {itemLabel} processed"
 
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "{transferredCount, plural, one {# rule transferred} other {# rules transferred}}, {updatedCount, plural, one {# rule updated} other {# rules updated}}."
 msgstr "{transferredCount, plural, one {# rule transferred} other {# rules transferred}}, {updatedCount, plural, one {# rule updated} other {# rules updated}}."
 
+#: app/(app)/[emailAccountId]/clean/IntroStep.tsx
+msgid "{unhandledCount, plural, one {You have # unarchived email in your inbox.} other {You have # unarchived emails in your inbox.}}"
+msgstr "{unhandledCount, plural, one {You have # unarchived email in your inbox.} other {You have # unarchived emails in your inbox.}}"
+
+#: app/(app)/[emailAccountId]/clean/IntroStep.tsx
+msgid "{unhandledCount, plural, one {You have # unread email in your inbox.} other {You have # unread emails in your inbox.}}"
+msgstr "{unhandledCount, plural, one {You have # unread email in your inbox.} other {You have # unread emails in your inbox.}}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeShareCard.tsx
+msgid "{yearlyEmails, plural, one {fewer email a year} other {fewer emails a year}}"
+msgstr "{yearlyEmails, plural, one {fewer email a year} other {fewer emails a year}}"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "/month"
 msgstr "/month"
 
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "< 1 hour"
+msgstr "< 1 hour"
+
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "> 7 days"
+msgstr "> 7 days"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "1 minute"
+msgstr "1 minute"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "1 year"
 msgstr "1 year"
+
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "1-3 days"
+msgstr "1-3 days"
+
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "1-4 hours"
+msgstr "1-4 hours"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "10:24 AM"
@@ -131,6 +376,10 @@ msgstr "11-100 people"
 msgid "12 emails archived"
 msgstr "12 emails archived"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "2 minutes"
+msgstr "2 minutes"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "2 months free!"
 msgstr "2 months free!"
@@ -139,9 +388,21 @@ msgstr "2 months free!"
 msgid "2-10 people"
 msgstr "2-10 people"
 
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "3-7 days"
+msgstr "3-7 days"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "30 days"
 msgstr "30 days"
+
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "4-24 hours"
+msgstr "4-24 hours"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "5 minutes"
+msgstr "5 minutes"
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "7-day free trial"
@@ -183,6 +444,19 @@ msgstr "Account"
 msgid "Account deleted!"
 msgstr "Account deleted!"
 
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+msgid "Action"
+msgstr "Action"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Actions"
+msgstr "Actions"
+
+#: app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton.tsx
+#: app/(app)/[emailAccountId]/smart-categories/setup/SetUpCategories.tsx
+msgid "Add"
+msgstr "Add"
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Add Account"
 msgstr "Add Account"
@@ -203,6 +477,20 @@ msgstr "Add Outlook Calendar"
 msgid "Add this URL in ChatGPT, Claude, or Cursor. You'll be asked to allow access."
 msgstr "Add this URL in ChatGPT, Claude, or Cursor. You'll be asked to allow access."
 
+#: app/(app)/[emailAccountId]/smart-categories/setup/SetUpCategories.tsx
+msgid "Add your own"
+msgstr "Add your own"
+
+#. placeholder {0}: item.name
+#. placeholder {1}: label.name
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Added {0} to {1}"
+msgstr "Added {0} to {1}"
+
+#: app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton.tsx
+msgid "Additional information used by the AI to categorize senders"
+msgstr "Additional information used by the AI to categorize senders"
+
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
 msgid "AI assistant"
 msgstr "AI assistant"
@@ -215,17 +503,38 @@ msgstr "AI labels emails and drafts replies. Keep using Gmail or Outlook."
 msgid "AI Model"
 msgstr "AI Model"
 
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailRejected.tsx
+msgid "AI Reason"
+msgstr "AI Reason"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/SenderPanel.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+#: components/DatePickerWithRange.tsx
 msgid "All"
 msgstr "All"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/SenderPanel.tsx
+#: app/(app)/[emailAccountId]/clean/TimeRangeStep.tsx
+msgid "All emails"
+msgstr "All emails"
 
 #: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
 msgid "All rules disabled"
 msgstr "All rules disabled"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "All senders"
+msgstr "All senders"
+
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "All stale drafts were edited by you, so none were removed."
 msgstr "All stale drafts were edited by you, so none were removed."
+
+#: components/DatePickerWithRange.tsx
+msgid "All time"
+msgstr "All time"
 
 #. placeholder {0}: data.organizationName
 #: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
@@ -244,13 +553,33 @@ msgstr "Allow sign-in with a one-time email code"
 msgid "Already cancelled your subscription? Click the button below to proceed."
 msgstr "Already cancelled your subscription? Click the button below to proceed."
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Also archive existing emails when you unsubscribe"
+msgstr "Also archive existing emails when you unsubscribe"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/ChatIllustration.tsx
 msgid "Also in Slack and Telegram"
 msgstr "Also in Slack and Telegram"
 
+#: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
+msgid "Always reversible"
+msgstr "Always reversible"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "An error occurred while saving your settings"
 msgstr "An error occurred while saving your settings"
+
+#: app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton.tsx
+msgid "An unknown error occurred."
+msgstr "An unknown error occurred."
+
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
+msgid "Analytics"
+msgstr "Analytics"
+
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
+msgid "Analytics for {accountName}"
+msgstr "Analytics for {accountName}"
 
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 msgid "Analytics reset! Visit the Unsubscriber or Analytics page and click the 'Load More' button to reload your data."
@@ -276,23 +605,126 @@ msgstr "API key deactivated!"
 msgid "API Keys"
 msgstr "API Keys"
 
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+#: app/(app)/[emailAccountId]/clean/ActionSelectionStep.tsx
+#: app/(app)/[emailAccountId]/clean/EmailFirehoseItem.tsx
+msgid "Archive"
+msgstr "Archive"
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+msgid "Archive {selected} of {total}"
+msgstr "Archive {selected} of {total}"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Archive after 7 days"
 msgstr "Archive after 7 days"
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+msgid "Archive all"
+msgstr "Archive all"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+msgid "Archive all emails?"
+msgstr "Archive all emails?"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/ChatIllustration.tsx
 msgid "Archive all newsletters from last week"
 msgstr "Archive all newsletters from last week"
 
+#: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
+msgid "Archive by category"
+msgstr "Archive by category"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Archive existing emails"
+msgstr "Archive existing emails"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Archive on unsubscribe"
+msgstr "Archive on unsubscribe"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Archive shipping updates once they're delivered"
 msgstr "Archive shipping updates once they're delivered"
 
+#: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
+msgid "Archive thousands of emails in a few clicks."
+msgstr "Archive thousands of emails in a few clicks."
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchive.tsx
+msgid "Archive, delete, or mark emails as read in bulk by category to quickly clean up your inbox."
+msgstr "Archive, delete, or mark emails as read in bulk by category to quickly clean up your inbox."
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+#: app/(app)/[emailAccountId]/clean/EmailFirehose.tsx
+#: app/(app)/[emailAccountId]/clean/EmailFirehoseItem.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+#: app/(app)/[emailAccountId]/stats/EmailActionsAnalytics.tsx
+#: app/(app)/[emailAccountId]/stats/EmailsToIncludeFilter.tsx
+#: app/(app)/[emailAccountId]/stats/MainStatChart.tsx
+#: components/BulkArchiveCards.tsx
 msgid "Archived"
 msgstr "Archived"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Archived emails from {displayNames}"
+msgstr "Archived emails from {displayNames}"
+
+#: app/(app)/[emailAccountId]/clean/ConfirmationStep.tsx
+msgid "Archived emails will be labeled <0>{ARCHIVED_LABEL}</0> in Gmail."
+msgstr "Archived emails will be labeled <0>{ARCHIVED_LABEL}</0> in Gmail."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+msgid "Archiving"
+msgstr "Archiving"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress.tsx
+msgid "Archiving complete!"
+msgstr "Archiving complete!"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Archiving emails from {displayNames}..."
+msgstr "Archiving emails from {displayNames}..."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress.tsx
+msgid "Archiving finished: {completedItems, plural, one {# succeeded} other {# succeeded}}, {failedItems, plural, one {# failed.} other {# failed.}}"
+msgstr "Archiving finished: {completedItems, plural, one {# succeeded} other {# succeeded}}, {failedItems, plural, one {# failed.} other {# failed.}}"
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveProgress.tsx
+msgid "Archiving finished: {completedItems} succeeded, {failedItems} failed."
+msgstr "Archiving finished: {completedItems} succeeded, {failedItems} failed."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress.tsx
+msgid "Archiving senders..."
+msgstr "Archiving senders..."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress.tsx
+msgid "Archiving senders... {failedItems, plural, one {# failed.} other {# failed.}}"
+msgstr "Archiving senders... {failedItems, plural, one {# failed.} other {# failed.}}"
+
+#: app/(app)/[emailAccountId]/clean/EmailFirehoseItem.tsx
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+#: components/BulkArchiveCards.tsx
+msgid "Archiving..."
+msgstr "Archiving..."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+msgid "Are you sure you want to archive all emails from these senders?"
+msgstr "Are you sure you want to archive all emails from these senders?"
+
+#. placeholder {0}: item.name
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Are you sure you want to delete all emails from {0}?"
+msgstr "Are you sure you want to delete all emails from {0}?"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+msgid "Are you sure you want to delete all emails from these senders. This action cannot be undone."
+msgstr "Are you sure you want to delete all emails from these senders. This action cannot be undone."
+
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Assistant"
 msgstr "Assistant"
 
@@ -300,17 +732,87 @@ msgstr "Assistant"
 msgid "Assistant chat"
 msgstr "Assistant chat"
 
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
+msgid "Assistant processed emails"
+msgstr "Assistant processed emails"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "at"
 msgstr "at"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/share.ts
+msgid "At their current pace, that's about {yearlyEmails, plural, one {# fewer email} other {# fewer emails}} a year."
+msgstr "At their current pace, that's about {yearlyEmails, plural, one {# fewer email} other {# fewer emails}} a year."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Auto archive disabled!"
+msgstr "Auto archive disabled!"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Auto archive enabled!"
+msgstr "Auto archive enabled!"
+
+#: app/(app)/[emailAccountId]/smart-categories/Uncategorized.tsx
+msgid "Auto categorize"
+msgstr "Auto categorize"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+msgid "Auto-archive"
+msgstr "Auto-archive"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Auto-archive future emails"
+msgstr "Auto-archive future emails"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+msgid "Auto-archive these senders?"
+msgstr "Auto-archive these senders?"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Auto-archived"
+msgstr "Auto-archived"
+
+#: app/(app)/[emailAccountId]/smart-categories/setup/SmartCategoriesOnboarding.tsx
+msgid "Auto-categorize who emails you"
+msgstr "Auto-categorize who emails you"
 
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "Auto-delete AI Drafts"
 msgstr "Auto-delete AI Drafts"
 
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "Automated notifications and updates"
+msgstr "Automated notifications and updates"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+msgid "Automatically archive all current and future emails from these senders. They will no longer appear in your inbox."
+msgstr "Automatically archive all current and future emails from these senders. They will no longer appear in your inbox."
+
+#: app/(app)/[emailAccountId]/smart-categories/Uncategorized.tsx
+msgid "Automatically categorize new senders when they email you"
+msgstr "Automatically categorize new senders when they email you"
+
+#: app/(app)/[emailAccountId]/smart-categories/setup/SetUpCategories.tsx
+msgid "Automatically categorize senders for bulk archiving and AI assistant."
+msgstr "Automatically categorize senders for bulk archiving and AI assistant."
+
+#: app/(app)/[emailAccountId]/smart-categories/setup/SmartCategoriesOnboarding.tsx
+msgid "Automatically categorize who emails you for better inbox management and smarter automation."
+msgstr "Automatically categorize who emails you for better inbox management and smarter automation."
+
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Automatically send each Stripe invoice to the billing email."
 msgstr "Automatically send each Stripe invoice to the billing email."
+
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "Average Response"
+msgstr "Average Response"
+
+#: app/(app)/[emailAccountId]/stats/RuleStatsChart.tsx
+msgid "Bar Chart"
+msgstr "Bar Chart"
 
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "BASIC LABELS"
@@ -336,6 +838,15 @@ msgstr "billed monthly"
 msgid "Billing"
 msgstr "Billing"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Block"
+msgstr "Block"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Blocking {count, plural, one {# sender} other {# senders}}..."
+msgstr "Blocking {count, plural, one {# sender} other {# senders}}..."
+
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
 msgid "Both"
 msgstr "Both"
@@ -352,9 +863,35 @@ msgstr "Brief sent! Check your inbox"
 msgid "Briefs for every external meeting"
 msgstr "Briefs for every external meeting"
 
+#: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchive.tsx
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Bulk Archive"
+msgstr "Bulk Archive"
+
+#: app/(app)/[emailAccountId]/smart-categories/setup/SmartCategoriesOnboarding.tsx
+msgid "Bulk archive by category"
+msgstr "Bulk archive by category"
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+msgid "Bulk Archive Settings"
+msgstr "Bulk Archive Settings"
+
+#: app/(app)/[emailAccountId]/smart-categories/page.tsx
+msgid "Bulk Categorize"
+msgstr "Bulk Categorize"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Bulk Unsubscribe"
+msgstr "Bulk Unsubscribe"
+
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
 msgid "Bulk unsubscribe and archive"
 msgstr "Bulk unsubscribe and archive"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Bulk Unsubscriber"
+msgstr "Bulk Unsubscriber"
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepConnectCalendar.tsx
 msgid "Calendar Connected!"
@@ -364,15 +901,22 @@ msgstr "Calendar Connected!"
 msgid "Can we move Thursday's call?"
 msgstr "Can we move Thursday's call?"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog.tsx
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 #: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
+#: components/BulkArchiveCards.tsx
 msgid "Cancel"
 msgstr "Cancel"
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Cancel subscription first"
 msgstr "Cancel subscription first"
+
+#: app/(app)/[emailAccountId]/smart-categories/page.tsx
+msgid "Categories"
+msgstr "Categories"
 
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Categories and drafts are ready"
@@ -386,17 +930,111 @@ msgstr "Categories are ready"
 msgid "Categorise"
 msgstr "Categorise"
 
+#: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
+#: app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton.tsx
+msgid "Categorization started."
+msgstr "Categorization started."
+
+#: app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton.tsx
+msgid "Categorize"
+msgstr "Categorize"
+
+#: app/(app)/[emailAccountId]/smart-categories/Uncategorized.tsx
+msgid "Categorize all with AI"
+msgstr "Categorize all with AI"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Categorize future emails"
+msgstr "Categorize future emails"
+
+#: app/(app)/[emailAccountId]/smart-categories/page.tsx
+msgid "Categorize senders"
+msgstr "Categorize senders"
+
+#: app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton.tsx
+msgid "Categorize thousands of senders. This will take a few minutes."
+msgstr "Categorize thousands of senders. This will take a few minutes."
+
+#: app/(app)/[emailAccountId]/smart-categories/CategorizeProgress.tsx
+msgid "Categorizing senders..."
+msgstr "Categorizing senders..."
+
+#: app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton.tsx
+msgid "Categorizing senders... This might take a while."
+msgstr "Categorizing senders... This might take a while."
+
+#: components/CategorySelect.tsx
+msgid "Categorizing..."
+msgstr "Categorizing..."
+
+#: components/BulkArchiveCards.tsx
+msgid "Category"
+msgstr "Category"
+
+#: components/CategorySelect.tsx
+msgid "Category changed"
+msgstr "Category changed"
+
+#: app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton.tsx
+msgid "Category created!"
+msgstr "Category created!"
+
+#: components/BulkArchiveCards.tsx
+msgid "Category updated"
+msgstr "Category updated"
+
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Change plan"
 msgstr "Change plan"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Chat"
+msgstr "Chat"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Chat delivery: <0>Configure in Channels</0>."
 msgstr "Chat delivery: <0>Configure in Channels</0>."
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Chat with your inbox to find information and take actions"
+msgstr "Chat with your inbox to find information and take actions"
+
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
 msgid "ChatGPT, Claude, or other AI"
 msgstr "ChatGPT, Claude, or other AI"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailTest.tsx
+msgid "Check how your the cold email blocker performs against previous emails."
+msgstr "Check how your the cold email blocker performs against previous emails."
+
+#: app/(app)/[emailAccountId]/clean/IntroStep.tsx
+msgid "Checking your inbox..."
+msgstr "Checking your inbox..."
+
+#: app/(app)/[emailAccountId]/smart-categories/setup/SetUpCategories.tsx
+msgid "Choose categories"
+msgstr "Choose categories"
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+msgid "Choose what happens when you click the action buttons on each category"
+msgstr "Choose what happens when you click the action buttons on each category"
+
+#: components/BulkArchiveCards.tsx
+msgid "Choose which category this sender belongs to"
+msgstr "Choose which category this sender belongs to"
+
+#: app/(app)/[emailAccountId]/clean/history/page.tsx
+msgid "Clean History"
+msgstr "Clean History"
+
+#: app/(app)/[emailAccountId]/clean/ConfirmationStep.tsx
+#: app/(app)/[emailAccountId]/clean/IntroStep.tsx
+msgid "clean up"
+msgstr "clean up"
+
+#: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
+msgid "Clean up an entire category at once instead of one email at a time"
+msgstr "Clean up an entire category at once instead of one email at a time"
 
 #: app/(app)/[emailAccountId]/onboarding/StepChat.tsx
 msgid "Clean up, draft replies, set up rules. Works in Slack, Telegram, or here, and pings you when you're needed."
@@ -407,10 +1045,36 @@ msgstr "Clean up, draft replies, set up rules. Works in Slack, Telegram, or here
 msgid "Cleaned up {0, plural, one {# draft} other {# drafts}}."
 msgstr "Cleaned up {0, plural, one {# draft} other {# drafts}}."
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeShareCard.tsx
+msgid "Cleaned up with {BRAND_NAME}"
+msgstr "Cleaned up with {BRAND_NAME}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+msgid "Clear selection"
+msgstr "Clear selection"
+
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Click Save to view available models for your API key."
 msgstr "Click Save to view available models for your API key."
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Click to show all senders"
+msgstr "Click to show all senders"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Cold email blocker"
+msgstr "Cold email blocker"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+#: app/(app)/[emailAccountId]/cold-email-blocker/page.tsx
+msgid "Cold Email Blocker"
+msgstr "Cold Email Blocker"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Cold email blocker enabled!"
+msgstr "Cold email blocker enabled!"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailContent.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
 msgid "Cold Emails"
 msgstr "Cold Emails"
@@ -419,7 +1083,20 @@ msgstr "Cold Emails"
 msgid "Command"
 msgstr "Command"
 
+#: components/SetupProgressCard.tsx
+msgid "Complete setup"
+msgstr "Complete setup"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Complete these steps to get the most out of {BRAND_NAME}"
+msgstr "Complete these steps to get the most out of {BRAND_NAME}"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Complete your setup"
+msgstr "Complete your setup"
+
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Connect"
 msgstr "Connect"
 
@@ -447,6 +1124,10 @@ msgstr "Connect Teams"
 msgid "Connect Telegram"
 msgstr "Connect Telegram"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Connect your calendar"
+msgstr "Connect your calendar"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepConnectCalendar.tsx
 msgid "Connect Your Calendar"
 msgstr "Connect Your Calendar"
@@ -468,6 +1149,7 @@ msgstr "Consultant"
 msgid "Content Creator"
 msgstr "Content Creator"
 
+#: app/(app)/[emailAccountId]/clean/CleanInstructionsStep.tsx
 #: app/(app)/[emailAccountId]/onboarding-brief/StepConnectCalendar.tsx
 #: app/(app)/[emailAccountId]/onboarding/ContinueButton.tsx
 #: app/(app)/[emailAccountId]/onboarding/OnboardingFeatureStep.tsx
@@ -477,6 +1159,14 @@ msgstr "Content Creator"
 msgid "Continue"
 msgstr "Continue"
 
+#: app/(app)/[emailAccountId]/clean/CleanInstructionsStep.tsx
+msgid "Conversations"
+msgstr "Conversations"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeCelebrationDialog.tsx
+msgid "Copy link"
+msgstr "Copy link"
+
 #: app/(app)/[emailAccountId]/settings/CopyRulesSection.tsx
 msgid "Copy Rules"
 msgstr "Copy Rules"
@@ -485,9 +1175,23 @@ msgstr "Copy Rules"
 msgid "Copy Rules From Another Account"
 msgstr "Copy Rules From Another Account"
 
+#. placeholder {0}: item.name
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Could not unsubscribe from {0}"
+msgstr "Could not unsubscribe from {0}"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+#: app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton.tsx
 msgid "Create"
 msgstr "Create"
+
+#: app/(app)/[emailAccountId]/smart-categories/setup/SetUpCategories.tsx
+msgid "Create categories"
+msgstr "Create categories"
+
+#: app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton.tsx
+msgid "Create Category"
+msgstr "Create Category"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Create key"
@@ -505,6 +1209,7 @@ msgstr "Create, update, and delete automation rules for this inbox."
 msgid "Created"
 msgstr "Created"
 
+#: app/(app)/[emailAccountId]/clean/CleanInstructionsStep.tsx
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "Custom"
 msgstr "Custom"
@@ -525,7 +1230,13 @@ msgstr "Daily Deals"
 msgid "Dark mode"
 msgstr "Dark mode"
 
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailRejected.tsx
+msgid "Date"
+msgstr "Date"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
 msgid "Day"
 msgstr "Day"
 
@@ -537,13 +1248,32 @@ msgstr "days"
 msgid "Default"
 msgstr "Default"
 
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Delete"
 msgstr "Delete"
 
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+msgid "Delete {selected} of {total}"
+msgstr "Delete {selected} of {total}"
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Delete account"
 msgstr "Delete account"
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+msgid "Delete all"
+msgstr "Delete all"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Delete all emails"
+msgstr "Delete all emails"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+msgid "Delete all emails?"
+msgstr "Delete all emails?"
 
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "Delete Old AI Drafts"
@@ -557,9 +1287,43 @@ msgstr "Delete old drafts"
 msgid "Delete your Inbox Zero account?"
 msgstr "Delete your Inbox Zero account?"
 
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+#: app/(app)/[emailAccountId]/stats/EmailActionsAnalytics.tsx
+#: components/BulkArchiveCards.tsx
+msgid "Deleted"
+msgstr "Deleted"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Deleted emails from {displayNames}"
+msgstr "Deleted emails from {displayNames}"
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Deleting account..."
 msgstr "Deleting account..."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Deleting all emails from {name}"
+msgstr "Deleting all emails from {name}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Deleting emails from {displayNames}..."
+msgstr "Deleting emails from {displayNames}..."
+
+#: app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton.tsx
+msgid "Description (Optional)"
+msgstr "Description (Optional)"
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "Deselect All"
+msgstr "Deselect All"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Deselect all cold emails"
+msgstr "Deselect all cold emails"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeDesktop.tsx
+msgid "Deselect all senders"
+msgstr "Deselect all senders"
 
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Developer"
@@ -607,6 +1371,14 @@ msgstr "Disconnected"
 msgid "Do nothing"
 msgstr "Do nothing"
 
+#: app/(app)/[emailAccountId]/stats/EmailAnalytics.tsx
+msgid "Domain"
+msgstr "Domain"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog.tsx
+msgid "Done"
+msgstr "Done"
+
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Draft"
 msgstr "Draft"
@@ -647,17 +1419,52 @@ msgstr "Drafts, organization, and rules"
 msgid "E-commerce"
 msgstr "E-commerce"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Easily unsubscribe from unwanted newsletters in one click"
+msgstr "Easily unsubscribe from unwanted newsletters in one click"
+
+#: app/(app)/[emailAccountId]/smart-categories/page.tsx
+#: app/(app)/[emailAccountId]/smart-categories/setup/SetUpCategories.tsx
+msgid "Edit"
+msgstr "Edit"
+
+#: components/BulkArchiveCards.tsx
+msgid "Edit category"
+msgstr "Edit category"
+
+#: app/(app)/[emailAccountId]/clean/ConfirmationStep.tsx
+msgid "Edit settings"
+msgstr "Edit settings"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailRejected.tsx
+msgid "Email"
+msgstr "Email"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Email account"
 msgstr "Email account"
 
 #: app/(app)/[emailAccountId]/clean/onboarding/page.tsx
+#: app/(app)/[emailAccountId]/clean/run/page.tsx
 msgid "Email account not found"
 msgstr "Email account not found"
 
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Email Accounts"
 msgstr "Email Accounts"
+
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
+msgid "Email Actions"
+msgstr "Email Actions"
+
+#: app/(app)/[emailAccountId]/stats/EmailAnalytics.tsx
+msgid "Email address"
+msgstr "Email address"
+
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
+msgid "Email Analytics"
+msgstr "Email Analytics"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
 msgid "Email app"
@@ -666,6 +1473,10 @@ msgstr "Email app"
 #: app/(app)/settings/EmailOtpSection.tsx
 msgid "Email delivery unavailable."
 msgstr "Email delivery unavailable."
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/TestRules.tsx
+msgid "Email is a cold email!"
+msgstr "Email is a cold email!"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Email not found in Slack"
@@ -679,6 +1490,41 @@ msgstr "Email paid invoices"
 msgid "Email paid Stripe invoices"
 msgstr "Email paid Stripe invoices"
 
+#: app/(app)/[emailAccountId]/clean/CleanInstructionsStep.tsx
+msgid "Email threads where you sent a reply"
+msgstr "Email threads where you sent a reply"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/TestRules.tsx
+msgid "Email to test against"
+msgstr "Email to test against"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeDesktop.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSkeleton.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/SenderPanel.tsx
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "Emails"
+msgstr "Emails"
+
+#: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
+msgid "Emails are archived, not deleted — you can find them anytime"
+msgstr "Emails are archived, not deleted — you can find them anytime"
+
+#: app/(app)/[emailAccountId]/clean/ConfirmationStep.tsx
+msgid "Emails marked as read will be labeled <0>{READ_LABEL}</0> in Gmail."
+msgstr "Emails marked as read will be labeled <0>{READ_LABEL}</0> in Gmail."
+
+#: app/(app)/[emailAccountId]/clean/CleanInstructionsStep.tsx
+msgid "Emails needing replies"
+msgstr "Emails needing replies"
+
+#: app/(app)/[emailAccountId]/stats/EmailsToIncludeFilter.tsx
+msgid "Emails to include"
+msgstr "Emails to include"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Enable"
+msgstr "Enable"
+
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "Enter a valid email"
 msgstr "Enter a valid email"
@@ -686,6 +1532,18 @@ msgstr "Enter a valid email"
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Enter your role..."
 msgstr "Enter your role..."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Error"
+msgstr "Error"
+
+#: app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton.tsx
+msgid "Error categorizing senders: {message}"
+msgstr "Error categorizing senders: {message}"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/TestRules.tsx
+msgid "Error checking whether it's a cold email."
+msgstr "Error checking whether it's a cold email."
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "Error creating checkout session"
@@ -695,6 +1553,10 @@ msgstr "Error creating checkout session"
 msgid "Error deleting account: {message}"
 msgstr "Error deleting account: {message}"
 
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Error enabling cold email blocker"
+msgstr "Error enabling cold email blocker"
+
 #: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
 msgid "Error initiating Google calendar connection"
 msgstr "Error initiating Google calendar connection"
@@ -702,6 +1564,15 @@ msgstr "Error initiating Google calendar connection"
 #: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
 msgid "Error initiating Microsoft calendar connection"
 msgstr "Error initiating Microsoft calendar connection"
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+#: components/BulkArchiveCards.tsx
+msgid "Error loading emails"
+msgstr "Error loading emails"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Error marking not cold email!"
+msgstr "Error marking not cold email!"
 
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 msgid "Error resetting analytics: {message}"
@@ -739,6 +1610,24 @@ msgstr "Every email gets a label like \"To Reply\", \"Newsletter\", or \"Cold Em
 msgid "Every email needing a reply gets a draft, written in your tone."
 msgstr "Every email needing a reply gets a draft, written in your tone."
 
+#: app/(app)/[emailAccountId]/clean/CleanInstructionsStep.tsx
+msgid "Example:\n"
+"\n"
+"I work as a freelance designer. Don't archive emails from clients.\n"
+"I'm in the middle of a building project, keep those emails too."
+msgstr "Example:\n"
+"\n"
+"I work as a freelance designer. Don't archive emails from clients.\n"
+"I'm in the middle of a building project, keep those emails too."
+
+#: app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton.tsx
+msgid "Examples"
+msgstr "Examples"
+
+#: app/(app)/[emailAccountId]/stats/RuleStatsChart.tsx
+msgid "Executed Rules"
+msgstr "Executed Rules"
+
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Executive"
 msgstr "Executive"
@@ -751,9 +1640,33 @@ msgstr "Expires"
 msgid "Expiry"
 msgstr "Expiry"
 
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+#: components/BulkArchiveCards.tsx
+msgid "Failed"
+msgstr "Failed"
+
+#. placeholder {0}: item.name
+#. placeholder {1}: label.name
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Failed to add {0} to {1}. {serverError}"
+msgstr "Failed to add {0} to {1}. {serverError}"
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+#: components/BulkArchiveCards.tsx
+msgid "Failed to archive some senders. Please try again."
+msgstr "Failed to archive some senders. Please try again."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Failed to block {count, plural, one {# sender} other {# senders}}"
+msgstr "Failed to block {count, plural, one {# sender} other {# senders}}"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Failed to connect Slack"
 msgstr "Failed to connect Slack"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeCelebrationDialog.tsx
+msgid "Failed to copy link"
+msgstr "Failed to copy link"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Failed to create API key"
@@ -767,18 +1680,50 @@ msgstr "Failed to create organization and send invitations"
 msgid "Failed to deactivate API key"
 msgstr "Failed to deactivate API key"
 
+#: components/BulkArchiveCards.tsx
+msgid "Failed to delete some senders. Please try again."
+msgstr "Failed to delete some senders. Please try again."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Failed to disable auto archive"
+msgstr "Failed to disable auto archive"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Failed to disconnect"
 msgstr "Failed to disconnect"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Failed to enable auto archive"
+msgstr "Failed to enable auto archive"
+
+#: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
+msgid "Failed to enable feature: {errorMessage}"
+msgstr "Failed to enable feature: {errorMessage}"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Failed to generate code"
 msgstr "Failed to generate code"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Failed to keep {count, plural, one {# sender} other {# senders}}"
+msgstr "Failed to keep {count, plural, one {# sender} other {# senders}}"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Failed to link Slack"
 msgstr "Failed to link Slack"
+
+#: components/BulkArchiveCards.tsx
+msgid "Failed to mark as read some senders. Please try again."
+msgstr "Failed to mark as read some senders. Please try again."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Failed to move to review {count, plural, one {# sender} other {# senders}}"
+msgstr "Failed to move to review {count, plural, one {# sender} other {# senders}}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Failed to process {count, plural, one {# sender} other {# senders}}"
+msgstr "Failed to process {count, plural, one {# sender} other {# senders}}"
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Failed to send brief"
@@ -787,6 +1732,28 @@ msgstr "Failed to send brief"
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "Failed to send invitations"
 msgstr "Failed to send invitations"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Failed to set auto archive for {count, plural, one {# sender} other {# senders}}"
+msgstr "Failed to set auto archive for {count, plural, one {# sender} other {# senders}}"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Failed to skip this step"
+msgstr "Failed to skip this step"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Failed to skip this step. Please try again."
+msgstr "Failed to skip this step. Please try again."
+
+#. placeholder {0}: item.name
+#. placeholder {1}: label.name
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Failed to stop labeling {0} as {1}. {serverError}"
+msgstr "Failed to stop labeling {0} as {1}. {serverError}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Failed to unsubscribe from {count, plural, one {# sender} other {# senders}}"
+msgstr "Failed to unsubscribe from {count, plural, one {# sender} other {# senders}}"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Failed to update"
@@ -804,6 +1771,11 @@ msgstr "Failed to update MCP access"
 msgid "Failed to update read status setting"
 msgstr "Failed to update read status setting"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Failed to update sender status"
+msgstr "Failed to update sender status"
+
 #: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
 #: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
 msgid "Failed to update settings"
@@ -816,6 +1788,10 @@ msgstr "Faster search, offline mode, and a new keyboard shortcut sheet"
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Five ideas worth stealing this week"
 msgstr "Five ideas worth stealing this week"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog.tsx
+msgid "Follow the steps below to receive emails from this sender again."
+msgstr "Follow the steps below to receive emails from this sender again."
 
 #: app/(app)/[emailAccountId]/onboarding/StepCustomRules.tsx
 msgid "For example:"
@@ -849,9 +1825,24 @@ msgstr "Friday"
 msgid "Friend or colleague"
 msgstr "Friend or colleague"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeDesktop.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSkeleton.tsx
+msgid "From"
+msgstr "From"
+
+#. placeholder {0}: email.from
+#. placeholder {1}: formatShortDate(email.date)
+#: app/(app)/[emailAccountId]/clean/EmailFirehoseItem.tsx
+msgid "From: {0} • {1}"
+msgstr "From: {0} • {1}"
+
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Full setup guide"
 msgstr "Full setup guide"
+
+#: app/(app)/[emailAccountId]/clean/CleanInstructionsStep.tsx
+msgid "Future events"
+msgstr "Future events"
 
 #: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
 msgid "Generate a new webhook secret to reveal it once for copying."
@@ -865,6 +1856,32 @@ msgstr "Generate secret"
 msgid "Generate Secret"
 msgstr "Generate Secret"
 
+#: app/(app)/[emailAccountId]/stats/StatsOnboarding.tsx
+msgid "Get insights from the depths of your email and clean it up it no time."
+msgstr "Get insights from the depths of your email and clean it up it no time."
+
+#: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
+#: app/(app)/[emailAccountId]/smart-categories/setup/SmartCategoriesOnboarding.tsx
+#: app/(app)/[emailAccountId]/stats/StatsOnboarding.tsx
+msgid "Get Started"
+msgstr "Get Started"
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchive.tsx
+msgid "Getting started with Bulk Archive"
+msgstr "Getting started with Bulk Archive"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Getting started with Bulk Unsubscribe"
+msgstr "Getting started with Bulk Unsubscribe"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/page.tsx
+msgid "Getting started with Cold Email Blocker"
+msgstr "Getting started with Cold Email Blocker"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailContent.tsx
+msgid "Go to Assistant Rules"
+msgstr "Go to Assistant Rules"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "Google Calendar & Outlook"
 msgstr "Google Calendar & Outlook"
@@ -873,6 +1890,26 @@ msgstr "Google Calendar & Outlook"
 msgid "Great to meet you! Happy to share the brand guidelines"
 msgstr "Great to meet you! Happy to share the brand guidelines"
 
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
+msgid "Group by day"
+msgstr "Group by day"
+
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
+msgid "Group by month"
+msgstr "Group by month"
+
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
+msgid "Group by week"
+msgstr "Group by week"
+
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
+msgid "Group by year"
+msgstr "Group by year"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/TestRules.tsx
+msgid "Hey, I run a marketing agency, and would love to chat."
+msgstr "Hey, I run a marketing agency, and would love to chat."
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
 msgid "Hi John, I wanted to follow up on the project timeline. When would be a good time to discuss the next steps?"
 msgstr "Hi John, I wanted to follow up on the project timeline. When would be a good time to discuss the next steps?"
@@ -880,6 +1917,10 @@ msgstr "Hi John, I wanted to follow up on the project timeline. When would be a 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
 msgid "Hi Sarah,"
 msgstr "Hi Sarah,"
+
+#: app/(app)/[emailAccountId]/clean/ConfirmationStep.tsx
+msgid "History"
+msgstr "History"
 
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
 msgid "How did you hear about Inbox Zero?"
@@ -893,6 +1934,18 @@ msgstr "How do you want to use {BRAND_NAME}?"
 msgid "How do you want your inbox organized?"
 msgstr "How do you want your inbox organized?"
 
+#: app/(app)/[emailAccountId]/stats/EmailActionsAnalytics.tsx
+msgid "How many emails you've archived and deleted with {BRAND_NAME}"
+msgstr "How many emails you've archived and deleted with {BRAND_NAME}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/share.ts
+msgid "I just unsubscribed from {senderCount, plural, one {# email list} other {# email lists}} with Inbox Zero — that's ~{yearly} fewer emails a year. {link}"
+msgstr "I just unsubscribed from {senderCount, plural, one {# email list} other {# email lists}} with Inbox Zero — that's ~{yearly} fewer emails a year. {link}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/share.ts
+msgid "I just unsubscribed from {senderCount, plural, one {# email list} other {# email lists}} with Inbox Zero. {link}"
+msgstr "I just unsubscribed from {senderCount, plural, one {# email list} other {# email lists}} with Inbox Zero. {link}"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "I put together a first pass at the roadmap and would love your eyes on it"
 msgstr "I put together a first pass at the roadmap and would love your eyes on it"
@@ -901,14 +1954,27 @@ msgstr "I put together a first pass at the roadmap and would love your eyes on i
 msgid "I've already cancelled my subscription"
 msgstr "I've already cancelled my subscription"
 
+#: app/(app)/[emailAccountId]/clean/ConfirmationStep.tsx
+msgid "If you're happy with the results, we'll continue to process the rest of your inbox."
+msgstr "If you're happy with the results, we'll continue to process the rest of your inbox."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/SenderPanel.tsx
+msgid "In inbox"
+msgstr "In inbox"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+#: app/(app)/[emailAccountId]/stats/MainStatChart.tsx
 msgid "Inbox"
 msgstr "Inbox"
 
 #: app/(app)/[emailAccountId]/settings/SentWithSignatureSection.tsx
 msgid "Include 'Sent with {BRAND_NAME}'"
 msgstr "Include 'Sent with {BRAND_NAME}'"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Include senders without an unsubscribe link"
+msgstr "Include senders without an unsubscribe link"
 
 #: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
 msgid "Include this in the X-Webhook-Secret header when setting up webhook endpoints. Existing secrets are not shown again. When you generate a new secret, copy it before closing this dialog."
@@ -917,6 +1983,10 @@ msgstr "Include this in the X-Webhook-Secret header when setting up webhook endp
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Individual"
 msgstr "Individual"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Install"
+msgstr "Install"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Install manually"
@@ -934,6 +2004,7 @@ msgstr "Investor"
 msgid "Invitation: Design sync"
 msgstr "Invitation: Design sync"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 #: app/(app)/settings/TeamSection.tsx
 msgid "Invite"
 msgstr "Invite"
@@ -942,9 +2013,37 @@ msgstr "Invite"
 msgid "Invite members"
 msgstr "Invite members"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Invite team members"
+msgstr "Invite team members"
+
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "Invite your team"
 msgstr "Invite your team"
+
+#: app/(app)/[emailAccountId]/clean/run/page.tsx
+msgid "Job not found"
+msgstr "Job not found"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+#: app/(app)/[emailAccountId]/clean/EmailFirehoseItem.tsx
+msgid "Keep"
+msgstr "Keep"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Keep getting these emails"
+msgstr "Keep getting these emails"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Keeping {count, plural, one {# sender} other {# senders}}..."
+msgstr "Keeping {count, plural, one {# sender} other {# senders}}..."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+#: app/(app)/[emailAccountId]/clean/EmailFirehose.tsx
+msgid "Kept"
+msgstr "Kept"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Keys created here are limited to the current inbox account."
@@ -961,6 +2060,10 @@ msgstr "Label & archive"
 #: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
 msgid "Label colors are already set to the defaults."
 msgstr "Label colors are already set to the defaults."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Label future emails"
+msgstr "Label future emails"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepCustomRules.tsx
@@ -979,10 +2082,22 @@ msgstr "Labels are ready"
 msgid "Language"
 msgstr "Language"
 
+#: components/DatePickerWithRange.tsx
+msgid "Last 3 months"
+msgstr "Last 3 months"
+
+#: components/DatePickerWithRange.tsx
+msgid "Last day"
+msgstr "Last day"
+
 #. placeholder {0}: formatDigestDeliveryTime( new Date(delivery.lastDelivery.occurredAt), delivery.timezone, )
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Last delivery failed {0}"
 msgstr "Last delivery failed {0}"
+
+#: components/DatePickerWithRange.tsx
+msgid "Last month"
+msgstr "Last month"
 
 #. placeholder {0}: formatDigestDeliveryTime( new Date(delivery.lastDelivery.occurredAt), delivery.timezone, )
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
@@ -993,9 +2108,33 @@ msgstr "Last sent {0}"
 msgid "Last used"
 msgstr "Last used"
 
+#: components/DatePickerWithRange.tsx
+msgid "Last week"
+msgstr "Last week"
+
+#: components/DatePickerWithRange.tsx
+msgid "Last year"
+msgstr "Last year"
+
 #: app/(app)/[emailAccountId]/onboarding/page.tsx
 msgid "Learn how {BRAND_NAME} works and get set up."
 msgstr "Learn how {BRAND_NAME} works and get set up."
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchive.tsx
+msgid "Learn how to archive whole categories of old email at once."
+msgstr "Learn how to archive whole categories of old email at once."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Learn how to quickly bulk unsubscribe from and archive unwanted emails. You can read more in our <0>help center</0>."
+msgstr "Learn how to quickly bulk unsubscribe from and archive unwanted emails. You can read more in our <0>help center</0>."
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/page.tsx
+msgid "Learn how to review blocked cold emails, rescue a sender, and choose what happens to cold emails."
+msgstr "Learn how to review blocked cold emails, rescue a sender, and choose what happens to cold emails."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Learn how to use the Bulk Unsubscribe to unsubscribe from and archive unwanted emails."
+msgstr "Learn how to use the Bulk Unsubscribe to unsubscribe from and archive unwanted emails."
 
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Leave blank to keep the current key"
@@ -1008,6 +2147,18 @@ msgstr "Leave this blank to keep the current API key, or enter a new key to repl
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Let me know in Slack when an investor emails"
 msgstr "Let me know in Slack when an investor emails"
+
+#: app/(app)/[emailAccountId]/clean/IntroStep.tsx
+msgid "Let's clean up your inbox while keeping important emails safe."
+msgstr "Let's clean up your inbox while keeping important emails safe."
+
+#: app/(app)/[emailAccountId]/clean/IntroStep.tsx
+msgid "Let's get your inbox cleaned up in 5 minutes"
+msgstr "Let's get your inbox cleaned up in 5 minutes"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeCelebrationDialog.tsx
+msgid "Link copied to clipboard!"
+msgstr "Link copied to clipboard!"
 
 #. placeholder {0}: existingWorkspace.teamName
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
@@ -1026,6 +2177,18 @@ msgstr "Linking..."
 msgid "List and inspect automation rules for this inbox."
 msgstr "List and inspect automation rules for this inbox."
 
+#: app/(app)/[emailAccountId]/stats/LoadStatsButton.tsx
+msgid "Load more"
+msgstr "Load more"
+
+#: app/(app)/[emailAccountId]/smart-categories/Uncategorized.tsx
+msgid "Load More"
+msgstr "Load More"
+
+#: app/(app)/[emailAccountId]/stats/LoadStatsButton.tsx
+msgid "Loading more..."
+msgstr "Loading more..."
+
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Loading recently organized emails"
 msgstr "Loading recently organized emails"
@@ -1038,9 +2201,67 @@ msgstr "Loading senders"
 msgid "Manage Secret"
 msgstr "Manage Secret"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog.tsx
+msgid "Manually Resubscribe"
+msgstr "Manually Resubscribe"
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+msgid "Mark {selected} of {total} as read"
+msgstr "Mark {selected} of {total} as read"
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+msgid "Mark all as read"
+msgstr "Mark all as read"
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+msgid "Mark as read"
+msgstr "Mark as read"
+
+#: app/(app)/[emailAccountId]/clean/ActionSelectionStep.tsx
+msgid "Mark as Read"
+msgstr "Mark as Read"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Mark Done"
+msgstr "Mark Done"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Mark Not Cold Email"
+msgstr "Mark Not Cold Email"
+
+#: app/(app)/[emailAccountId]/clean/EmailFirehoseItem.tsx
+msgid "Mark Read"
+msgstr "Mark Read"
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+msgid "Marked as read"
+msgstr "Marked as read"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailContent.tsx
+msgid "Marked Not Cold"
+msgstr "Marked Not Cold"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Marked not cold email!"
+msgstr "Marked not cold email!"
+
+#: app/(app)/[emailAccountId]/clean/EmailFirehose.tsx
+#: app/(app)/[emailAccountId]/clean/EmailFirehoseItem.tsx
+#: components/BulkArchiveCards.tsx
+msgid "Marked read"
+msgstr "Marked read"
+
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Marketing"
 msgstr "Marketing"
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "Marketing emails and newsletters you likely don't need"
+msgstr "Marketing emails and newsletters you likely don't need"
+
+#: app/(app)/[emailAccountId]/clean/EmailFirehoseItem.tsx
+msgid "Marking read..."
+msgstr "Marking read..."
 
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "MCP access disabled!"
@@ -1058,6 +2279,14 @@ msgstr "MCP apps"
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "MCP apps ({0})"
 msgstr "MCP apps ({0})"
+
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "Median Response"
+msgstr "Median Response"
+
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "Median Response Time"
+msgstr "Median Response Time"
 
 #: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
 msgid "Meet the Inbox Zero email app"
@@ -1083,9 +2312,31 @@ msgstr "Mon"
 msgid "Monday"
 msgstr "Monday"
 
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
+msgid "Month"
+msgstr "Month"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+msgid "More actions"
+msgstr "More actions"
+
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "Move to folder"
 msgstr "Move to folder"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Move to review"
+msgstr "Move to review"
+
+#. placeholder {0}: item.name
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Moved {0} to review"
+msgstr "Moved {0} to review"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Moving to review {count, plural, one {# sender} other {# senders}}..."
+msgstr "Moving to review {count, plural, one {# sender} other {# senders}}..."
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "My API key"
@@ -1102,6 +2353,7 @@ msgstr "My name is Alex Smith. I'm the founder of Acme.\n"
 "- Emails from jane@accounting.com aren't Notifications"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
+#: app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton.tsx
 msgid "Name"
 msgstr "Name"
 
@@ -1113,6 +2365,14 @@ msgstr "Name (optional)"
 msgid "Never"
 msgstr "Never"
 
+#: app/(app)/[emailAccountId]/clean/history/page.tsx
+msgid "New Clean"
+msgstr "New Clean"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "New senders will show up here as they arrive."
+msgstr "New senders will show up here as they arrive."
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
 msgid "Newsletter"
 msgstr "Newsletter"
@@ -1120,6 +2380,10 @@ msgstr "Newsletter"
 #: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
 msgid "Newsletters"
 msgstr "Newsletters"
+
+#: app/(app)/[emailAccountId]/clean/IntroStep.tsx
+msgid "Next"
+msgstr "Next"
 
 #. placeholder {0}: formatDigestDeliveryTime( new Date(digestStatus.delivery.estimatedNextDeliveryAt), digestStatus.delivery.timezone, )
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
@@ -1138,18 +2402,100 @@ msgstr "No active plan"
 msgid "No API keys yet."
 msgstr "No API keys yet."
 
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "No change"
+msgstr "No change"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "No cold emails!"
+msgstr "No cold emails!"
+
+#: app/(app)/[emailAccountId]/stats/BarListCard.tsx
+msgid "No data available"
+msgstr "No data available"
+
+#: app/(app)/[emailAccountId]/clean/ConfirmationStep.tsx
+msgid "No emails are deleted - everything can be found in search."
+msgstr "No emails are deleted - everything can be found in search."
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+#: components/BulkArchiveCards.tsx
+msgid "No emails found"
+msgstr "No emails found"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/SenderPanel.tsx
+msgid "No emails from this sender"
+msgstr "No emails from this sender"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailRejected.tsx
+msgid "No emails marked as 'Not a cold email'"
+msgstr "No emails marked as 'Not a cold email'"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "No emails to delete from {name}"
+msgstr "No emails to delete from {name}"
+
+#: app/(app)/[emailAccountId]/clean/EmailFirehose.tsx
+msgid "No emails yet"
+msgstr "No emails yet"
+
+#: app/(app)/[emailAccountId]/stats/RuleStatsChart.tsx
+msgid "No executed rules found for this period."
+msgstr "No executed rules found for this period."
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "No expiry"
 msgstr "No expiry"
+
+#: app/(app)/[emailAccountId]/clean/CleanHistory.tsx
+msgid "No history yet"
+msgstr "No history yet"
+
+#: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
+#: app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton.tsx
+msgid "No more senders to categorize right now."
+msgstr "No more senders to categorize right now."
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "No new senders to archive"
+msgstr "No new senders to archive"
+
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "No response time data available for this period."
+msgstr "No response time data available for this period."
 
 #. placeholder {0}: selectedSource?.email
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "No rules found in {0}"
 msgstr "No rules found in {0}"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "No senders found"
+msgstr "No senders found"
+
+#: components/BulkArchiveCards.tsx
+msgid "No senders in this category"
+msgstr "No senders in this category"
+
+#: app/(app)/[emailAccountId]/smart-categories/Uncategorized.tsx
+msgid "No senders left to categorize!"
+msgstr "No senders left to categorize!"
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "No Senders to Archive"
+msgstr "No Senders to Archive"
+
+#: app/(app)/[emailAccountId]/smart-categories/Uncategorized.tsx
+msgid "No senders to categorize"
+msgstr "No senders to categorize"
+
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "No stale drafts found."
 msgstr "No stale drafts found."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "No unsubscribe link: future emails will be archived automatically"
+msgstr "No unsubscribe link: future emails will be archived automatically"
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "No upcoming meetings found"
@@ -1159,13 +2505,61 @@ msgstr "No upcoming meetings found"
 msgid "No, thanks"
 msgstr "No, thanks"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/SenderPanel.tsx
+msgid "None of this sender's emails are in your inbox"
+msgstr "None of this sender's emails are in your inbox"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Not cold email"
+msgstr "Not cold email"
+
+#: app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton.tsx
+msgid "Note: editing a category name/description only impacts future categorization. Existing email addresses in this category will not be affected."
+msgstr "Note: editing a category name/description only impacts future categorization. Existing email addresses in this category will not be affected."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Nothing left to review"
+msgstr "Nothing left to review"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Notify in Slack"
 msgstr "Notify in Slack"
 
+#: app/(app)/[emailAccountId]/smart-categories/page.tsx
+msgid "Now that you have some categories, our AI can categorize senders."
+msgstr "Now that you have some categories, our AI can categorize senders."
+
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Offline access"
 msgstr "Offline access"
+
+#: app/(app)/[emailAccountId]/clean/TimeRangeStep.tsx
+msgid "Older than 1 day"
+msgstr "Older than 1 day"
+
+#: app/(app)/[emailAccountId]/clean/TimeRangeStep.tsx
+msgid "Older than 1 month"
+msgstr "Older than 1 month"
+
+#: app/(app)/[emailAccountId]/clean/TimeRangeStep.tsx
+msgid "Older than 1 week"
+msgstr "Older than 1 week"
+
+#: app/(app)/[emailAccountId]/clean/TimeRangeStep.tsx
+msgid "Older than 1 year"
+msgstr "Older than 1 year"
+
+#: app/(app)/[emailAccountId]/clean/TimeRangeStep.tsx
+msgid "Older than 2 weeks"
+msgstr "Older than 2 weeks"
+
+#: app/(app)/[emailAccountId]/clean/TimeRangeStep.tsx
+msgid "Older than 3 days"
+msgstr "Older than 3 days"
+
+#: app/(app)/[emailAccountId]/clean/TimeRangeStep.tsx
+msgid "Older than 3 months"
+msgstr "Older than 3 months"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "on"
@@ -1175,6 +2569,10 @@ msgstr "on"
 msgid "Onboarding"
 msgstr "Onboarding"
 
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "Once our AI categorizes your senders, you'll see archive suggestions here."
+msgstr "Once our AI categorizes your senders, you'll see archive suggestions here."
+
 #: app/(app)/[emailAccountId]/onboarding/StepCompanySize.tsx
 msgid "Only me"
 msgstr "Only me"
@@ -1183,13 +2581,25 @@ msgstr "Only me"
 msgid "Only removes drafts created by {BRAND_NAME} that have not been edited by you."
 msgstr "Only removes drafts created by {BRAND_NAME} that have not been edited by you."
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Only senders without an unsubscribe link are left"
+msgstr "Only senders without an unsubscribe link are left"
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Open"
 msgstr "Open"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Open page"
+msgstr "Open page"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Open Telegram bot"
 msgstr "Open Telegram bot"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Optional: Install the {BRAND_NAME} Tabs extension"
+msgstr "Optional: Install the {BRAND_NAME} Tabs extension"
 
 #: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
 msgid "Organization Analytics"
@@ -1200,6 +2610,14 @@ msgstr "Organization Analytics"
 msgid "Other"
 msgstr "Other"
 
+#: app/(app)/[emailAccountId]/cold-email-blocker/TestRules.tsx
+msgid "Our AI determined this is not a cold email!"
+msgstr "Our AI determined this is not a cold email!"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Our AI identifies cold outreach from senders you've never communicated with before. You can customize the prompt after enabling."
+msgstr "Our AI identifies cold outreach from senders you've never communicated with before. You can customize the prompt after enabling."
+
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
 msgid "Our email app with the AI assistant built in."
 msgstr "Our email app with the AI assistant built in."
@@ -1208,6 +2626,14 @@ msgstr "Our email app with the AI assistant built in."
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Paused. Contact <0>{0}</0> to resume it."
 msgstr "Paused. Contact <0>{0}</0> to resume it."
+
+#: app/(app)/[emailAccountId]/clean/CleanInstructionsStep.tsx
+msgid "Payment receipts"
+msgstr "Payment receipts"
+
+#: components/BulkArchiveCards.tsx
+msgid "Pending..."
+msgstr "Pending..."
 
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 msgid "Permanently delete all analytics"
@@ -1222,13 +2648,25 @@ msgstr "Permissions"
 msgid "Permissions updated"
 msgstr "Permissions updated"
 
+#: components/DatePickerWithRange.tsx
+msgid "Pick a date"
+msgstr "Pick a date"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Pick an upcoming meeting and we'll send you a sample brief so you can see exactly what you'll receive."
 msgstr "Pick an upcoming meeting and we'll send you a sample brief so you can see exactly what you'll receive."
 
+#: app/(app)/[emailAccountId]/stats/RuleStatsChart.tsx
+msgid "Pie Chart"
+msgstr "Pie Chart"
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Please cancel your subscription before deleting your account."
 msgstr "Please cancel your subscription before deleting your account."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeCelebrationDialog.tsx
+msgid "Please try again"
+msgstr "Please try again"
 
 #: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
 msgid "Please try again or contact support"
@@ -1241,6 +2679,26 @@ msgstr "Plus a deep dive on pricing pages that convert"
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Preview"
 msgstr "Preview"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Preview emails"
+msgstr "Preview emails"
+
+#: app/(app)/[emailAccountId]/clean/PreviewBatch.tsx
+msgid "Preview run"
+msgstr "Preview run"
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "Probably Safe"
+msgstr "Probably Safe"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Processing {count, plural, one {# sender} other {# senders}}..."
+msgstr "Processing {count, plural, one {# sender} other {# senders}}..."
+
+#: app/(app)/[emailAccountId]/clean/EmailFirehoseItem.tsx
+msgid "Processing..."
+msgstr "Processing..."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
 msgid "Project update"
@@ -1258,13 +2716,38 @@ msgstr "Provider"
 msgid "Q3 planning: can you review?"
 msgstr "Q3 planning: can you review?"
 
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+#: components/BulkArchiveCards.tsx
+msgid "Queued"
+msgstr "Queued"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Queued {count, plural, one {# email} other {# emails}} from {name} for deletion"
+msgstr "Queued {count, plural, one {# email} other {# emails}} from {name} for deletion"
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/page.tsx
+msgid "Quick Bulk Archive"
+msgstr "Quick Bulk Archive"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
 msgid "Quick introduction"
 msgstr "Quick introduction"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Quickly clean up your inbox by archiving old emails"
+msgstr "Quickly clean up your inbox by archiving old emails"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Re: Intro to the design team"
 msgstr "Re: Intro to the design team"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeDesktop.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSkeleton.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/SenderPanel.tsx
+#: app/(app)/[emailAccountId]/stats/EmailsToIncludeFilter.tsx
+#: app/(app)/[emailAccountId]/stats/MainStatChart.tsx
+msgid "Read"
+msgstr "Read"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Read aggregated inbox statistics for this inbox."
@@ -1298,6 +2781,14 @@ msgstr "Read stats"
 msgid "Read status"
 msgstr "Read status"
 
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "Ready to Clean Up"
+msgstr "Ready to Clean Up"
+
+#: app/(app)/[emailAccountId]/clean/ConfirmationStep.tsx
+msgid "Ready to clean up your inbox"
+msgstr "Ready to clean up your inbox"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "Ready to walk into every meeting prepared?"
 msgstr "Ready to walk into every meeting prepared?"
@@ -1305,6 +2796,11 @@ msgstr "Ready to walk into every meeting prepared?"
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Realtor"
 msgstr "Realtor"
+
+#: app/(app)/[emailAccountId]/stats/EmailAnalytics.tsx
+#: app/(app)/[emailAccountId]/stats/MainStatChart.tsx
+msgid "Received"
+msgstr "Received"
 
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Recently organized emails"
@@ -1317,6 +2813,10 @@ msgstr "Redirecting to Slack authorization..."
 #: app/(app)/[emailAccountId]/settings/WebhookGenerate.tsx
 msgid "Regenerate secret"
 msgstr "Regenerate secret"
+
+#: app/(app)/[emailAccountId]/smart-categories/setup/SetUpCategories.tsx
+msgid "Remove"
+msgstr "Remove"
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Remove just one account instead"
@@ -1357,9 +2857,38 @@ msgstr "Reset Label Colors"
 msgid "Resetting analytics..."
 msgstr "Resetting analytics..."
 
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
+msgid "Response Time"
+msgstr "Response Time"
+
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "Response Time Analytics"
+msgstr "Response Time Analytics"
+
+#. placeholder {0}: data.emailsAnalyzed
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "Response time data based on last {0, plural, one {# email} other {# emails}}"
+msgstr "Response time data based on last {0, plural, one {# email} other {# emails}}"
+
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "Response Time Distribution"
+msgstr "Response Time Distribution"
+
 #: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
 msgid "Restore the default colors for Inbox Zero labels like To Reply and Newsletter"
 msgstr "Restore the default colors for Inbox Zero labels like To Reply and Newsletter"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Resubscribe"
+msgstr "Resubscribe"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog.tsx
+msgid "Resubscribe to \"{senderName}\""
+msgstr "Resubscribe to \"{senderName}\""
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "Review Recommended"
+msgstr "Review Recommended"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Revoke"
@@ -1369,9 +2898,25 @@ msgstr "Revoke"
 msgid "Rule"
 msgstr "Rule"
 
+#: app/(app)/[emailAccountId]/stats/RuleStatsChart.tsx
+msgid "Rule Execution Distribution"
+msgstr "Rule Execution Distribution"
+
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
+msgid "Rule Stats"
+msgstr "Rule Stats"
+
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "Rules transferred successfully"
 msgstr "Rules transferred successfully"
+
+#: app/(app)/[emailAccountId]/clean/PreviewBatch.tsx
+msgid "Run on Full Inbox"
+msgstr "Run on Full Inbox"
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "Safe to Archive"
+msgstr "Safe to Archive"
 
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Sales"
@@ -1385,6 +2930,8 @@ msgstr "Saturday"
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
+#: app/(app)/[emailAccountId]/smart-categories/setup/SetUpCategories.tsx
+#: components/BulkArchiveCards.tsx
 msgid "Save"
 msgstr "Save"
 
@@ -1392,9 +2939,25 @@ msgstr "Save"
 msgid "Saved. Next digest expected around {deliveryTime}."
 msgstr "Saved. Next digest expected around {deliveryTime}."
 
+#: components/BulkArchiveCards.tsx
+msgid "Saving..."
+msgstr "Saving..."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Scan older emails"
+msgstr "Scan older emails"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Scanning older emails…"
+msgstr "Scanning older emails…"
+
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
 msgid "Search"
 msgstr "Search"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/SearchBar.tsx
+msgid "Search..."
+msgstr "Search..."
 
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "See when recipients open emails you send from the mail client."
@@ -1413,9 +2976,19 @@ msgstr "See which emails you never read. One-click unsubscribe and archive them 
 msgid "Select {0}"
 msgstr "Select {0}"
 
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Select {fromEmail}"
+msgstr "Select {fromEmail}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeDesktop.tsx
 #: app/(app)/[emailAccountId]/onboarding/UnsubscribeSuggestionRow.tsx
+#: components/BulkArchiveCards.tsx
 msgid "Select {senderName}"
 msgstr "Select {senderName}"
+
+#: app/(app)/[emailAccountId]/stats/BarListCard.tsx
+msgid "Select a different time period to view statistics"
+msgstr "Select a different time period to view statistics"
 
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "Select action"
@@ -1425,6 +2998,22 @@ msgstr "Select action"
 msgid "Select all"
 msgstr "Select all"
 
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "Select All"
+msgstr "Select All"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Select all cold emails"
+msgstr "Select all cold emails"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeDesktop.tsx
+msgid "Select all senders"
+msgstr "Select all senders"
+
+#: components/BulkArchiveCards.tsx
+msgid "Select all senders in {categoryName}"
+msgstr "Select all senders in {categoryName}"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Select an account"
 msgstr "Select an account"
@@ -1432,6 +3021,11 @@ msgstr "Select an account"
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "Select an account to transfer rules from. Rules with matching names will be replaced."
 msgstr "Select an account to transfer rules from. Rules with matching names will be replaced."
+
+#: components/BulkArchiveCards.tsx
+#: components/CategorySelect.tsx
+msgid "Select category"
+msgstr "Select category"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Select digest items to see a preview"
@@ -1481,11 +3075,39 @@ msgstr "Send the digest email"
 msgid "Send this command in a direct message with the Inbox Zero bot on {providerName}. The code is one-time use and expires in 10 minutes."
 msgstr "Send this command in a direct message with the Inbox Zero bot on {providerName}. The code is one-time use and expires in 10 minutes."
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Sender blocked. Future emails will be archived."
+msgstr "Sender blocked. Future emails will be archived."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Sender kept"
+msgstr "Sender kept"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Sender moved to review"
+msgstr "Sender moved to review"
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveProgress.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress.tsx
+#: app/(app)/[emailAccountId]/smart-categories/CategorizeProgress.tsx
+msgid "senders"
+msgstr "senders"
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "Senders that may need a closer look"
+msgstr "Senders that may need a closer look"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Senders you get a lot of email from but rarely open"
+msgstr "Senders you get a lot of email from but rarely open"
+
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
 msgid "Senders you rarely read"
 msgstr "Senders you rarely read"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+#: app/(app)/[emailAccountId]/stats/EmailAnalytics.tsx
+#: app/(app)/[emailAccountId]/stats/MainStatChart.tsx
 msgid "Sent"
 msgstr "Sent"
 
@@ -1493,10 +3115,28 @@ msgstr "Sent"
 msgid "Sent 1-24 hours before (you choose)"
 msgstr "Sent 1-24 hours before (you choose)"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Set up"
+msgstr "Set up"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/page.tsx
 msgid "Set up meeting briefs to receive personalized briefings before your meetings."
 msgstr "Set up meeting briefs to receive personalized briefings before your meetings."
 
+#: app/(app)/[emailAccountId]/smart-categories/setup/SetUpCategories.tsx
+msgid "Set up sender categories"
+msgstr "Set up sender categories"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Set up your Personal Assistant"
+msgstr "Set up your Personal Assistant"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Setting auto archive for {count, plural, one {# sender} other {# senders}}..."
+msgstr "Setting auto archive for {count, plural, one {# sender} other {# senders}}..."
+
+#: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailContent.tsx
 #: app/(app)/settings/page.tsx
 #: app/(app)/settings/SettingsDialog.tsx
 msgid "Settings"
@@ -1515,6 +3155,14 @@ msgstr "Settings updated!"
 msgid "Settings updated! Please check it works on the Assistant page."
 msgstr "Settings updated! Please check it works on the Assistant page."
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeCelebrationDialog.tsx
+msgid "Share on LinkedIn"
+msgstr "Share on LinkedIn"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeCelebrationDialog.tsx
+msgid "Share on X"
+msgstr "Share on X"
+
 #: app/(app)/settings/TeamSection.tsx
 msgid "Share your plan by inviting teammates to your organization."
 msgstr "Share your plan by inviting teammates to your organization."
@@ -1522,6 +3170,18 @@ msgstr "Share your plan by inviting teammates to your organization."
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "Should we draft replies for you?"
 msgstr "Should we draft replies for you?"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Show less"
+msgstr "Show less"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Show more"
+msgstr "Show more"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Show them"
+msgstr "Show them"
 
 #. placeholder {0}: previewSenders.length
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
@@ -1534,6 +3194,7 @@ msgid "Sign in with {0}."
 msgstr "Sign in with {0}."
 
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Skip"
 msgstr "Skip"
 
@@ -1578,6 +3239,10 @@ msgstr "Software Engineer"
 msgid "Something came up on my end. Would Friday morning work instead?"
 msgstr "Something came up on my end. Would Friday morning work instead?"
 
+#: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
+msgid "Sorted automatically"
+msgstr "Sorted automatically"
+
 #: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
 msgid "Specialized decision model"
 msgstr "Specialized decision model"
@@ -1586,21 +3251,47 @@ msgstr "Specialized decision model"
 msgid "Starred"
 msgstr "Starred"
 
+#: app/(app)/[emailAccountId]/clean/CleanInstructionsStep.tsx
+msgid "Starred emails"
+msgstr "Starred emails"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Start assistant chat sessions for this inbox."
 msgstr "Start assistant chat sessions for this inbox."
+
+#: app/(app)/[emailAccountId]/clean/ConfirmationStep.tsx
+msgid "Start Cleaning"
+msgstr "Start Cleaning"
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "Start Free Trial"
 msgstr "Start Free Trial"
 
+#: app/(app)/[emailAccountId]/smart-categories/Uncategorized.tsx
+msgid "Stop"
+msgstr "Stop"
+
+#. placeholder {0}: item.name
+#. placeholder {1}: label.name
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Stopped labeling {0} as {1}"
+msgstr "Stopped labeling {0} as {1}"
+
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Student"
 msgstr "Student"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Success!"
+msgstr "Success!"
+
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "SUGGESTED FOR YOU"
 msgstr "SUGGESTED FOR YOU"
+
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
+msgid "Summary"
+msgstr "Summary"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Sunday"
@@ -1610,9 +3301,18 @@ msgstr "Sunday"
 msgid "Team"
 msgstr "Team"
 
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailContent.tsx
+#: app/(app)/[emailAccountId]/cold-email-blocker/TestRules.tsx
+msgid "Test"
+msgstr "Test"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Test brief sent! Check your inbox."
 msgstr "Test brief sent! Check your inbox."
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailTest.tsx
+msgid "Test cold email blocker"
+msgstr "Test cold email blocker"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
 msgid "Thanks for reaching out! I'd be happy to discuss the project timeline. How about tomorrow at 2pm?"
@@ -1622,9 +3322,35 @@ msgstr "Thanks for reaching out! I'd be happy to discuss the project timeline. H
 msgid "Thanks for your payment of $49.00. Your receipt is attached"
 msgstr "Thanks for your payment of $49.00. Your receipt is attached"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/share.ts
+msgid "That's {emailCount, plural, one {# email} other {# emails}} you won't get again."
+msgstr "That's {emailCount, plural, one {# email} other {# emails}} you won't get again."
+
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "The drafts will appear in your inbox, written in your tone.<0/>Our AI learns from your previous conversations to draft the best reply."
 msgstr "The drafts will appear in your inbox, written in your tone.<0/>Our AI learns from your previous conversations to draft the best reply."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "There was an error archiving the emails"
+msgstr "There was an error archiving the emails"
+
+#. placeholder {0}: result.serverError || ""
+#: app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton.tsx
+msgid "There was an error creating the category. {0}"
+msgstr "There was an error creating the category. {0}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "There was an error deleting the emails from {name} :("
+msgstr "There was an error deleting the emails from {name} :("
+
+#. placeholder {0}: result.serverError
+#: app/(app)/[emailAccountId]/smart-categories/setup/SetUpCategories.tsx
+msgid "There was an error saving the categories. {0}"
+msgstr "There was an error saving the categories. {0}"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "There was an error trashing the emails"
+msgstr "There was an error trashing the emails"
 
 #. placeholder {0}: result.serverError || ""
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
@@ -1635,6 +3361,10 @@ msgstr "There was an error: {0}"
 msgid "This brief is already being prepared"
 msgstr "This brief is already being prepared"
 
+#: app/(app)/[emailAccountId]/stats/EmailActionsAnalytics.tsx
+msgid "This feature is disabled. Contact your admin to enable it."
+msgstr "This feature is disabled. Contact your admin to enable it."
+
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "This helps us set up your inbox the way you actually need it."
 msgstr "This helps us set up your inbox the way you actually need it."
@@ -1642,6 +3372,10 @@ msgstr "This helps us set up your inbox the way you actually need it."
 #: app/(app)/[emailAccountId]/onboarding/StepCompanySize.tsx
 msgid "This helps us tailor the experience to your organization's needs."
 msgstr "This helps us tailor the experience to your organization's needs."
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/TestRules.tsx
+msgid "This is an application notification, not a cold email!"
+msgstr "This is an application notification, not a cold email!"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "This key will only work for the selected inbox account."
@@ -1654,6 +3388,10 @@ msgstr "This meeting has no external guests"
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "This permanently deletes your Inbox Zero data and disconnects {connectedEmailList}. Your emails aren't affected."
 msgstr "This permanently deletes your Inbox Zero data and disconnects {connectedEmailList}. Your emails aren't affected."
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/TestRules.tsx
+msgid "This person has previously emailed you. This is not a cold email!"
+msgstr "This person has previously emailed you. This is not a cold email!"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "This Slack app is not distributed to every workspace yet. Use the currently supported workspace or contact support."
@@ -1675,6 +3413,10 @@ msgstr "This will disable all AI rules for this account. You can re-enable indiv
 msgid "This will only be shown once. Please copy it. Your secret key is:"
 msgstr "This will only be shown once. Please copy it. Your secret key is:"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/share.ts
+msgid "Those senders won't reach your inbox again."
+msgstr "Those senders won't reach your inbox again."
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Thursday"
 msgstr "Thursday"
@@ -1683,9 +3425,25 @@ msgstr "Thursday"
 msgid "Thursday 2:00 PM to 2:30 PM. Join with video link"
 msgstr "Thursday 2:00 PM to 2:30 PM. Join with video link"
 
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailContent.tsx
+msgid "To manage cold email settings, go to the Assistant Rules tab and click Edit on the Cold Email rule."
+msgstr "To manage cold email settings, go to the Assistant Rules tab and click Edit on the Cold Email rule."
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
 msgid "To Reply"
 msgstr "To Reply"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "To review"
+msgstr "To review"
+
+#: app/(app)/[emailAccountId]/clean/PreviewBatch.tsx
+msgid "To undo any, hover over the \"Archive\" badge and click undo."
+msgstr "To undo any, hover over the \"Archive\" badge and click undo."
+
+#: app/(app)/[emailAccountId]/clean/PreviewBatch.tsx
+msgid "To undo any, hover over the \"Mark as read\" badge and click undo."
+msgstr "To undo any, hover over the \"Mark as read\" badge and click undo."
 
 #: app/(app)/[emailAccountId]/settings/SentWithSignatureSection.tsx
 msgid "Toggle 'Sent with {BRAND_NAME}'"
@@ -1698,6 +3456,10 @@ msgstr "Toggle automatic AI draft cleanup"
 #: app/(app)/settings/AppearanceSection.tsx
 msgid "Toggle dark mode"
 msgstr "Toggle dark mode"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Toggle menu"
+msgstr "Toggle menu"
 
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "Toggle read status"
@@ -1715,19 +3477,83 @@ msgstr "Transfer rules"
 msgid "Transfer rules to {targetAccountEmail}"
 msgstr "Transfer rules to {targetAccountEmail}"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+msgid "Try a different filter or date range."
+msgstr "Try a different filter or date range."
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Tuesday"
 msgstr "Tuesday"
 
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
+msgid "Unable to load {title}. Please try refreshing the page."
+msgstr "Unable to load {title}. Please try refreshing the page."
+
+#: app/(app)/[emailAccountId]/stats/EmailsToIncludeFilter.tsx
+msgid "Unarchived"
+msgstr "Unarchived"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog.tsx
+msgid "Unblock"
+msgstr "Unblock"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog.tsx
+msgid "Unblock Sender"
+msgstr "Unblock Sender"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog.tsx
+msgid "Unblocked"
+msgstr "Unblocked"
+
+#: app/(app)/[emailAccountId]/smart-categories/page.tsx
+#: components/BulkArchiveCards.tsx
+msgid "Uncategorized"
+msgstr "Uncategorized"
+
+#: app/(app)/[emailAccountId]/stats/StatsOnboarding.tsx
+msgid "Understand what's filling up your inbox"
+msgstr "Understand what's filling up your inbox"
+
+#: app/(app)/[emailAccountId]/clean/EmailFirehoseItem.tsx
+msgid "Undo"
+msgstr "Undo"
+
+#: app/(app)/[emailAccountId]/clean/EmailFirehoseItem.tsx
+msgid "Undoing..."
+msgstr "Undoing..."
+
+#: app/(app)/[emailAccountId]/clean/EmailFirehoseItem.tsx
+msgid "Undone"
+msgstr "Undone"
+
+#: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 msgid "Unknown error"
 msgstr "Unknown error"
 
+#: app/(app)/[emailAccountId]/stats/EmailsToIncludeFilter.tsx
+#: app/(app)/[emailAccountId]/stats/MainStatChart.tsx
+msgid "Unread"
+msgstr "Unread"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Unsubscribe"
+msgstr "Unsubscribe"
+
+#: app/(app)/[emailAccountId]/stats/StatsOnboarding.tsx
+msgid "Unsubscribe and bulk archive"
+msgstr "Unsubscribe and bulk archive"
+
 #. placeholder {0}: selectedSenders.length
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
 msgid "Unsubscribe from {0}"
 msgstr "Unsubscribe from {0}"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Unsubscribe from a newsletter you don't read"
+msgstr "Unsubscribe from a newsletter you don't read"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Unsubscribe from senders for this inbox."
@@ -1736,6 +3562,23 @@ msgstr "Unsubscribe from senders for this inbox."
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Unsubscribe senders"
 msgstr "Unsubscribe senders"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
+msgid "Unsubscribe/Block"
+msgstr "Unsubscribe/Block"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "Unsubscribed"
+msgstr "Unsubscribed"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
+msgid "Unsubscribing from {count, plural, one {# sender} other {# senders}}..."
+msgstr "Unsubscribing from {count, plural, one {# sender} other {# senders}}..."
+
+#: app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton.tsx
+msgid "Update"
+msgstr "Update"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Update inbox settings for this inbox."
@@ -1757,13 +3600,33 @@ msgstr "Upgrade on the next step to process new emails automatically"
 msgid "Use an optional decision model for rule matching and other structured decisions. Falls back to your AI model if unavailable."
 msgstr "Use an optional decision model for rule matching and other structured decisions. Falls back to your AI model if unavailable."
 
+#: app/(app)/[emailAccountId]/smart-categories/setup/SmartCategoriesOnboarding.tsx
+msgid "Use categories to optimize the AI assistant"
+msgstr "Use categories to optimize the AI assistant"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Usually sent within 5 minutes."
 msgstr "Usually sent within 5 minutes."
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "View"
+msgstr "View"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "View auto-archive filter"
+msgstr "View auto-archive filter"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+msgid "View in Gmail"
+msgstr "View in Gmail"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "View keys"
 msgstr "View keys"
+
+#: app/(app)/[emailAccountId]/stats/BarListCard.tsx
+msgid "View more"
+msgstr "View more"
 
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "View rules"
@@ -1776,6 +3639,18 @@ msgstr "View test brief in Gmail"
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "View usage"
 msgstr "View usage"
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog.tsx
+msgid "Visit the sender's website and manually resubscribe."
+msgstr "Visit the sender's website and manually resubscribe."
+
+#: app/(app)/[emailAccountId]/stats/StatsOnboarding.tsx
+msgid "Visualise your data"
+msgstr "Visualise your data"
+
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "vs previous"
+msgstr "vs previous"
 
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "We categorized your last {count} emails and drafted replies. Nothing was archived."
@@ -1808,6 +3683,18 @@ msgstr "We couldn't save that answer, but you can keep going."
 msgid "We couldn't validate your API key. Please try again."
 msgstr "We couldn't validate your API key. Please try again."
 
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "We found <0>{totalCount}</0> {totalCount, plural, one {sender you may want to archive} other {senders you may want to archive}}"
+msgstr "We found <0>{totalCount}</0> {totalCount, plural, one {sender you may want to archive} other {senders you may want to archive}}"
+
+#: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
+msgid "We group senders into categories like Newsletters, Receipts, and Marketing"
+msgstr "We group senders into categories like Newsletters, Receipts, and Marketing"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "We haven't marked any of your emails as cold emails yet!"
+msgstr "We haven't marked any of your emails as cold emails yet!"
+
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "We labeled your last {count} emails and drafted replies. Nothing was archived."
 msgstr "We labeled your last {count} emails and drafted replies. Nothing was archived."
@@ -1836,6 +3723,14 @@ msgstr "We'll unsubscribe and archive these for you. Uncheck any you want to kee
 msgid "We'll use these labels to organize your inbox. You can add custom labels and change them later."
 msgstr "We'll use these labels to organize your inbox. You can add custom labels and change them later."
 
+#: app/(app)/[emailAccountId]/clean/ConfirmationStep.tsx
+msgid "We'll use your settings from the last time you cleaned your inbox. You can adjust these <0>here</0>."
+msgstr "We'll use your settings from the last time you cleaned your inbox. You can adjust these <0>here</0>."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog.tsx
+msgid "We're currently auto-archiving this sender. Click \"Unblock\" to allow emails from them."
+msgstr "We're currently auto-archiving this sender. Click \"Unblock\" to allow emails from them."
+
 #: app/(app)/[emailAccountId]/onboarding/StepCustomRules.tsx
 msgid "We've set up the basics, but that's just the beginning. Your AI assistant can handle any email workflow you'd give to a human."
 msgstr "We've set up the basics, but that's just the beginning. Your AI assistant can handle any email workflow you'd give to a human."
@@ -1857,6 +3752,7 @@ msgid "Wednesday"
 msgstr "Wednesday"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
 msgid "Week"
 msgstr "Week"
 
@@ -1867,6 +3763,22 @@ msgstr "Weekly digest"
 #: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
 msgid "Weekly Digest"
 msgstr "Weekly Digest"
+
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "Weekly Response Time Trend"
+msgstr "Weekly Response Time Trend"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Welcome to {BRAND_NAME}"
+msgstr "Welcome to {BRAND_NAME}"
+
+#: app/(app)/[emailAccountId]/stats/StatsOnboarding.tsx
+msgid "Welcome to email analytics"
+msgstr "Welcome to email analytics"
+
+#: app/(app)/[emailAccountId]/smart-categories/setup/SmartCategoriesOnboarding.tsx
+msgid "Welcome to Sender Categories"
+msgstr "Welcome to Sender Categories"
 
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "What do you do?"
@@ -1880,13 +3792,37 @@ msgstr "What to include in the digest email"
 msgid "What we shipped in October"
 msgstr "What we shipped in October"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "What would you like to do?"
+msgstr "What would you like to do?"
+
 #: app/(app)/[emailAccountId]/onboarding/StepCompanySize.tsx
 msgid "What's the size of your company?"
 msgstr "What's the size of your company?"
 
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailRejected.tsx
+msgid "When you mark an AI-detected cold email as 'Not a cold email', it will appear here."
+msgstr "When you mark an AI-detected cold email as 'Not a cold email', it will appear here."
+
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
 msgid "Where did you hear about us?"
 msgstr "Where did you hear about us?"
+
+#: app/(app)/[emailAccountId]/clean/CleanInstructionsStep.tsx
+msgid "Which emails should stay in your inbox?"
+msgstr "Which emails should stay in your inbox?"
+
+#: app/(app)/[emailAccountId]/clean/TimeRangeStep.tsx
+msgid "Which emails would you like to process?"
+msgstr "Which emails would you like to process?"
+
+#: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
+msgid "Within 1 Hour"
+msgstr "Within 1 Hour"
+
+#: app/(app)/[emailAccountId]/clean/ActionSelectionStep.tsx
+msgid "Would you like cleaned emails to be archived or marked as read?"
+msgstr "Would you like cleaned emails to be archived or marked as read?"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"
@@ -1895,6 +3831,10 @@ msgstr "Write rules"
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write settings"
 msgstr "Write settings"
+
+#: app/(app)/[emailAccountId]/stats/Stats.tsx
+msgid "Year"
+msgstr "Year"
 
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "Yes, please"
@@ -1917,6 +3857,16 @@ msgstr "You can manage your subscription from your iPhone or iPad subscription s
 msgid "You can set your own custom categories later"
 msgstr "You can set your own custom categories later"
 
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+#: components/LabelsSubMenu.tsx
+msgid "You don't have any categories yet."
+msgstr "You don't have any categories yet."
+
+#: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
+#: components/LabelsSubMenu.tsx
+msgid "You don't have any labels yet."
+msgstr "You don't have any labels yet."
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "You'll get a brief like this before every external meeting, automatically."
 msgstr "You'll get a brief like this before every external meeting, automatically."
@@ -1928,6 +3878,10 @@ msgstr "You're on grandfathered Stripe pricing. The current plan prices shown el
 #: app/(app)/[emailAccountId]/onboarding/StepEmailsSorted.tsx
 msgid "Your inbox, automatically sorted"
 msgstr "Your inbox, automatically sorted"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Your personal email assistant that organizes, archives, and drafts replies"
+msgstr "Your personal email assistant that organizes, archives, and drafts replies"
 
 #: app/(app)/[emailAccountId]/settings/AboutSectionForm.tsx
 msgid "Your profile has been updated!"

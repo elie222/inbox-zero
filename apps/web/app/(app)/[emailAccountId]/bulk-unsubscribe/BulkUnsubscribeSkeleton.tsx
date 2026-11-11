@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import {
   Table,
   TableBody,
@@ -56,13 +57,19 @@ export function BulkUnsubscribeDesktopSkeleton() {
             <SkeletonCheckbox />
           </TableHead>
           <TableHead>
-            <span className="text-sm font-medium">From</span>
+            <span className="text-sm font-medium">
+              <Trans>From</Trans>
+            </span>
           </TableHead>
           <TableHead>
-            <span className="text-sm font-medium">Emails</span>
+            <span className="text-sm font-medium">
+              <Trans>Emails</Trans>
+            </span>
           </TableHead>
           <TableHead>
-            <span className="text-sm font-medium">Read</span>
+            <span className="text-sm font-medium">
+              <Trans>Read</Trans>
+            </span>
           </TableHead>
           <TableHead />
         </TableRow>

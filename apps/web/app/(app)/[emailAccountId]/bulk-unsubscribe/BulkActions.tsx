@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { usePostHog } from "posthog-js/react";
 import {
   ArchiveIcon,
@@ -114,6 +115,7 @@ export function BulkActions({
   filter: NewsletterFilterType;
   dateRange?: DateRange;
 }) {
+  const { t } = useLingui();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [autoArchiveDialogOpen, setAutoArchiveDialogOpen] = useState(false);
@@ -214,10 +216,10 @@ export function BulkActions({
 
   const unsubscribeLabel =
     hasUnsubscribeLinks && hasBlockableLinks
-      ? "Unsubscribe/Block"
+      ? t`Unsubscribe/Block`
       : hasBlockableLinks
-        ? "Block"
-        : "Unsubscribe";
+        ? t`Block`
+        : t`Unsubscribe`;
 
   return (
     <>
@@ -238,14 +240,20 @@ export function BulkActions({
                 <button
                   type="button"
                   onClick={onClearSelection}
-                  aria-label="Clear selection"
+                  aria-label={t`Clear selection`}
                   className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <XIcon className="size-4" />
                 </button>
                 <span className="whitespace-nowrap pr-1 text-sm font-medium">
-                  {selectedCount}
-                  <span className="hidden sm:inline"> selected</span>
+                  <span className="sm:hidden">{selectedCount}</span>
+                  <span className="hidden sm:inline">
+                    <Plural
+                      value={selectedCount}
+                      one="# selected"
+                      other="# selected"
+                    />
+                  </span>
                 </span>
 
                 <div className="mx-1 h-6 w-px shrink-0 bg-border sm:mx-2" />
@@ -261,15 +269,15 @@ export function BulkActions({
                 )}
                 <ActionButton
                   icon={allSelectedAreApproved ? Undo2Icon : ThumbsUpIcon}
-                  label={allSelectedAreApproved ? "Move to review" : "Keep"}
+                  label={allSelectedAreApproved ? t`Move to review` : t`Keep`}
                   onClick={() =>
                     onBulkApprove(getSelectedValues(), allSelectedAreApproved)
                   }
                 />
                 <ActionButton
                   icon={ArchiveIcon}
-                  label="Archive"
-                  loadingLabel="Archiving"
+                  label={t`Archive`}
+                  loadingLabel={t`Archiving`}
                   onClick={() => setArchiveDialogOpen(true)}
                   loading={isBulkArchiving}
                 />
@@ -279,7 +287,7 @@ export function BulkActions({
                       size="icon"
                       variant="ghost"
                       className="shrink-0"
-                      aria-label="More actions"
+                      aria-label={t`More actions`}
                       disabled={isBulkDeleting}
                     >
                       {isBulkDeleting ? (
@@ -294,7 +302,7 @@ export function BulkActions({
                       onClick={() => setAutoArchiveDialogOpen(true)}
                     >
                       <ArchiveRestoreIcon className="mr-2 size-4" />
-                      Auto-archive future emails
+                      <Trans>Auto-archive future emails</Trans>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -302,7 +310,7 @@ export function BulkActions({
                       onClick={() => setDeleteDialogOpen(true)}
                     >
                       <TrashIcon className="mr-2 size-4" />
-                      Delete all emails
+                      <Trans>Delete all emails</Trans>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -316,10 +324,14 @@ export function BulkActions({
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete all emails?</DialogTitle>
+            <DialogTitle>
+              <Trans>Delete all emails?</Trans>
+            </DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete all emails from these senders.
-              This action cannot be undone.
+              <Trans>
+                Are you sure you want to delete all emails from these senders.
+                This action cannot be undone.
+              </Trans>
             </DialogDescription>
           </DialogHeader>
 
@@ -358,7 +370,7 @@ export function BulkActions({
               variant="outline"
               onClick={() => setDeleteDialogOpen(false)}
             >
-              Cancel
+              <Trans>Cancel</Trans>
             </Button>
             <Button
               variant="destructive"
@@ -367,7 +379,7 @@ export function BulkActions({
                 setDeleteDialogOpen(false);
               }}
             >
-              Delete
+              <Trans>Delete</Trans>
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -377,9 +389,13 @@ export function BulkActions({
       <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Archive all emails?</DialogTitle>
+            <DialogTitle>
+              <Trans>Archive all emails?</Trans>
+            </DialogTitle>
             <DialogDescription>
-              Are you sure you want to archive all emails from these senders?
+              <Trans>
+                Are you sure you want to archive all emails from these senders?
+              </Trans>
             </DialogDescription>
           </DialogHeader>
 
@@ -418,7 +434,7 @@ export function BulkActions({
               variant="outline"
               onClick={() => setArchiveDialogOpen(false)}
             >
-              Cancel
+              <Trans>Cancel</Trans>
             </Button>
             <Button
               onClick={() => {
@@ -426,7 +442,7 @@ export function BulkActions({
                 setArchiveDialogOpen(false);
               }}
             >
-              Archive
+              <Trans>Archive</Trans>
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -439,10 +455,14 @@ export function BulkActions({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Auto-archive these senders?</DialogTitle>
+            <DialogTitle>
+              <Trans>Auto-archive these senders?</Trans>
+            </DialogTitle>
             <DialogDescription>
-              Automatically archive all current and future emails from these
-              senders. They will no longer appear in your inbox.
+              <Trans>
+                Automatically archive all current and future emails from these
+                senders. They will no longer appear in your inbox.
+              </Trans>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -450,7 +470,7 @@ export function BulkActions({
               variant="outline"
               onClick={() => setAutoArchiveDialogOpen(false)}
             >
-              Cancel
+              <Trans>Cancel</Trans>
             </Button>
             <Button
               onClick={() => {
@@ -458,7 +478,7 @@ export function BulkActions({
                 setAutoArchiveDialogOpen(false);
               }}
             >
-              Auto-archive
+              <Trans>Auto-archive</Trans>
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FilterIcon } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
 import { DetailedStatsFilter } from "@/app/(app)/[emailAccountId]/stats/DetailedStatsFilter";
 
 export function useEmailsToIncludeFilter() {
@@ -30,31 +31,32 @@ export function EmailsToIncludeFilter(props: {
   >;
 }) {
   const { types, setTypes } = props;
+  const { t } = useLingui();
 
   return (
     <DetailedStatsFilter
-      label="Emails to include"
+      label={t`Emails to include`}
       icon={<FilterIcon className="mr-2 h-4 w-4" />}
       keepOpenOnSelect
       columns={[
         {
-          label: "Read",
+          label: t`Read`,
           checked: types.read,
           setChecked: () => setTypes({ ...types, read: !types.read }),
         },
         {
-          label: "Unread",
+          label: t`Unread`,
           checked: types.unread,
           setChecked: () => setTypes({ ...types, unread: !types.unread }),
         },
         {
-          label: "Unarchived",
+          label: t`Unarchived`,
           checked: types.unarchived,
           setChecked: () =>
             setTypes({ ...types, unarchived: !types.unarchived }),
         },
         {
-          label: "Archived",
+          label: t`Archived`,
           checked: types.archived,
           setChecked: () => setTypes({ ...types, archived: !types.archived }),
         },

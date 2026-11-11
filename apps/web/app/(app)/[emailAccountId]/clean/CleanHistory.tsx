@@ -2,6 +2,7 @@
 
 import useSWR from "swr";
 import Link from "next/link";
+import { Plural, Trans } from "@lingui/react/macro";
 import type { CleanHistoryResponse } from "@/app/api/clean/history/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { formatDateSimple } from "@/utils/date";
@@ -30,13 +31,21 @@ export function CleanHistory() {
                     {formatDateSimple(new Date(job.createdAt))}
                   </h4>
                 </div>
-                <MutedText>{job._count.threads} emails processed</MutedText>
+                <MutedText>
+                  <Plural
+                    value={job._count.threads}
+                    one="# email processed"
+                    other="# emails processed"
+                  />
+                </MutedText>
               </div>
             </Link>
           ))}
         </div>
       ) : (
-        <MutedText className="p-4 text-center">No history yet</MutedText>
+        <MutedText className="p-4 text-center">
+          <Trans>No history yet</Trans>
+        </MutedText>
       )}
     </LoadingContent>
   );

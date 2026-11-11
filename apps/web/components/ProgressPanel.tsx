@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
+import { Trans } from "@lingui/react/macro";
 import { cn } from "@/utils";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { Progress } from "@/components/ui/progress";
@@ -54,7 +55,11 @@ export function ProgressPanel({
               )}
             </span>
             <span>
-              {totalProcessed} of {totalItems} {itemLabel} processed
+              <Trans>
+                <Trans>
+                  {totalProcessed} of {totalItems} {itemLabel} processed
+                </Trans>
+              </Trans>
             </span>
           </div>
         </motion.div>

@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import type { DateRange } from "react-day-picker";
 import { LabelList, Pie, PieChart } from "recharts";
 import fromPairs from "lodash/fromPairs";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -60,6 +61,7 @@ const ChartTooltipComponent = ChartTooltip as unknown as ComponentType<{
 }>;
 
 export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
+  const { t } = useLingui();
   const params = getDateRangeParams(dateRange);
 
   const { data, isLoading, error } = useOrgSWR<RuleStatsResponse>(
@@ -87,7 +89,7 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
 
     const config: ChartConfig = {
       value: {
-        label: "Executed Rules",
+        label: t`Executed Rules`,
       },
       ...fromPairs(
         data.ruleStats.map((rule, index) => [
@@ -101,7 +103,7 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
     };
 
     const barConfig: ChartConfig = {
-      executed: { label: "Executed Rules", color: COLORS.analytics.blue },
+      executed: { label: t`Executed Rules`, color: COLORS.analytics.blue },
     };
 
     return {
@@ -109,7 +111,7 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
       chartConfig: config,
       barChartConfig: barConfig,
     };
-  }, [data]);
+  }, [data, t]);
 
   return (
     <LoadingContent
@@ -123,8 +125,12 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
             <div className="flex items-center justify-between">
               <p>{title}</p>
               <TabsList>
-                <TabsTrigger value="bar">Bar Chart</TabsTrigger>
-                <TabsTrigger value="pie">Pie Chart</TabsTrigger>
+                <TabsTrigger value="bar">
+                  <Trans>Bar Chart</Trans>
+                </TabsTrigger>
+                <TabsTrigger value="pie">
+                  <Trans>Pie Chart</Trans>
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -142,7 +148,7 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
               <ShadcnCard className="border-0 shadow-none">
                 <CardHeader className="items-center pb-0">
                   <CardTitle className="text-base font-normal text-muted-foreground">
-                    Rule Execution Distribution
+                    <Trans>Rule Execution Distribution</Trans>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 pb-0">
@@ -176,7 +182,9 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
         <CardBasic>
           <p>{title}</p>
           <div className="mt-4 h-72 flex items-center justify-center text-muted-foreground">
-            <p>No executed rules found for this period.</p>
+            <p>
+              <Trans>No executed rules found for this period.</Trans>
+            </p>
           </div>
         </CardBasic>
       )}

@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { Plural, Trans } from "@lingui/react/macro";
 import { MailOpenIcon, SparklesIcon } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { BRAND_NAME } from "@/utils/branding";
@@ -12,18 +13,35 @@ export const UnsubscribeShareCard = forwardRef<
     className?: string;
   }
 >(function UnsubscribeShareCard({ senderCount, yearlyEmails, className }, ref) {
-  const senders = senderCount === 1 ? "sender" : "senders";
   // Lead with the future emails avoided (the real win); fall back to the
   // sender count when we can't project a yearly figure.
   const hero = yearlyEmails
     ? {
         number: yearlyEmails,
-        label: `fewer ${yearlyEmails === 1 ? "email" : "emails"} a year`,
-        caption: `after unsubscribing from ${senderCount} ${senders}`,
+        label: (
+          <Plural
+            value={yearlyEmails}
+            one="fewer email a year"
+            other="fewer emails a year"
+          />
+        ),
+        caption: (
+          <Plural
+            value={senderCount}
+            one="after unsubscribing from # sender"
+            other="after unsubscribing from # senders"
+          />
+        ),
       }
     : {
         number: senderCount,
-        label: `${senders} unsubscribed`,
+        label: (
+          <Plural
+            value={senderCount}
+            one="sender unsubscribed"
+            other="senders unsubscribed"
+          />
+        ),
         caption: null,
       };
 
@@ -60,7 +78,7 @@ export const UnsubscribeShareCard = forwardRef<
       )}
 
       <div className="relative mt-7 text-sm font-medium text-white/70">
-        Cleaned up with {BRAND_NAME}
+        <Trans>Cleaned up with {BRAND_NAME}</Trans>
       </div>
     </div>
   );

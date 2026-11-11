@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useModal } from "@/hooks/useModal";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -98,7 +99,7 @@ export function CreateCategoryButton({
         {buttonProps?.children ?? (
           <>
             <PlusIcon className="mr-2 size-4" />
-            Add
+            <Trans>Add</Trans>
           </>
         )}
       </Button>
@@ -127,7 +128,9 @@ export function CreateCategoryDialog({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Category</DialogTitle>
+          <DialogTitle>
+            <Trans>Create Category</Trans>
+          </DialogTitle>
         </DialogHeader>
 
         <CreateCategoryForm category={category} closeModal={closeModal} />
@@ -143,6 +146,7 @@ function CreateCategoryForm({
   category?: Pick<Category, "name" | "description"> & { id?: string };
   closeModal: () => void;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
 
   const {
@@ -173,14 +177,14 @@ function CreateCategoryForm({
 
       if (result?.serverError) {
         toastError({
-          description: `There was an error creating the category. ${result.serverError || ""}`,
+          description: t`There was an error creating the category. ${result.serverError || ""}`,
         });
       } else {
-        toastSuccess({ description: "Category created!" });
+        toastSuccess({ description: t`Category created!` });
         closeModal();
       }
     },
-    [closeModal, emailAccountId],
+    [closeModal, emailAccountId, t],
   );
 
   return (
@@ -188,7 +192,7 @@ function CreateCategoryForm({
       <Input
         type="text"
         name="name"
-        label="Name"
+        label={t`Name`}
         registerProps={register("name", { required: true })}
         error={errors.name}
       />
@@ -197,14 +201,16 @@ function CreateCategoryForm({
         autosizeTextarea
         rows={2}
         name="description"
-        label="Description (Optional)"
-        explainText="Additional information used by the AI to categorize senders"
+        label={t`Description (Optional)`}
+        explainText={t`Additional information used by the AI to categorize senders`}
         registerProps={register("description")}
         error={errors.description}
       />
 
       <div className="rounded border border-border bg-muted/50 p-3">
-        <div className="text-xs font-medium">Examples</div>
+        <div className="text-xs font-medium">
+          <Trans>Examples</Trans>
+        </div>
         <div className="mt-1 flex flex-wrap gap-2">
           {EXAMPLE_CATEGORIES.map((category) => (
             <Button
@@ -223,14 +229,16 @@ function CreateCategoryForm({
 
       {category && (
         <MessageText>
-          Note: editing a category name/description only impacts future
-          categorization. Existing email addresses in this category will not be
-          affected.
+          <Trans>
+            Note: editing a category name/description only impacts future
+            categorization. Existing email addresses in this category will not
+            be affected.
+          </Trans>
         </MessageText>
       )}
 
       <Button type="submit" loading={isSubmitting}>
-        {category ? "Update" : "Create"}
+        {category ? <Trans>Update</Trans> : <Trans>Create</Trans>}
       </Button>
     </form>
   );
