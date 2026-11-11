@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { Suspense } from "react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Loading } from "@/components/Loading";
@@ -13,6 +14,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
+import { initLingui } from "@/utils/i18n/server";
 
 export default async function CleanPage(props: {
   params: Promise<{ emailAccountId: string }>;
@@ -41,7 +43,8 @@ export default async function CleanPage(props: {
   });
 
   if (!emailAccount) {
-    return <CardTitle>Email account not found</CardTitle>;
+    const i18n = await initLingui();
+    return <CardTitle>{t(i18n)`Email account not found`}</CardTitle>;
   }
 
   const emailProvider = await createEmailProvider({

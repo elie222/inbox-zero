@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Trans } from "@lingui/react/macro";
 import { motion } from "framer-motion";
 import {
   Bold,
@@ -44,14 +45,18 @@ export function DraftRepliesIllustration() {
               <span className="text-[10px] font-semibold text-gray-900 dark:text-gray-100">
                 Sarah Chen
               </span>
-              <span className="text-[9px] text-gray-400">10:30 AM</span>
+              <span className="text-[9px] text-gray-400">
+                <Trans>10:30 AM</Trans>
+              </span>
             </div>
           </div>
         </div>
 
         <div className="px-3 pb-2 text-left text-[10px] leading-relaxed text-gray-700 dark:text-gray-300">
-          Hi John, I wanted to follow up on the project timeline. When would be
-          a good time to discuss the next steps?
+          <Trans>
+            Hi John, I wanted to follow up on the project timeline. When would
+            be a good time to discuss the next steps?
+          </Trans>
         </div>
       </motion.div>
 
@@ -79,7 +84,9 @@ export function DraftRepliesIllustration() {
             transition={{ duration: 0.3 }}
             className="text-left text-[10px] leading-relaxed text-gray-800 dark:text-gray-200"
           >
-            <p>Hi Sarah,</p>
+            <p>
+              <Trans>Hi Sarah,</Trans>
+            </p>
           </motion.div>
 
           <motion.div
@@ -89,10 +96,14 @@ export function DraftRepliesIllustration() {
             className="mt-1 text-left text-[10px] leading-relaxed text-gray-800 dark:text-gray-200"
           >
             <p>
-              Thanks for reaching out! I&apos;d be happy to discuss the project
-              timeline. How about tomorrow at 2pm?
+              <Trans>
+                Thanks for reaching out! I&apos;d be happy to discuss the
+                project timeline. How about tomorrow at 2pm?
+              </Trans>
             </p>
-            <p className="mt-1">Best, John</p>
+            <p className="mt-1">
+              <Trans>Best, John</Trans>
+            </p>
           </motion.div>
         </div>
 
@@ -102,7 +113,7 @@ export function DraftRepliesIllustration() {
         >
           <div className="flex items-center gap-1">
             <span className="rounded bg-blue-600 px-2.5 py-0.5 text-[9px] font-medium text-white">
-              Send
+              <Trans>Send</Trans>
             </span>
             <div className="ml-1 flex items-center">
               <span className="rounded p-0.5 text-gray-400">

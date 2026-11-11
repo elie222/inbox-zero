@@ -6,6 +6,7 @@ import { subDays } from "date-fns/subDays";
 import { startOfDay } from "date-fns/startOfDay";
 import { ArrowRightIcon, MailXIcon, SparklesIcon } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
@@ -34,6 +35,7 @@ const SKELETON_ROW_KEYS = Array.from(
 );
 
 export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const posthog = usePostHog();
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
@@ -188,17 +190,22 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
       <div className="w-full max-w-xl">
         <div className="mb-6 text-center">
           <PageHeading className="mb-3">
-            We found {suggestions.length}{" "}
-            {suggestions.length === 1 ? "sender" : "senders"} you rarely read
+            <Plural
+              value={suggestions.length}
+              one="We found # sender you rarely read"
+              other="We found # senders you rarely read"
+            />
           </PageHeading>
           <TypographyP className="text-muted-foreground">
-            We'll unsubscribe and archive these for you. Uncheck any you want to
-            keep.
+            <Trans>
+              We'll unsubscribe and archive these for you. Uncheck any you want
+              to keep.
+            </Trans>
           </TypographyP>
         </div>
 
         <section
-          aria-label="Senders you rarely read"
+          aria-label={t`Senders you rarely read`}
           className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
         >
           <ul className="divide-y divide-slate-100 dark:divide-border py-1.5">
@@ -217,8 +224,8 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
         <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-sm text-muted-foreground">
           <SparklesIcon className="size-3.5 text-amber-500" />
           {hasMore
-            ? `Showing your top ${previewSenders.length}. We'll keep spotting more as you use Inbox Zero.`
-            : "We'll keep spotting more as you use Inbox Zero."}
+            ? t`Showing your top ${previewSenders.length}. We'll keep spotting more as you use Inbox Zero.`
+            : t`We'll keep spotting more as you use Inbox Zero.`}
         </p>
 
         <div className="mt-7 flex flex-col items-center gap-3">
@@ -232,11 +239,11 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
             {selectedSenders.length > 0 ? (
               <>
                 <MailXIcon className="size-4 mr-2" />
-                Unsubscribe from {selectedSenders.length}
+                <Trans>Unsubscribe from {selectedSenders.length}</Trans>
               </>
             ) : (
               <>
-                Continue
+                <Trans>Continue</Trans>
                 <ArrowRightIcon className="size-4 ml-2" />
               </>
             )}
@@ -248,7 +255,7 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
               onClick={onSkip}
               disabled={submitting}
             >
-              Skip for now
+              <Trans>Skip for now</Trans>
             </Button>
           )}
         </div>
@@ -258,9 +265,11 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
 }
 
 function LoadingBulkUnsubscribeStep() {
+  const { t } = useLingui();
+
   return (
     <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 dark:bg-background px-4 py-10">
-      <output className="w-full max-w-xl" aria-label="Loading senders">
+      <output className="w-full max-w-xl" aria-label={t`Loading senders`}>
         <div className="mb-6 flex flex-col items-center">
           <Skeleton className="mb-3 h-8 w-80 max-w-full" />
           <Skeleton className="h-5 w-96 max-w-full" />
@@ -298,16 +307,20 @@ function StaticBulkUnsubscribeStep({ onNext }: { onNext: () => void }) {
           <BulkUnsubscribeIllustration />
         </div>
 
-        <PageHeading className="mb-3">Bulk unsubscribe and archive</PageHeading>
+        <PageHeading className="mb-3">
+          <Trans>Bulk unsubscribe and archive</Trans>
+        </PageHeading>
 
         <TypographyP className="text-muted-foreground mb-8">
-          See which emails you never read. One-click unsubscribe and archive
-          them in bulk.
+          <Trans>
+            See which emails you never read. One-click unsubscribe and archive
+            them in bulk.
+          </Trans>
         </TypographyP>
 
         <div className="flex flex-col gap-2 w-full max-w-xs">
           <Button className="w-full" onClick={onNext}>
-            Continue
+            <Trans>Continue</Trans>
             <ArrowRightIcon className="size-4 ml-2" />
           </Button>
         </div>
