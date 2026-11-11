@@ -1,6 +1,8 @@
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowRightIcon, UsersIcon } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { PageHeading, TypographyP } from "@/components/Typography";
@@ -32,6 +34,7 @@ export function StepInviteTeam({
   onNext: () => void;
   onSkip: () => void;
 }) {
+  const { t } = useLingui();
   const posthog = usePostHog();
 
   const {
@@ -69,7 +72,7 @@ export function StepInviteTeam({
       });
 
       if (result?.serverError || result?.validationErrors) {
-        toastError({ description: "Failed to send invitations" });
+        toastError({ description: t`Failed to send invitations` });
         return;
       }
 
@@ -85,7 +88,7 @@ export function StepInviteTeam({
 
       if (result?.serverError || result?.validationErrors) {
         toastError({
-          description: "Failed to create organization and send invitations",
+          description: t`Failed to create organization and send invitations`,
         });
         return;
       }
@@ -98,12 +101,18 @@ export function StepInviteTeam({
 
     if (successCount > 0) {
       toastSuccess({
-        description: `${successCount} invitation${successCount > 1 ? "s" : ""} sent successfully!`,
+        description: t`${plural(successCount, {
+          one: "# invitation sent successfully!",
+          other: "# invitations sent successfully!",
+        })}`,
       });
     }
     if (errorCount > 0) {
       toastError({
-        description: `Failed to send ${errorCount} invitation${errorCount > 1 ? "s" : ""}`,
+        description: t`${plural(errorCount, {
+          one: "Failed to send # invitation",
+          other: "Failed to send # invitations",
+        })}`,
       });
     }
 
@@ -127,9 +136,11 @@ export function StepInviteTeam({
       </IconCircle>
 
       <div className="text-center mt-4">
-        <PageHeading>Invite your team</PageHeading>
+        <PageHeading>
+          <Trans>Invite your team</Trans>
+        </PageHeading>
         <TypographyP className="mt-2 max-w-lg mx-auto">
-          Add more anytime from settings.
+          <Trans>Add more anytime from settings.</Trans>
         </TypographyP>
 
         <form onSubmit={onSubmit}>
@@ -141,7 +152,7 @@ export function StepInviteTeam({
                 name={`emails.${i}.email`}
                 registerProps={register(`emails.${i}.email`, {
                   validate: (v) =>
-                    !v || isValidEmail(v) || "Enter a valid email",
+                    !v || isValidEmail(v) || t`Enter a valid email`,
                 })}
                 placeholder="name@company.com"
                 error={errors.emails?.[i]?.email}
@@ -156,7 +167,7 @@ export function StepInviteTeam({
               loading={isSubmitting}
               disabled={filledEmailCount === 0}
             >
-              Send invites
+              <Trans>Send invites</Trans>
               <ArrowRightIcon className="size-4 ml-2" />
             </Button>
             <Button
@@ -173,7 +184,7 @@ export function StepInviteTeam({
               }}
               disabled={isSubmitting}
             >
-              Skip
+              <Trans>Skip</Trans>
             </Button>
           </div>
         </form>

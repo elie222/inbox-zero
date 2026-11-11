@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo } from "react";
 import shuffle from "lodash/shuffle";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   AirplayIcon,
   AtomIcon,
@@ -124,7 +125,9 @@ export function CategoriesSetup({
 
   return (
     <div>
-      <SectionHeader>BASIC LABELS</SectionHeader>
+      <SectionHeader>
+        <Trans>BASIC LABELS</Trans>
+      </SectionHeader>
 
       <div className="grid grid-cols-1 gap-2">
         {basicCategories.map((category, index) => {
@@ -156,7 +159,9 @@ export function CategoriesSetup({
       >
         {suggestedCategories.length > 0 ? (
           <>
-            <SectionHeader className="mt-8">SUGGESTED FOR YOU</SectionHeader>
+            <SectionHeader className="mt-8">
+              <Trans>SUGGESTED FOR YOU</Trans>
+            </SectionHeader>
             <div className="grid grid-cols-1 gap-2">
               {suggestedCategories.map((category, index) => (
                 <CategoryCard
@@ -215,6 +220,8 @@ function CategoryCard({
   useTooltip: boolean;
   provider: string;
 }) {
+  const { t } = useLingui();
+
   return (
     <Card>
       <CardContent className="flex items-center gap-4 p-4">
@@ -251,13 +258,17 @@ function CategoryCard({
             }}
           >
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select action" />
+              <SelectValue placeholder={t`Select action`} />
             </SelectTrigger>
             <SelectContent>
               {isMicrosoftProvider(provider) && (
                 <>
-                  <SelectItem value="label">Categorise</SelectItem>
-                  <SelectItem value="move_folder">Move to folder</SelectItem>
+                  <SelectItem value="label">
+                    <Trans>Categorise</Trans>
+                  </SelectItem>
+                  <SelectItem value="move_folder">
+                    <Trans>Move to folder</Trans>
+                  </SelectItem>
                   {/* <SelectItem value="move_folder_delayed">
                     Move to folder after a week
                   </SelectItem> */}
@@ -265,14 +276,20 @@ function CategoryCard({
               )}
               {isGoogleProvider(provider) && (
                 <>
-                  <SelectItem value="label">Label</SelectItem>
-                  <SelectItem value="label_archive">Label & archive</SelectItem>
+                  <SelectItem value="label">
+                    <Trans>Label</Trans>
+                  </SelectItem>
+                  <SelectItem value="label_archive">
+                    <Trans>Label & archive</Trans>
+                  </SelectItem>
                   {/* <SelectItem value="label_archive_delayed">
                     Label & archive after a week
                   </SelectItem> */}
                 </>
               )}
-              <SelectItem value="none">Do nothing</SelectItem>
+              <SelectItem value="none">
+                <Trans>Do nothing</Trans>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -287,9 +304,11 @@ function CustomCategoryCard() {
       <CardContent className="flex items-center gap-2 p-4">
         <IconCircle size="sm" color="purple" Icon={PencilLineIcon} />
         <div>
-          <div className="flex flex-1 items-center font-medium">Custom</div>
+          <div className="flex flex-1 items-center font-medium">
+            <Trans>Custom</Trans>
+          </div>
           <div className="ml-auto flex items-center gap-4 text-muted-foreground text-sm">
-            You can set your own custom categories later
+            <Trans>You can set your own custom categories later</Trans>
           </div>
         </div>
       </CardContent>
