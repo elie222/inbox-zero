@@ -31,8 +31,7 @@ import {
   Trash2Icon,
   XIcon,
 } from "lucide-react";
-import { plural } from "@lingui/core/macro";
-import { Trans, useLingui } from "@lingui/react/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { MailSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/MailSearchFilters";
 import { OutlookSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/OutlookSearchFilters";
 import {
@@ -178,7 +177,9 @@ export const ListToolbar = memo(function ListToolbar({
           <span
             aria-live="polite"
             className="min-w-0 flex-1 truncate font-medium text-sm"
-          >{t`${plural(selectedCount, { one: "# selected", other: "# selected" })}`}</span>
+          >
+            <Plural value={selectedCount} one="# selected" other="# selected" />
+          </span>
 
           {onMoveToInboxSelected ? (
             <Tooltip content={t`Move to inbox`}>
