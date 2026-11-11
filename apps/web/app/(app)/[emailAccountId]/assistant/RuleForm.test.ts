@@ -1,3 +1,4 @@
+import { msg } from "@lingui/core/macro";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { env } from "@/env";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
@@ -32,7 +33,7 @@ describe("getRuleActionTypeOptions", () => {
   it("keeps move to folder available for existing rules before provider data loads", () => {
     const options = getRuleActionTypeOptions({
       provider: "",
-      labelActionText: "Label",
+      labelActionText: msg`Label`,
       systemType: null,
       existingActionTypes: [ActionType.MOVE_FOLDER],
       integrationActionsEnabled: false,
@@ -46,7 +47,7 @@ describe("getRuleActionTypeOptions", () => {
   it("does not expose notify via chat app as an action type (now handled in advanced options)", () => {
     const options = getRuleActionTypeOptions({
       provider: "",
-      labelActionText: "Label",
+      labelActionText: msg`Label`,
       systemType: null,
       existingActionTypes: [ActionType.NOTIFY_MESSAGING_CHANNEL],
       integrationActionsEnabled: false,
@@ -62,14 +63,14 @@ describe("getRuleActionTypeOptions", () => {
   it("only exposes notify sender for configured cold email rules or existing actions", () => {
     const noExistingActionOptions = getRuleActionTypeOptions({
       provider: "",
-      labelActionText: "Label",
+      labelActionText: msg`Label`,
       systemType: null,
       existingActionTypes: [],
       integrationActionsEnabled: false,
     });
     const coldEmailOptions = getRuleActionTypeOptions({
       provider: "",
-      labelActionText: "Label",
+      labelActionText: msg`Label`,
       systemType: SystemType.COLD_EMAIL,
       existingActionTypes: [],
       integrationActionsEnabled: false,
@@ -91,14 +92,14 @@ describe("getRuleActionTypeOptions", () => {
   it("exposes delete only when enabled or already configured", () => {
     const disabledOptions = getRuleActionTypeOptions({
       provider: "",
-      labelActionText: "Label",
+      labelActionText: msg`Label`,
       systemType: null,
       existingActionTypes: [],
       integrationActionsEnabled: false,
     });
     const disabledExistingOptions = getRuleActionTypeOptions({
       provider: "",
-      labelActionText: "Label",
+      labelActionText: msg`Label`,
       systemType: null,
       existingActionTypes: [ActionType.DELETE],
       integrationActionsEnabled: false,
@@ -106,7 +107,7 @@ describe("getRuleActionTypeOptions", () => {
     mockEnv.deleteEmailActionEnabled = true;
     const enabledOptions = getRuleActionTypeOptions({
       provider: "",
-      labelActionText: "Label",
+      labelActionText: msg`Label`,
       systemType: null,
       existingActionTypes: [],
       integrationActionsEnabled: false,
@@ -128,14 +129,14 @@ describe("getRuleActionTypeOptions", () => {
   it("exposes integration actions to early access users", () => {
     const disabledOptions = getRuleActionTypeOptions({
       provider: "google",
-      labelActionText: "Label",
+      labelActionText: msg`Label`,
       systemType: null,
       existingActionTypes: [],
       integrationActionsEnabled: false,
     });
     const enabledOptions = getRuleActionTypeOptions({
       provider: "google",
-      labelActionText: "Label",
+      labelActionText: msg`Label`,
       systemType: null,
       existingActionTypes: [],
       integrationActionsEnabled: true,

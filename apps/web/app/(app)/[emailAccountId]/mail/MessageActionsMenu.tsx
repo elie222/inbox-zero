@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { type ComponentProps, useState } from "react";
 import {
   CodeIcon,
@@ -154,9 +155,10 @@ function RuleAttribution({
   message: ParsedMessage | null;
   showFixWithChat: boolean;
 }) {
+  const { i18n } = useLingui();
   const { provider } = useAccount();
   const { setInput: setChatInput } = useChat();
-  const reasonDisplay = getRuleResultReasonDisplay(plan.reason ?? "");
+  const reasonDisplay = getRuleResultReasonDisplay(plan.reason ?? "", i18n);
 
   return (
     <div className="min-w-0 border-border border-b px-3 py-3 last:border-b-0">

@@ -19,9 +19,21 @@ msgstr "- Vi tu perfil y..."
 msgid "- Your weekly roundup of the latest..."
 msgstr "- Tu resumen semanal de lo último..."
 
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "(default)"
+msgstr "(predeterminada)"
+
+#: app/(app)/[emailAccountId]/assistant/RulesSelect.tsx
+msgid "(disabled)"
+msgstr "(desactivada)"
+
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "(no subject)"
 msgstr "(sin asunto)"
+
+#: app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog.tsx
+msgid "(No subject)"
+msgstr "(Sin asunto)"
 
 #. placeholder {0}: result.skippedModified
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
@@ -53,6 +65,11 @@ msgstr "{0, plural, one {Transferir # regla} other {Transferir # reglas}}"
 msgid "{0, plural, one {We found # sender you rarely read} other {We found # senders you rarely read}}"
 msgstr "{0, plural, one {Encontramos # remitente que casi nunca lees} other {Encontramos # remitentes que casi nunca lees}}"
 
+#. placeholder {0}: rule.name
+#: app/(app)/[emailAccountId]/assistant/RulesSelect.tsx
+msgid "{0} (disabled)"
+msgstr "{0} (desactivada)"
+
 #. placeholder {0}: selectedRuleIds.size
 #. placeholder {1}: rules.length
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
@@ -69,18 +86,78 @@ msgstr "Plan {0}"
 msgid "{archivedEmailCount, plural, one {# email} other {# emails}}"
 msgstr "{archivedEmailCount, plural, one {# correo} other {# correos}}"
 
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "{created} created"
+msgstr "{created} creadas"
+
+#: app/(app)/[emailAccountId]/assistant/settings/cron-schedule-messages.ts
+msgid "{days} at {times} {timeZoneName}"
+msgstr "{days} a las {times} {timeZoneName}"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "{description} Details: {details}"
 msgstr "{description} Detalles: {details}"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "{displayName} isn't connected. Connect it to use this action."
+msgstr "{displayName} no está conectado. Conéctalo para usar esta acción."
+
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "{enabled} enabled"
+msgstr "{enabled} activadas"
 
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "{errorCount, plural, one {Failed to send # invitation} other {Failed to send # invitations}}"
 msgstr "{errorCount, plural, one {No se pudo enviar # invitación} other {No se pudieron enviar # invitaciones}}"
 
+#: app/(app)/[emailAccountId]/assistant/attachment-source-selection.ts
+msgid "{files, plural, one {# file} other {# files}}"
+msgstr "{files, plural, one {# archivo} other {# archivos}}"
+
+#: app/(app)/[emailAccountId]/assistant/attachment-source-selection.ts
+msgid "{folders, plural, one {# folder} other {# folders}}"
+msgstr "{folders, plural, one {# carpeta} other {# carpetas}}"
+
+#: app/(app)/[emailAccountId]/assistant/attachment-source-selection.ts
+msgid "{folders, plural, one {# folder} other {# folders}}, {files, plural, one {# file} other {# files}}"
+msgstr "{folders, plural, one {# carpeta} other {# carpetas}}, {files, plural, one {# archivo} other {# archivos}}"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "{label} (Disconnected)"
+msgstr "{label} (Desconectado)"
+
+#: utils/action-display-messages.ts
+msgid "{labelAction} as '{truncatedLabelName}'"
+msgstr "{labelAction} como '{truncatedLabelName}'"
+
 #. placeholder {0}: connection.name
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "{labelText} for {0}"
 msgstr "{labelText} para {0}"
+
+#: app/(app)/[emailAccountId]/assistant/settings/cron-schedule-messages.ts
+msgid "{leadingTimes} and {lastTime}"
+msgstr "{leadingTimes} y {lastTime}"
+
+#: app/(app)/[emailAccountId]/assistant/History.tsx
+msgid "{messageCount, plural, one {# message handled} other {# messages handled}}"
+msgstr "{messageCount, plural, one {# mensaje gestionado} other {# mensajes gestionados}}"
+
+#: app/(app)/[emailAccountId]/assistant/bulk-run.ts
+msgid "{processedCount, plural, one {Your email provider kept limiting requests, so processing stopped after # email. Run it again later to continue with the rest.} other {Your email provider kept limiting requests, so processing stopped after # emails. Run it again later to continue with the rest.}}"
+msgstr "{processedCount, plural, one {Tu proveedor de correo siguió limitando las solicitudes, así que el procesamiento se detuvo después de # correo. Vuelve a ejecutarlo más tarde para continuar con el resto.} other {Tu proveedor de correo siguió limitando las solicitudes, así que el procesamiento se detuvo después de # correos. Vuelve a ejecutarlo más tarde para continuar con el resto.}}"
+
+#: app/(app)/[emailAccountId]/assistant/bulk-run.ts
+msgid "{processedCount, plural, one {Your email provider kept limiting requests, so processing stopped after # email. Run it again later to try again.} other {Your email provider kept limiting requests, so processing stopped after # emails. Run it again later to try again.}}"
+msgstr "{processedCount, plural, one {Tu proveedor de correo siguió limitando las solicitudes, así que el procesamiento se detuvo después de # correo. Vuelve a ejecutarlo más tarde para intentarlo de nuevo.} other {Tu proveedor de correo siguió limitando las solicitudes, así que el procesamiento se detuvo después de # correos. Vuelve a ejecutarlo más tarde para intentarlo de nuevo.}}"
+
+#: app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog.tsx
+msgid "{processingCount} processing"
+msgstr "{processingCount} en proceso"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "{provider} DM"
+msgstr "MD de {provider}"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "{providerName} disconnected"
@@ -90,17 +167,55 @@ msgstr "{providerName} desconectado"
 msgid "{readPercentage}% read"
 msgstr "{readPercentage}% leído"
 
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "{skipped} already existed"
+msgstr "{skipped} ya existían"
+
+#: app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer.ts
+msgid "{stoppedCount, plural, one {Processed # email} other {Processed # emails}}"
+msgstr "{stoppedCount, plural, one {Se procesó # correo} other {Se procesaron # correos}}"
+
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "{successCount, plural, one {# invitation sent successfully!} other {# invitations sent successfully!}}"
 msgstr "{successCount, plural, one {¡# invitación enviada correctamente!} other {¡# invitaciones enviadas correctamente!}}"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "{targetLabel} (Slack workspace)"
+msgstr "{targetLabel} (espacio de trabajo de Slack)"
+
+#: app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer.ts
+msgid "{total, plural, one {Processed # email} other {Processed # emails}}"
+msgstr "{total, plural, one {Se procesó # correo} other {Se procesaron # correos}}"
 
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "{transferredCount, plural, one {# rule transferred} other {# rules transferred}}, {updatedCount, plural, one {# rule updated} other {# rules updated}}."
 msgstr "{transferredCount, plural, one {Se transfirió # regla} other {Se transfirieron # reglas}}, {updatedCount, plural, one {se actualizó # regla} other {se actualizaron # reglas}}."
 
+#: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
+msgid "* Label urgent emails as \"Urgent\"\n"
+"* Forward receipts to jane@accounting.com"
+msgstr "* Etiqueta los correos urgentes como \"Urgent\"\n"
+"* Reenvía los recibos a jane@accounting.com"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "/month"
 msgstr "/mes"
+
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "+ Add check-in instructions"
+msgstr "+ Añadir instrucciones de check-in"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "+ Connect new channel"
+msgstr "+ Conectar nuevo canal"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "<0>Email</0><1> — Draft appears in your inbox</1>"
+msgstr "<0>Correo</0><1> — El borrador aparece en tu bandeja de entrada</1>"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "✨ Use {OPEN_VARIABLE}variables{CLOSE_VARIABLE} for personalized content"
+msgstr "✨ Usa {OPEN_VARIABLE}variables{CLOSE_VARIABLE} para contenido personalizado"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "1 year"
@@ -183,29 +298,137 @@ msgstr "Cuenta"
 msgid "Account deleted!"
 msgstr "¡Cuenta eliminada!"
 
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Action"
+msgstr "Acción"
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "Action issues:"
+msgstr "Problemas con acciones:"
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "Actions:"
+msgstr "Acciones:"
+
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Add"
+msgstr "Añadir"
+
+#: app/(app)/[emailAccountId]/assistant/settings/ReferralSignatureSetting.tsx
+msgid "Add 'Drafted by {BRAND_NAME}' with your referral link to emails we draft for you. Earn a month of credit for each person who signs up with your link."
+msgstr "Añade 'Redactado con {BRAND_NAME}' con tu enlace de referido a los correos que redactamos por ti. Gana un mes de crédito por cada persona que se registre con tu enlace."
+
+#: app/(app)/[emailAccountId]/assistant/settings/SentWithSignatureSetting.tsx
+msgid "Add 'Sent with {BRAND_NAME}' with your referral link after your signature on emails you send from the mail client. Earn a month of credit for each person who signs up with your link."
+msgstr "Añade 'Enviado con {BRAND_NAME}' con tu enlace de referido después de tu firma en los correos que envías desde el cliente de correo. Gana un mes de crédito por cada persona que se registre con tu enlace."
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Add Account"
 msgstr "Añadir cuenta"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Add Action"
+msgstr "Añadir acción"
+
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "Add Condition"
+msgstr "Añadir condición"
+
+#: app/(app)/[emailAccountId]/assistant/RuleStep.tsx
+msgid "Add delay"
+msgstr "Añadir retraso"
 
 #: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
 msgid "Add Google Calendar"
 msgstr "Añadir Google Calendar"
 
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
+msgid "Add information about your work, projects, or preferences. The assistant uses this when drafting replies."
+msgstr "Añade información sobre tu trabajo, proyectos o preferencias. El asistente la usa al redactar respuestas."
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
+msgid "Add Knowledge"
+msgstr "Añadir conocimiento"
+
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "Add more anytime from settings."
 msgstr "Puedes añadir más cuando quieras desde la configuración."
+
+#: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
+msgid "Add new rules"
+msgstr "Añadir nuevas reglas"
 
 #: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
 msgid "Add Outlook Calendar"
 msgstr "Añadir Outlook Calendar"
 
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "Add pattern"
+msgstr "Añadir patrón"
+
+#: app/(app)/[emailAccountId]/assistant/AddRuleDialog.tsx
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Add Rule"
+msgstr "Añadir regla"
+
+#: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
+msgid "Add rule manually"
+msgstr "Añadir regla manualmente"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Add signature"
+msgstr "Añadir firma"
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/DraftDocsSites.tsx
+msgid "Add site"
+msgstr "Añadir sitio"
+
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Add this URL in ChatGPT, Claude, or Cursor. You'll be asked to allow access."
 msgstr "Añade esta URL en ChatGPT, Claude o Cursor. Se te pedirá que permitas el acceso."
 
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: utils/action-display.tsx
+msgid "Add to digest"
+msgstr "Añadir al resumen"
+
+#: utils/mcp/tool-specs-messages.ts
+msgid "Add to integration"
+msgstr "Añadir a la integración"
+
+#: utils/mcp/tool-specs-messages.ts
+msgid "Add Todoist task"
+msgstr "Añadir tarea de Todoist"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SettingsTab.tsx
+msgid "Advanced"
+msgstr "Avanzado"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Advanced options"
+msgstr "Opciones avanzadas"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "after"
+msgstr "después de"
+
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
 msgid "AI assistant"
 msgstr "Asistente de IA"
+
+#: app/(app)/[emailAccountId]/automation/page.tsx
+msgid "AI Assistant"
+msgstr "Asistente de IA"
+
+#: app/(app)/[emailAccountId]/assistant/AIChatButton.tsx
+msgid "AI Chat"
+msgstr "Chat de IA"
+
+#: utils/mcp/tool-specs-messages.ts
+msgid "AI decides from email"
+msgstr "La IA decide según el correo"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
 msgid "AI labels emails and drafts replies. Keep using Gmail or Outlook."
@@ -215,9 +438,41 @@ msgstr "La IA etiqueta tus correos y redacta borradores de respuesta. Sigue usan
 msgid "AI Model"
 msgstr "Modelo de IA"
 
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "AI Prompt"
+msgstr "Instrucción de IA"
+
+#: utils/mcp/tool-specs-messages.ts
+msgid "AI writes a short action item from the email"
+msgstr "La IA escribe una tarea breve a partir del correo"
+
+#: utils/mcp/tool-specs-messages.ts
+msgid "AI writes one line of context"
+msgstr "La IA escribe una línea de contexto"
+
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+msgid "AI-selected sources"
+msgstr "Fuentes seleccionadas por la IA"
+
+#: app/(app)/[emailAccountId]/onboarding/category-messages.ts
+msgid "Alerts, status updates, and system messages"
+msgstr "Alertas, actualizaciones de estado y mensajes del sistema"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "All"
 msgstr "Todos"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
+msgid "All emails"
+msgstr "Todos los correos"
+
+#: app/(app)/[emailAccountId]/assistant/RulesSelect.tsx
+msgid "All rules"
+msgstr "Todas las reglas"
+
+#: app/(app)/[emailAccountId]/assistant/AllRulesDisabledBanner.tsx
+msgid "All rules are disabled"
+msgstr "Todas las reglas están desactivadas"
 
 #: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
 msgid "All rules disabled"
@@ -226,6 +481,10 @@ msgstr "Todas las reglas desactivadas"
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "All stale drafts were edited by you, so none were removed."
 msgstr "Todos los borradores antiguos fueron editados por ti, así que no se eliminó ninguno."
+
+#: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
+msgid "Allow hidden links in AI drafts"
+msgstr "Permitir enlaces ocultos en los borradores de IA"
 
 #. placeholder {0}: data.organizationName
 #: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
@@ -240,6 +499,10 @@ msgstr "Permitir que los administradores de la organización vean tu uso"
 msgid "Allow sign-in with a one-time email code"
 msgstr "Permitir iniciar sesión con un código de un solo uso por correo"
 
+#: app/(app)/[emailAccountId]/assistant/settings/MultiRuleSetting.tsx
+msgid "Allow the AI to select multiple rules for a single email when appropriate."
+msgstr "Permite que la IA seleccione varias reglas para un mismo correo cuando corresponda."
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Already cancelled your subscription? Click the button below to proceed."
 msgstr "¿Ya cancelaste tu suscripción? Haz clic en el botón de abajo para continuar."
@@ -248,13 +511,37 @@ msgstr "¿Ya cancelaste tu suscripción? Haz clic en el botón de abajo para con
 msgid "Also in Slack and Telegram"
 msgstr "También en Slack y Telegram"
 
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+msgid "Always attach"
+msgstr "Adjuntar siempre"
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "An action could not be completed."
+msgstr "No se pudo completar una acción."
+
+#: app/(app)/[emailAccountId]/assistant/RuleDialog.tsx
+msgid "An error occurred while opening this rule. Please contact support at <0>{SUPPORT_EMAIL}</0> if the problem persists."
+msgstr "Se produjo un error al abrir esta regla. Contacta con soporte en <0>{SUPPORT_EMAIL}</0> si el problema persiste."
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "An error occurred while saving your settings"
 msgstr "Se produjo un error al guardar tu configuración"
 
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "An error occurred. Please try again."
+msgstr "Se produjo un error. Inténtalo de nuevo."
+
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 msgid "Analytics reset! Visit the Unsubscriber or Analytics page and click the 'Load More' button to reload your data."
 msgstr "¡Estadísticas restablecidas! Visita la página Unsubscriber o Analytics y haz clic en el botón 'Load More' para volver a cargar tus datos."
+
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "and"
+msgstr "y"
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "AND"
+msgstr "Y"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "API Access"
@@ -276,6 +563,32 @@ msgstr "¡Clave de API desactivada!"
 msgid "API Keys"
 msgstr "Claves de API"
 
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "Applied"
+msgstr "Aplicada"
+
+#: app/(app)/[emailAccountId]/assistant/History.tsx
+msgid "Applied manually"
+msgstr "Aplicada manualmente"
+
+#: app/(app)/[emailAccountId]/assistant/Process.tsx
+msgid "Apply"
+msgstr "Aplicar"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Apply to threads"
+msgstr "Aplicar a hilos"
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "Applying"
+msgstr "Aplicando"
+
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: utils/action-display-messages.ts
+#: utils/action-display.tsx
+msgid "Archive"
+msgstr "Archivar"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Archive after 7 days"
 msgstr "Archivar tras 7 días"
@@ -292,6 +605,21 @@ msgstr "Archiva los avisos de envío cuando se entreguen"
 msgid "Archived"
 msgstr "Archivado"
 
+#. placeholder {0}: item.title
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
+msgid "Are you sure you want to delete \"{0}\"? This action cannot be undone."
+msgstr "¿Seguro que quieres eliminar \"{0}\"? Esta acción no se puede deshacer."
+
+#. placeholder {0}: rule.name
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Are you sure you want to delete the rule \"{0}\"?"
+msgstr "¿Seguro que quieres eliminar la regla \"{0}\"?"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Are you sure you want to delete this rule?"
+msgstr "¿Seguro que quieres eliminar esta regla?"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Assistant"
 msgstr "Asistente"
@@ -304,17 +632,51 @@ msgstr "Chat del asistente"
 msgid "at"
 msgstr "a las"
 
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Attachments"
+msgstr "Adjuntos"
+
+#. placeholder {0}: staticAttachments.length
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Attachments: <0>{0}</0>"
+msgstr "Adjuntos: <0>{0}</0>"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+msgid "Auto draft replies"
+msgstr "Borradores de respuesta automáticos"
+
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "Auto-delete AI Drafts"
 msgstr "Eliminar automáticamente los borradores de IA"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Auto-generate drafts"
+msgstr "Generar borradores automáticamente"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+msgid "Automatically draft replies written in your tone to emails needing a reply."
+msgstr "Redacta automáticamente, con tu tono, respuestas a los correos que necesitan respuesta."
 
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Automatically send each Stripe invoice to the billing email."
 msgstr "Envía automáticamente cada factura de Stripe al correo de facturación."
 
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+msgid "Available Actions"
+msgstr "Acciones disponibles"
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Available on the Professional plan."
+msgstr "Disponible en el plan Professional."
+
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "BASIC LABELS"
 msgstr "ETIQUETAS BÁSICAS"
+
+#: utils/action-item.ts
+msgid "BCC"
+msgstr "CCO"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
 msgid "Best, John"
@@ -336,6 +698,23 @@ msgstr "facturado mensualmente"
 msgid "Billing"
 msgstr "Facturación"
 
+#: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
+msgid "Block"
+msgstr "Bloquear"
+
+#: app/(app)/[emailAccountId]/assistant/LearnedPatternExclusionHint.tsx
+msgid "body"
+msgstr "cuerpo"
+
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "Body"
+msgstr "Cuerpo"
+
+#. placeholder {0}: rule.body
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "Body: \"{0}\""
+msgstr "Cuerpo: \"{0}\""
+
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
 msgid "Both"
 msgstr "Ambos"
@@ -352,6 +731,10 @@ msgstr "¡Informe enviado! Revisa tu bandeja de entrada"
 msgid "Briefs for every external meeting"
 msgstr "Informes para cada reunión externa"
 
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Bulk Process Emails"
+msgstr "Procesar correos en bloque"
+
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
 msgid "Bulk unsubscribe and archive"
 msgstr "Cancela suscripciones y archiva en bloque"
@@ -360,10 +743,23 @@ msgstr "Cancela suscripciones y archiva en bloque"
 msgid "Calendar Connected!"
 msgstr "¡Calendario conectado!"
 
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: utils/action-display.tsx
+msgid "Call webhook"
+msgstr "Llamar al webhook"
+
+#: utils/action-display-messages.ts
+msgid "Call Webhook"
+msgstr "Llamar al webhook"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Can we move Thursday's call?"
 msgstr "¿Podemos mover la llamada del jueves?"
 
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 #: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
@@ -373,6 +769,14 @@ msgstr "Cancelar"
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Cancel subscription first"
 msgstr "Cancela primero la suscripción"
+
+#: utils/terminology-messages.ts
+msgid "categories"
+msgstr "categorías"
+
+#: utils/terminology-messages.ts
+msgid "Categories"
+msgstr "Categorías"
 
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Categories and drafts are ready"
@@ -386,9 +790,30 @@ msgstr "Las categorías están listas"
 msgid "Categorise"
 msgstr "Categorizar"
 
+#: utils/terminology-messages.ts
+msgctxt "action"
+msgid "Categorize"
+msgstr "Categorizar"
+
+#: utils/terminology-messages.ts
+msgid "category"
+msgstr "categoría"
+
+#: utils/terminology-messages.ts
+msgid "Category"
+msgstr "Categoría"
+
+#: utils/action-item.ts
+msgid "CC"
+msgstr "CC"
+
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Change plan"
 msgstr "Cambiar plan"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Chat app"
+msgstr "App de chat"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Chat delivery: <0>Configure in Channels</0>."
@@ -397,6 +822,38 @@ msgstr "Envío por chat: <0>Configurar en Canales</0>."
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
 msgid "ChatGPT, Claude, or other AI"
 msgstr "ChatGPT, Claude u otra IA"
+
+#: app/(app)/[emailAccountId]/assistant/Process.tsx
+msgid "Check how your rules perform against previous emails"
+msgstr "Comprueba cómo funcionan tus reglas con correos anteriores"
+
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "Choose"
+msgstr "Elegir"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Choose a delivery destination from More options."
+msgstr "Elige un destino de entrega en Más opciones."
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Choose a destination"
+msgstr "Elige un destino"
+
+#: app/(app)/[emailAccountId]/assistant/PersonaDialog.tsx
+msgid "Choose a persona"
+msgstr "Elige un perfil"
+
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+msgid "Choose files or folders the AI can search after you save."
+msgstr "Elige archivos o carpetas en los que la IA pueda buscar después de guardar."
+
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+msgid "Choose files that this rule should always attach after you save."
+msgstr "Elige los archivos que esta regla debe adjuntar siempre después de guardar."
+
+#: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
+msgid "Choose from examples"
+msgstr "Elegir entre ejemplos"
 
 #: app/(app)/[emailAccountId]/onboarding/StepChat.tsx
 msgid "Clean up, draft replies, set up rules. Works in Slack, Telegram, or here, and pings you when you're needed."
@@ -407,29 +864,81 @@ msgstr "Limpia tu correo, redacta respuestas y crea reglas. Funciona en Slack, T
 msgid "Cleaned up {0, plural, one {# draft} other {# drafts}}."
 msgstr "{0, plural, one {Se limpió # borrador} other {Se limpiaron # borradores}}."
 
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Clear"
+msgstr "Borrar"
+
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Click Save to view available models for your API key."
 msgstr "Haz clic en Guardar para ver los modelos disponibles para tu clave de API."
+
+#: app/(app)/[emailAccountId]/assistant/RuleDialog.tsx
+msgid "Close"
+msgstr "Cerrar"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
 msgid "Cold Emails"
 msgstr "Cold Emails"
 
+#: app/(app)/[emailAccountId]/assistant/History.tsx
+msgid "Collapse conversation"
+msgstr "Contraer conversación"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Command"
 msgstr "Comando"
 
+#: app/(app)/[emailAccountId]/assistant/settings/DigestSetting.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Configure"
+msgstr "Configurar"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Configure attachments"
+msgstr "Configurar adjuntos"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Configure delivery"
+msgstr "Configurar entrega"
+
+#. placeholder {0}: getMessagingProviderName(channel.provider)
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Configure when Inbox Zero sends scheduled summaries to {0}."
+msgstr "Configura cuándo Inbox Zero envía resúmenes programados a {0}."
+
+#: app/(app)/[emailAccountId]/assistant/settings/DigestSetting.tsx
+msgid "Configure when your digest emails are sent and which rules are included."
+msgstr "Configura cuándo se envían tus correos de resumen y qué reglas se incluyen."
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Connect"
 msgstr "Conectar"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Connect {displayName}"
+msgstr "Conectar {displayName}"
+
+#: utils/messaging/platforms.ts
+msgid "Connect {providerList}"
+msgstr "Conectar {providerList}"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Connect {providerName}"
 msgstr "Conectar {providerName}"
 
+#: utils/messaging/platforms.ts
+msgid "Connect app"
+msgstr "Conectar app"
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Connect Apps"
 msgstr "Conectar apps"
+
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+msgid "Connect Drive"
+msgstr "Conectar Drive"
 
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Connect MCP"
@@ -438,6 +947,10 @@ msgstr "Conectar MCP"
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Connect Slack"
 msgstr "Conectar Slack"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Connect Slack, Telegram, or Teams to deliver outside email."
+msgstr "Conecta Slack, Telegram o Teams para recibir entregas fuera del correo."
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Connect Teams"
@@ -451,6 +964,10 @@ msgstr "Conectar Telegram"
 msgid "Connect Your Calendar"
 msgstr "Conecta tu calendario"
 
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+msgid "Connect your cloud storage to attach files to your emails."
+msgstr "Conecta tu almacenamiento en la nube para adjuntar archivos a tus correos."
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Connected Apps"
 msgstr "Apps conectadas"
@@ -463,6 +980,14 @@ msgstr "Conectando..."
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Consultant"
 msgstr "Consultor"
+
+#: utils/action-item.ts
+msgid "Content"
+msgstr "Contenido"
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm.tsx
+msgid "Content (supports markdown)"
+msgstr "Contenido (admite markdown)"
 
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Content Creator"
@@ -485,6 +1010,8 @@ msgstr "Copiar reglas"
 msgid "Copy Rules From Another Account"
 msgstr "Copiar reglas de otra cuenta"
 
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm.tsx
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Create"
 msgstr "Crear"
@@ -497,6 +1024,14 @@ msgstr "Crear clave"
 msgid "Create new secret key"
 msgstr "Crear nueva clave secreta"
 
+#: app/(app)/[emailAccountId]/assistant/RuleDialog.tsx
+msgid "Create Rule"
+msgstr "Crear regla"
+
+#: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
+msgid "Create rules"
+msgstr "Crear reglas"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Create, update, and delete automation rules for this inbox."
 msgstr "Crea, actualiza y elimina reglas de automatización de esta bandeja de entrada."
@@ -505,6 +1040,15 @@ msgstr "Crea, actualiza y elimina reglas de automatización de esta bandeja de e
 msgid "Created"
 msgstr "Creada"
 
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Created!"
+msgstr "¡Creada!"
+
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Cron expression in UTC"
+msgstr "Expresión cron en UTC"
+
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "Custom"
 msgstr "Personalizada"
@@ -525,10 +1069,15 @@ msgstr "Ofertas del día"
 msgid "Dark mode"
 msgstr "Modo oscuro"
 
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "Date added"
+msgstr "Fecha de creación"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Day"
 msgstr "Día"
 
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "days"
 msgstr "días"
@@ -537,13 +1086,38 @@ msgstr "días"
 msgid "Default"
 msgstr "Predeterminado"
 
+#: app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting.tsx
+msgid "Define your tone and style."
+msgstr "Define tu tono y estilo."
+
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+#: utils/action-display-messages.ts
+#: utils/action-display.tsx
 msgid "Delete"
 msgstr "Eliminar"
+
+#. placeholder {0}: signature.name
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Delete {0}"
+msgstr "Eliminar {0}"
+
+#. placeholder {0}: signature.name
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Delete {0}? This cannot be undone."
+msgstr "¿Eliminar {0}? Esta acción no se puede deshacer."
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Delete account"
 msgstr "Eliminar cuenta"
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
+msgid "Delete Knowledge Base Entry"
+msgstr "Eliminar entrada de la base de conocimiento"
 
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "Delete Old AI Drafts"
@@ -553,6 +1127,14 @@ msgstr "Eliminar borradores de IA antiguos"
 msgid "Delete old drafts"
 msgstr "Eliminar borradores antiguos"
 
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Delete rule"
+msgstr "Eliminar regla"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Delete signature"
+msgstr "Eliminar firma"
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Delete your Inbox Zero account?"
 msgstr "¿Eliminar tu cuenta de Inbox Zero?"
@@ -561,9 +1143,39 @@ msgstr "¿Eliminar tu cuenta de Inbox Zero?"
 msgid "Deleting account..."
 msgstr "Eliminando cuenta..."
 
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Deleting rule..."
+msgstr "Eliminando regla..."
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Deliver to <0>{deliverySummaryText}</0>"
+msgstr "Entregar a <0>{deliverySummaryText}</0>"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Delivery destination"
+msgstr "Destino de entrega"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Delivery options"
+msgstr "Opciones de entrega"
+
+#: utils/mcp/tool-specs-messages.ts
+msgid "Description"
+msgstr "Descripción"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Designer"
+msgstr "Diseñador"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Developer"
 msgstr "Desarrollador"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DigestSetting.tsx
+#: utils/action-display-messages.ts
+msgid "Digest"
+msgstr "Resumen"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Digest Items"
@@ -573,9 +1185,17 @@ msgstr "Elementos del resumen"
 msgid "Digest preview"
 msgstr "Vista previa del resumen"
 
+#: app/(app)/[emailAccountId]/assistant/settings/DigestSetting.tsx
+msgid "Digest settings"
+msgstr "Configuración del resumen"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Digest settings saved."
 msgstr "Configuración del resumen guardada."
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Digests are available on the Plus plan. Turn this off to update this rule on your current plan."
+msgstr "Los resúmenes están disponibles en el plan Plus. Desactiva esta opción para actualizar esta regla con tu plan actual."
 
 #: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
 msgid "Disable All"
@@ -588,6 +1208,10 @@ msgstr "Desactivar todas las reglas"
 #: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
 msgid "Disable all rules?"
 msgstr "¿Desactivar todas las reglas?"
+
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Disabled by your organization"
+msgstr "Desactivada por tu organización"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
@@ -607,9 +1231,25 @@ msgstr "Desconectado"
 msgid "Do nothing"
 msgstr "No hacer nada"
 
+#: app/(app)/[emailAccountId]/assistant/knowledge/DraftDocsSites.tsx
+msgid "Documentation sites"
+msgstr "Sitios de documentación"
+
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "done"
+msgstr "listo"
+
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Draft"
 msgstr "Borrador"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Draft a nudge when you haven't heard back."
+msgstr "Redacta un recordatorio cuando no hayas recibido respuesta."
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
+msgid "Draft a reply for every email, even when uncertain."
+msgstr "Redacta una respuesta para cada correo, incluso con dudas."
 
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "Draft cleanup age in days"
@@ -619,6 +1259,19 @@ msgstr "Antigüedad en días para limpiar borradores"
 msgid "Draft cleanup settings updated."
 msgstr "Configuración de limpieza de borradores actualizada."
 
+#: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
+msgid "Draft confidence"
+msgstr "Confianza del borrador"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
+msgid "Draft confidence updated"
+msgstr "Confianza del borrador actualizada"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
+msgid "Draft knowledge base"
+msgstr "Base de conocimiento para borradores"
+
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "Draft replies"
 msgstr "Borradores de respuesta"
@@ -628,12 +1281,33 @@ msgid "Draft replies to customer questions using our help docs"
 msgstr "Redacta respuestas a las preguntas de clientes usando nuestra documentación de ayuda"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
+#: utils/action-display.tsx
 msgid "Draft reply"
 msgstr "Redactar respuesta"
+
+#: utils/action-display-messages.ts
+msgid "Draft Reply"
+msgstr "Borrador de respuesta"
+
+#: utils/action-display-messages.ts
+msgid "Draft Reply: {content}"
+msgstr "Borrador de respuesta: {content}"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Draft to"
+msgstr "Enviar borrador a"
+
+#: utils/action-display.tsx
+msgid "Draft to chat channel"
+msgstr "Enviar borrador a un canal de chat"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Drafts"
 msgstr "Borradores"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Drafts also go to chat — configured in actions above."
+msgstr "Los borradores también van al chat, según lo configurado en las acciones de arriba."
 
 #: app/(app)/[emailAccountId]/onboarding/StepDraftReplies.tsx
 msgid "Drafts ready to send"
@@ -643,13 +1317,85 @@ msgstr "Borradores listos para enviar"
 msgid "Drafts, organization, and rules"
 msgstr "Borradores, organización y reglas"
 
+#: utils/mcp/tool-specs-messages.ts
+msgid "Due date"
+msgstr "Fecha de vencimiento"
+
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Duplicate"
+msgstr "Duplicar"
+
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "E-commerce"
 msgstr "Comercio electrónico"
 
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "e.g. {OPEN_VARIABLE}choose \"urgent\", \"normal\", or \"low\"{CLOSE_VARIABLE}"
+msgstr "p. ej., {OPEN_VARIABLE}elige \"urgente\", \"normal\" o \"baja\"{CLOSE_VARIABLE}"
+
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "e.g. hello@company.com"
+msgstr "p. ej., hello@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "e.g. Label receipts"
+msgstr "p. ej., Etiquetar recibos"
+
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
+msgstr "p. ej., Newsletters, contenido periódico de publicaciones, blogs o servicios a los que me he suscrito"
+
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "edit"
+msgstr "editar"
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/AboutSetting.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting.tsx
+msgid "Edit"
+msgstr "Editar"
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
+msgid "Edit Knowledge"
+msgstr "Editar conocimiento"
+
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Edit manually"
+msgstr "Editar manualmente"
+
+#: app/(app)/[emailAccountId]/assistant/RuleDialog.tsx
+msgid "Edit Rule"
+msgstr "Editar regla"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Edit signature"
+msgstr "Editar firma"
+
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Edit via AI"
+msgstr "Editar con IA"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Email"
+msgstr "Correo"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Email + {destinationSummary}"
+msgstr "Correo + {destinationSummary}"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Email + chat app"
+msgstr "Correo + app de chat"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Email account"
 msgstr "Cuenta de correo"
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Email account ID is missing. Please refresh the page."
+msgstr "Falta el ID de la cuenta de correo. Actualiza la página."
 
 #: app/(app)/[emailAccountId]/clean/onboarding/page.tsx
 msgid "Email account not found"
@@ -679,21 +1425,67 @@ msgstr "Enviar por correo las facturas pagadas"
 msgid "Email paid Stripe invoices"
 msgstr "Enviar por correo las facturas pagadas de Stripe"
 
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Email signature"
+msgstr "Firma de correo"
+
+#: app/(app)/[emailAccountId]/assistant/History.tsx
+msgid "Email unavailable"
+msgstr "Correo no disponible"
+
+#: app/(app)/[emailAccountId]/onboarding/category-messages.ts
+msgid "Emails you need to reply to and those where you're awaiting a reply. The label will update automatically as the conversation progresses"
+msgstr "Correos que necesitas responder y aquellos en los que esperas una respuesta. La etiqueta se actualizará automáticamente a medida que avance la conversación"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
+msgid "Enable draft replies to edit the knowledge base"
+msgstr "Activa los borradores de respuesta para editar la base de conocimiento"
+
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Enabled"
+msgstr "Activada"
+
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "Enter a valid email"
 msgstr "Introduce un correo válido"
+
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Enter your email signature..."
+msgstr "Escribe tu firma de correo..."
 
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Enter your role..."
 msgstr "Escribe tu puesto..."
 
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Error"
+msgstr "Error"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "Error creating checkout session"
 msgstr "Error al crear la sesión de pago"
 
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm.tsx
+msgid "Error creating knowledge base entry"
+msgstr "Error al crear la entrada de la base de conocimiento"
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Error deleting account: {message}"
 msgstr "Error al eliminar la cuenta: {message}"
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
+msgid "Error deleting knowledge base entry"
+msgstr "Error al eliminar la entrada de la base de conocimiento"
+
+#. placeholder {0}: error instanceof Error ? error.message : t`There was an error deleting your rule`
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Error deleting rule. {0}"
+msgstr "Error al eliminar la regla. {0}"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Error deleting signature"
+msgstr "Error al eliminar la firma"
 
 #: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
 msgid "Error initiating Google calendar connection"
@@ -703,6 +1495,16 @@ msgstr "Error al iniciar la conexión con Google Calendar"
 msgid "Error initiating Microsoft calendar connection"
 msgstr "Error al iniciar la conexión con el calendario de Microsoft"
 
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Error loading signature from {providerName}"
+msgstr "Error al cargar la firma desde {providerName}"
+
+#. placeholder {0}: message.headers.from
+#. placeholder {1}: error instanceof Error ? error.message : t`Unknown error`
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+msgid "Error processing email from {0}: {1}"
+msgstr "Error al procesar el correo de {0}: {1}"
+
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 msgid "Error resetting analytics: {message}"
 msgstr "Error al restablecer las estadísticas: {message}"
@@ -710,6 +1512,18 @@ msgstr "Error al restablecer las estadísticas: {message}"
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Error saving"
 msgstr "Error al guardar"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Error saving signature"
+msgstr "Error al guardar la firma"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Error searching sent mail"
+msgstr "Error al buscar en el correo enviado"
+
+#: app/(app)/[emailAccountId]/assistant/TestCustomEmailForm.tsx
+msgid "Error testing email"
+msgstr "Error al probar el correo"
 
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "Error transferring rules"
@@ -727,9 +1541,25 @@ msgstr "Error al actualizar la programación del resumen"
 msgid "Error updating digest settings"
 msgstr "Error al actualizar la configuración del resumen"
 
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm.tsx
+msgid "Error updating knowledge base entry"
+msgstr "Error al actualizar la entrada de la base de conocimiento"
+
+#: utils/automation-jobs/defaults.ts
+msgid "Evening"
+msgstr "Noche"
+
+#: app/(app)/[emailAccountId]/onboarding/category-messages.ts
+msgid "Events, appointments, and reminders"
+msgstr "Eventos, citas y recordatorios"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Every"
 msgstr "Cada"
+
+#: app/(app)/[emailAccountId]/assistant/settings/cron-schedule-messages.ts
+msgid "Every day"
+msgstr "Todos los días"
 
 #: app/(app)/[emailAccountId]/onboarding/StepEmailsSorted.tsx
 msgid "Every email gets a label like \"To Reply\", \"Newsletter\", or \"Cold Email\"."
@@ -739,9 +1569,44 @@ msgstr "Cada correo recibe una etiqueta como \"To Reply\", \"Newsletter\" o \"Co
 msgid "Every email needing a reply gets a draft, written in your tone."
 msgstr "Cada correo que necesita respuesta recibe un borrador, escrito con tu estilo."
 
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Example: Email Content"
+msgstr "Ejemplo: contenido del correo"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Example: Label"
+msgstr "Ejemplo: etiqueta"
+
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Example: Only include emails that need a reply today or have a deadline in the next 2 days. Skip newsletters, receipts, and FYI updates."
+msgstr "Ejemplo: incluye solo los correos que necesitan respuesta hoy o que tienen una fecha límite en los próximos 2 días. Omite newsletters, recibos y actualizaciones informativas."
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Example: Subject"
+msgstr "Ejemplo: asunto"
+
+#: app/(app)/[emailAccountId]/assistant/ExamplesList.tsx
+#: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
+msgid "Examples"
+msgstr "Ejemplos"
+
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "Exclude"
+msgstr "Excluir"
+
+#. placeholder {0}: i18n._(ITEM_TYPE_LABELS[group.itemType])
+#. placeholder {1}: group.itemValue
+#: app/(app)/[emailAccountId]/assistant/LearnedPatternExclusionHint.tsx
+msgid "Excluded by {0}: <0>{1}</0>"
+msgstr "Excluida por {0}: <0>{1}</0>"
+
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Executive"
 msgstr "Directivo"
+
+#: app/(app)/[emailAccountId]/assistant/History.tsx
+msgid "Expand conversation"
+msgstr "Expandir conversación"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Expires"
@@ -750,6 +1615,19 @@ msgstr "Caduca"
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Expiry"
 msgstr "Caducidad"
+
+#: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
+msgid "Export"
+msgstr "Exportar"
+
+#: utils/action-item.ts
+msgid "Extra Content"
+msgstr "Contenido adicional"
+
+#. placeholder {0}: result.serverError || ""
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "Failed to add pattern. {0}"
+msgstr "No se pudo añadir el patrón. {0}"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Failed to connect Slack"
@@ -767,10 +1645,18 @@ msgstr "No se pudo crear la organización ni enviar las invitaciones"
 msgid "Failed to deactivate API key"
 msgstr "No se pudo desactivar la clave de API"
 
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Failed to delete rule."
+msgstr "No se pudo eliminar la regla."
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Failed to disconnect"
 msgstr "No se pudo desconectar"
+
+#: app/(app)/[emailAccountId]/assistant/bulk-run.ts
+msgid "Failed to fetch emails"
+msgstr "No se pudieron obtener los correos"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Failed to generate code"
@@ -780,6 +1666,41 @@ msgstr "No se pudo generar el código"
 msgid "Failed to link Slack"
 msgstr "No se pudo vincular Slack"
 
+#: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
+msgid "Failed to parse file"
+msgstr "No se pudo analizar el archivo"
+
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+msgid "Failed to process email"
+msgstr "No se pudo procesar el correo"
+
+#: app/(app)/[emailAccountId]/assistant/bulk-run.ts
+msgid "Failed to process emails"
+msgstr "No se pudieron procesar los correos"
+
+#: app/(app)/[emailAccountId]/assistant/bulk-run.ts
+msgid "Failed to process emails. Please try again."
+msgstr "No se pudieron procesar los correos. Inténtalo de nuevo."
+
+#. placeholder {0}: item.value
+#. placeholder {1}: result.serverError || ""
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "Failed to remove {0}. {1}"
+msgstr "No se pudo quitar {0}. {1}"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Failed to save settings"
+msgstr "No se pudo guardar la configuración"
+
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Failed to save signature"
+msgstr "No se pudo guardar la firma"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Failed to scan"
+msgstr "No se pudo escanear"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Failed to send brief"
 msgstr "No se pudo enviar el informe"
@@ -788,9 +1709,33 @@ msgstr "No se pudo enviar el informe"
 msgid "Failed to send invitations"
 msgstr "No se pudieron enviar las invitaciones"
 
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Failed to send test check-in"
+msgstr "No se pudo enviar el check-in de prueba"
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Failed to start"
+msgstr "No se pudo iniciar"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "Failed to sync tabs to extension"
+msgstr "No se pudieron sincronizar las pestañas con la extensión"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Failed to update"
 msgstr "No se pudo actualizar"
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/DraftDocsSites.tsx
+msgid "Failed to update documentation sites"
+msgstr "No se pudieron actualizar los sitios de documentación"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
+msgid "Failed to update draft confidence"
+msgstr "No se pudo actualizar la confianza del borrador"
+
+#: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
+msgid "Failed to update hidden AI draft links setting"
+msgstr "No se pudo actualizar la configuración de enlaces ocultos en borradores de IA"
 
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Failed to update invoice emails"
@@ -804,6 +1749,20 @@ msgstr "No se pudo actualizar el acceso MCP"
 msgid "Failed to update read status setting"
 msgstr "No se pudo actualizar la configuración de estado de lectura"
 
+#: app/(app)/[emailAccountId]/assistant/settings/ReferralSignatureSetting.tsx
+msgid "Failed to update referral signature setting"
+msgstr "No se pudo actualizar la configuración de la firma de referido"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
+msgid "Failed to update sensitive data protection setting"
+msgstr "No se pudo actualizar la configuración de protección de datos sensibles"
+
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Failed to update setting"
+msgstr "No se pudo actualizar la configuración"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DigestSetting.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
 #: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
 msgid "Failed to update settings"
@@ -813,26 +1772,90 @@ msgstr "No se pudo actualizar la configuración"
 msgid "Faster search, offline mode, and a new keyboard shortcut sheet"
 msgstr "Búsqueda más rápida, modo sin conexión y una nueva hoja de atajos de teclado"
 
+#: app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog.tsx
+msgid "Fetching emails..."
+msgstr "Obteniendo correos..."
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Find follow-ups"
+msgstr "Buscar seguimientos"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Find in sent mail"
+msgstr "Buscar en el correo enviado"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Five ideas worth stealing this week"
 msgstr "Cinco ideas que vale la pena robar esta semana"
+
+#: app/(app)/[emailAccountId]/assistant/History.tsx
+msgid "Fix"
+msgstr "Corregir"
+
+#: utils/action-item.ts
+msgid "Folder name"
+msgstr "Nombre de la carpeta"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Follow-up reminders"
+msgstr "Recordatorios de seguimiento"
+
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+msgid "For developers: trigger external integrations by sending email data to a custom URL"
+msgstr "Para desarrolladores: activa integraciones externas enviando los datos del correo a una URL personalizada"
 
 #: app/(app)/[emailAccountId]/onboarding/StepCustomRules.tsx
 msgid "For example:"
 msgstr "Por ejemplo:"
 
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: utils/action-display-messages.ts
+#: utils/action-display.tsx
+msgid "Forward"
+msgstr "Reenviar"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Forward emails about industry research reports to research@vc.com"
+msgstr "Reenvía los correos sobre informes de investigación del sector a research@vc.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Forward pitch decks to analyst@vc.com that asks them to review it and label them @[Pitch Deck]"
+msgstr "Reenvía las presentaciones para inversores a analyst@vc.com pidiéndole que las revise y etiquétalas como @[Pitch Deck]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Forward pitch decks to john@investing.com and label them @[Pitch Deck]"
+msgstr "Reenvía las presentaciones para inversores a john@investing.com y etiquétalas como @[Pitch Deck]"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Forward receipts and invoices to my accountant"
 msgstr "Reenvía recibos y facturas a mi contable"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Forward receipts to jane@accounting.com and label them @[Receipt]"
+msgstr "Reenvía los recibos a jane@accounting.com y etiquétalos como @[Receipt]"
 
 #: app/(app)/[emailAccountId]/onboarding/StepCustomRules.tsx
 msgid "Forward receipts to your accountant"
 msgstr "Reenvía recibos a tu contable"
 
+#: utils/action-display-messages.ts
+msgid "Forward to {to}"
+msgstr "Reenviar a {to}"
+
+#. placeholder {0}: fetchedSignatures.length
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Found {0, plural, one {# signature} other {# signatures}}"
+msgstr "{0, plural, one {Se encontró # firma} other {Se encontraron # firmas}}"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/ChatIllustration.tsx
 msgid "Found 12 newsletters from last week. Archiving now."
 msgstr "Encontré 12 boletines de la semana pasada. Archivándolos ahora."
 
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Found in your sent mail"
+msgstr "Encontrada en tu correo enviado"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Founder"
 msgstr "Fundador"
@@ -849,6 +1872,20 @@ msgstr "Viernes"
 msgid "Friend or colleague"
 msgstr "Amigo o colega"
 
+#: app/(app)/[emailAccountId]/assistant/LearnedPatternExclusionHint.tsx
+msgid "from"
+msgstr "remitente"
+
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "From"
+msgstr "De"
+
+#. placeholder {0}: rule.from
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "From: {0}"
+msgstr "De: {0}"
+
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Full setup guide"
 msgstr "Guía de configuración completa"
@@ -856,6 +1893,10 @@ msgstr "Guía de configuración completa"
 #: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
 msgid "Generate a new webhook secret to reveal it once for copying."
 msgstr "Genera un nuevo secreto de webhook para mostrarlo una sola vez y copiarlo."
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Generate draft replies"
+msgstr "Generar borradores de respuesta"
 
 #: app/(app)/[emailAccountId]/settings/WebhookGenerate.tsx
 msgid "Generate secret"
@@ -865,6 +1906,30 @@ msgstr "Generar secreto"
 msgid "Generate Secret"
 msgstr "Generar secreto"
 
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "German"
+msgstr "Alemán"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DigestSetting.tsx
+msgid "Get a summary of emails matched by the rules you pick, on your schedule."
+msgstr "Recibe un resumen de los correos que coinciden con las reglas que elijas, según tu horario."
+
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Get periodic summaries in chat."
+msgstr "Recibe resúmenes periódicos en el chat."
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Get reminded about conversations that need attention."
+msgstr "Recibe recordatorios de las conversaciones que necesitan atención."
+
+#: app/(app)/[emailAccountId]/automation/page.tsx
+msgid "Getting started with AI Assistant"
+msgstr "Primeros pasos con el Asistente de IA"
+
+#: app/(app)/[emailAccountId]/automation/page.tsx
+msgid "Getting started with AI Personal Assistant"
+msgstr "Primeros pasos con el Asistente personal de IA"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "Google Calendar & Outlook"
 msgstr "Google Calendar y Outlook"
@@ -873,6 +1938,14 @@ msgstr "Google Calendar y Outlook"
 msgid "Great to meet you! Happy to share the brand guidelines"
 msgstr "¡Encantada de conocerte! Con gusto te comparto la guía de marca"
 
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+msgid "Group emails together and receive them as a daily summary"
+msgstr "Agrupa correos y recíbelos como un resumen diario"
+
+#: app/(app)/[emailAccountId]/assistant/rule/[ruleId]/page.tsx
+msgid "Here are your rule settings!"
+msgstr "¡Esta es la configuración de tu regla!"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
 msgid "Hi John, I wanted to follow up on the project timeline. When would be a good time to discuss the next steps?"
 msgstr "Hola, John: quería hacer seguimiento del calendario del proyecto. ¿Cuándo te vendría bien hablar de los próximos pasos?"
@@ -880,6 +1953,27 @@ msgstr "Hola, John: quería hacer seguimiento del calendario del proyecto. ¿Cu�
 #: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
 msgid "Hi Sarah,"
 msgstr "Hola, Sarah:"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
+msgid "Hide credentials and card numbers, then send to AI."
+msgstr "Oculta credenciales y números de tarjeta y luego envía a la IA."
+
+#: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
+msgid "Hide examples"
+msgstr "Ocultar ejemplos"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Hide extra fields"
+msgstr "Ocultar campos adicionales"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
+msgid "High confidence"
+msgstr "Confianza alta"
+
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+#: app/(app)/[emailAccountId]/automation/AutomationTabs.tsx
+msgid "History"
+msgstr "Historial"
 
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
 msgid "How did you hear about Inbox Zero?"
@@ -893,6 +1987,14 @@ msgstr "¿Cómo quieres usar {BRAND_NAME}?"
 msgid "How do you want your inbox organized?"
 msgstr "¿Cómo quieres organizar tu bandeja de entrada?"
 
+#: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
+msgid "How sure should the AI be before drafting a reply?"
+msgstr "¿Qué tan segura debe estar la IA antes de redactar una respuesta?"
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm.tsx
+msgid "How to draft replies"
+msgstr "Cómo redactar respuestas"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "I put together a first pass at the roadmap and would love your eyes on it"
 msgstr "Preparé un primer borrador de la hoja de ruta y me encantaría que le echaras un vistazo"
@@ -901,14 +2003,231 @@ msgstr "Preparé un primer borrador de la hoja de ruta y me encantaría que le e
 msgid "I've already cancelled my subscription"
 msgstr "Ya cancelé mi suscripción"
 
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If a candidate asks about application status, label as @[Status Update] and draft a reply asking for their position and date applied"
+msgstr "Si un candidato pregunta por el estado de su solicitud, etiquétalo como @[Status Update] y redacta una respuesta pidiéndole el puesto y la fecha en que se postuló"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If a customer mentions churn risk, label as @[Churn Risk] and draft an urgent notification to the customer success team"
+msgstr "Si un cliente menciona riesgo de abandono, etiquétalo como @[Churn Risk] y redacta una notificación urgente para el equipo de éxito del cliente"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If a founder asks to set up a call, draft a reply with my calendar link: https://cal.com/example"
+msgstr "Si un fundador pide programar una llamada, redacta una respuesta con el enlace a mi calendario: https://cal.com/example"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If a founder sends me an investor update, label it @[Investor Update] and archive it"
+msgstr "Si un fundador me envía una actualización para inversores, etiquétala como @[Investor Update] y archívala"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If a portfolio company reports bad news, label as @[Portfolio Alert] and draft a reply to schedule an emergency call"
+msgstr "Si una empresa de la cartera informa de malas noticias, etiquétalo como @[Portfolio Alert] y redacta una respuesta para programar una llamada urgente"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If an internal employee refers someone, label as @[Employee Referral]"
+msgstr "Si un empleado interno recomienda a alguien, etiquétalo como @[Employee Referral]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If people ask me to speak at an event, label the email @[Speaker Opportunity] and archive it"
+msgstr "Si me piden dar una charla en un evento, etiqueta el correo como @[Speaker Opportunity] y archívalo"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone accepts a job offer, label as @[Offer Accepted] and forward to onboarding@company.com"
+msgstr "Si alguien acepta una oferta de trabajo, etiquétalo como @[Offer Accepted] y reenvíalo a onboarding@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone accepts an interview invite, label as @[Interview Confirmed] and forward to calendar@company.com"
+msgstr "Si alguien acepta una invitación a entrevista, etiquétalo como @[Interview Confirmed] y reenvíalo a calendar@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone applies for a job, label as @[New Application] and draft a reply acknowledging their application"
+msgstr "Si alguien solicita un empleo, etiquétalo como @[New Application] y redacta una respuesta confirmando la recepción de su solicitud"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks about benefits, draft a reply with our benefits overview link: https://company.com/benefits"
+msgstr "Si alguien pregunta por los beneficios, redacta una respuesta con el enlace a nuestro resumen de beneficios: https://company.com/benefits"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks about enterprise pricing, draft a reply asking about their company size and requirements"
+msgstr "Si alguien pregunta por precios para empresas, redacta una respuesta preguntando por el tamaño de su empresa y sus requisitos"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks about home prices in a specific area, label as @[Market Inquiry] and draft a reply with recent comparable sales data"
+msgstr "Si alguien pregunta por precios de viviendas en una zona específica, etiquétalo como @[Market Inquiry] y redacta una respuesta con datos de ventas comparables recientes"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks about partnership opportunities, label as @[Partnership] and draft a reply asking for their media kit"
+msgstr "Si alguien pregunta por oportunidades de colaboración, etiquétalo como @[Partnership] y redacta una respuesta pidiendo su media kit"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks about product features, draft a reply with relevant feature documentation links"
+msgstr "Si alguien pregunta por funciones del producto, redacta una respuesta con enlaces a la documentación relevante"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks about sponsorship, label as @[Sponsorship] and draft a reply asking about their audience size"
+msgstr "Si alguien pregunta por patrocinios, etiquétalo como @[Sponsorship] y redacta una respuesta preguntando por el tamaño de su audiencia"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks about the home buying process, draft a reply with our buyer's guide link: https://realty.com/buyers-guide"
+msgstr "Si alguien pregunta por el proceso de compra de vivienda, redacta una respuesta con el enlace a nuestra guía para compradores: https://realty.com/buyers-guide"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks for a discount, reply with the discount code INBOX20"
+msgstr "Si alguien pide un descuento, responde con el código de descuento INBOX20"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks for a warm intro to a portfolio company, draft a reply asking for more context about why they want to connect"
+msgstr "Si alguien pide una presentación a una empresa de la cartera, redacta una respuesta pidiendo más contexto sobre por qué quiere conectar"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks for class notes, draft a reply with our shared Google Drive folder link: https://drive.google.com/drive/u/0/folders/1234567890"
+msgstr "Si alguien pide los apuntes de clase, redacta una respuesta con el enlace a nuestra carpeta compartida de Google Drive: https://drive.google.com/drive/u/0/folders/1234567890"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks for help with Product or Company, draft a reply telling them I no longer work there, but they should reach out to Company for support"
+msgstr "Si alguien pide ayuda con Producto o Empresa, redacta una respuesta diciéndole que ya no trabajo allí, pero que debería contactar con Empresa para obtener soporte"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks for pricing, draft a reply with our pricing page link: https://company.com/pricing"
+msgstr "Si alguien pregunta por precios, redacta una respuesta con el enlace a nuestra página de precios: https://company.com/pricing"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks for product documentation, draft a reply with our help center link: https://help.company.com"
+msgstr "Si alguien pide documentación del producto, redacta una respuesta con el enlace a nuestro centro de ayuda: https://help.company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks for refund, draft a reply with our refund policy link: https://company.com/refund-policy"
+msgstr "Si alguien pide un reembolso, redacta una respuesta con el enlace a nuestra política de reembolsos: https://company.com/refund-policy"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks to cancel a plan, draft a reply with the cancellation link: https://company.com/cancel"
+msgstr "Si alguien pide cancelar un plan, redacta una respuesta con el enlace de cancelación: https://company.com/cancel"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks to schedule a showing, label as @[Showing Request] and draft a reply with available time slots"
+msgstr "Si alguien pide programar una visita, etiquétalo como @[Showing Request] y redacta una respuesta con los horarios disponibles"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone asks to set up a call, draft a reply with my calendar link: https://cal.com/example"
+msgstr "Si alguien pide programar una llamada, redacta una respuesta con el enlace a mi calendario: https://cal.com/example"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone declines a job offer, label as @[Offer Declined] and forward to hiring-updates@company.com"
+msgstr "Si alguien rechaza una oferta de trabajo, etiquétalo como @[Offer Declined] y reenvíalo a hiring-updates@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone needs technical assistance, draft a reply asking for their account details and specific error messages"
+msgstr "Si alguien necesita asistencia técnica, redacta una respuesta pidiéndole los datos de su cuenta y los mensajes de error específicos"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone pitches me their startup, label it as @[Investing], archive it, and draft a friendly reply that I no longer have time to look at the email but if they get a warm intro, that's their best bet to get funding from me"
+msgstr "Si alguien me presenta su startup, etiquétalo como @[Investing], archívalo y redacta una respuesta amable diciendo que ya no tengo tiempo para revisar el correo, pero que si consiguen una presentación a través de un contacto, esa es su mejor opción para obtener financiación de mi parte"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone refers a client to me, label as @[Referral] and draft a thank you reply with my calendar link to schedule a consultation"
+msgstr "Si alguien me recomienda un cliente, etiquétalo como @[Referral] y redacta una respuesta de agradecimiento con el enlace a mi calendario para programar una consulta"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone replies to me that they're interested, label it @[Interested] and draft a reply with my calendar link: https://cal.com/example"
+msgstr "Si alguien me responde que está interesado, etiquétalo como @[Interested] y redacta una respuesta con el enlace a mi calendario: https://cal.com/example"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone reports a critical issue, label as @[Urgent Support] and forward to urgent@company.com"
+msgstr "Si alguien informa de un problema crítico, etiquétalo como @[Urgent Support] y reenvíalo a urgent@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone reports a security vulnerability, label as @[Security] and forward to security@company.com"
+msgstr "Si alguien informa de una vulnerabilidad de seguridad, etiquétalo como @[Security] y reenvíalo a security@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone reports broken marketing links, label as @[Bug] and forward to tech@company.com"
+msgstr "Si alguien informa de enlaces de marketing rotos, etiquétalo como @[Bug] y reenvíalo a tech@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone reports data privacy concerns, label as @[Privacy], and draft a reply with our privacy policy link: https://company.com/privacy-policy"
+msgstr "Si alguien informa de preocupaciones sobre la privacidad de los datos, etiquétalo como @[Privacy] y redacta una respuesta con el enlace a nuestra política de privacidad: https://company.com/privacy-policy"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone reports implementation issues, label as @[Support Need] and forward to support@company.com"
+msgstr "Si alguien informa de problemas de implementación, etiquétalo como @[Support Need] y reenvíalo a support@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone requests a demo, draft a reply with my calendar link: https://cal.com/example"
+msgstr "Si alguien solicita una demo, redacta una respuesta con el enlace a mi calendario: https://cal.com/example"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone requests brand assets, draft a reply with a link to our brand portal: https://brand.company.com"
+msgstr "Si alguien solicita recursos de marca, redacta una respuesta con un enlace a nuestro portal de marca: https://brand.company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone requests to guest post, label as @[Guest Post] and draft a reply with our guidelines"
+msgstr "Si alguien solicita publicar como autor invitado, etiquétalo como @[Guest Post] y redacta una respuesta con nuestras pautas"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone sends class notes or study materials, label as @[Study Materials]"
+msgstr "Si alguien envía apuntes de clase o material de estudio, etiquétalo como @[Study Materials]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone sends design assets, label as @[Design Assets] and forward to assets@company.com"
+msgstr "Si alguien envía recursos de diseño, etiquétalo como @[Design Assets] y reenvíalo a assets@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "If someone withdraws their application, label as @[Withdrawn]"
+msgstr "Si alguien retira su solicitud, etiquétalo como @[Withdrawn]"
+
+#: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
+msgid "Import"
+msgstr "Importar"
+
+#: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
+msgid "Import / Export Rules"
+msgstr "Importar / exportar reglas"
+
+#: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
+msgid "Import failed"
+msgstr "Error al importar"
+
+#: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
+msgid "Import rules from JSON file"
+msgstr "Importar reglas desde un archivo JSON"
+
+#: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
+msgid "Imported {createdCount} new, updated {updatedCount} existing"
+msgstr "Se importaron {createdCount} nuevas y se actualizaron {updatedCount} existentes"
+
+#: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
+msgid "Imported {createdCount} new, updated {updatedCount} existing, skipped {skippedCount}"
+msgstr "Se importaron {createdCount} nuevas, se actualizaron {updatedCount} existentes y se omitieron {skippedCount}"
+
+#: utils/mcp/tool-specs-messages.ts
+msgid "In a week"
+msgstr "En una semana"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Inbox"
 msgstr "Bandeja de entrada"
 
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "Inbox Zero Tabs extension not found. Install it first."
+msgstr "No se encontró la extensión Inbox Zero Tabs. Instálala primero."
+
+#: app/(app)/[emailAccountId]/assistant/settings/SentWithSignatureSetting.tsx
 #: app/(app)/[emailAccountId]/settings/SentWithSignatureSection.tsx
 msgid "Include 'Sent with {BRAND_NAME}'"
 msgstr "Incluir 'Enviado con {BRAND_NAME}'"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Include in digest"
+msgstr "Incluir en el resumen"
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Include read emails"
+msgstr "Incluir correos leídos"
+
+#: app/(app)/[emailAccountId]/assistant/settings/ReferralSignatureSetting.tsx
+msgid "Include referral signature"
+msgstr "Incluir firma de referido"
 
 #: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
 msgid "Include this in the X-Webhook-Secret header when setting up webhook endpoints. Existing secrets are not shown again. When you generate a new secret, copy it before closing this dialog."
@@ -918,6 +2237,18 @@ msgstr "Inclúyelo en el encabezado X-Webhook-Secret al configurar los endpoints
 msgid "Individual"
 msgstr "Particular"
 
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Influencer"
+msgstr "Influencer"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
+msgid "Information the assistant uses when writing replies."
+msgstr "Información que usa el asistente al escribir respuestas."
+
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "Install"
+msgstr "Instalar"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Install manually"
 msgstr "Instalar manualmente"
@@ -926,6 +2257,24 @@ msgstr "Instalar manualmente"
 msgid "Invalid API Key"
 msgstr "Clave de API no válida"
 
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Invalid delay value"
+msgstr "Valor de retraso no válido"
+
+#: app/(app)/[emailAccountId]/assistant/bulk-run.ts
+msgid "Invalid response"
+msgstr "Respuesta no válida"
+
+#: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
+msgid "Invalid rules file format"
+msgstr "Formato de archivo de reglas no válido"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "Invalid value"
+msgstr "Valor no válido"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Investor"
 msgstr "Inversor"
@@ -946,11 +2295,44 @@ msgstr "Invitar miembros"
 msgid "Invite your team"
 msgstr "Invita a tu equipo"
 
+#: app/(app)/[emailAccountId]/onboarding/category-messages.ts
+msgid "Invoices, receipts, and payments"
+msgstr "Facturas, recibos y pagos"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Keys created here are limited to the current inbox account."
 msgstr "Las claves creadas aquí se limitan a la cuenta de correo actual."
 
+#: app/(app)/[emailAccountId]/assistant/settings/SettingsTab.tsx
+msgid "Knowledge"
+msgstr "Conocimiento"
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm.tsx
+msgid "Knowledge base entry created successfully"
+msgstr "Entrada de la base de conocimiento creada correctamente"
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
+msgid "Knowledge base entry deleted successfully"
+msgstr "Entrada de la base de conocimiento eliminada correctamente"
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm.tsx
+msgid "Knowledge base entry updated successfully"
+msgstr "Entrada de la base de conocimiento actualizada correctamente"
+
+#: utils/terminology-messages.ts
+msgid "label"
+msgstr "etiqueta"
+
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
+#: utils/action-item.ts
+#: utils/terminology-messages.ts
+msgid "Label"
+msgstr "Etiquetar"
+
+#: utils/action-display.tsx
+#: utils/terminology-messages.ts
+msgctxt "action"
 msgid "Label"
 msgstr "Etiquetar"
 
@@ -958,14 +2340,328 @@ msgstr "Etiquetar"
 msgid "Label & archive"
 msgstr "Etiquetar y archivar"
 
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label brand partnership emails as @[Brand Deal] and forward to manager@example.com"
+msgstr "Etiqueta los correos de acuerdos con marcas como @[Brand Deal] y reenvíalos a manager@example.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label bug reports as @[Bug] and forward to engineering@company.com"
+msgstr "Etiqueta los informes de errores como @[Bug] y reenvíalos a engineering@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label collaboration requests as @[Collab] and draft a reply asking about their audience size and engagement rates"
+msgstr "Etiqueta las solicitudes de colaboración como @[Collab] y redacta una respuesta preguntando por el tamaño de su audiencia y sus tasas de interacción"
+
 #: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
 msgid "Label colors are already set to the defaults."
 msgstr "Los colores de las etiquetas ya son los predeterminados."
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label customer requests for help as @[Support Ticket]"
+msgstr "Etiqueta las solicitudes de ayuda de clientes como @[Support Ticket]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label due diligence related emails as @[Due Diligence]"
+msgstr "Etiqueta los correos relacionados con due diligence como @[Due Diligence]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about account access issues as @[Access Issue] and draft a reply asking for their account details"
+msgstr "Etiqueta los correos sobre problemas de acceso a la cuenta como @[Access Issue] y redacta una respuesta pidiendo los datos de su cuenta"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about affiliate programs as @[Affiliate] and archive them"
+msgstr "Etiqueta los correos sobre programas de afiliados como @[Affiliate] y archívalos"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about API integration issues as @[API Support]"
+msgstr "Etiqueta los correos sobre problemas de integración con la API como @[API Support]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about assignments and homework as @[Assignment]"
+msgstr "Etiqueta los correos sobre tareas y deberes como @[Assignment]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about background checks as @[Background Check]"
+msgstr "Etiqueta los correos sobre verificaciones de antecedentes como @[Background Check]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about bug reports as @[Bug]"
+msgstr "Etiqueta los correos sobre informes de errores como @[Bug]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about campus events as @[Event] and archive them"
+msgstr "Etiqueta los correos sobre eventos del campus como @[Event] y archívalos"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about closing documents as @[Closing] and forward to transactions@realty.com"
+msgstr "Etiqueta los correos sobre documentos de cierre como @[Closing] y reenvíalos a transactions@realty.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about content marketing as @[Content]"
+msgstr "Etiqueta los correos sobre marketing de contenidos como @[Content]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about deal negotiations as @[Deal Discussion]"
+msgstr "Etiqueta los correos sobre negociaciones de acuerdos como @[Deal Discussion]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about design conferences as @[Conference]"
+msgstr "Etiqueta los correos sobre conferencias de diseño como @[Conference]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about exam schedules as @[Exam]"
+msgstr "Etiqueta los correos sobre calendarios de exámenes como @[Exam]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about fund administration as @[Fund Admin]"
+msgstr "Etiqueta los correos sobre administración de fondos como @[Fund Admin]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about internships as @[Internship] and forward to my personal email me@example.com"
+msgstr "Etiqueta los correos sobre prácticas como @[Internship] y reenvíalos a mi correo personal me@example.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about interview scheduling as @[Interview Scheduling]"
+msgstr "Etiqueta los correos sobre la programación de entrevistas como @[Interview Scheduling]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about job interviews as @[Job Search]"
+msgstr "Etiqueta los correos sobre entrevistas de trabajo como @[Job Search]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about portfolio company exits as @[Exit Opportunity]"
+msgstr "Etiqueta los correos sobre salidas de empresas de la cartera como @[Exit Opportunity]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about recruitment events or job fairs as @[Recruiting Event]"
+msgstr "Etiqueta los correos sobre eventos de reclutamiento o ferias de empleo como @[Recruiting Event]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about reference checks as @[References]"
+msgstr "Etiqueta los correos sobre verificación de referencias como @[References]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about salary negotiations as @[Compensation]"
+msgstr "Etiqueta los correos sobre negociaciones salariales como @[Compensation]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about sales opportunities as @[Sales Opportunity]"
+msgstr "Etiqueta los correos sobre oportunidades de venta como @[Sales Opportunity]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about service outages as @[Service Issue] and forward to status@company.com"
+msgstr "Etiqueta los correos sobre caídas del servicio como @[Service Issue] y reenvíalos a status@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about speaking at investment conferences as @[Speaking Opportunity]"
+msgstr "Etiqueta los correos sobre charlas en conferencias de inversión como @[Speaking Opportunity]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about travel as @[Travel]"
+msgstr "Etiqueta los correos sobre viajes como @[Travel]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about tutoring opportunities as @[Tutoring] and draft a reply with that my rate is $70/hour or $40/hour for group tutoring"
+msgstr "Etiqueta los correos sobre oportunidades de tutoría como @[Tutoring] y redacta una respuesta indicando que mi tarifa es de $70/hora o $40/hora para tutorías en grupo"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails about user research as @[Research]"
+msgstr "Etiqueta los correos sobre investigación de usuarios como @[Research]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails containing resumes or CVs as @[Resume]"
+msgstr "Etiqueta los correos que contienen currículums o CV como @[Resume]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails containing signed contracts as @[Signed Contract] and forward to legal@company.com"
+msgstr "Etiqueta los correos que contienen contratos firmados como @[Signed Contract] y reenvíalos a legal@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails containing term sheets as @[Term Sheet]"
+msgstr "Etiqueta los correos que contienen term sheets como @[Term Sheet]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from @mycompany.com addresses as @[Team]"
+msgstr "Etiqueta los correos de direcciones @mycompany.com como @[Team]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from ad platforms (Google, Meta, LinkedIn) as @[Advertising]"
+msgstr "Etiqueta los correos de plataformas publicitarias (Google, Meta, LinkedIn) como @[Advertising]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from candidates as @[Candidate]"
+msgstr "Etiqueta los correos de candidatos como @[Candidate]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from clients as @[Client]"
+msgstr "Etiqueta los correos de clientes como @[Client]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from customers as @[Customer]"
+msgstr "Etiqueta los correos de clientes como @[Customer]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from customers who need our help and support as @[Customer Support]"
+msgstr "Etiqueta los correos de clientes que necesitan nuestra ayuda y soporte como @[Customer Support]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from Dribbble, Behance, and other design inspiration sites as @[Inspiration] and archive them"
+msgstr "Etiqueta los correos de Dribbble, Behance y otros sitios de inspiración de diseño como @[Inspiration] y archívalos"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from Figma as @[Design] and archive them"
+msgstr "Etiqueta los correos de Figma como @[Design] y archívalos"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from Figma, Adobe, Sketch, and other design tools as @[Design] and archive them"
+msgstr "Etiqueta los correos de Figma, Adobe, Sketch y otras herramientas de diseño como @[Design] y archívalos"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from GitHub as @[GitHub] and archive them"
+msgstr "Etiqueta los correos de GitHub como @[GitHub] y archívalos"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from hiring managers as @[Hiring Manager]"
+msgstr "Etiqueta los correos de responsables de contratación como @[Hiring Manager]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from home inspectors as @[Inspector] and forward to scheduling@realty.com"
+msgstr "Etiqueta los correos de inspectores de viviendas como @[Inspector] y reenvíalos a scheduling@realty.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from influencers as @[Influencer]"
+msgstr "Etiqueta los correos de influencers como @[Influencer]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from investors as @[Investor]"
+msgstr "Etiqueta los correos de inversores como @[Investor]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from job boards as @[Job Board] and archive them"
+msgstr "Etiqueta los correos de portales de empleo como @[Job Board] y archívalos"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from LinkedIn as @[LinkedIn] and archive them"
+msgstr "Etiqueta los correos de LinkedIn como @[LinkedIn] y archívalos"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from LPs as @[LP]"
+msgstr "Etiqueta los correos de LPs como @[LP]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from mortgage brokers and lenders as @[Lender] and archive them"
+msgstr "Etiqueta los correos de agentes hipotecarios y prestamistas como @[Lender] y archívalos"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from potential buyers as @[Buyer Lead] and draft a reply asking about their budget and preferred neighborhoods"
+msgstr "Etiqueta los correos de posibles compradores como @[Buyer Lead] y redacta una respuesta preguntando por su presupuesto y los barrios que prefieren"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from potential sellers as @[Seller Lead] and draft a reply with my calendar link to schedule a home evaluation: https://cal.com/example"
+msgstr "Etiqueta los correos de posibles vendedores como @[Seller Lead] y redacta una respuesta con el enlace a mi calendario para programar una tasación de la vivienda: https://cal.com/example"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from professors and teaching assistants as @[School]"
+msgstr "Etiqueta los correos de profesores y asistentes de cátedra como @[School]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from prospects as @[Prospect]"
+msgstr "Etiqueta los correos de clientes potenciales como @[Prospect]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from recruiters as @[Recruiter] and archive them"
+msgstr "Etiqueta los correos de reclutadores como @[Recruiter] y archívalos"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from recruiters as @[Recruiter] and draft a reply with our hiring process overview link: https://company.com/hiring-process"
+msgstr "Etiqueta los correos de reclutadores como @[Recruiter] y redacta una respuesta con el enlace al resumen de nuestro proceso de contratación: https://company.com/hiring-process"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from sales tools as @[Sales Tool] and archive them"
+msgstr "Etiqueta los correos de herramientas de ventas como @[Sales Tool] y archívalos"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from Slack as @[Slack] and archive them"
+msgstr "Etiqueta los correos de Slack como @[Slack] y archívalos"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails from Stripe as @[Stripe] and archive them"
+msgstr "Etiqueta los correos de Stripe como @[Stripe] y archívalos"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Label emails where you haven't heard back or haven't replied."
+msgstr "Etiqueta los correos en los que no has recibido respuesta o que no has respondido."
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label emails with feedback from customers about our product as @[Customer Feedback]"
+msgstr "Etiqueta los correos con comentarios de clientes sobre nuestro producto como @[Customer Feedback]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label feature requests as @[Feature Request] and forward to product@company.com"
+msgstr "Etiqueta las solicitudes de funciones como @[Feature Request] y reenvíalas a product@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label high priority emails as @[High Priority]"
+msgstr "Etiqueta los correos de alta prioridad como @[High Priority]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label legal documents as @[Legal]"
+msgstr "Etiqueta los documentos legales como @[Legal]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label media inquiries to us as @[Press] and draft a polite reply"
+msgstr "Etiqueta las consultas de medios dirigidas a nosotros como @[Press] y redacta una respuesta cortés"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepCustomRules.tsx
 msgid "Label newsletters and archive them after a week"
 msgstr "Etiqueta los boletines y archívalos después de una semana"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label positive feedback as @[Testimonial] and forward to marketing@company.com"
+msgstr "Etiqueta los comentarios positivos como @[Testimonial] y reenvíalos a marketing@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label press inquiries to us as @[Press] and forward to pr@company.com"
+msgstr "Etiqueta las consultas de prensa dirigidas a nosotros como @[Press] y reenvíalas a pr@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label recruitment related emails as @[Hiring]"
+msgstr "Etiqueta los correos relacionados con reclutamiento como @[Hiring]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label server errors as @[Error]"
+msgstr "Etiqueta los errores del servidor como @[Error]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label server errors, deployment failures, and other server alerts as @[Alert] and forward to oncall@company.com"
+msgstr "Etiqueta los errores del servidor, los fallos de despliegue y otras alertas del servidor como @[Alert] y reenvíalos a oncall@company.com"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label sponsorship inquiries as @[Sponsorship] and draft a reply as follows:\n"
+"> Hey NAME,\n"
+">\n"
+"> I've attached my media kit and pricing"
+msgstr "Etiqueta las consultas de patrocinio como @[Sponsorship] y redacta una respuesta como esta:\n"
+"> Hola NAME,\n"
+">\n"
+"> Te adjunto mi media kit y mis tarifas"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label Stripe emails as @[Stripe]"
+msgstr "Etiqueta los correos de Stripe como @[Stripe]"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Label urgent emails as @[Urgent]"
+msgstr "Etiqueta los correos urgentes como @[Urgent]"
+
+#: utils/terminology-messages.ts
+msgid "labels"
+msgstr "etiquetas"
+
+#: utils/terminology-messages.ts
+msgid "Labels"
+msgstr "Etiquetas"
 
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Labels and drafts are ready"
@@ -989,6 +2685,10 @@ msgstr "Falló el último envío: {0}"
 msgid "Last sent {0}"
 msgstr "Último envío {0}"
 
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
+msgid "Last Updated"
+msgstr "Última actualización"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Last used"
 msgstr "Último uso"
@@ -997,6 +2697,28 @@ msgstr "Último uso"
 msgid "Learn how {BRAND_NAME} works and get set up."
 msgstr "Descubre cómo funciona {BRAND_NAME} y configúralo."
 
+#: app/(app)/[emailAccountId]/automation/page.tsx
+msgid "Learn how to use the AI Assistant to automatically label, archive, and more."
+msgstr "Aprende a usar el Asistente de IA para etiquetar, archivar y más, automáticamente."
+
+#: app/(app)/[emailAccountId]/automation/page.tsx
+msgid "Learn how to use the AI Personal Assistant to automatically label, archive, and more."
+msgstr "Aprende a usar el Asistente personal de IA para etiquetar, archivar y más, automáticamente."
+
+#: app/(app)/[emailAccountId]/assistant/group/LearnedPatterns.tsx
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting.tsx
+msgid "Learned patterns"
+msgstr "Patrones aprendidos"
+
+#: app/(app)/[emailAccountId]/assistant/group/LearnedPatterns.tsx
+msgid "Learned patterns are patterns that the AI has learned from your email history. When a learned pattern is matched other rules conditions are skipped and this rule is automatically selected."
+msgstr "Los patrones aprendidos son patrones que la IA ha aprendido de tu historial de correo. Cuando coincide un patrón aprendido, se omiten las condiciones de las demás reglas y esta regla se selecciona automáticamente."
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Learned patterns aren't available for this rule type."
+msgstr "Los patrones aprendidos no están disponibles para este tipo de regla."
+
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Leave blank to keep the current key"
 msgstr "Déjalo en blanco para conservar la clave actual"
@@ -1004,6 +2726,10 @@ msgstr "Déjalo en blanco para conservar la clave actual"
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Leave this blank to keep the current API key, or enter a new key to replace it."
 msgstr "Déjalo en blanco para conservar la clave de API actual o introduce una nueva clave para reemplazarla."
+
+#: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
+msgid "Let AI-generated drafts use custom anchor text like 'click here'. This is more convenient, but it hides the full destination and any data in the link."
+msgstr "Permite que los borradores generados por IA usen texto de enlace personalizado como 'haz clic aquí'. Es más cómodo, pero oculta el destino completo y cualquier dato del enlace."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Let me know in Slack when an investor emails"
@@ -1026,6 +2752,14 @@ msgstr "Vinculando..."
 msgid "List and inspect automation rules for this inbox."
 msgstr "Lista y consulta las reglas de automatización de esta bandeja de entrada."
 
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Load from {providerName}"
+msgstr "Cargar desde {providerName}"
+
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+msgid "Load More"
+msgstr "Cargar más"
+
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Loading recently organized emails"
 msgstr "Cargando correos organizados recientemente"
@@ -1034,13 +2768,68 @@ msgstr "Cargando correos organizados recientemente"
 msgid "Loading senders"
 msgstr "Cargando remitentes"
 
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Loading..."
+msgstr "Cargando..."
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Look for the \"{FOLLOW_UP_LABEL}\" category in Outlook."
+msgstr "Busca la categoría \"{FOLLOW_UP_LABEL}\" en Outlook."
+
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+msgid "Make sure your Drive connection contains PDF files or folders."
+msgstr "Asegúrate de que tu conexión de Drive contenga archivos o carpetas PDF."
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/SnippetsSetting.tsx
+msgid "Manage"
+msgstr "Gestionar"
+
 #: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
 msgid "Manage Secret"
 msgstr "Gestionar secreto"
 
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Managed by Organization"
+msgstr "Gestionada por la organización"
+
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+msgid "Mark as read"
+msgstr "Marcar como leído"
+
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+msgid "Mark as spam"
+msgstr "Marcar como spam"
+
+#: utils/action-display.tsx
+msgid "Mark read"
+msgstr "Marcar como leído"
+
+#: utils/action-display-messages.ts
+msgid "Mark Read"
+msgstr "Marcar como leído"
+
+#: utils/action-display.tsx
+msgid "Mark spam"
+msgstr "Marcar como spam"
+
+#: utils/action-display-messages.ts
+msgid "Mark Spam"
+msgstr "Marcar como spam"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Marketer"
+msgstr "Profesional de marketing"
+
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Marketing"
 msgstr "Marketing"
+
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "Maximum number of conditions reached."
+msgstr "Se alcanzó el número máximo de condiciones."
 
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "MCP access disabled!"
@@ -1083,9 +2872,32 @@ msgstr "lun."
 msgid "Monday"
 msgstr "Lunes"
 
+#: app/(app)/[emailAccountId]/assistant/RuleStep.tsx
+msgid "More options"
+msgstr "Más opciones"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "More signatures"
+msgstr "Más firmas"
+
+#: utils/automation-jobs/defaults.ts
+msgid "Morning"
+msgstr "Mañana"
+
+#: utils/action-display-messages.ts
+msgid "Move to '{folderName}' folder"
+msgstr "Mover a la carpeta '{folderName}'"
+
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
+#: utils/action-display-messages.ts
+#: utils/action-display.tsx
 msgid "Move to folder"
 msgstr "Mover a carpeta"
+
+#: app/(app)/[emailAccountId]/assistant/settings/MultiRuleSetting.tsx
+msgid "Multi-rule selection"
+msgstr "Selección de varias reglas"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "My API key"
@@ -1101,6 +2913,8 @@ msgstr "Me llamo Alex Smith. Soy el fundador de Acme.\n"
 "- Si estoy en CC, no es To Reply\n"
 "- Los correos de jane@accounting.com no son Notifications"
 
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Name"
 msgstr "Nombre"
@@ -1109,9 +2923,17 @@ msgstr "Nombre"
 msgid "Name (optional)"
 msgstr "Nombre (opcional)"
 
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Name the signature and set its content."
+msgstr "Ponle nombre a la firma y define su contenido."
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Never"
 msgstr "Nunca"
+
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "New!"
+msgstr "¡Nuevo!"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
 msgid "Newsletter"
@@ -1121,14 +2943,26 @@ msgstr "Newsletter"
 msgid "Newsletters"
 msgstr "Newsletters"
 
+#: app/(app)/[emailAccountId]/onboarding/category-messages.ts
+msgid "Newsletters, blogs, and publications"
+msgstr "Newsletters, blogs y publicaciones"
+
 #. placeholder {0}: formatDigestDeliveryTime( new Date(digestStatus.delivery.estimatedNextDeliveryAt), digestStatus.delivery.timezone, )
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Next delivery around {0}."
 msgstr "Próximo envío alrededor de {0}."
 
+#: app/(app)/[emailAccountId]/assistant/History.tsx
+msgid "Next messages"
+msgstr "Mensajes siguientes"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Next, open Channels to choose where Slack messages go."
 msgstr "Ahora abre Canales para elegir adónde van los mensajes de Slack."
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "No actions taken"
+msgstr "No se realizaron acciones"
 
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "No active plan"
@@ -1138,18 +2972,131 @@ msgstr "Sin plan activo"
 msgid "No API keys yet."
 msgstr "Aún no hay claves de API."
 
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "No connected destinations"
+msgstr "No hay destinos conectados"
+
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+msgid "No Drive files found"
+msgstr "No se encontraron archivos de Drive"
+
+#: utils/mcp/tool-specs-messages.ts
+msgid "No due date"
+msgstr "Sin fecha de vencimiento"
+
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+msgid "No emails found"
+msgstr "No se encontraron correos"
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "No emails found in your inbox in the selected date range."
+msgstr "No se encontraron correos en tu bandeja de entrada en el rango de fechas seleccionado."
+
+#: app/(app)/[emailAccountId]/assistant/History.tsx
+msgid "No emails have been processed for this rule."
+msgstr "No se han procesado correos para esta regla."
+
+#: app/(app)/[emailAccountId]/assistant/History.tsx
+msgid "No emails have been processed yet."
+msgstr "Todavía no se han procesado correos."
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "No expiry"
 msgstr "Sin caducidad"
+
+#: app/(app)/[emailAccountId]/assistant/History.tsx
+msgid "No history"
+msgstr "Sin historial"
+
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "No items"
+msgstr "No hay elementos"
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
+msgid "No knowledge entries yet"
+msgstr "Todavía no hay entradas de conocimiento"
+
+#: app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting.tsx
+msgid "No learned patterns found yet."
+msgstr "Todavía no se encontraron patrones aprendidos."
+
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "No learned patterns yet"
+msgstr "Todavía no hay patrones aprendidos"
+
+#: app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog.tsx
+#: app/(app)/[emailAccountId]/assistant/RulesSelect.tsx
+msgid "No match"
+msgstr "Sin coincidencia"
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "No match found"
+msgstr "No se encontró ninguna coincidencia"
+
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+msgid "No More Messages"
+msgstr "No hay más mensajes"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "No new signatures found"
+msgstr "No se encontraron firmas nuevas"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "No other signatures yet. Add one, or find the ones you already use in your sent mail."
+msgstr "Todavía no hay otras firmas. Añade una o busca las que ya usas en tu correo enviado."
+
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+msgid "No PDFs found"
+msgstr "No se encontraron PDF"
+
+#: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
+msgid "No personal rules to export."
+msgstr "No hay reglas personales para exportar."
+
+#: app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting.tsx
+msgid "No rule"
+msgstr "Sin regla"
 
 #. placeholder {0}: selectedSource?.email
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "No rules found in {0}"
 msgstr "No se encontraron reglas en {0}"
 
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "No rules with label actions found."
+msgstr "No se encontraron reglas con acciones de etiqueta."
+
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "No signature found in recent sent emails"
+msgstr "No se encontró ninguna firma en los correos enviados recientemente"
+
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "No signatures found"
+msgstr "No se encontraron firmas"
+
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "No signatures found in your Gmail account"
+msgstr "No se encontraron firmas en tu cuenta de Gmail"
+
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "No stale drafts found."
 msgstr "No se encontraron borradores antiguos."
+
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "No tabs selected"
+msgstr "No hay pestañas seleccionadas"
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "No unprocessed emails found in your inbox in the selected date range."
+msgstr "No se encontraron correos sin procesar en tu bandeja de entrada en el rango de fechas seleccionado."
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "No unread emails found in your inbox in the selected date range."
+msgstr "No se encontraron correos no leídos en tu bandeja de entrada en el rango de fechas seleccionado."
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "No unread, unprocessed emails found in your inbox in the selected date range."
+msgstr "No se encontraron correos no leídos y sin procesar en tu bandeja de entrada en el rango de fechas seleccionado."
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "No upcoming meetings found"
@@ -1159,9 +3106,48 @@ msgstr "No se encontraron próximas reuniones"
 msgid "No, thanks"
 msgstr "No, gracias"
 
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: utils/action-display-messages.ts
+msgid "Notify"
+msgstr "Notificar"
+
+#: utils/action-display.tsx
+msgid "Notify chat channel"
+msgstr "Notificar al canal de chat"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Notify in chat"
+msgstr "Notificar en el chat"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Notify in Slack"
 msgstr "Avisar en Slack"
+
+#: utils/action-display-messages.ts
+msgid "Notify on {destination}"
+msgstr "Notificar en {destination}"
+
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+msgid "Notify on {providerList}"
+msgstr "Notificar en {providerList}"
+
+#: utils/action-display-messages.ts
+msgid "Notify on {providerName}"
+msgstr "Notificar en {providerName}"
+
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: utils/action-display.tsx
+msgid "Notify sender"
+msgstr "Notificar al remitente"
+
+#: utils/action-display-messages.ts
+msgid "Notify Sender"
+msgstr "Notificar al remitente"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
+msgid "Off"
+msgstr "Desactivado"
 
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Offline access"
@@ -1174,6 +3160,26 @@ msgstr "el"
 #: app/(app)/[emailAccountId]/onboarding/page.tsx
 msgid "Onboarding"
 msgstr "Configuración inicial"
+
+#: app/(app)/[emailAccountId]/onboarding/category-messages.ts
+msgid "One-time passwords, 2FA codes, and sign-in links"
+msgstr "Contraseñas de un solo uso, códigos 2FA y enlaces de inicio de sesión"
+
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "Only apply this rule from emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. \"@company.com\", \"hello@example.com OR support@test.com\""
+msgstr "Aplica esta regla solo a los correos de esta dirección. Admite varias direcciones separadas por coma, barra vertical u OR. p. ej., \"@company.com\", \"hello@example.com OR support@test.com\""
+
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "Only apply this rule to emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. \"@company.com\", \"hello@example.com OR support@test.com\""
+msgstr "Aplica esta regla solo a los correos de esta dirección. Admite varias direcciones separadas por coma, barra vertical u OR. p. ej., \"@company.com\", \"hello@example.com OR support@test.com\""
+
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "Only apply this rule to emails with this subject. e.g. Receipt for your purchase"
+msgstr "Aplica esta regla solo a los correos con este asunto. p. ej., Recibo de tu compra"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
+msgid "Only draft when the AI is very sure of the right reply. Many emails will get no draft."
+msgstr "Redacta solo cuando la IA esté muy segura de la respuesta correcta. Muchos correos no recibirán borrador."
 
 #: app/(app)/[emailAccountId]/onboarding/StepCompanySize.tsx
 msgid "Only me"
@@ -1191,27 +3197,77 @@ msgstr "Abrir"
 msgid "Open Telegram bot"
 msgstr "Abrir el bot de Telegram"
 
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "or"
+msgstr "o"
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "OR"
+msgstr "O"
+
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Org"
+msgstr "Org."
+
 #: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
 msgid "Organization Analytics"
 msgstr "Estadísticas de la organización"
 
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Other"
 msgstr "Otro"
 
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Our AI generates a draft reply from your email history and knowledge base."
+msgstr "Nuestra IA genera un borrador de respuesta a partir de tu historial de correo y tu base de conocimiento."
+
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
 msgid "Our email app with the AI assistant built in."
 msgstr "Nuestra app de correo con el asistente de IA integrado."
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Outreach"
+msgstr "Prospección"
+
+#. placeholder {0}: data.totalPages
+#: app/(app)/[emailAccountId]/assistant/History.tsx
+msgid "Page {page} of {0}"
+msgstr "Página {page} de {0}"
+
+#: app/(app)/[emailAccountId]/assistant/TestCustomEmailForm.tsx
+msgid "Paste in email content or write your own. e.g. Receipt from Stripe for $49"
+msgstr "Pega el contenido de un correo o escribe el tuyo. p. ej., Recibo de Stripe por $49"
+
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "Pattern added!"
+msgstr "¡Patrón añadido!"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Patterns inferred from your corrections."
+msgstr "Patrones deducidos de tus correcciones."
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Pause"
+msgstr "Pausar"
 
 #. placeholder {0}: env.NEXT_PUBLIC_SUPPORT_EMAIL
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Paused. Contact <0>{0}</0> to resume it."
 msgstr "En pausa. Escribe a <0>{0}</0> para reanudarlo."
 
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "Pending"
+msgstr "Pendiente"
+
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 msgid "Permanently delete all analytics"
 msgstr "Eliminar permanentemente todas las estadísticas"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Permanently remove this rule."
+msgstr "Elimina esta regla de forma permanente."
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
@@ -1222,25 +3278,90 @@ msgstr "Permisos"
 msgid "Permissions updated"
 msgstr "Permisos actualizados"
 
+#: app/(app)/[emailAccountId]/assistant/settings/AboutSetting.tsx
+msgid "Personal instructions"
+msgstr "Instrucciones personales"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Pick an upcoming meeting and we'll send you a sample brief so you can see exactly what you'll receive."
 msgstr "Elige una próxima reunión y te enviaremos un informe de muestra para que veas exactamente lo que recibirás."
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Pick one of these instead of your default signature when you compose."
+msgstr "Elige una de estas en lugar de tu firma predeterminada al redactar."
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Pick the signature to add to emails you send."
+msgstr "Elige la firma que se añadirá a los correos que envías."
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Please cancel your subscription before deleting your account."
 msgstr "Cancela tu suscripción antes de eliminar tu cuenta."
 
+#: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
+msgid "Please enter a prompt to create rules"
+msgstr "Introduce una instrucción para crear reglas"
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Please select a start date"
+msgstr "Selecciona una fecha de inicio"
+
 #: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
 msgid "Please try again or contact support"
 msgstr "Vuelve a intentarlo o contacta con soporte"
+
+#: app/(app)/[emailAccountId]/assistant/bulk-run.ts
+msgid "Please try again."
+msgstr "Inténtalo de nuevo."
+
+#: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
+msgid "Please wait for the current chat response to finish."
+msgstr "Espera a que termine la respuesta actual del chat."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Plus a deep dive on pricing pages that convert"
 msgstr "Además, un análisis a fondo de las páginas de precios que convierten"
 
+#: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
+msgid "Prevent credentials and card numbers from being sent to AI."
+msgstr "Evita que se envíen credenciales y números de tarjeta a la IA."
+
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Preview"
 msgstr "Vista previa"
+
+#: app/(app)/[emailAccountId]/assistant/History.tsx
+msgid "Previous messages"
+msgstr "Mensajes anteriores"
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "Previous:"
+msgstr "Anteriores:"
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Process Emails"
+msgstr "Procesar correos"
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Process Past Emails"
+msgstr "Procesar correos anteriores"
+
+#: app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog.tsx
+msgid "Processing Activity"
+msgstr "Actividad de procesamiento"
+
+#: app/(app)/[emailAccountId]/assistant/bulk-run.ts
+msgid "Processing stopped"
+msgstr "Procesamiento detenido"
+
+#: app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer.ts
+msgid "Progress: {completed}/{total} emails completed"
+msgstr "Progreso: {completed}/{total} correos completados"
+
+#: utils/mcp/tool-specs-messages.ts
+msgid "Project"
+msgstr "Proyecto"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
 msgid "Project update"
@@ -1250,9 +3371,21 @@ msgstr "Novedades del proyecto"
 msgid "Promo Alert"
 msgstr "Alerta de promociones"
 
+#: app/(app)/[emailAccountId]/onboarding/category-messages.ts
+msgid "Promotional emails about sales and offers"
+msgstr "Correos promocionales sobre rebajas y ofertas"
+
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Prompt"
+msgstr "Instrucción"
+
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Provider"
 msgstr "Proveedor"
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/DraftDocsSites.tsx
+msgid "Public docs the assistant can look things up in when drafting replies. Only pages under these URLs are read."
+msgstr "Documentación pública que el asistente puede consultar al redactar respuestas. Solo se leen las páginas bajo estas URL."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Q3 planning: can you review?"
@@ -1302,21 +3435,74 @@ msgstr "Estado de lectura"
 msgid "Ready to walk into every meeting prepared?"
 msgstr "¿Listo para llegar preparado a cada reunión?"
 
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Realtor"
 msgstr "Agente inmobiliario"
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "Reason for choosing this rule:"
+msgstr "Motivo para elegir esta regla:"
+
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "Receipt for your purchase"
+msgstr "Recibo de tu compra"
 
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Recently organized emails"
 msgstr "Correos organizados recientemente"
 
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Recruiter"
+msgstr "Reclutador"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
+msgid "Redact"
+msgstr "Ocultar"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Redirecting to Slack authorization..."
 msgstr "Redirigiendo a la autorización de Slack..."
 
+#: app/(app)/[emailAccountId]/assistant/settings/ReferralSignatureSetting.tsx
+msgid "Referral signature setting updated!"
+msgstr "¡Configuración de la firma de referido actualizada!"
+
 #: app/(app)/[emailAccountId]/settings/WebhookGenerate.tsx
 msgid "Regenerate secret"
 msgstr "Regenerar secreto"
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "Rejected"
+msgstr "Rechazada"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Remind me when I haven't replied after"
+msgstr "Recordarme cuando no haya respondido después de"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Remind me when they haven't replied after"
+msgstr "Recordarme cuando no hayan respondido después de"
+
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+msgid "Remove"
+msgstr "Quitar"
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/DraftDocsSites.tsx
+msgid "Remove {url}"
+msgstr "Quitar {url}"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Remove action"
+msgstr "Quitar acción"
+
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "Remove condition"
+msgstr "Quitar condición"
+
+#: app/(app)/[emailAccountId]/assistant/RuleStep.tsx
+msgid "Remove delay"
+msgstr "Quitar retraso"
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Remove just one account instead"
@@ -1330,9 +3516,30 @@ msgstr "Quita los accesos opcionales a continuación o desconecta para quitar to
 msgid "Remove unedited drafts created by {BRAND_NAME} that are older than {savedCleanupDays} days."
 msgstr "Elimina los borradores sin editar creados por {BRAND_NAME} con más de {savedCleanupDays} días de antigüedad."
 
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "Removed learned pattern!"
+msgstr "¡Patrón aprendido eliminado!"
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Removes your Inbox Zero data. Your emails aren't affected."
 msgstr "Elimina tus datos de Inbox Zero. Tus correos no se ven afectados."
+
+#: utils/action-display-messages.ts
+#: utils/action-display.tsx
+msgid "Reply"
+msgstr "Responder"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Reply to cold emails by telling them to check out {BRAND_NAME}. Then mark them as spam"
+msgstr "Responde a los correos en frío diciéndoles que prueben {BRAND_NAME}. Luego márcalos como spam"
+
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+msgid "Rerun"
+msgstr "Volver a ejecutar"
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Rerun rules on already processed emails"
+msgstr "Volver a ejecutar las reglas en correos ya procesados"
 
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 #: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
@@ -1361,6 +3568,22 @@ msgstr "Restableciendo estadísticas..."
 msgid "Restore the default colors for Inbox Zero labels like To Reply and Newsletter"
 msgstr "Restaura los colores predeterminados de las etiquetas de Inbox Zero, como To Reply y Newsletter"
 
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Resume"
+msgstr "Reanudar"
+
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+msgid "Retest"
+msgstr "Volver a probar"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SnippetsSetting.tsx
+msgid "Reuse saved replies in drafts by typing / followed by a shortcut."
+msgstr "Reutiliza respuestas guardadas en los borradores escribiendo / seguido de un atajo."
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Review any emails from questions@pr.com and see if any are about finance. If so, draft a friendly reply that answers the question"
+msgstr "Revisa los correos de questions@pr.com y comprueba si alguno trata de finanzas. Si es así, redacta una respuesta amable que responda a la pregunta"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Revoke"
 msgstr "Revocar"
@@ -1369,10 +3592,59 @@ msgstr "Revocar"
 msgid "Rule"
 msgstr "Regla"
 
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Rule created, but draft attachment sources could not be saved."
+msgstr "Se creó la regla, pero no se pudieron guardar las fuentes de adjuntos del borrador."
+
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Rule deleted"
+msgstr "Regla eliminada"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Rule name"
+msgstr "Nombre de la regla"
+
+#: app/(app)/[emailAccountId]/assistant/RuleNotFoundState.tsx
+msgid "Rule not found"
+msgstr "Regla no encontrada"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Rule saved, but draft attachment sources could not be updated."
+msgstr "Se guardó la regla, pero no se pudieron actualizar las fuentes de adjuntos del borrador."
+
+#: app/(app)/[emailAccountId]/automation/AutomationTabs.tsx
+msgid "Rules"
+msgstr "Reglas"
+
+#: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
+msgid "Rules exported successfully"
+msgstr "Reglas exportadas correctamente"
+
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "Rules transferred successfully"
 msgstr "Reglas transferidas correctamente"
 
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+msgid "Run"
+msgstr "Ejecutar"
+
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+msgid "Run on All"
+msgstr "Ejecutar en todos"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Run on every reply in a conversation, not just the first message."
+msgstr "Se ejecuta en cada respuesta de una conversación, no solo en el primer mensaje."
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Run your rules on emails already in your inbox."
+msgstr "Ejecuta tus reglas en los correos que ya están en tu bandeja de entrada."
+
+#: app/(app)/[emailAccountId]/assistant/Process.tsx
+msgid "Run your rules on previous emails"
+msgstr "Ejecuta tus reglas en correos anteriores"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Sales"
 msgstr "Ventas"
@@ -1381,6 +3653,11 @@ msgstr "Ventas"
 msgid "Saturday"
 msgstr "Sábado"
 
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting.tsx
 #: app/(app)/[emailAccountId]/settings/AboutSectionForm.tsx
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
@@ -1388,13 +3665,62 @@ msgstr "Sábado"
 msgid "Save"
 msgstr "Guardar"
 
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Save signature"
+msgstr "Guardar firma"
+
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Save Signature"
+msgstr "Guardar firma"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SnippetsSetting.tsx
+msgid "Saved replies you can insert from compose with /."
+msgstr "Respuestas guardadas que puedes insertar al redactar con /."
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Saved!"
+msgstr "¡Guardado!"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Saved. Next digest expected around {deliveryTime}."
 msgstr "Guardado. Próximo resumen previsto alrededor de {deliveryTime}."
 
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Saving..."
+msgstr "Guardando..."
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Scan complete!"
+msgstr "¡Escaneo completado!"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Scanning your emails..."
+msgstr "Escaneando tus correos..."
+
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Schedule"
+msgstr "Programación"
+
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Scheduled check-in settings saved"
+msgstr "Configuración de check-ins programados guardada"
+
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Scheduled check-ins"
+msgstr "Check-ins programados"
+
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Scheduled check-ins updated"
+msgstr "Check-ins programados actualizados"
+
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
 msgid "Search"
 msgstr "Buscador"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "See examples"
+msgstr "Ver ejemplos"
 
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "See when recipients open emails you send from the mail client."
@@ -1408,6 +3734,10 @@ msgstr "Consulta cuándo los destinatarios abren los correos que envías."
 msgid "See which emails you never read. One-click unsubscribe and archive them in bulk."
 msgstr "Descubre qué correos nunca lees. Cancela la suscripción con un clic y archívalos en bloque."
 
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "Select"
+msgstr "Seleccionar"
+
 #. placeholder {0}: rule.name
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "Select {0}"
@@ -1417,6 +3747,7 @@ msgstr "Seleccionar {0}"
 msgid "Select {senderName}"
 msgstr "Seleccionar {senderName}"
 
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "Select action"
 msgstr "Seleccionar acción"
@@ -1437,9 +3768,33 @@ msgstr "Selecciona una cuenta desde la que transferir reglas. Las reglas con el 
 msgid "Select digest items to see a preview"
 msgstr "Selecciona elementos del resumen para ver una vista previa"
 
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+msgid "Select files"
+msgstr "Seleccionar archivos"
+
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+msgid "Select files to always attach"
+msgstr "Selecciona los archivos que se adjuntarán siempre"
+
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Select signature"
+msgstr "Seleccionar firma"
+
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "Select source account"
 msgstr "Selecciona la cuenta de origen"
+
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+msgid "Select sources for AI"
+msgstr "Seleccionar fuentes para la IA"
+
+#: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
+msgid "Select sources for AI to search"
+msgstr "Selecciona las fuentes en las que buscará la IA"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "Select which label rules to sync as Gmail tabs."
+msgstr "Selecciona qué reglas de etiqueta sincronizar como pestañas de Gmail."
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Select..."
@@ -1453,6 +3808,10 @@ msgstr "Las reglas seleccionadas se combinan en un solo correo de resumen."
 msgid "Send"
 msgstr "Enviar"
 
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Send a message when this rule matches."
+msgstr "Envía un mensaje cuando esta regla coincida."
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Send a Test Brief"
 msgstr "Envía un informe de prueba"
@@ -1461,17 +3820,39 @@ msgstr "Envía un informe de prueba"
 msgid "Send digest to email"
 msgstr "Enviar resumen por correo"
 
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
+#: utils/action-display.tsx
 msgid "Send email"
 msgstr "Enviar correos"
+
+#: utils/action-display-messages.ts
+msgid "Send Email"
+msgstr "Enviar correo"
+
+#: utils/action-display-messages.ts
+msgid "Send Email to {to}"
+msgstr "Enviar correo a {to}"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
+msgid "Send everything to AI without scanning."
+msgstr "Envía todo a la IA sin escanear."
 
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "Send invites"
 msgstr "Enviar invitaciones"
 
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+msgid "Send replies"
+msgstr "Enviar respuestas"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Send Test Brief"
 msgstr "Enviar informe de prueba"
+
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Send test check-in"
+msgstr "Enviar check-in de prueba"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Send the digest email"
@@ -1481,9 +3862,29 @@ msgstr "Enviar el correo de resumen"
 msgid "Send this command in a direct message with the Inbox Zero bot on {providerName}. The code is one-time use and expires in 10 minutes."
 msgstr "Envía este comando en un mensaje directo al bot de Inbox Zero en {providerName}. El código es de un solo uso y caduca en 10 minutos."
 
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Send to"
+msgstr "Enviar a"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Send to <0>{destinationLabel}</0>"
+msgstr "Enviar a <0>{destinationLabel}</0>"
+
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
 msgid "Senders you rarely read"
 msgstr "Remitentes que casi nunca lees"
+
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Sending..."
+msgstr "Enviando..."
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Sends an automated notification from {BRAND_NAME} informing the sender their email was filtered as cold outreach."
+msgstr "Envía una notificación automática de {BRAND_NAME} para informar al remitente de que su correo se filtró como contacto en frío."
+
+#: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
+msgid "Sensitive data protection"
+msgstr "Protección de datos sensibles"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Sent"
@@ -1493,10 +3894,51 @@ msgstr "Enviados"
 msgid "Sent 1-24 hours before (you choose)"
 msgstr "Se envía entre 1 y 24 horas antes (tú eliges)"
 
+#: app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting.tsx
+msgid "Set"
+msgstr "Definir"
+
+#: app/(app)/[emailAccountId]/assistant/SetDateDropdown.tsx
+msgid "Set a date"
+msgstr "Elegir una fecha"
+
+#: app/(app)/[emailAccountId]/assistant/RuleStep.tsx
+msgid "Set content manually"
+msgstr "Definir el contenido manualmente"
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Set end date (optional)"
+msgstr "Elegir fecha de fin (opcional)"
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Set start date"
+msgstr "Elegir fecha de inicio"
+
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Set up default rules"
+msgstr "Configurar reglas predeterminadas"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/page.tsx
 msgid "Set up meeting briefs to receive personalized briefings before your meetings."
 msgstr "Configura los informes de reunión para recibir informes personalizados antes de tus reuniones."
 
+#: app/(app)/[emailAccountId]/assistant/AllRulesDisabledBanner.tsx
+msgid "Set up rules"
+msgstr "Configurar reglas"
+
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Set your email signature to include in all drafted messages. For Outlook, we can extract from recent sent emails or you can enter manually."
+msgstr "Configura tu firma de correo para incluirla en todos los mensajes redactados. Para Outlook, podemos extraerla de los correos enviados recientemente o puedes escribirla manualmente."
+
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Set your email signature to include in all drafted messages. You can load signatures from Gmail or enter manually."
+msgstr "Configura tu firma de correo para incluirla en todos los mensajes redactados. Puedes cargar firmas desde Gmail o escribirla manualmente."
+
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Set your email signature to include in drafted messages."
+msgstr "Configura tu firma de correo para incluirla en los mensajes redactados."
+
+#: app/(app)/[emailAccountId]/automation/AutomationTabs.tsx
 #: app/(app)/settings/page.tsx
 #: app/(app)/settings/SettingsDialog.tsx
 msgid "Settings"
@@ -1505,6 +3947,10 @@ msgstr "Configuración"
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Settings saved"
 msgstr "Configuración guardada"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Settings saved!"
+msgstr "¡Configuración guardada!"
 
 #: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
 #: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
@@ -1523,6 +3969,14 @@ msgstr "Comparte tu plan invitando a tus compañeros a tu organización."
 msgid "Should we draft replies for you?"
 msgstr "¿Quieres que redactemos respuestas por ti?"
 
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Show all fields"
+msgstr "Mostrar todos los campos"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Show matched emails in your digest summary."
+msgstr "Muestra los correos coincidentes en el resumen."
+
 #. placeholder {0}: previewSenders.length
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
 msgid "Showing your top {0}. We'll keep spotting more as you use Inbox Zero."
@@ -1533,14 +3987,60 @@ msgstr "Mostrando los {0} principales. Seguiremos detectando más mientras usas 
 msgid "Sign in with {0}."
 msgstr "Inicia sesión con {0}."
 
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Signature (HTML supported)"
+msgstr "Firma (admite HTML)"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Signature deleted"
+msgstr "Firma eliminada"
+
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Signature Preview"
+msgstr "Vista previa de la firma"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Signature saved"
+msgstr "Firma guardada"
+
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Signature saved!"
+msgstr "¡Firma guardada!"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Signatures"
+msgstr "Firmas"
+
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Signatures loaded"
+msgstr "Firmas cargadas"
+
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "Skip"
 msgstr "Omitir"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
+msgid "Skip drafting when the AI is clearly unsure. Most emails still get a draft."
+msgstr "Omite el borrador cuando la IA claramente tiene dudas. La mayoría de los correos siguen recibiendo un borrador."
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
 msgid "Skip for now"
 msgstr "Omitir por ahora"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
+msgid "Skip the AI request when sensitive data is found."
+msgstr "Omite la solicitud a la IA cuando se detectan datos sensibles."
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "Skipped"
+msgstr "Omitida"
+
+#. placeholder {0}: skippedThreadRuleNames.join(", ")
+#: app/(app)/[emailAccountId]/assistant/ThreadSkipHint.tsx
+msgid "Skipped: {0}"
+msgstr "Omitidas: {0}"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Slack connected"
@@ -1566,13 +4066,29 @@ msgstr "Slack devolvió un código no válido o caducado. Intenta conectarte de 
 msgid "Slack session validation failed. Please try connecting again."
 msgstr "Falló la validación de la sesión de Slack. Intenta conectarte de nuevo."
 
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Slack workspace"
+msgstr "Espacio de trabajo de Slack"
+
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Small Business Owner"
 msgstr "Dueño de pequeña empresa"
 
+#: app/(app)/[emailAccountId]/assistant/settings/SnippetsSetting.tsx
+msgid "Snippets"
+msgstr "Fragmentos"
+
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Software Engineer"
 msgstr "Ingeniero de software"
+
+#: app/(app)/[emailAccountId]/assistant/LearnedPatternExclusionHint.tsx
+msgid "Some rules were excluded by learned patterns."
+msgstr "Algunas reglas se excluyeron por patrones aprendidos."
+
+#: app/(app)/[emailAccountId]/assistant/ThreadSkipHint.tsx
+msgid "Some rules were skipped because this email is part of a thread."
+msgstr "Algunas reglas se omitieron porque este correo forma parte de un hilo."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Something came up on my end. Would Friday morning work instead?"
@@ -1581,6 +4097,16 @@ msgstr "Me ha surgido algo. ¿Te viene bien el viernes por la mañana?"
 #: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
 msgid "Specialized decision model"
 msgstr "Modelo de decisión especializado"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
+msgid "Standard"
+msgstr "Estándar"
+
+#: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: utils/action-display-messages.ts
+#: utils/action-display.tsx
+msgid "Star"
+msgstr "Destacar"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Starred"
@@ -1594,9 +4120,30 @@ msgstr "Inicia sesiones de chat con el asistente para esta bandeja de entrada."
 msgid "Start Free Trial"
 msgstr "Iniciar prueba gratuita"
 
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+msgid "Stop"
+msgstr "Detener"
+
+#: app/(app)/[emailAccountId]/assistant/examples.ts
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Student"
 msgstr "Estudiante"
+
+#: app/(app)/[emailAccountId]/assistant/LearnedPatternExclusionHint.tsx
+msgid "subject"
+msgstr "asunto"
+
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+#: utils/action-item.ts
+msgid "Subject"
+msgstr "Asunto"
+
+#. placeholder {0}: rule.subject
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "Subject: \"{0}\""
+msgstr "Asunto: \"{0}\""
 
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "SUGGESTED FOR YOU"
@@ -1606,13 +4153,81 @@ msgstr "SUGERIDAS PARA TI"
 msgid "Sunday"
 msgstr "Domingo"
 
+#: app/(app)/[emailAccountId]/assistant/examples.ts
+msgid "Support"
+msgstr "Soporte"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Switch between signatures when you write, like one per language."
+msgstr "Cambia de firma al escribir, por ejemplo una por idioma."
+
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm.tsx
+msgid "Switch to the Plus plan to add more knowledge base entries."
+msgstr "Cámbiate al plan Plus para añadir más entradas a la base de conocimiento."
+
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "Sync"
+msgstr "Sincronizar"
+
+#. placeholder {0}: selectedTabs.length
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "Sync {0, plural, one {# tab} other {# tabs}}"
+msgstr "Sincronizar {0, plural, one {# pestaña} other {# pestañas}}"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "Sync tabs to extension"
+msgstr "Sincronizar pestañas con la extensión"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "Sync to browser extension"
+msgstr "Sincronizar con la extensión del navegador"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "Sync your rules to the Inbox Zero Tabs browser extension. Each label rule becomes a tab in Gmail."
+msgstr "Sincroniza tus reglas con la extensión de navegador Inbox Zero Tabs. Cada regla de etiqueta se convierte en una pestaña en Gmail."
+
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "Synced tabs to extension: {summary}"
+msgstr "Pestañas sincronizadas con la extensión: {summary}"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
+msgid "Syncing to extension requires a Chromium browser"
+msgstr "La sincronización con la extensión requiere un navegador basado en Chromium"
+
+#: utils/mcp/tool-specs-messages.ts
+msgid "Task"
+msgstr "Tarea"
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Team"
 msgstr "Equipo"
 
+#: app/(app)/[emailAccountId]/assistant/settings/AboutSetting.tsx
+msgid "Tell the AI about yourself and how you'd like it to handle your emails."
+msgstr "Cuéntale a la IA sobre ti y cómo quieres que gestione tus correos."
+
+#: app/(app)/[emailAccountId]/assistant/Process.tsx
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+#: app/(app)/[emailAccountId]/assistant/TestCustomEmailForm.tsx
+#: app/(app)/[emailAccountId]/automation/AutomationTabs.tsx
+msgid "Test"
+msgstr "Probar"
+
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+msgid "Test All"
+msgstr "Probar todo"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Test brief sent! Check your inbox."
 msgstr "¡Informe de prueba enviado! Revisa tu bandeja de entrada."
+
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "Test check-in sent"
+msgstr "Check-in de prueba enviado"
+
+#: app/(app)/[emailAccountId]/assistant/TestCustomEmailForm.tsx
+msgid "Test result"
+msgstr "Resultado de la prueba"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
 msgid "Thanks for reaching out! I'd be happy to discuss the project timeline. How about tomorrow at 2pm?"
@@ -1622,18 +4237,130 @@ msgstr "¡Gracias por escribir! Con gusto hablamos del calendario del proyecto. 
 msgid "Thanks for your payment of $49.00. Your receipt is attached"
 msgstr "Gracias por tu pago de $49.00. Adjuntamos tu recibo"
 
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "That matches:"
+msgstr "Que coincide con:"
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "The draft reply action could not be completed."
+msgstr "No se pudo completar la acción de borrador de respuesta."
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "The draft reply action needs a messaging channel."
+msgstr "La acción de borrador de respuesta necesita un canal de mensajería."
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "The draft reply could not be sent to the messaging channel."
+msgstr "No se pudo enviar el borrador de respuesta al canal de mensajería."
+
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "The drafts will appear in your inbox, written in your tone.<0/>Our AI learns from your previous conversations to draft the best reply."
 msgstr "Los borradores aparecerán en tu bandeja de entrada, escritos con tu estilo.<0/>Nuestra IA aprende de tus conversaciones anteriores para redactar la mejor respuesta."
 
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "The integration action could not be completed."
+msgstr "No se pudo completar la acción de la integración."
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "The integration action could not run because a required field was empty."
+msgstr "No se pudo ejecutar la acción de la integración porque un campo obligatorio estaba vacío."
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "The integration isn't connected. Connect it on the Integrations page."
+msgstr "La integración no está conectada. Conéctala en la página de Integraciones."
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "The messaging channel notification could not be completed."
+msgstr "No se pudo completar la notificación al canal de mensajería."
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "The messaging channel notification could not be sent."
+msgstr "No se pudo enviar la notificación al canal de mensajería."
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "The messaging channel notification needs a channel."
+msgstr "La notificación al canal de mensajería necesita un canal."
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "The rule has been deleted."
+msgstr "La regla se ha eliminado."
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "The sender notification could not be completed."
+msgstr "No se pudo completar la notificación al remitente."
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "The sender notification could not be sent because email sending is not configured."
+msgstr "No se pudo enviar la notificación al remitente porque el envío de correos no está configurado."
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "The sender notification could not be sent because the sender email could not be found."
+msgstr "No se pudo enviar la notificación al remitente porque no se encontró su correo."
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "The sender notification could not be sent."
+msgstr "No se pudo enviar la notificación al remitente."
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Then"
+msgstr "Entonces"
+
+#: app/(app)/[emailAccountId]/assistant/settings/MultiRuleSetting.tsx
+msgid "There was an error"
+msgstr "Se produjo un error"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "There was an error creating the rule."
+msgstr "Se produjo un error al crear la regla."
+
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "There was an error deleting your rule"
+msgstr "Se produjo un error al eliminar tu regla"
+
 #. placeholder {0}: result.serverError || ""
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "There was an error disabling the rule. {0}"
+msgstr "Se produjo un error al desactivar la regla. {0}"
+
+#. placeholder {0}: result.serverError || ""
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "There was an error enabling the rule. {0}"
+msgstr "Se produjo un error al activar la regla. {0}"
+
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+msgid "There was an error processing the email"
+msgstr "Se produjo un error al procesar el correo"
+
+#: app/(app)/[emailAccountId]/assistant/group/LearnedPatterns.tsx
+msgid "There was an error setting up learned patterns."
+msgstr "Se produjo un error al configurar los patrones aprendidos."
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "There was an error updating the rule."
+msgstr "Se produjo un error al actualizar la regla."
+
+#. placeholder {0}: error.message
+#. placeholder {0}: result.serverError || ""
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "There was an error: {0}"
 msgstr "Se produjo un error: {0}"
 
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+msgid "There was an error: Unknown error"
+msgstr "Se produjo un error: error desconocido"
+
+#: app/(app)/[emailAccountId]/assistant/rule/[ruleId]/page.tsx
+msgid "These rules were AI generated, feel free to adjust them to your needs."
+msgstr "Estas reglas las generó la IA; ajústalas a tus necesidades."
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "This brief is already being prepared"
 msgstr "Este informe ya se está preparando"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "This can't be changed for this rule type."
+msgstr "Esto no se puede cambiar para este tipo de regla."
 
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "This helps us set up your inbox the way you actually need it."
@@ -1643,9 +4370,21 @@ msgstr "Esto nos ayuda a configurar tu bandeja de entrada como realmente la nece
 msgid "This helps us tailor the experience to your organization's needs."
 msgstr "Esto nos ayuda a adaptar la experiencia a las necesidades de tu organización."
 
+#: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+msgid "This is a cron expression (UTC). Ask ChatGPT or Claude to generate one for your preferred schedule."
+msgstr "Es una expresión cron (UTC). Pídele a ChatGPT o Claude que genere una para el horario que prefieras."
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
+msgid "This is used to help the assistant draft replies."
+msgstr "Se usa para ayudar al asistente a redactar respuestas."
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "This key will only work for the selected inbox account."
 msgstr "Esta clave solo funcionará con la cuenta de correo seleccionada."
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "This may take a few minutes depending on how many emails need to be checked."
+msgstr "Esto puede tardar unos minutos según cuántos correos haya que revisar."
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "This meeting has no external guests"
@@ -1654,6 +4393,14 @@ msgstr "Esta reunión no tiene invitados externos"
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "This permanently deletes your Inbox Zero data and disconnects {connectedEmailList}. Your emails aren't affected."
 msgstr "Esto elimina permanentemente tus datos de Inbox Zero y desconecta {connectedEmailList}. Tus correos no se ven afectados."
+
+#: app/(app)/[emailAccountId]/assistant/RuleNotFoundState.tsx
+msgid "This rule no longer exists. It may have been deleted."
+msgstr "Esta regla ya no existe. Es posible que se haya eliminado."
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "This signature is too long."
+msgstr "Esta firma es demasiado larga."
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "This Slack app is not distributed to every workspace yet. Use the currently supported workspace or contact support."
@@ -1683,13 +4430,37 @@ msgstr "Jueves"
 msgid "Thursday 2:00 PM to 2:30 PM. Join with video link"
 msgstr "Jueves de 14:00 a 14:30. Únete con el enlace de videollamada"
 
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm.tsx
+msgid "Title"
+msgstr "Título"
+
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+#: utils/action-item.ts
+msgid "To"
+msgstr "Para"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
 msgid "To Reply"
 msgstr "To Reply"
 
+#. placeholder {0}: rule.to
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "To: {0}"
+msgstr "Para: {0}"
+
+#: app/(app)/[emailAccountId]/assistant/History.tsx
+#: utils/mcp/tool-specs-messages.ts
+msgid "Today"
+msgstr "Hoy"
+
 #: app/(app)/[emailAccountId]/settings/SentWithSignatureSection.tsx
 msgid "Toggle 'Sent with {BRAND_NAME}'"
 msgstr "Activar o desactivar 'Enviado con {BRAND_NAME}'"
+
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Toggle {channelLabel} draft delivery"
+msgstr "Activar o desactivar la entrega de borradores en {channelLabel}"
 
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "Toggle automatic AI draft cleanup"
@@ -1699,9 +4470,21 @@ msgstr "Activar o desactivar la limpieza automática de borradores de IA"
 msgid "Toggle dark mode"
 msgstr "Activar o desactivar el modo oscuro"
 
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Toggle email draft delivery"
+msgstr "Activar o desactivar la entrega de borradores por correo"
+
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "Toggle menu"
+msgstr "Mostrar u ocultar menú"
+
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "Toggle read status"
 msgstr "Activar o desactivar el estado de lectura"
+
+#: utils/mcp/tool-specs-messages.ts
+msgid "Tomorrow"
+msgstr "Mañana"
 
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "Transfer from"
@@ -1715,14 +4498,62 @@ msgstr "Transferir reglas"
 msgid "Transfer rules to {targetAccountEmail}"
 msgstr "Transferir reglas a {targetAccountEmail}"
 
+#. placeholder {0}: TRIAL_BULK_PROCESS_EMAIL_LIMIT.toLocaleString()
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Trials can process up to {0} past emails at a time."
+msgstr "Durante la prueba gratuita puedes procesar hasta {0} correos anteriores a la vez."
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Tuesday"
 msgstr "Martes"
 
+#: app/(app)/[emailAccountId]/assistant/settings/MultiRuleSetting.tsx
+msgid "Turning this off stops the AI from intentionally choosing multiple custom rules for one email. Inbox Zero can still apply more than one rule in a few special cases."
+msgstr "Si desactivas esta opción, la IA dejará de elegir intencionadamente varias reglas personalizadas para un mismo correo. Inbox Zero aún puede aplicar más de una regla en algunos casos especiales."
+
+#: utils/automation-jobs/defaults.ts
+msgid "Twice daily"
+msgstr "Dos veces al día"
+
+#: app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting.tsx
+msgid "Typical Length: 2-3 sentences\n"
+"\n"
+"Formality: Informal but professional\n"
+"\n"
+"Common Greeting: Hey,\n"
+"\n"
+"Notable Traits:\n"
+"- Uses contractions frequently\n"
+"- Concise and direct responses\n"
+"- Minimal closings"
+msgstr "Longitud típica: 2-3 frases\n"
+"\n"
+"Formalidad: informal pero profesional\n"
+"\n"
+"Saludo habitual: Hola,\n"
+"\n"
+"Rasgos destacados:\n"
+"- Usa contracciones con frecuencia\n"
+"- Respuestas concisas y directas\n"
+"- Despedidas mínimas"
+
+#: app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog.tsx
+msgid "Unknown"
+msgstr "Desconocido"
+
+#: app/(app)/[emailAccountId]/assistant/History.tsx
+msgid "Unknown date"
+msgstr "Fecha desconocida"
+
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 msgid "Unknown error"
 msgstr "Error desconocido"
+
+#: app/(app)/[emailAccountId]/onboarding/category-messages.ts
+msgid "Unsolicited sales pitches and cold emails. We'll never block someone that's emailed you before"
+msgstr "Propuestas de venta no solicitadas y correos en frío. Nunca bloquearemos a alguien que ya te haya escrito antes"
 
 #. placeholder {0}: selectedSenders.length
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
@@ -1737,14 +4568,25 @@ msgstr "Cancela la suscripción a remitentes de esta bandeja de entrada."
 msgid "Unsubscribe senders"
 msgstr "Cancelar suscripciones"
 
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm.tsx
+msgid "Update"
+msgstr "Actualizar"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Update inbox settings for this inbox."
 msgstr "Actualiza la configuración de esta bandeja de entrada."
 
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "Updated"
+msgstr "Actualizada"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SettingsTab.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
 msgid "Updates"
 msgstr "Novedades"
 
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm.tsx
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Upgrade"
 msgstr "Mejorar plan"
@@ -1753,29 +4595,112 @@ msgstr "Mejorar plan"
 msgid "Upgrade on the next step to process new emails automatically"
 msgstr "Mejora tu plan en el siguiente paso para procesar los correos nuevos automáticamente"
 
+#: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm.tsx
+msgid "Upgrade to add more knowledge base entries"
+msgstr "Mejora tu plan para añadir más entradas a la base de conocimiento"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DigestSetting.tsx
+msgid "Upgrade to the Plus plan to enable daily digest emails."
+msgstr "Mejora al plan Plus para activar los correos de resumen diarios."
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "Upgrade to the Plus plan to include emails in your digest."
+msgstr "Mejora al plan Plus para incluir correos en tu resumen."
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Upgrade to use include read emails"
+msgstr "Mejora tu plan para incluir correos leídos"
+
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Upgrade to use rerun rules on already processed emails"
+msgstr "Mejora tu plan para volver a ejecutar las reglas en correos ya procesados"
+
+#: app/(app)/[emailAccountId]/assistant/RuleStep.tsx
+msgid "Use AI draft"
+msgstr "Usar borrador de IA"
+
 #: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
 msgid "Use an optional decision model for rule matching and other structured decisions. Falls back to your AI model if unavailable."
 msgstr "Usa un modelo de decisión opcional para la coincidencia de reglas y otras decisiones estructuradas. Si no está disponible, se usa tu modelo de IA."
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Use as default"
+msgstr "Usar como predeterminada"
+
+#: app/(app)/[emailAccountId]/assistant/RuleStep.tsx
+msgid "Use label"
+msgstr "Usar etiqueta"
+
+#: app/(app)/[emailAccountId]/assistant/RuleStep.tsx
+msgid "Use prompt"
+msgstr "Usar instrucción"
+
+#. placeholder {0}: item.count
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Used in {0, plural, one {# recent email} other {# recent emails}}"
+msgstr "{0, plural, one {Usada en # correo reciente} other {Usada en # correos recientes}}"
+
+#: app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting.tsx
+msgid "Used to draft replies in your voice."
+msgstr "Se usa para redactar respuestas con tu estilo."
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Usually sent within 5 minutes."
 msgstr "Normalmente se envía en menos de 5 minutos."
 
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "Variable Examples"
+msgstr "Ejemplos de variables"
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting.tsx
+msgid "View"
+msgstr "Ver"
+
+#: app/(app)/[emailAccountId]/assistant/LearnedPatternExclusionHint.tsx
+msgid "View exclusions"
+msgstr "Ver exclusiones"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "View keys"
 msgstr "Ver claves"
+
+#: app/(app)/[emailAccountId]/assistant/group/LearnedPatterns.tsx
+msgid "View learned patterns"
+msgstr "Ver patrones aprendidos"
+
+#: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+msgid "View matching rule"
+msgstr "Ver regla coincidente"
 
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "View rules"
 msgstr "Ver reglas"
 
+#: app/(app)/[emailAccountId]/assistant/ThreadSkipHint.tsx
+msgid "View skipped rules"
+msgstr "Ver reglas omitidas"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "View test brief in Gmail"
 msgstr "Ver el informe de prueba en Gmail"
 
+#: app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting.tsx
+msgid "View the patterns the assistant has learned from your email history."
+msgstr "Consulta los patrones que el asistente ha aprendido de tu historial de correo."
+
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "View usage"
 msgstr "Ver uso"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "View your follow-ups in Gmail."
+msgstr "Consulta tus seguimientos en Gmail."
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Want pings in your chat app? <0>Configure on the Channels page</0>."
+msgstr "¿Quieres avisos en tu app de chat? <0>Configúralos en la página de Canales</0>."
 
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "We categorized your last {count} emails and drafted replies. Nothing was archived."
@@ -1820,6 +4745,14 @@ msgstr "Etiquetamos tus últimos {count} correos. No se archivó nada."
 msgid "We'd love to know how you found us."
 msgstr "Nos encantaría saber cómo nos encontraste."
 
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "We'll add a <0>{FOLLOW_UP_LABEL}</0> category so you can easily find them. Saturdays and Sundays do not count."
+msgstr "Añadiremos una categoría <0>{FOLLOW_UP_LABEL}</0> para que los encuentres fácilmente. Los sábados y domingos no cuentan."
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "We'll add a <0>{FOLLOW_UP_LABEL}</0> label so you can easily find them. Saturdays and Sundays do not count."
+msgstr "Añadiremos una etiqueta <0>{FOLLOW_UP_LABEL}</0> para que los encuentres fácilmente. Los sábados y domingos no cuentan."
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepConnectCalendar.tsx
 msgid "We'll automatically detect your upcoming meetings with external guests and prepare personalized briefings."
 msgstr "Detectaremos automáticamente tus próximas reuniones con invitados externos y prepararemos informes personalizados."
@@ -1852,6 +4785,10 @@ msgstr "Secreto de webhook generado. Cópialo ahora, no se volverá a mostrar."
 msgid "Webhook secret regenerated. Copy it now, it will not be shown again."
 msgstr "Secreto de webhook regenerado. Cópialo ahora, no se volverá a mostrar."
 
+#: utils/action-item.ts
+msgid "Webhook URL"
+msgstr "URL del webhook"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Wednesday"
 msgstr "Miércoles"
@@ -1859,6 +4796,14 @@ msgstr "Miércoles"
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Week"
 msgstr "Semana"
+
+#: app/(app)/[emailAccountId]/assistant/settings/cron-schedule-messages.ts
+msgid "Weekdays"
+msgstr "Entre semana"
+
+#: app/(app)/[emailAccountId]/assistant/settings/cron-schedule-messages.ts
+msgid "Weekends"
+msgstr "Fines de semana"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
 msgid "Weekly digest"
@@ -1884,6 +4829,30 @@ msgstr "Lo que lanzamos en octubre"
 msgid "What's the size of your company?"
 msgstr "¿De qué tamaño es tu empresa?"
 
+#: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+msgid "When enabled our AI will generate a value when processing the email. Put the prompt inside braces like so: {OPEN_VARIABLE}your prompt here{CLOSE_VARIABLE}."
+msgstr "Si está activado, nuestra IA generará un valor al procesar el correo. Pon la instrucción entre llaves así: {OPEN_VARIABLE}tu instrucción aquí{CLOSE_VARIABLE}."
+
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "When enabled, never match this pattern."
+msgstr "Si está activado, nunca coincidir con este patrón."
+
+#: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
+msgid "When I get an email"
+msgstr "Cuando reciba un correo"
+
+#: app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting.tsx
+msgid "When the AI processes your emails, it learns which senders or email types consistently match the same rules. For example, it might learn that emails from newsletter@example.com always match your \"Newsletter\" rule. These learned patterns help the AI make faster, more accurate decisions over time. You can view, edit, or remove patterns that have been learned."
+msgstr "Cuando la IA procesa tus correos, aprende qué remitentes o tipos de correo coinciden siempre con las mismas reglas. Por ejemplo, puede aprender que los correos de newsletter@example.com siempre coinciden con tu regla \"Newsletter\". Estos patrones aprendidos ayudan a la IA a tomar decisiones más rápidas y precisas con el tiempo. Puedes ver, editar o eliminar los patrones aprendidos."
+
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "When these patterns are encountered, the rule will automatically match:"
+msgstr "Cuando se detecten estos patrones, la regla coincidirá automáticamente:"
+
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "When these patterns are encountered, the rule will never match:"
+msgstr "Cuando se detecten estos patrones, la regla nunca coincidirá:"
+
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
 msgid "Where did you hear about us?"
 msgstr "¿Dónde nos conociste?"
@@ -1896,10 +4865,19 @@ msgstr "Editar reglas"
 msgid "Write settings"
 msgstr "Editar configuración"
 
+#: app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting.tsx
+msgid "Writing style"
+msgstr "Estilo de redacción"
+
+#: app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting.tsx
+msgid "Writing style saved!"
+msgstr "¡Estilo de redacción guardado!"
+
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "Yes, please"
 msgstr "Sí, por favor"
 
+#: app/(app)/[emailAccountId]/assistant/History.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Yesterday"
@@ -1913,9 +4891,25 @@ msgstr "Puedes gestionar tu suscripción haciendo clic en \"Manage Subscription\
 msgid "You can manage your subscription from your iPhone or iPad subscription settings."
 msgstr "Puedes gestionar tu suscripción desde la configuración de suscripciones de tu iPhone o iPad."
 
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "You can only have one condition of each type."
+msgstr "Solo puedes tener una condición de cada tipo."
+
+#: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+msgid "You can only set one condition for this rule."
+msgstr "Solo puedes definir una condición para esta regla."
+
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "You can set your own custom categories later"
 msgstr "Puedes crear tus propias categorías personalizadas más adelante"
+
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+msgid "You don't have any AI rules set up. The test won't match anything. Please create AI rules first."
+msgstr "No tienes ninguna regla de IA configurada. La prueba no coincidirá con nada. Crea primero reglas de IA."
+
+#: app/(app)/[emailAccountId]/assistant/Rules.tsx
+msgid "You don't have any rules yet."
+msgstr "Todavía no tienes reglas."
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "You'll get a brief like this before every external meeting, automatically."
@@ -1924,6 +4918,19 @@ msgstr "Recibirás automáticamente un informe como este antes de cada reunión 
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "You're on grandfathered Stripe pricing. The current plan prices shown elsewhere in the app are for new subscriptions."
 msgstr "Tienes un precio heredado de Stripe. Los precios de los planes que se muestran en otras partes de la app son para suscripciones nuevas."
+
+#: app/(app)/[emailAccountId]/assistant/AllRulesDisabledBanner.tsx
+msgid "Your AI Assistant isn't processing emails because all rules are disabled. Enable them to get started."
+msgstr "Tu Asistente de IA no está procesando correos porque todas las reglas están desactivadas. Actívalas para empezar."
+
+#: app/(app)/[emailAccountId]/assistant/RulesTabNew.tsx
+msgid "Your assistant automatically organizes incoming emails using these rules."
+msgstr "Tu asistente organiza automáticamente los correos entrantes usando estas reglas."
+
+#. placeholder {0}: state.rateLimitResumeAt.toLocaleTimeString()
+#: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
+msgid "Your email provider is limiting requests, so processing is paused. It will continue automatically around {0}."
+msgstr "Tu proveedor de correo está limitando las solicitudes, así que el procesamiento está en pausa. Continuará automáticamente alrededor de {0}."
 
 #: app/(app)/[emailAccountId]/onboarding/StepEmailsSorted.tsx
 msgid "Your inbox, automatically sorted"
@@ -1936,3 +4943,15 @@ msgstr "¡Tu perfil se ha actualizado!"
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Your receipt #2041"
 msgstr "Tu recibo n.º 2041"
+
+#: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+msgid "Your recent sent mail only uses signatures you have."
+msgstr "Tus correos enviados recientes solo usan firmas que ya tienes."
+
+#: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
+msgid "Your signature preview will appear here..."
+msgstr "La vista previa de tu firma aparecerá aquí..."
+
+#: app/(app)/[emailAccountId]/assistant/settings/SettingsTab.tsx
+msgid "Your voice"
+msgstr "Tu voz"

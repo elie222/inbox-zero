@@ -1,3 +1,6 @@
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+
 export type MessagingPlatform = "slack" | "teams" | "telegram";
 export type MessagingProvider = "SLACK" | "TEAMS" | "TELEGRAM";
 
@@ -15,10 +18,12 @@ export function getMessagingProviderName(
 
 export function getConnectAppLabel(
   providers: ReadonlyArray<MessagingProvider | MessagingPlatform>,
+  i18n: I18n,
 ): string {
   const names = providers.map(getMessagingProviderName);
-  if (names.length === 0) return "Connect app";
-  if (names.length === 1) return `Connect ${names[0]}`;
-  if (names.length === 2) return `Connect ${names[0]} or ${names[1]}`;
-  return `Connect ${names.slice(0, -1).join(", ")}, or ${names.at(-1)}`;
+  if (names.length === 0) return i18n._(msg`Connect app`);
+  const providerList = new Intl.ListFormat(i18n.locale, {
+    type: "disjunction",
+  }).format(names);
+  return i18n._(msg`Connect ${providerList}`);
 }

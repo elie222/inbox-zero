@@ -8,13 +8,17 @@ import {
   useRef,
 } from "react";
 import { PlusIcon, UserPenIcon } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import {
   SimpleRichTextEditor,
   type SimpleRichTextEditorRef,
 } from "@/components/editor/SimpleRichTextEditor";
 import { LoadingContent } from "@/components/LoadingContent";
-import { getPersonas } from "@/app/(app)/[emailAccountId]/assistant/examples";
+import {
+  getPersonas,
+  type Personas,
+} from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/assistant/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -32,6 +36,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { convertMentionsToLabels } from "@/utils/mention";
 
 export function RulesPrompt({ onSubmitted }: { onSubmitted?: () => void }) {
+  const { i18n } = useLingui();
   const { provider } = useAccount();
   const { isModalOpen, setIsModalOpen } = useModal();
   const onOpenPersonaDialog = useCallback(
@@ -40,16 +45,15 @@ export function RulesPrompt({ onSubmitted }: { onSubmitted?: () => void }) {
   );
 
   const [persona, setPersona] = useState<string | null>(null);
-  const personas = getPersonas(provider);
+  const personas = getPersonas(provider, i18n);
 
   const examples = persona
-    ? personas[persona as keyof typeof personas]?.promptArray
+    ? personas[persona as keyof typeof personas]?.examples
     : undefined;
 
   return (
     <>
       <RulesPromptForm
-        provider={provider}
         examples={examples}
         onOpenPersonaDialog={onOpenPersonaDialog}
         onHideExamples={() => setPersona(null)}
@@ -66,18 +70,17 @@ export function RulesPrompt({ onSubmitted }: { onSubmitted?: () => void }) {
 }
 
 function RulesPromptForm({
-  provider,
   examples,
   onOpenPersonaDialog,
   onHideExamples,
   onSubmitted,
 }: {
-  provider: string;
-  examples?: string[];
+  examples?: Personas[keyof Personas]["examples"];
   onOpenPersonaDialog: () => void;
   onHideExamples: () => void;
   onSubmitted?: () => void;
 }) {
+  const { t } = useLingui();
   const { mutate } = useRules();
   const { userLabels, isLoading: isLoadingLabels } = useLabels();
   const { chat, submitTextMessage } = useChat();
@@ -95,14 +98,14 @@ function RulesPromptForm({
     const prompt = convertMentionsToLabels(markdown).trim();
     if (prompt === "") {
       toastError({
-        description: "Please enter a prompt to create rules",
+        description: t`Please enter a prompt to create rules`,
       });
       return;
     }
 
     if (chat.status !== "ready") {
       toastError({
-        description: "Please wait for the current chat response to finish.",
+        description: t`Please wait for the current chat response to finish.`,
       });
       return;
     }
@@ -122,6 +125,7 @@ function RulesPromptForm({
       if (!submitted || !onSubmitted) setIsSubmitting(false);
     }
   }, [
+    t,
     chat.status,
     isMobile,
     onSubmitted,
@@ -145,7 +149,7 @@ function RulesPromptForm({
             }}
           >
             <Label className="font-title text-xl leading-7">
-              Add new rules
+              <Trans>Add new rules</Trans>
             </Label>
 
             <div className="mt-1.5 space-y-2">
@@ -158,14 +162,14 @@ function RulesPromptForm({
                   defaultValue={undefined}
                   minHeight={180}
                   userLabels={userLabels}
-                  placeholder={`* Label urgent emails as "Urgent"
+                  placeholder={t`* Label urgent emails as "Urgent"
 * Forward receipts to jane@accounting.com`}
                 />
               </LoadingContent>
 
               <div className="flex flex-col sm:flex-row flex-wrap gap-2">
                 <Button type="submit" size="sm" loading={isSubmitting}>
-                  Create rules
+                  <Trans>Create rules</Trans>
                 </Button>
 
                 <Button
@@ -175,7 +179,11 @@ function RulesPromptForm({
                   onClick={examples ? onHideExamples : onOpenPersonaDialog}
                 >
                   <UserPenIcon className="mr-2 size-4" />
-                  {examples ? "Hide examples" : "Choose from examples"}
+                  {examples ? (
+                    <Trans>Hide examples</Trans>
+                  ) : (
+                    <Trans>Choose from examples</Trans>
+                  )}
                 </Button>
 
                 <Button
@@ -186,7 +194,7 @@ function RulesPromptForm({
                   onClick={() => ruleDialog.onOpen()}
                   Icon={PlusIcon}
                 >
-                  Add rule manually
+                  <Trans>Add rule manually</Trans>
                 </Button>
               </div>
             </div>
@@ -200,13 +208,11 @@ function RulesPromptForm({
 
       {examples && (
         <div className="mt-2">
-          <Label className="font-title text-xl leading-7">Examples</Label>
+          <Label className="font-title text-xl leading-7">
+            <Trans>Examples</Trans>
+          </Label>
           <div className="mt-1.5">
-            <ExamplesGrid
-              examples={examples}
-              onSelect={addExamplePrompt}
-              provider={provider}
-            />
+            <ExamplesGrid examples={examples} onSelect={addExamplePrompt} />
           </div>
         </div>
       )}

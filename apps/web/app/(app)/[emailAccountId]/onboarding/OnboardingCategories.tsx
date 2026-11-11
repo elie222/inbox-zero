@@ -30,6 +30,7 @@ import type {
   CategoryConfig,
 } from "@/utils/actions/rule.validation";
 import { categoryConfig } from "@/utils/category-config";
+import { CATEGORY_TOOLTIP_MESSAGES } from "@/app/(app)/[emailAccountId]/onboarding/category-messages";
 import { usePersona } from "@/hooks/usePersona";
 import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
 import {
@@ -57,6 +58,7 @@ export function CategoriesSetup({
   provider: string;
   onNext: () => void;
 }) {
+  const { i18n } = useLingui();
   const { isLoading, error } = usePersona();
 
   // State for managing suggested and basic categories separately
@@ -135,12 +137,15 @@ export function CategoriesSetup({
             (c) => c.key === category.name,
           );
           if (!config) return null;
+          const tooltipMessage = CATEGORY_TOOLTIP_MESSAGES[config.key];
           return (
             <CategoryCard
               key={config.label}
               index={index}
               label={config.label}
-              description={config.tooltipText}
+              description={
+                tooltipMessage ? i18n._(tooltipMessage) : config.tooltipText
+              }
               Icon={config.Icon}
               iconColor={config.iconColor}
               update={updateBasicCategory}
