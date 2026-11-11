@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ export function ResetAnalyticsSection({
 }: {
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
   const { executeAsync: executeResetAnalytics } = useAction(
     resetAnalyticsAction.bind(null, emailAccountId),
   );
@@ -27,8 +29,12 @@ export function ResetAnalyticsSection({
       <ItemSeparator />
       <Item size="sm">
         <ItemContent>
-          <ItemTitle>Reset Analytics</ItemTitle>
-          <ItemDescription>Permanently delete all analytics</ItemDescription>
+          <ItemTitle>
+            <Trans>Reset Analytics</Trans>
+          </ItemTitle>
+          <ItemDescription>
+            <Trans>Permanently delete all analytics</Trans>
+          </ItemDescription>
         </ItemContent>
         <ItemActions>
           <Button
@@ -36,17 +42,18 @@ export function ResetAnalyticsSection({
             variant="outline"
             onClick={async () => {
               toast.promise(() => executeResetAnalytics(), {
-                loading: "Resetting analytics...",
+                loading: t`Resetting analytics...`,
                 success: () =>
-                  "Analytics reset! Visit the Unsubscriber or Analytics page and click the 'Load More' button to reload your data.",
-                error: (err: unknown) =>
-                  `Error resetting analytics: ${
-                    err instanceof Error ? err.message : "Unknown error"
-                  }`,
+                  t`Analytics reset! Visit the Unsubscriber or Analytics page and click the 'Load More' button to reload your data.`,
+                error: (err: unknown) => {
+                  const message =
+                    err instanceof Error ? err.message : t`Unknown error`;
+                  return t`Error resetting analytics: ${message}`;
+                },
               });
             }}
           >
-            Reset
+            <Trans>Reset</Trans>
           </Button>
         </ItemActions>
       </Item>

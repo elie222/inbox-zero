@@ -1,5 +1,7 @@
 "use client";
 
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
@@ -15,13 +17,13 @@ import {
 import { isLabelsKey } from "@/hooks/useLabels";
 import { resetLabelColorsAction } from "@/utils/actions/mail";
 import { getActionErrorMessage } from "@/utils/error";
-import { pluralize } from "@/utils/string";
 
 export function ResetLabelColorsSection({
   emailAccountId,
 }: {
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
   const { mutate } = useSWRConfig();
   const { execute, isExecuting } = useAction(
     resetLabelColorsAction.bind(null, emailAccountId),
@@ -31,16 +33,25 @@ export function ResetLabelColorsSection({
         if (!data) return;
         if (data.failed > 0) {
           toast.error(
-            `Reset ${pluralizeLabels(data.updated)}, but ${pluralizeLabels(data.failed)} couldn't be updated. Please try again.`,
+            t`Reset ${plural(data.updated, {
+              one: "# label",
+              other: "# labels",
+            })}, but ${plural(data.failed, {
+              one: "# label",
+              other: "# labels",
+            })} couldn't be updated. Please try again.`,
           );
           return;
         }
         if (data.updated === 0) {
-          toast.success("Label colors are already set to the defaults.");
+          toast.success(t`Label colors are already set to the defaults.`);
           return;
         }
         toast.success(
-          `Reset ${pluralizeLabels(data.updated)} to the default colors.`,
+          t`${plural(data.updated, {
+            one: "Reset # label to the default colors.",
+            other: "Reset # labels to the default colors.",
+          })}`,
         );
       },
       onError: ({ error }) => {
@@ -54,10 +65,14 @@ export function ResetLabelColorsSection({
       <ItemSeparator />
       <Item size="sm">
         <ItemContent>
-          <ItemTitle>Reset Label Colors</ItemTitle>
+          <ItemTitle>
+            <Trans>Reset Label Colors</Trans>
+          </ItemTitle>
           <ItemDescription>
-            Restore the default colors for Inbox Zero labels like To Reply and
-            Newsletter
+            <Trans>
+              Restore the default colors for Inbox Zero labels like To Reply and
+              Newsletter
+            </Trans>
           </ItemDescription>
         </ItemContent>
         <ItemActions>
@@ -67,14 +82,10 @@ export function ResetLabelColorsSection({
             loading={isExecuting}
             onClick={() => execute()}
           >
-            Reset
+            <Trans>Reset</Trans>
           </Button>
         </ItemActions>
       </Item>
     </>
   );
-}
-
-function pluralizeLabels(count: number) {
-  return `${count} ${pluralize(count, "label")}`;
 }

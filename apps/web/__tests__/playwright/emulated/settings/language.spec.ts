@@ -27,6 +27,10 @@ test("switches the app language from settings and keeps it across reloads", asyn
   ).toBeVisible({ timeout: 60_000 });
   await capturePlaywrightCheckpoint(page, testInfo, "settings-spanish");
 
+  const deleteAccount = page.getByText("Eliminar cuenta", { exact: true });
+  await deleteAccount.scrollIntoViewIfNeeded({ timeout: 60_000 });
+  await capturePlaywrightCheckpoint(page, testInfo, "settings-spanish-account");
+
   await chooseLanguage(page, "Idioma", "English");
 
   await expect(

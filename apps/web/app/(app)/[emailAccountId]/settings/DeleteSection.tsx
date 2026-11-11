@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -32,6 +33,7 @@ import { useAccounts } from "@/hooks/useAccounts";
 import { LoadingContent } from "@/components/LoadingContent";
 
 export function DeleteSection() {
+  const { i18n, t } = useLingui();
   const { onCancelLoadBatch } = useStatLoader();
   const { premium } = usePremium();
   const {
@@ -41,9 +43,18 @@ export function DeleteSection() {
   } = useAccounts();
   const connectedEmails =
     accountsData?.emailAccounts.map((account) => account.email) ?? [];
-  const connectedEmailParts = new Intl.ListFormat("en", {
+  const connectedEmailParts = new Intl.ListFormat(i18n.locale, {
     type: "conjunction",
   }).formatToParts(connectedEmails);
+  const connectedEmailList = connectedEmailParts.map((part, index) =>
+    part.type === "element" ? (
+      <span key={index} className="font-medium text-foreground">
+        {part.value}
+      </span>
+    ) : (
+      part.value
+    ),
+  );
   const hasAppleSubscription = hasActiveAppleSubscription(
     premium?.appleExpiresAt || null,
     premium?.appleRevokedAt || null,
@@ -74,12 +85,12 @@ export function DeleteSection() {
         if (result?.serverError) throw new Error(result.serverError);
       },
       {
-        loading: "Deleting account...",
-        success: "Account deleted!",
-        error: (err: unknown) =>
-          `Error deleting account: ${
-            err instanceof Error ? err.message : "Unknown error"
-          }`,
+        loading: t`Deleting account...`,
+        success: t`Account deleted!`,
+        error: (err: unknown) => {
+          const message = err instanceof Error ? err.message : t`Unknown error`;
+          return t`Error deleting account: ${message}`;
+        },
       },
     );
   };
@@ -89,41 +100,47 @@ export function DeleteSection() {
   return (
     <Item size="sm">
       <ItemContent>
-        <ItemTitle>Delete account</ItemTitle>
+        <ItemTitle>
+          <Trans>Delete account</Trans>
+        </ItemTitle>
         <ItemDescription>
-          Removes your Inbox Zero data. Your emails aren't affected.
+          <Trans>
+            Removes your Inbox Zero data. Your emails aren't affected.
+          </Trans>
         </ItemDescription>
       </ItemContent>
       <ItemActions>
         <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <AlertDialogTrigger asChild>
             <Button variant="destructiveSoft" size="sm">
-              Delete
+              <Trans>Delete</Trans>
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
                 {shouldBlockDeletion
-                  ? "Cancel subscription first"
-                  : "Delete your Inbox Zero account?"}
+                  ? t`Cancel subscription first`
+                  : t`Delete your Inbox Zero account?`}
               </AlertDialogTitle>
               <AlertDialogDescription asChild>
                 <div>
                   {shouldBlockDeletion ? (
                     <>
                       <p className="mb-3">
-                        Please cancel your subscription before deleting your
-                        account.
+                        <Trans>
+                          Please cancel your subscription before deleting your
+                          account.
+                        </Trans>
                       </p>
                       <p className="mb-3">
                         {hasAppleSubscription ? (
-                          <>
+                          <Trans>
                             You can manage your subscription from your iPhone or
                             iPad subscription settings.
-                          </>
+                          </Trans>
                         ) : (
-                          <>
+                          <Trans>
                             You can manage your subscription by clicking "Manage
                             Subscription" above or going to the{" "}
                             <Link
@@ -134,12 +151,14 @@ export function DeleteSection() {
                               premium page
                             </Link>{" "}
                             and clicking "Manage subscription".
-                          </>
+                          </Trans>
                         )}
                       </p>
                       <p className="text-sm text-gray-600">
-                        Already cancelled your subscription? Click the button
-                        below to proceed.
+                        <Trans>
+                          Already cancelled your subscription? Click the button
+                          below to proceed.
+                        </Trans>
                       </p>
                     </>
                   ) : (
@@ -149,21 +168,11 @@ export function DeleteSection() {
                         error={accountsError}
                       >
                         <p>
-                          This permanently deletes your Inbox Zero data and
-                          disconnects{" "}
-                          {connectedEmailParts.map((part, index) =>
-                            part.type === "element" ? (
-                              <span
-                                key={index}
-                                className="font-medium text-foreground"
-                              >
-                                {part.value}
-                              </span>
-                            ) : (
-                              part.value
-                            ),
-                          )}
-                          . Your emails aren't affected.
+                          <Trans>
+                            This permanently deletes your Inbox Zero data and
+                            disconnects {connectedEmailList}. Your emails aren't
+                            affected.
+                          </Trans>
                         </p>
                       </LoadingContent>
                       {connectedEmails.length > 1 && (
@@ -172,7 +181,7 @@ export function DeleteSection() {
                           className="text-foreground underline"
                           onClick={() => setIsDialogOpen(false)}
                         >
-                          Remove just one account instead
+                          <Trans>Remove just one account instead</Trans>
                         </Link>
                       )}
                     </div>
@@ -181,7 +190,9 @@ export function DeleteSection() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel>
+                <Trans>Cancel</Trans>
+              </AlertDialogCancel>
               {shouldBlockDeletion ? (
                 <AlertDialogAction
                   onClick={(event) => {
@@ -190,7 +201,7 @@ export function DeleteSection() {
                     setHasConfirmedCancellation(true);
                   }}
                 >
-                  I've already cancelled my subscription
+                  <Trans>I've already cancelled my subscription</Trans>
                 </AlertDialogAction>
               ) : (
                 <AlertDialogAction
@@ -198,7 +209,7 @@ export function DeleteSection() {
                   disabled={!accountsData || Boolean(accountsError)}
                   onClick={handleDeleteAccount}
                 >
-                  Delete account
+                  <Trans>Delete account</Trans>
                 </AlertDialogAction>
               )}
             </AlertDialogFooter>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { env } from "@/env";
 import { useAction } from "next-safe-action/hooks";
 import { usePremium } from "@/hooks/usePremium";
@@ -29,6 +30,7 @@ import { getActionErrorMessage } from "@/utils/error";
 import { updateStripeInvoiceEmailsAction } from "@/utils/actions/premium";
 
 export function BillingSection() {
+  const { t } = useLingui();
   const {
     data,
     premium,
@@ -48,7 +50,7 @@ export function BillingSection() {
     onError: (error) => {
       toastError({
         description: getActionErrorMessage(error.error, {
-          prefix: "Failed to update invoice emails",
+          prefix: t`Failed to update invoice emails`,
         }),
       });
     },
@@ -80,25 +82,35 @@ export function BillingSection() {
       {premium && isPremium ? (
         <Item size="sm">
           <ItemContent>
-            <ItemTitle>{getPremiumTierName(tier)} plan</ItemTitle>
+            <ItemTitle>
+              <Trans>{getPremiumTierName(tier)} plan</Trans>
+            </ItemTitle>
             {hasAppleSubscription ? (
               <ItemDescription>
-                This subscription is billed through Apple. Manage or cancel it
-                from your iPhone or iPad subscription settings.
+                <Trans>
+                  This subscription is billed through Apple. Manage or cancel it
+                  from your iPhone or iPad subscription settings.
+                </Trans>
               </ItemDescription>
             ) : isLegacyStripePlan ? (
               <ItemDescription>
-                You&apos;re on grandfathered Stripe pricing. The current plan
-                prices shown elsewhere in the app are for new subscriptions.
+                <Trans>
+                  You&apos;re on grandfathered Stripe pricing. The current plan
+                  prices shown elsewhere in the app are for new subscriptions.
+                </Trans>
               </ItemDescription>
             ) : premium.stripeSubscriptionStatus === "trialing" ? (
-              <ItemDescription>Free trial</ItemDescription>
+              <ItemDescription>
+                <Trans>Free trial</Trans>
+              </ItemDescription>
             ) : null}
           </ItemContent>
           <ItemActions className="flex-wrap justify-end">
             {!hasAppleSubscription && (
               <Button asChild variant="outline" size="sm">
-                <Link href="/premium">Change plan</Link>
+                <Link href="/premium">
+                  <Trans>Change plan</Trans>
+                </Link>
               </Button>
             )}
             <ManageSubscription premium={premium} compact />
@@ -111,18 +123,22 @@ export function BillingSection() {
       ) : premium?.stripeSubscriptionStatus === "paused" ? (
         <Item size="sm">
           <ItemContent>
-            <ItemTitle>{getPremiumTierName(premium.tier)} plan</ItemTitle>
+            <ItemTitle>
+              <Trans>{getPremiumTierName(premium.tier)} plan</Trans>
+            </ItemTitle>
             {/* Customers can't pause or resume in the Stripe portal, so a
                 paused subscription is resumed by support. */}
             <ItemDescription>
-              Paused. Contact{" "}
-              <a
-                href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
-                className="underline"
-              >
-                {env.NEXT_PUBLIC_SUPPORT_EMAIL}
-              </a>{" "}
-              to resume it.
+              <Trans>
+                Paused. Contact{" "}
+                <a
+                  href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
+                  className="underline"
+                >
+                  {env.NEXT_PUBLIC_SUPPORT_EMAIL}
+                </a>{" "}
+                to resume it.
+              </Trans>
             </ItemDescription>
           </ItemContent>
           <ItemActions className="flex-wrap justify-end">
@@ -132,12 +148,16 @@ export function BillingSection() {
       ) : (
         <Item size="sm">
           <ItemContent>
-            <ItemTitle>No active plan</ItemTitle>
+            <ItemTitle>
+              <Trans>No active plan</Trans>
+            </ItemTitle>
           </ItemContent>
           <ItemActions>
             {premium && <ViewInvoicesButton premium={premium} />}
             <Button asChild variant="outline" size="sm">
-              <Link href="/premium">Upgrade</Link>
+              <Link href="/premium">
+                <Trans>Upgrade</Trans>
+              </Link>
             </Button>
           </ItemActions>
         </Item>
@@ -148,14 +168,18 @@ export function BillingSection() {
           <ItemSeparator />
           <Item size="sm">
             <ItemContent>
-              <ItemTitle>Email paid invoices</ItemTitle>
+              <ItemTitle>
+                <Trans>Email paid invoices</Trans>
+              </ItemTitle>
               <ItemDescription>
-                Automatically send each Stripe invoice to the billing email.
+                <Trans>
+                  Automatically send each Stripe invoice to the billing email.
+                </Trans>
               </ItemDescription>
             </ItemContent>
             <ItemActions>
               <Switch
-                aria-label="Email paid Stripe invoices"
+                aria-label={t`Email paid Stripe invoices`}
                 checked={premium.stripeInvoiceEmailsEnabled}
                 disabled={isExecuting}
                 onCheckedChange={handleInvoiceEmailToggle}
