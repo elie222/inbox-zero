@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "next/link";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { useAction } from "next-safe-action/hooks";
@@ -51,6 +52,7 @@ import {
 type DriveView = "onboarding" | "setup" | "settings";
 
 export default function DrivePage() {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { data, isLoading, error } = useDriveConnections();
   const {
@@ -84,18 +86,18 @@ export default function DrivePage() {
 
         if (result?.serverError) {
           toastError({
-            title: "Error saving preferences",
+            title: t`Error saving preferences`,
             description: result.serverError,
           });
         } else {
-          toastSuccess({ description: "Preferences saved" });
+          toastSuccess({ description: t`Preferences saved` });
           mutateEmail();
         }
       } finally {
         setIsSaving(false);
       }
     },
-    [emailAccountId, mutateEmail],
+    [emailAccountId, mutateEmail, t],
   );
 
   return (
@@ -109,7 +111,7 @@ export default function DrivePage() {
         {view === "settings" && (
           <>
             <div className="flex items-center justify-between">
-              <PageHeader title="Auto-file attachments" />
+              <PageHeader title={t`Auto-file attachments`} />
               <div className="flex items-center gap-3">
                 <DeliveryPopover
                   emailAccountId={emailAccountId}
@@ -118,7 +120,11 @@ export default function DrivePage() {
                   }
                   onEmailDeliveryUpdated={mutateEmail}
                 />
-                {!filingEnabled && <Badge variant="destructive">Paused</Badge>}
+                {!filingEnabled && (
+                  <Badge variant="destructive">
+                    <Trans>Paused</Trans>
+                  </Badge>
+                )}
                 <Switch
                   checked={filingEnabled}
                   onCheckedChange={handleToggle}
@@ -164,6 +170,7 @@ function DeliveryPopover({
   filingConfirmationSendEmail: boolean;
   onEmailDeliveryUpdated: () => Promise<unknown>;
 }) {
+  const { t } = useLingui();
   const { data, isLoading, mutate } = useMessagingChannels();
   const {
     execute: executeEmailDelivery,
@@ -172,12 +179,13 @@ function DeliveryPopover({
     updateFilingConfirmationEmailAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Settings saved" });
+        toastSuccess({ description: t`Settings saved` });
         onEmailDeliveryUpdated();
       },
       onError: (error) => {
         toastError({
-          description: getActionErrorMessage(error.error) ?? "Failed to update",
+          description:
+            getActionErrorMessage(error.error) ?? t`Failed to update`,
         });
       },
     },
@@ -198,15 +206,17 @@ function DeliveryPopover({
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm">
-          Delivery
+          <Trans>Delivery</Trans>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80">
         <div className="space-y-3">
           <div>
-            <h4 className="text-sm font-medium">Delivery</h4>
+            <h4 className="text-sm font-medium">
+              <Trans>Delivery</Trans>
+            </h4>
             <MutedText className="text-xs">
-              Choose how filing updates should reach you
+              <Trans>Choose how filing updates should reach you</Trans>
             </MutedText>
           </div>
 
@@ -214,7 +224,9 @@ function DeliveryPopover({
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <MailIcon className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Email confirmations</span>
+                <span className="text-sm">
+                  <Trans>Email confirmations</Trans>
+                </span>
               </div>
               <Toggle
                 name="filing-email-delivery"
@@ -224,14 +236,18 @@ function DeliveryPopover({
               />
             </div>
             <MutedText className="text-xs">
-              Questions that need your input still arrive by email.
+              <Trans>
+                Questions that need your input still arrive by email.
+              </Trans>
             </MutedText>
           </div>
 
           {!isLoading &&
             (configurableChannels.length > 0 || slackAvailable) && (
               <div className="space-y-2 border-t pt-3">
-                <MutedText className="text-xs">Connected apps</MutedText>
+                <MutedText className="text-xs">
+                  <Trans>Connected apps</Trans>
+                </MutedText>
                 {configurableChannels.length > 0 ? (
                   <div className="space-y-2">
                     {configurableChannels.map((channel) => (
@@ -245,21 +261,25 @@ function DeliveryPopover({
                   </div>
                 ) : (
                   <MutedText className="text-xs">
-                    Select a destination in{" "}
-                    <Link
-                      href={prefixPath(emailAccountId, "/channels")}
-                      className="underline text-foreground"
-                    >
-                      Channels
-                    </Link>{" "}
-                    to enable app notifications.
+                    <Trans>
+                      Select a destination in{" "}
+                      <Link
+                        href={prefixPath(emailAccountId, "/channels")}
+                        className="underline text-foreground"
+                      >
+                        Channels
+                      </Link>{" "}
+                      to enable app notifications.
+                    </Trans>
                   </MutedText>
                 )}
               </div>
             )}
 
           {isLoading && (
-            <MutedText className="text-xs">Loading connected apps...</MutedText>
+            <MutedText className="text-xs">
+              <Trans>Loading connected apps...</Trans>
+            </MutedText>
           )}
         </div>
       </PopoverContent>
@@ -281,6 +301,7 @@ function DeliveryChannelRow({
   emailAccountId: string;
   onUpdate: () => void;
 }) {
+  const { t } = useLingui();
   const destination = getMessagingFeatureRouteSummary(
     channel.destinations,
     MessagingRoutePurpose.DOCUMENT_FILINGS,
@@ -293,12 +314,13 @@ function DeliveryChannelRow({
     updateMessagingFeatureRouteAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Settings saved" });
+        toastSuccess({ description: t`Settings saved` });
         onUpdate();
       },
       onError: (error) => {
         toastError({
-          description: getActionErrorMessage(error.error) ?? "Failed to update",
+          description:
+            getActionErrorMessage(error.error) ?? t`Failed to update`,
         });
       },
     },
@@ -322,13 +344,15 @@ function DeliveryChannelRow({
               isDm={destination.isDm}
               canSendAsDm={channel.canSendAsDm}
               onUpdate={onUpdate}
-              placeholder="Select destination"
+              placeholder={t`Select destination`}
               className="h-8 w-44 text-xs"
             />
           ) : (
             <MutedText className="text-xs">
-              Filing updates use this connected app&apos;s direct message
-              destination.
+              <Trans>
+                Filing updates use this connected app&apos;s direct message
+                destination.
+              </Trans>
             </MutedText>
           )}
         </div>

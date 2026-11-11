@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { MoreVertical, Trash2, XCircle } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import type { GetDriveConnectionsResponse } from "@/app/api/user/drive/connections/route";
@@ -40,6 +41,7 @@ export function DriveConnectionCard({
 }: {
   connection: DriveConnection;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { mutate } = useDriveConnections();
   const providerInfo = getProviderInfo(connection.provider);
@@ -48,12 +50,12 @@ export function DriveConnectionCard({
     useAction(disconnectDriveAction.bind(null, emailAccountId));
 
   const handleDisconnect = async () => {
-    if (confirm("Are you sure you want to disconnect this drive?")) {
+    if (confirm(t`Are you sure you want to disconnect this drive?`)) {
       const result = await executeDisconnect({ connectionId: connection.id });
 
       if (result?.serverError) {
         toastError({
-          title: "Error disconnecting drive",
+          title: t`Error disconnecting drive`,
           description: result.serverError,
         });
       } else {
@@ -77,7 +79,9 @@ export function DriveConnectionCard({
       {!connection.isConnected && (
         <div className="flex items-center gap-1 text-red-600">
           <XCircle className="h-3 w-3" />
-          <span className="text-xs">Disconnected</span>
+          <span className="text-xs">
+            <Trans>Disconnected</Trans>
+          </span>
         </div>
       )}
       <DropdownMenu>
@@ -85,7 +89,7 @@ export function DriveConnectionCard({
           <Button
             variant="ghost"
             size="icon2xs"
-            aria-label="Connection options"
+            aria-label={t`Connection options`}
           >
             <MoreVertical className="h-4 w-4" />
           </Button>
@@ -97,7 +101,7 @@ export function DriveConnectionCard({
             className="text-red-600 focus:text-red-600"
           >
             <Trash2 className="mr-2 h-4 w-4" />
-            Disconnect
+            <Trans>Disconnect</Trans>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

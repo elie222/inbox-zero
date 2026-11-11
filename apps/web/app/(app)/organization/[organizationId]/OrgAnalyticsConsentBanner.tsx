@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { ShieldCheckIcon } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ActionCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -13,6 +14,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
 
 export function OrgAnalyticsConsentBanner() {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { data, isLoading, mutate } = useOrganizationMembership();
 
@@ -20,13 +22,13 @@ export function OrgAnalyticsConsentBanner() {
     updateAnalyticsConsentAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Analytics access granted to admins!" });
+        toastSuccess({ description: t`Analytics access granted to admins!` });
         mutate();
       },
       onError: (error) => {
         toastError({
           description: getActionErrorMessage(error.error, {
-            prefix: "Failed to update settings",
+            prefix: t`Failed to update settings`,
           }),
         });
       },
@@ -44,10 +46,12 @@ export function OrgAnalyticsConsentBanner() {
   const isAdmin = hasOrganizationAdminRole(data.role ?? "");
 
   const title = isAdmin
-    ? "Include your analytics in organization stats"
-    : "Allow organization admins to view your analytics";
+    ? t`Include your analytics in organization stats`
+    : t`Allow organization admins to view your analytics`;
 
-  const description = `Your email analytics are currently private. Enable access to let${isAdmin ? " other " : " "}organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively.`;
+  const description = isAdmin
+    ? t`Your email analytics are currently private. Enable access to let other organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively.`
+    : t`Your email analytics are currently private. Enable access to let organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively.`;
 
   return (
     <ActionCard
@@ -58,7 +62,7 @@ export function OrgAnalyticsConsentBanner() {
       description={description}
       action={
         <Button onClick={handleAllow} loading={isPending}>
-          Allow Access
+          <Trans>Allow Access</Trans>
         </Button>
       }
     />

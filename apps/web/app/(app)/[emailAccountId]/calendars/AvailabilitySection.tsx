@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
 import { CardBasic } from "@/components/ui/card";
@@ -24,10 +25,14 @@ export function AvailabilitySection() {
     <section className="space-y-3">
       <CardBasic className="px-4 py-4">
         <div className="mb-1">
-          <h3 className="font-medium">Availability</h3>
+          <h3 className="font-medium">
+            <Trans>Availability</Trans>
+          </h3>
           <p className="text-sm text-muted-foreground">
-            Set the hours your assistant can suggest when scheduling meetings
-            over email.
+            <Trans>
+              Set the hours your assistant can suggest when scheduling meetings
+              over email.
+            </Trans>
           </p>
         </div>
 
@@ -58,6 +63,7 @@ function AvailabilityEditor({
   data: GetAvailabilityResponse;
   onSaved: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId } = useAccount();
 
   const controller = useWeeklyHours(
@@ -68,21 +74,21 @@ function AvailabilityEditor({
     updateDefaultAvailabilityAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Availability updated" });
+        toastSuccess({ description: t`Availability updated` });
         onSaved();
       },
       onError: (actionError) => {
         toastError({
           description:
             getActionErrorMessage(actionError.error) ??
-            "Failed to update availability",
+            t`Failed to update availability`,
         });
       },
     },
   );
 
   const handleSave = () => {
-    const collected = collectWindows(controller.days);
+    const collected = collectWindows(controller.days, i18n);
     if (collected.windows === null) {
       toastError({ description: collected.error });
       return;
@@ -96,11 +102,13 @@ function AvailabilityEditor({
       <WeeklyHoursEditor controller={controller} />
       <div className="flex items-center justify-between gap-4">
         <p className="text-xs text-muted-foreground">
-          We hide times where you already have events on your connected
-          calendar.
+          <Trans>
+            We hide times where you already have events on your connected
+            calendar.
+          </Trans>
         </p>
         <Button onClick={handleSave} loading={isSaving}>
-          Save
+          <Trans>Save</Trans>
         </Button>
       </div>
     </div>

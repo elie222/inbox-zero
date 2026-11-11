@@ -7,7 +7,7 @@ export default defineConfig({
   catalogs: [
     {
       path: "<rootDir>/locales/{locale}/messages",
-      include: ["app", "components", "hooks", "providers", "utils"],
+      include: ["app", "components", "hooks", "lib", "providers", "utils"],
       exclude: ["**/*.test.*", "**/__tests__/**"],
     },
   ],

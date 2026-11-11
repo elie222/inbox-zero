@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "next/link";
 import {
   BellIcon,
@@ -98,28 +101,28 @@ const PROVIDER_ORDER: MessagingProvider[] = ["SLACK", "TEAMS", "TELEGRAM"];
 
 const CHANNEL_FEATURES: Array<{
   purpose: MessagingFeatureRoutePurpose;
-  name: string;
-  description: string;
+  name: MessageDescriptor;
+  description: MessageDescriptor;
 }> = [
   {
     purpose: MessagingRoutePurpose.MEETING_BRIEFS,
-    name: "Meeting briefs",
-    description: "Get a summary before your meetings.",
+    name: msg`Meeting briefs`,
+    description: msg`Get a summary before your meetings.`,
   },
   {
     purpose: MessagingRoutePurpose.FOLLOW_UPS,
-    name: "Follow-up reminders",
-    description: "Get nudged about emails that need a follow-up.",
+    name: msg`Follow-up reminders`,
+    description: msg`Get nudged about emails that need a follow-up.`,
   },
   {
     purpose: MessagingRoutePurpose.DIGESTS,
-    name: "Digests",
-    description: "Receive your scheduled digest in chat.",
+    name: msg`Digests`,
+    description: msg`Receive your scheduled digest in chat.`,
   },
   {
     purpose: MessagingRoutePurpose.DOCUMENT_FILINGS,
-    name: "Document filing alerts",
-    description: "Notifications when documents are auto-filed.",
+    name: msg`Document filing alerts`,
+    description: msg`Notifications when documents are auto-filed.`,
   },
 ];
 
@@ -128,6 +131,7 @@ type ChannelFromResponse = GetMessagingChannelsResponse["channels"][number];
 type Rule = RulesResponse[number];
 
 export function Channels() {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { tier, isLoading: isLoadingPremium } = usePremium();
   const hasDigestAccess = hasTierAccess({
@@ -188,12 +192,11 @@ export function Channels() {
   return (
     <div className="mx-auto max-w-2xl space-y-10">
       <PageHeader
-        title="Channels"
-        description="Manage what gets delivered to your chat apps."
+        title={t`Channels`}
+        description={t`Manage what gets delivered to your chat apps.`}
         video={{
-          title: "Getting started with Slack and Telegram",
-          description:
-            "Learn how to get important emails in Slack or Telegram and send drafted replies from there.",
+          title: t`Getting started with Slack and Telegram`,
+          description: t`Learn how to get important emails in Slack or Telegram and send drafted replies from there.`,
           muxPlaybackId: "QbtTl00g2Gjx3JhM016Xkei0202zW4qpsF302rp01sRQHaf028",
         }}
       />
@@ -242,7 +245,9 @@ export function Channels() {
           {connectedChannels.length === 0 &&
             unconnectedProviders.length === 0 && (
               <ItemCard className="py-8 text-center">
-                <MutedText>No channels available.</MutedText>
+                <MutedText>
+                  <Trans>No channels available.</Trans>
+                </MutedText>
               </ItemCard>
             )}
         </div>
@@ -253,12 +258,12 @@ export function Channels() {
 
 const INTRO_FEATURES: Array<{
   icon: React.ElementType;
-  label: string;
+  label: MessageDescriptor;
 }> = [
-  { icon: MailIcon, label: "Important emails" },
-  { icon: MessageCircleReplyIcon, label: "Drafted replies" },
-  { icon: CalendarClockIcon, label: "Meeting briefs" },
-  { icon: SunIcon, label: "Daily summary" },
+  { icon: MailIcon, label: msg`Important emails` },
+  { icon: MessageCircleReplyIcon, label: msg`Drafted replies` },
+  { icon: CalendarClockIcon, label: msg`Meeting briefs` },
+  { icon: SunIcon, label: msg`Daily summary` },
 ];
 
 function ChannelsIntro({
@@ -266,27 +271,38 @@ function ChannelsIntro({
 }: {
   availableProviders: MessagingProvider[];
 }) {
-  const providerList = formatProviderList(availableProviders);
+  const { i18n } = useLingui();
+  const providerList = formatProviderList(availableProviders, i18n.locale);
 
   return (
     <section className="rounded-xl border border-blue-100 bg-blue-50/40 p-6 dark:border-blue-950 dark:bg-blue-950/20">
       <h2 className="flex items-start gap-2 text-lg font-semibold tracking-tight">
         <BellIcon className="mt-1 size-5 shrink-0 text-blue-600 dark:text-blue-400" />
-        <span>Inbox Zero where you work.</span>
+        <span>
+          <Trans>Inbox Zero where you work.</Trans>
+        </span>
       </h2>
       <MutedText className="mt-2 text-sm">
-        Important emails, pre-drafted replies, meeting briefs, and a daily inbox
-        summary
-        {providerList ? `, delivered to ${providerList}` : ""}.
+        {providerList ? (
+          <Trans>
+            Important emails, pre-drafted replies, meeting briefs, and a daily
+            inbox summary, delivered to {providerList}.
+          </Trans>
+        ) : (
+          <Trans>
+            Important emails, pre-drafted replies, meeting briefs, and a daily
+            inbox summary.
+          </Trans>
+        )}
       </MutedText>
       <div className="mt-5 flex flex-wrap gap-2">
         {INTRO_FEATURES.map(({ icon: Icon, label }) => (
           <div
-            key={label}
+            key={label.id}
             className="flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium"
           >
             <Icon className="size-3.5 text-muted-foreground" />
-            {label}
+            {i18n._(label)}
           </div>
         ))}
       </div>
@@ -294,10 +310,10 @@ function ChannelsIntro({
   );
 }
 
-function formatProviderList(providers: MessagingProvider[]) {
+function formatProviderList(providers: MessagingProvider[], locale: string) {
   if (providers.length === 0) return null;
   const names = sortProviders(providers).map((p) => PROVIDER_CONFIG[p].name);
-  return new Intl.ListFormat("en", { type: "disjunction" }).format(names);
+  return new Intl.ListFormat(locale, { type: "disjunction" }).format(names);
 }
 
 function SectionGroup({
@@ -336,6 +352,7 @@ function ConnectedChannelSection({
   hasDigestAccess: boolean;
   onUpdate: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const analytics = useProductAnalytics("channels");
   const config = PROVIDER_CONFIG[channel.provider];
   const isSlack = channel.provider === "SLACK";
@@ -347,13 +364,13 @@ function ConnectedChannelSection({
         analytics.captureAction("channel_disconnected", {
           provider: channel.provider,
         });
-        toastSuccess({ description: `${config.name} disconnected` });
+        toastSuccess({ description: t`${config.name} disconnected` });
         onUpdate();
       },
       onError: (error) => {
         toastError({
           description:
-            getActionErrorMessage(error.error) ?? "Failed to disconnect",
+            getActionErrorMessage(error.error) ?? t`Failed to disconnect`,
         });
       },
     },
@@ -388,7 +405,9 @@ function ConnectedChannelSection({
       title={config.name}
       badge={
         <div className="flex items-center gap-1">
-          <Badge color="green">Connected</Badge>
+          <Badge color="green">
+            <Trans>Connected</Trans>
+          </Badge>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -405,7 +424,7 @@ function ConnectedChannelSection({
                 className="text-destructive focus:text-destructive"
               >
                 <LogOutIcon className="mr-2 h-4 w-4" />
-                Disconnect {config.name}
+                <Trans>Disconnect {config.name}</Trans>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -415,9 +434,13 @@ function ConnectedChannelSection({
       <ItemCard>
         <Item size="sm">
           <ItemContent>
-            <ItemTitle>Rule notifications</ItemTitle>
+            <ItemTitle>
+              <Trans>Rule notifications</Trans>
+            </ItemTitle>
             <ItemDescription>
-              Choose which rules send notifications and where they go.
+              <Trans>
+                Choose which rules send notifications and where they go.
+              </Trans>
             </ItemDescription>
           </ItemContent>
           {isSlack && (
@@ -451,7 +474,9 @@ function ConnectedChannelSection({
           ) : (
             <Item size="sm">
               <ItemContent>
-                <MutedText className="text-sm">No rules</MutedText>
+                <MutedText className="text-sm">
+                  <Trans>No rules</Trans>
+                </MutedText>
               </ItemContent>
             </Item>
           )}
@@ -486,8 +511,8 @@ function ConnectedChannelSection({
                 </>
               )}
               <FeatureRouteToggle
-                name={feature.name}
-                description={feature.description}
+                name={i18n._(feature.name)}
+                description={i18n._(feature.description)}
                 purpose={feature.purpose}
                 messagingChannelId={channel.id}
                 destination={destination}
@@ -498,7 +523,7 @@ function ConnectedChannelSection({
                 disabled={disabled}
                 upgradeTooltip={
                   digestLocked
-                    ? "Upgrade to the Plus plan to deliver digests to chat."
+                    ? t`Upgrade to the Plus plan to deliver digests to chat.`
                     : undefined
                 }
               />
@@ -519,6 +544,7 @@ function UnconnectedProviderSection({
   emailAccountId: string;
   onConnected: () => void;
 }) {
+  const { t } = useLingui();
   const config = PROVIDER_CONFIG[provider];
   const analytics = useProductAnalytics("channels");
   const { connect: connectSlack, connecting: connectingSlack } =
@@ -547,7 +573,7 @@ function UnconnectedProviderSection({
       onError: (error) => {
         toastError({
           description:
-            getActionErrorMessage(error.error) ?? "Failed to generate code",
+            getActionErrorMessage(error.error) ?? t`Failed to generate code`,
         });
       },
     },
@@ -582,9 +608,11 @@ function UnconnectedProviderSection({
         <ItemCard>
           <Item size="sm">
             <ItemContent>
-              <ItemTitle>Connect {config.name}</ItemTitle>
+              <ItemTitle>
+                <Trans>Connect {config.name}</Trans>
+              </ItemTitle>
               <ItemDescription>
-                Receive notifications via {config.name}.
+                <Trans>Receive notifications via {config.name}.</Trans>
               </ItemDescription>
             </ItemContent>
             <ItemActions>
@@ -594,7 +622,7 @@ function UnconnectedProviderSection({
                 disabled={isLoading}
                 onClick={handleConnect}
               >
-                Connect
+                <Trans>Connect</Trans>
               </Button>
             </ItemActions>
           </Item>
@@ -619,25 +647,33 @@ function LinkCodeDialog({
   } | null;
   onClose: () => void;
 }) {
+  const { t } = useLingui();
   if (!dialog) return null;
 
   const providerName = dialog.provider === "TEAMS" ? "Teams" : "Telegram";
   const command = `/connect ${dialog.code}`;
   const openBotLabel =
-    dialog.provider === "TEAMS" ? "Open Teams app" : "Open Telegram bot";
+    dialog.provider === "TEAMS" ? t`Open Teams app` : t`Open Telegram bot`;
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Connect {providerName}</DialogTitle>
+          <DialogTitle>
+            <Trans>Connect {providerName}</Trans>
+          </DialogTitle>
           <DialogDescription>
-            Send this command in a direct message with the Inbox Zero bot on{" "}
-            {providerName}. The code is one-time use and expires in 10 minutes.
+            <Trans>
+              Send this command in a direct message with the Inbox Zero bot on{" "}
+              {providerName}. The code is one-time use and expires in 10
+              minutes.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <div className="text-xs text-muted-foreground">Command</div>
+          <div className="text-xs text-muted-foreground">
+            <Trans>Command</Trans>
+          </div>
           <CopyInput value={command} />
         </div>
         {dialog.botUrl && (
@@ -667,6 +703,7 @@ function RuleToggle({
   emailAccountId: string;
   onUpdate: () => void;
 }) {
+  const { t } = useLingui();
   const analytics = useProductAnalytics("channels");
   const enabled = currentActionType !== null;
   const isDraft = currentActionType === "DRAFT_MESSAGING_CHANNEL";
@@ -683,12 +720,13 @@ function RuleToggle({
     toggleRuleChannelAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Settings saved" });
+        toastSuccess({ description: t`Settings saved` });
         onUpdate();
       },
       onError: (error) => {
         toastError({
-          description: getActionErrorMessage(error.error) ?? "Failed to update",
+          description:
+            getActionErrorMessage(error.error) ?? t`Failed to update`,
         });
       },
     },
@@ -715,7 +753,11 @@ function RuleToggle({
       <ItemContent>
         <div className="flex items-center gap-2">
           <ItemTitle>{rule.name}</ItemTitle>
-          {isDraft && <Badge color="green">Draft reply</Badge>}
+          {isDraft && (
+            <Badge color="green">
+              <Trans>Draft reply</Trans>
+            </Badge>
+          )}
         </div>
       </ItemContent>
       <ItemActions>
@@ -734,7 +776,7 @@ function RuleToggle({
                   <CheckIcon
                     className={`mr-2 h-4 w-4 ${isDraft ? "invisible" : ""}`}
                   />
-                  Notify only
+                  <Trans>Notify only</Trans>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => switchMode("DRAFT_MESSAGING_CHANNEL")}
@@ -742,7 +784,7 @@ function RuleToggle({
                   <CheckIcon
                     className={`mr-2 h-4 w-4 ${!isDraft ? "invisible" : ""}`}
                   />
-                  Draft reply in chat
+                  <Trans>Draft reply in chat</Trans>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -795,17 +837,19 @@ function FeatureRouteToggle({
   disabled?: boolean;
   upgradeTooltip?: string;
 }) {
+  const { t } = useLingui();
   const analytics = useProductAnalytics("channels");
   const { execute, status } = useAction(
     updateMessagingFeatureRouteAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Settings saved" });
+        toastSuccess({ description: t`Settings saved` });
         onUpdate();
       },
       onError: (error) => {
         toastError({
-          description: getActionErrorMessage(error.error) ?? "Failed to update",
+          description:
+            getActionErrorMessage(error.error) ?? t`Failed to update`,
         });
       },
     },
@@ -867,6 +911,7 @@ function FeatureRouteAction({
   purpose: MessagingFeatureRoutePurpose;
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
 
   if (
@@ -879,7 +924,7 @@ function FeatureRouteAction({
         : prefixPath(emailAccountId, "/drive");
 
     return (
-      <Tooltip content="Open settings">
+      <Tooltip content={t`Open settings`}>
         <Button asChild variant="ghost" size="iconSm">
           <Link href={href}>
             <ChevronRightIcon className="h-4 w-4" />
@@ -891,7 +936,7 @@ function FeatureRouteAction({
 
   return (
     <>
-      <Tooltip content="Configure">
+      <Tooltip content={t`Configure`}>
         <Button variant="ghost" size="iconSm" onClick={() => setOpen(true)}>
           <Settings2Icon className="h-4 w-4" />
         </Button>

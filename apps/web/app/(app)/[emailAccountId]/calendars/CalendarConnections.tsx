@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { CalendarCheckIcon, FileTextIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -25,20 +26,20 @@ export function CalendarConnections() {
             <CardContent className="pt-6">
               <div className="space-y-2">
                 <TypographyP className="text-sm">
-                  Connect your calendar to unlock:
+                  <Trans>Connect your calendar to unlock:</Trans>
                 </TypographyP>
 
                 <TypographyP className="text-sm flex items-center gap-2">
                   <CalendarCheckIcon className="size-4 text-blue-600" />
                   <span className="min-w-0">
-                    AI replies based on your real availability
+                    <Trans>AI replies based on your real availability</Trans>
                   </span>
                 </TypographyP>
 
                 <TypographyP className="text-sm flex items-center gap-2">
                   <FileTextIcon className="size-4 text-blue-600" />
                   <span className="min-w-0">
-                    Meeting briefs before every call
+                    <Trans>Meeting briefs before every call</Trans>
                   </span>
                 </TypographyP>
               </div>
@@ -70,6 +71,7 @@ function useCalendarNotifications() {
   const router = useRouter();
   const pathname = usePathname();
   const analytics = useProductAnalytics("calendars");
+  const { t } = useLingui();
 
   useEffect(() => {
     const errorParam = searchParams.get("error");
@@ -81,52 +83,44 @@ function useCalendarNotifications() {
       { title: string; description: string }
     > = {
       consent_declined: {
-        title: "Calendar consent not granted",
-        description:
-          "Microsoft reported AADSTS65004, which means the consent screen was canceled or not completed. Please complete consent and try again.",
+        title: t`Calendar consent not granted`,
+        description: t`Microsoft reported AADSTS65004, which means the consent screen was canceled or not completed. Please complete consent and try again.`,
       },
       admin_consent_required: {
-        title: "Admin consent required",
-        description:
-          "Your Microsoft 365 tenant requires admin approval. Ask an admin to grant consent for this app in Entra ID, then retry.",
+        title: t`Admin consent required`,
+        description: t`Your Microsoft 365 tenant requires admin approval. Ask an admin to grant consent for this app in Entra ID, then retry.`,
       },
       access_denied: {
-        title: "Calendar access denied",
-        description:
-          "Microsoft denied the request. Please try again or ask your admin to approve access.",
+        title: t`Calendar access denied`,
+        description: t`Microsoft denied the request. Please try again or ask your admin to approve access.`,
       },
       invalid_state: {
-        title: "Invalid calendar request",
-        description:
-          "This calendar authorization request was invalid. Please try again.",
+        title: t`Invalid calendar request`,
+        description: t`This calendar authorization request was invalid. Please try again.`,
       },
       invalid_state_format: {
-        title: "Invalid calendar request",
-        description:
-          "We couldn't validate the calendar authorization. Please try again.",
+        title: t`Invalid calendar request`,
+        description: t`We couldn't validate the calendar authorization. Please try again.`,
       },
       missing_code: {
-        title: "Calendar authorization canceled",
-        description:
-          "We didn't receive an authorization code from Microsoft. Please retry the connection.",
+        title: t`Calendar authorization canceled`,
+        description: t`We didn't receive an authorization code from Microsoft. Please retry the connection.`,
       },
       connection_failed: {
-        title: "Calendar connection failed",
-        description:
-          "We couldn't complete the calendar connection. Please try again.",
+        title: t`Calendar connection failed`,
+        description: t`We couldn't complete the calendar connection. Please try again.`,
       },
       oauth_error: {
-        title: "Calendar connection failed",
-        description:
-          "Microsoft returned an OAuth error. Please try again or contact support.",
+        title: t`Calendar connection failed`,
+        description: t`Microsoft returned an OAuth error. Please try again or contact support.`,
       },
     };
 
     const errorMessage = errorMessages[errorParam] || {
-      title: "Calendar connection failed",
+      title: t`Calendar connection failed`,
       description:
         errorDescription ||
-        "We couldn't complete the calendar connection. Please try again.",
+        t`We couldn't complete the calendar connection. Please try again.`,
     };
 
     toastError({
@@ -138,5 +132,5 @@ function useCalendarNotifications() {
     });
 
     router.replace(pathname);
-  }, [analytics, pathname, router, searchParams]);
+  }, [analytics, pathname, router, searchParams, t]);
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Copy, ExternalLink, Link2, Settings2, Zap } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useForm, type SubmitHandler } from "react-hook-form";
@@ -64,6 +65,7 @@ function BookingLinksWithInboxZeroLink() {
 }
 
 function InboxZeroBookingLinkPanel() {
+  const { t } = useLingui();
   const { emailAccountId, emailAccount } = useAccount();
   const { data, isLoading, error, mutate } = useBookingLinks();
   const [configureLinkId, setConfigureLinkId] = useState<string | null>(null);
@@ -82,13 +84,13 @@ function InboxZeroBookingLinkPanel() {
     createBookingLinkAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Booking link created" });
+        toastSuccess({ description: t`Booking link created` });
       },
       onError: (actionError) => {
         toastError({
           description:
             getActionErrorMessage(actionError.error) ??
-            "Failed to create booking link",
+            t`Failed to create booking link`,
         });
       },
     },
@@ -102,7 +104,7 @@ function InboxZeroBookingLinkPanel() {
         toastError({
           description:
             getActionErrorMessage(actionError.error) ??
-            "Failed to update booking link",
+            t`Failed to update booking link`,
         });
       },
     },
@@ -175,6 +177,7 @@ function CalendarBookingLinkCard({
 }: {
   disabledByInboxZeroLink?: boolean;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const analytics = useProductAnalytics("calendars");
   const { data, isLoading, error, mutate } = useCalendars();
@@ -187,7 +190,7 @@ function CalendarBookingLinkCard({
         analytics.captureAction("calendar_booking_link_saved", {
           had_existing_booking_link: Boolean(calendarBookingLink),
         });
-        toastSuccess({ description: "Booking link updated!" });
+        toastSuccess({ description: t`Booking link updated!` });
         mutate();
       },
     },
@@ -206,8 +209,8 @@ function CalendarBookingLinkCard({
 
   return (
     <SettingCard
-      title="Calendar Booking Link"
-      description="Your booking link for the AI to share when scheduling meetings"
+      title={t`Calendar Booking Link`}
+      description={t`Your booking link for the AI to share when scheduling meetings`}
       collapseOnMobile
       right={
         <LoadingContent
@@ -217,7 +220,7 @@ function CalendarBookingLinkCard({
         >
           {disabledByInboxZeroLink ? (
             <span className="text-sm text-muted-foreground">
-              Using Inbox Zero booking link
+              <Trans>Using Inbox Zero booking link</Trans>
             </span>
           ) : data ? (
             <CalendarBookingLinkForm
@@ -271,7 +274,7 @@ function CalendarBookingLinkForm({
         size="sm"
         className="w-full sm:w-auto"
       >
-        Save
+        <Trans>Save</Trans>
       </Button>
     </form>
   );
@@ -281,16 +284,20 @@ function EmptyLinkCard({ onCreate }: { onCreate: () => void }) {
   return (
     <CardBasic className="px-4 py-4">
       <div className="mb-1 flex items-center gap-2">
-        <h3 className="font-medium">Booking link</h3>
+        <h3 className="font-medium">
+          <Trans>Booking link</Trans>
+        </h3>
         <Badge variant="info" size="xs">
-          New
+          <Trans>New</Trans>
         </Badge>
       </div>
       <p className="mb-4 text-sm text-muted-foreground">
-        Create a link people can use to book time on your calendar.
+        <Trans>
+          Create a link people can use to book time on your calendar.
+        </Trans>
       </p>
       <Button onClick={onCreate} Icon={Zap}>
-        Create booking link
+        <Trans>Create booking link</Trans>
       </Button>
     </CardBasic>
   );
@@ -307,6 +314,7 @@ function ActiveLinkCard({
   onToggle: (next: boolean) => void;
   onConfigure: () => void;
 }) {
+  const { t } = useLingui();
   const publicUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/book/${link.slug}`
@@ -317,9 +325,9 @@ function ActiveLinkCard({
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(publicUrl);
-      toastSuccess({ description: "Booking link copied" });
+      toastSuccess({ description: t`Booking link copied` });
     } catch {
-      toastError({ description: "Failed to copy booking link" });
+      toastError({ description: t`Failed to copy booking link` });
     }
   };
 
@@ -328,16 +336,18 @@ function ActiveLinkCard({
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="font-medium">Booking link</h3>
+            <h3 className="font-medium">
+              <Trans>Booking link</Trans>
+            </h3>
             {!isActive ? (
               <Badge variant="muted" size="sm">
                 <span className="size-1.5 rounded-full bg-muted-foreground/60" />
-                Inactive
+                <Trans>Inactive</Trans>
               </Badge>
             ) : null}
           </div>
           <p className="text-sm text-muted-foreground">
-            Used by our AI to schedule appointments over email.
+            <Trans>Used by our AI to schedule appointments over email.</Trans>
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -345,7 +355,7 @@ function ActiveLinkCard({
             checked={isActive}
             disabled={isToggling}
             onCheckedChange={onToggle}
-            aria-label="Toggle booking link"
+            aria-label={t`Toggle booking link`}
           />
           <Button
             variant="outline"
@@ -353,7 +363,7 @@ function ActiveLinkCard({
             Icon={Settings2}
             onClick={onConfigure}
           >
-            Configure
+            <Trans>Configure</Trans>
           </Button>
         </div>
       </div>
@@ -379,8 +389,8 @@ function ActiveLinkCard({
               type="button"
               onClick={handleCopy}
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-              aria-label="Copy booking link"
-              title="Copy booking link"
+              aria-label={t`Copy booking link`}
+              title={t`Copy booking link`}
             >
               <Copy className="size-4" />
             </button>
@@ -389,14 +399,16 @@ function ActiveLinkCard({
               target="_blank"
               rel="noreferrer"
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-              aria-label="Open booking link"
-              title="Open booking link"
+              aria-label={t`Open booking link`}
+              title={t`Open booking link`}
             >
               <ExternalLink className="size-4" />
             </a>
           </>
         ) : (
-          <span className="text-[11px] text-muted-foreground">not live</span>
+          <span className="text-[11px] text-muted-foreground">
+            <Trans>not live</Trans>
+          </span>
         )}
       </div>
     </CardBasic>

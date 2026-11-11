@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { LockIcon, MessageSquareIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import {
@@ -27,7 +28,7 @@ export function SlackNotificationTargetSelect({
   canSendAsDm,
   onUpdate,
   onValueChange,
-  placeholder = "Select channel",
+  placeholder,
   className = "h-8 w-[180px] [&>span]:min-w-0 [&>span]:text-left",
   disabled = false,
 }: {
@@ -45,6 +46,7 @@ export function SlackNotificationTargetSelect({
   className?: string;
   disabled?: boolean;
 }) {
+  const { t } = useLingui();
   const {
     data: targetsData,
     isLoading,
@@ -52,6 +54,7 @@ export function SlackNotificationTargetSelect({
     mutate: mutateTargets,
   } = useChannelTargets(messagingChannelId, emailAccountId);
 
+  const botName = env.NEXT_PUBLIC_SLACK_BOT_NAME;
   const privateTargets = targetsData?.targets ?? [];
   const hasError = Boolean(error || targetsData?.error);
   const selectedValue = value ?? (isDm ? "dm" : (targetId ?? ""));
@@ -59,6 +62,7 @@ export function SlackNotificationTargetSelect({
   const selectedTargetId =
     selectedValue && selectedValue !== "dm" ? selectedValue : targetId;
   const selectedTargetLabel = getSelectedTargetLabel({
+    directMessageLabel: t`Direct message`,
     isDm: selectedIsDm,
     targetId: selectedTargetId,
     targetLabel,
@@ -70,14 +74,14 @@ export function SlackNotificationTargetSelect({
     updateSlackRouteAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Destination updated" });
+        toastSuccess({ description: t`Destination updated` });
         onUpdate();
       },
       onError: (actionError) => {
         toastError({
           description:
             getActionErrorMessage(actionError.error) ??
-            "Failed to update destination",
+            t`Failed to update destination`,
         });
       },
     },
@@ -103,7 +107,11 @@ export function SlackNotificationTargetSelect({
       <SelectTrigger className={className}>
         <SelectValue
           placeholder={
-            isLoading ? "Loading..." : hasError ? "Failed to load" : placeholder
+            isLoading
+              ? t`Loading...`
+              : hasError
+                ? t`Failed to load`
+                : (placeholder ?? t`Select channel`)
           }
         >
           {selectedTargetLabel}
@@ -113,7 +121,7 @@ export function SlackNotificationTargetSelect({
         {canSendAsDm && (
           <SelectItem value="dm">
             <MessageSquareIcon className="mr-1 inline h-3 w-3" />
-            Direct message
+            <Trans>Direct message</Trans>
           </SelectItem>
         )}
         {privateTargets.map((target) => (
@@ -126,27 +134,31 @@ export function SlackNotificationTargetSelect({
           <div className="border-t px-2 py-1.5 text-xs text-muted-foreground">
             <div>
               {privateTargets.length === 0
-                ? "No channels found."
-                : "Don't see your channel?"}
+                ? t`No channels found.`
+                : t`Don't see your channel?`}
             </div>
             <div>
-              Invite the bot with{" "}
-              <code className="rounded bg-muted px-1">
-                /invite @{env.NEXT_PUBLIC_SLACK_BOT_NAME}
-              </code>
+              <Trans>
+                Invite the bot with{" "}
+                <code className="rounded bg-muted px-1">
+                  /invite @{botName}
+                </code>
+              </Trans>
             </div>
           </div>
         )}
         {hasError && (
           <div className="px-2 py-1.5 text-xs text-muted-foreground">
-            Failed to load channels.{" "}
-            <button
-              type="button"
-              className="underline underline-offset-4"
-              onClick={() => mutateTargets()}
-            >
-              Retry
-            </button>
+            <Trans>
+              Failed to load channels.{" "}
+              <button
+                type="button"
+                className="underline underline-offset-4"
+                onClick={() => mutateTargets()}
+              >
+                Retry
+              </button>
+            </Trans>
           </div>
         )}
       </SelectContent>
@@ -155,19 +167,21 @@ export function SlackNotificationTargetSelect({
 }
 
 function getSelectedTargetLabel({
+  directMessageLabel,
   isDm,
   targetId,
   targetLabel,
   privateTargets,
   isLoading,
 }: {
+  directMessageLabel: string;
   isDm: boolean;
   targetId: string | null;
   targetLabel: string | null;
   privateTargets: Array<{ id: string; name: string }>;
   isLoading: boolean;
 }) {
-  if (isDm) return "Direct message";
+  if (isDm) return directMessageLabel;
   if (!targetId) return targetLabel;
 
   const loadedTargetLabel = privateTargets.find(
