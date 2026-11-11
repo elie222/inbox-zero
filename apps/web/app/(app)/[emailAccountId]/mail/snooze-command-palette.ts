@@ -1,3 +1,5 @@
+import type { I18n } from "@lingui/core";
+import { t } from "@lingui/core/macro";
 import { format } from "date-fns";
 import * as chrono from "chrono-node";
 import type { Command } from "@/lib/commands/types";
@@ -6,21 +8,23 @@ export function buildSnoozeCommandPalette({
   now = new Date(),
   onSnooze,
   query,
+  i18n,
 }: {
+  i18n: I18n;
   now?: Date;
   onSnooze: (until: Date) => void;
   query: string;
 }): Command[] {
   const normalizedQuery = query.trim().toLowerCase();
-  const presets = getSnoozePresets(now, normalizedQuery);
+  const presets = getSnoozePresets(now, i18n, normalizedQuery);
   const naturalLanguageDate = presets.length
     ? null
-    : parseSnoozeDate(query, now);
+    : parseSnoozeDate(query, now, i18n.locale);
   if (naturalLanguageDate) {
     return [
       {
         id: "mail-snooze-natural-language",
-        label: `Snooze until ${formatSnoozeTime(naturalLanguageDate)}`,
+        label: t(i18n)`Snooze until ${formatSnoozeTime(naturalLanguageDate)}`,
         section: "actions",
         priority: 0,
         keywords: [query],
@@ -40,10 +44,21 @@ export function buildSnoozeCommandPalette({
   }));
 }
 
-export function parseSnoozeDate(input: string, now = new Date()) {
-  const result = chrono.casual.parse(input.trim(), now, {
-    forwardDate: true,
-  })[0];
+export function parseSnoozeDate(
+  input: string,
+  now = new Date(),
+  locale = "en",
+) {
+  // English stays as a fallback: people often type dates in English anyway.
+  const parsers = [LOCALE_DATE_PARSERS[locale], chrono.casual].filter(
+    (parser) => parser !== undefined,
+  );
+  const result = parsers
+    .map(
+      (parser) =>
+        parser.parse(input.trim(), now, { forwardDate: true })[0] ?? null,
+    )
+    .find((parsed) => parsed !== null);
   if (!result) return null;
 
   const date = result.start.date();
@@ -53,31 +68,40 @@ export function parseSnoozeDate(input: string, now = new Date()) {
   return date;
 }
 
+const LOCALE_DATE_PARSERS: Partial<Record<string, chrono.Chrono>> = {
+  es: chrono.es.casual,
+  fr: chrono.fr.casual,
+  de: chrono.de.casual,
+  pt: chrono.pt.casual,
+  it: chrono.it.casual,
+  nl: chrono.nl.casual,
+};
+
 const MORNING_HOUR = 9;
 const SUNDAY = 0;
 const FRIDAY = 5;
 const SATURDAY = 6;
 
-export function getSnoozePresets(now: Date, query = "") {
+export function getSnoozePresets(now: Date, i18n: I18n, query = "") {
   const candidates = [
     {
       id: "tomorrow",
-      label: "Tomorrow",
+      label: t(i18n)`Tomorrow`,
       until: atHour(now, 1, MORNING_HOUR),
     },
     {
       id: "end-of-week",
-      label: "End of week",
+      label: t(i18n)`End of week`,
       until: laterThisWeek(now, FRIDAY),
     },
     {
       id: "this-weekend",
-      label: "This weekend",
+      label: t(i18n)`This weekend`,
       until: now.getDay() === SUNDAY ? null : laterThisWeek(now, SATURDAY),
     },
     {
       id: "next-week",
-      label: "Next week",
+      label: t(i18n)`Next week`,
       until: atHour(now, daysUntilNextMonday(now), MORNING_HOUR),
     },
   ];

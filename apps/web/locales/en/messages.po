@@ -7,6 +7,20 @@ msgstr ""
 "X-Generator: @lingui/cli\n"
 "Language: en\n"
 
+#. placeholder {0}: item.name
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "“{0}” and its contents will be removed from your mailbox."
+msgstr "“{0}” and its contents will be removed from your mailbox."
+
+#. placeholder {0}: item.name
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "“{0}” will be removed from your mailbox. Emails using it will remain."
+msgstr "“{0}” will be removed from your mailbox. Emails using it will remain."
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "(no subject)"
+msgstr "(no subject)"
+
 #. placeholder {0}: result.skippedModified
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "{0, plural, one {# draft was kept because you edited it} other {# drafts were kept because you edited them}}"
@@ -17,15 +31,55 @@ msgstr "{0, plural, one {# draft was kept because you edited it} other {# drafts
 msgid "{0, plural, one {# email queued} other {# emails queued}}"
 msgstr "{0, plural, one {# email queued} other {# emails queued}}"
 
+#. placeholder {0}: reasonDisplay.actionFailureMessages.length
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "{0, plural, one {Action issue} other {Action issues}}"
+msgstr "{0, plural, one {Action issue} other {Action issues}}"
+
+#. placeholder {0}: threadKeys.length
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{0, plural, one {Couldn't queue snoozing} other {Couldn't queue snoozing conversations}}"
+msgstr "{0, plural, one {Couldn't queue snoozing} other {Couldn't queue snoozing conversations}}"
+
+#. placeholder {0}: snapshots.length
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{0, plural, one {Marked as read} other {Marked # conversations as read}}"
+msgstr "{0, plural, one {Marked as read} other {Marked # conversations as read}}"
+
+#. placeholder {0}: snapshots.length
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{0, plural, one {Marked as spam} other {Marked # conversations as spam}}"
+msgstr "{0, plural, one {Marked as spam} other {Marked # conversations as spam}}"
+
+#. placeholder {0}: snapshots.length
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{0, plural, one {Marked as unread} other {Marked # conversations as unread}}"
+msgstr "{0, plural, one {Marked as unread} other {Marked # conversations as unread}}"
+
 #. placeholder {0}: data.updated
 #: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
 msgid "{0, plural, one {Reset # label to the default colors.} other {Reset # labels to the default colors.}}"
 msgstr "{0, plural, one {Reset # label to the default colors.} other {Reset # labels to the default colors.}}"
 
+#. placeholder {0}: restored.length
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{0, plural, one {Restored} other {Restored # conversations}}"
+msgstr "{0, plural, one {Restored} other {Restored # conversations}}"
+
+#. placeholder {0}: snapshots.length
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{0, plural, one {Snoozed until {snoozedUntilLabel}} other {Snoozed # conversations}}"
+msgstr "{0, plural, one {Snoozed until {snoozedUntilLabel}} other {Snoozed # conversations}}"
+
 #. placeholder {0}: selectedRuleIds.size
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "{0, plural, one {Transfer # rule} other {Transfer # rules}}"
 msgstr "{0, plural, one {Transfer # rule} other {Transfer # rules}}"
+
+#. placeholder {0}: failedAttachment.filename
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "{0} isn't attached. Remove it or attach it again before sending."
+msgstr "{0} isn't attached. Remove it or attach it again before sending."
 
 #. placeholder {0}: selectedRuleIds.size
 #. placeholder {1}: rules.length
@@ -39,9 +93,45 @@ msgstr "{0} of {1} selected"
 msgid "{0} plan"
 msgstr "{0} plan"
 
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{count, plural, one {Archived} other {Archived # conversations}}"
+msgstr "{count, plural, one {Archived} other {Archived # conversations}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{count, plural, one {Deleted} other {Deleted # conversations}}"
+msgstr "{count, plural, one {Deleted} other {Deleted # conversations}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{count, plural, one {Label applied} other {Label applied to # conversations}}"
+msgstr "{count, plural, one {Label applied} other {Label applied to # conversations}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{count, plural, one {Moved to inbox} other {Moved # conversations to inbox}}"
+msgstr "{count, plural, one {Moved to inbox} other {Moved # conversations to inbox}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{count, plural, one {Moved} other {Moved # conversations}}"
+msgstr "{count, plural, one {Moved} other {Moved # conversations}}"
+
+#: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
+msgid "{countLabel} in this view"
+msgstr "{countLabel} in this view"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "{days, plural, one {# day after sending} other {# days after sending}}"
+msgstr "{days, plural, one {# day after sending} other {# days after sending}}"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "{days, plural, one {In # day} other {In # days}}"
+msgstr "{days, plural, one {In # day} other {In # days}}"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "{description} Details: {details}"
 msgstr "{description} Details: {details}"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "{labelSingular} name"
+msgstr "{labelSingular} name"
 
 #. placeholder {0}: connection.name
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
@@ -52,21 +142,114 @@ msgstr "{labelText} for {0}"
 msgid "{providerName} disconnected"
 msgstr "{providerName} disconnected"
 
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "{selectedCount} selected"
+msgstr "{selectedCount} selected"
+
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "{splitName} already includes {senderCount, plural, one {this sender} other {these senders}}"
+msgstr "{splitName} already includes {senderCount, plural, one {this sender} other {these senders}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Archive conversation} other {Archive # conversations}}"
+msgstr "{targetCount, plural, one {Archive conversation} other {Archive # conversations}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Delete conversation} other {Delete # conversations}}"
+msgstr "{targetCount, plural, one {Delete conversation} other {Delete # conversations}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Mark as read} other {Mark # as read}}"
+msgstr "{targetCount, plural, one {Mark as read} other {Mark # as read}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Mark as unread} other {Mark # as unread}}"
+msgstr "{targetCount, plural, one {Mark as unread} other {Mark # as unread}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Move to inbox} other {Move # conversations to inbox}}"
+msgstr "{targetCount, plural, one {Move to inbox} other {Move # conversations to inbox}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Snooze} other {Snooze # conversations}}"
+msgstr "{targetCount, plural, one {Snooze} other {Snooze # conversations}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Star} other {Star # conversations}}"
+msgstr "{targetCount, plural, one {Star} other {Star # conversations}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Unstar} other {Unstar # conversations}}"
+msgstr "{targetCount, plural, one {Unstar} other {Unstar # conversations}}"
+
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "{transferredCount, plural, one {# rule transferred} other {# rules transferred}}, {updatedCount, plural, one {# rule updated} other {# rules updated}}."
 msgstr "{transferredCount, plural, one {# rule transferred} other {# rules transferred}}, {updatedCount, plural, one {# rule updated} other {# rules updated}}."
 
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "{typeName} color"
+msgstr "{typeName} color"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "{typeName} name"
+msgstr "{typeName} name"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchSuggestions.tsx
+msgid "<0>Esc</0> to close"
+msgstr "<0>Esc</0> to close"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "1 day"
+msgstr "1 day"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "1 month"
+msgstr "1 month"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "1 week"
+msgstr "1 week"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "1 year"
 msgstr "1 year"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "2 months"
+msgstr "2 months"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "2 weeks"
+msgstr "2 weeks"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "3 days"
+msgstr "3 days"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "30 days"
 msgstr "30 days"
 
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "6 months"
+msgstr "6 months"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "90 days"
 msgstr "90 days"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "a deleted rule"
+msgstr "a deleted rule"
 
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Account"
@@ -76,17 +259,92 @@ msgstr "Account"
 msgid "Account deleted!"
 msgstr "Account deleted!"
 
+#: components/CommandK.tsx
+msgid "Actions"
+msgstr "Actions"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Actions applied"
+msgstr "Actions applied"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Add"
+msgstr "Add"
+
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "Add {senderCount, plural, one {# sender} other {# senders}} to…"
+msgstr "Add {senderCount, plural, one {# sender} other {# senders}} to…"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Add a filtered tab to your inbox."
+msgstr "Add a filtered tab to your inbox."
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Add Account"
 msgstr "Add Account"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Add condition"
+msgstr "Add condition"
+
+#: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
+msgid "Add or manage accounts"
+msgstr "Add or manage accounts"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Add or switch email accounts"
+msgstr "Add or switch email accounts"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "Add senders to split"
+msgstr "Add senders to split"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Add split"
+msgstr "Add split"
 
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Add this URL in ChatGPT, Claude, or Cursor. You'll be asked to allow access."
 msgstr "Add this URL in ChatGPT, Claude, or Cursor. You'll be asked to allow access."
 
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "Added {added, plural, one {# sender} other {# senders}} to {splitName}"
+msgstr "Added {added, plural, one {# sender} other {# senders}} to {splitName}"
+
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "Adding senders…"
+msgstr "Adding senders…"
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "AI Model"
 msgstr "AI Model"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "all"
+msgstr "all"
+
+#: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
+msgid "All accounts"
+msgstr "All accounts"
+
+#: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
+msgid "All Accounts updated"
+msgstr "All Accounts updated"
+
+#: app/(app)/[emailAccountId]/mail/InboxZeroCelebration.tsx
+msgid "All clear"
+msgstr "All clear"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "All inboxes"
+msgstr "All inboxes"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "All Mail"
+msgstr "All Mail"
 
 #: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
 msgid "All rules disabled"
@@ -113,6 +371,14 @@ msgstr "Allow sign-in with a one-time email code"
 msgid "Already cancelled your subscription? Click the button below to proceed."
 msgstr "Already cancelled your subscription? Click the button below to proceed."
 
+#: app/(app)/[emailAccountId]/mail/use-thread-translation.ts
+msgid "Already in {languageName}"
+msgstr "Already in {languageName}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-translation.ts
+msgid "Already in your language"
+msgstr "Already in your language"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "An error occurred while saving your settings"
 msgstr "An error occurred while saving your settings"
@@ -120,6 +386,14 @@ msgstr "An error occurred while saving your settings"
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 msgid "Analytics reset! Visit the Unsubscriber or Analytics page and click the 'Load More' button to reload your data."
 msgstr "Analytics reset! Visit the Unsubscriber or Analytics page and click the 'Load More' button to reload your data."
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "any"
+msgstr "any"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "anything awaiting my reply"
+msgstr "anything awaiting my reply"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "API Access"
@@ -141,13 +415,53 @@ msgstr "API key deactivated!"
 msgid "API Keys"
 msgstr "API Keys"
 
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Applied rule:"
+msgstr "Applied rule:"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Applying label…"
+msgstr "Applying label…"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+msgid "Archive"
+msgstr "Archive"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Archived"
+msgstr "Archived"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Assistant chat"
 msgstr "Assistant chat"
 
+#: hooks/useCommandPaletteCommands.ts
+msgid "Assistant Settings"
+msgstr "Assistant Settings"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "at"
 msgstr "at"
+
+#: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+msgid "Attach files"
+msgstr "Attach files"
+
+#: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
+msgid "Attachments"
+msgstr "Attachments"
+
+#. placeholder {0}: attachments.map(escapeHtml).join(", ")
+#: app/(app)/[emailAccountId]/mail/print-messages.ts
+msgid "Attachments: {0}"
+msgstr "Attachments: {0}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Auto archive future emails"
+msgstr "Auto archive future emails"
 
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "Auto-delete AI Drafts"
@@ -157,6 +471,21 @@ msgstr "Auto-delete AI Drafts"
 msgid "Automatically send each Stripe invoice to the billing email."
 msgstr "Automatically send each Stripe invoice to the billing email."
 
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Back"
+msgstr "Back"
+
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+msgid "Back to inbox"
+msgstr "Back to inbox"
+
+#: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "Bcc"
+msgstr "Bcc"
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Beta Features"
 msgstr "Beta Features"
@@ -165,36 +494,207 @@ msgstr "Beta Features"
 msgid "Billing"
 msgstr "Billing"
 
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Block sender"
+msgstr "Block sender"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Build a split"
+msgstr "Build a split"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Build it"
+msgstr "Build it"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Build your own"
+msgstr "Build your own"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Building…"
+msgstr "Building…"
+
+#: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
+msgid "Bundle in Inbox"
+msgstr "Bundle in Inbox"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Bundle low-priority email?"
+msgstr "Bundle low-priority email?"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Bundle low-priority emails"
+msgstr "Bundle low-priority emails"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Bundle my inbox"
+msgstr "Bundle my inbox"
+
+#: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 #: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
 msgid "Cancel"
 msgstr "Cancel"
 
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Cancel send"
+msgstr "Cancel send"
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Cancel subscription first"
 msgstr "Cancel subscription first"
+
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Categories"
+msgstr "Categories"
+
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
+msgid "category"
+msgstr "category"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Category"
+msgstr "Category"
+
+#: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "Cc"
+msgstr "Cc"
+
+#. placeholder {0}: escapeHtml(cc)
+#: app/(app)/[emailAccountId]/mail/print-messages.ts
+msgid "Cc: {0}"
+msgstr "Cc: {0}"
 
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Change plan"
 msgstr "Change plan"
 
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+msgid "Chat about this email"
+msgstr "Chat about this email"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Chat delivery: <0>Configure in Channels</0>."
 msgstr "Chat delivery: <0>Configure in Channels</0>."
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Check Sent"
+msgstr "Check Sent"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Choose a date and time"
+msgstr "Choose a date and time"
+
+#: app/(app)/[emailAccountId]/compose/delivery-times.ts
+msgid "Choose a valid reminder time, or clear the reminder."
+msgstr "Choose a valid reminder time, or clear the reminder."
+
+#: app/(app)/[emailAccountId]/compose/delivery-times.ts
+msgid "Choose a valid send time, or clear Send later to send now."
+msgstr "Choose a valid send time, or clear Send later to send now."
+
+#: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
+msgid "Choose account"
+msgstr "Choose account"
+
+#: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
+msgid "Choose accounts"
+msgstr "Choose accounts"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Choose date and time"
+msgstr "Choose date and time"
+
+#: app/(app)/[emailAccountId]/compose/ComposeSignaturePicker.tsx
+msgid "Choose signature"
+msgstr "Choose signature"
+
+#: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
+msgid "Choose which accounts appear in All Accounts."
+msgstr "Choose which accounts appear in All Accounts."
 
 #. placeholder {0}: res.data.deleted
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "Cleaned up {0, plural, one {# draft} other {# drafts}}."
 msgstr "Cleaned up {0, plural, one {# draft} other {# drafts}}."
 
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Clear search"
+msgstr "Clear search"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Clear selection"
+msgstr "Clear selection"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Clear time"
+msgstr "Clear time"
+
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Click Save to view available models for your API key."
 msgstr "Click Save to view available models for your API key."
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Close"
+msgstr "Close"
+
+#: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
+msgid "Close email"
+msgstr "Close email"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Close mail setup"
+msgstr "Close mail setup"
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Close sender profile"
+msgstr "Close sender profile"
+
+#: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
+msgid "Code copied"
+msgstr "Code copied"
+
+#: app/(app)/[emailAccountId]/mail/InboxBundleRow.tsx
+msgid "Collapse"
+msgstr "Collapse"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Collapse {labelName}"
+msgstr "Collapse {labelName}"
+
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+msgid "Collapse all messages"
+msgstr "Collapse all messages"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Command"
 msgstr "Command"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Comment"
+msgstr "Comment"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Compose"
+msgstr "Compose"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Condition field"
+msgstr "Condition field"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Condition value"
+msgstr "Condition value"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Configure AI assistant behavior"
+msgstr "Configure AI assistant behavior"
 
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Connect"
@@ -232,6 +732,22 @@ msgstr "Connected Apps"
 msgid "Connecting..."
 msgstr "Connecting..."
 
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Conversation"
+msgstr "Conversation"
+
+#: app/(app)/[emailAccountId]/mail/MessageSourceDialog.tsx
+msgid "Copied to clipboard"
+msgstr "Copied to clipboard"
+
+#: app/(app)/[emailAccountId]/mail/MessageSourceDialog.tsx
+msgid "Copy"
+msgstr "Copy"
+
+#: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
+msgid "Copy code {code}"
+msgstr "Copy code {code}"
+
 #: app/(app)/[emailAccountId]/settings/CopyRulesSection.tsx
 msgid "Copy Rules"
 msgstr "Copy Rules"
@@ -240,9 +756,226 @@ msgstr "Copy Rules"
 msgid "Copy Rules From Another Account"
 msgstr "Copy Rules From Another Account"
 
+#. placeholder {0}: attachment.filename
+#: app/(app)/[emailAccountId]/compose/useComposeAttachments.ts
+msgid "Could not attach {0}."
+msgstr "Could not attach {0}."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Could not confirm delivery. Check the thread status before trying again."
+msgstr "Could not confirm delivery. Check the thread status before trying again."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Could not confirm this reply was queued. Check the thread delivery status before retrying."
+msgstr "Could not confirm this reply was queued. Check the thread delivery status before retrying."
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "Could not discard this draft."
+msgstr "Could not discard this draft."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Could not find this draft in your mailbox to send its attachments. Reopen it and try again."
+msgstr "Could not find this draft in your mailbox to send its attachments. Reopen it and try again."
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "Could not find this draft in your mailbox. Reopen it and try again."
+msgstr "Could not find this draft in your mailbox. Reopen it and try again."
+
+#. placeholder {0}: attachment.filename
+#: app/(app)/[emailAccountId]/compose/useComposeAttachments.ts
+msgid "Could not remove {0}."
+msgstr "Could not remove {0}."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Could not schedule this email"
+msgstr "Could not schedule this email"
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Could not schedule this email. Check the thread status before trying again."
+msgstr "Could not schedule this email. Check the thread status before trying again."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Could not schedule this reply"
+msgstr "Could not schedule this reply"
+
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "Couldn't add senders. Please try again."
+msgstr "Couldn't add senders. Please try again."
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Couldn't apply label. Please try again."
+msgstr "Couldn't apply label. Please try again."
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Couldn't confirm delivery"
+msgstr "Couldn't confirm delivery"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Couldn't disable auto archive for {senderName}"
+msgstr "Couldn't disable auto archive for {senderName}"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Couldn't enable auto archive for {senderName}"
+msgstr "Couldn't enable auto archive for {senderName}"
+
+#. placeholder {0}: unreverted.size
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't fully reverse {0, plural, one {# conversation} other {# conversations}} that only partly changed. Check them and try again."
+msgstr "Couldn't fully reverse {0, plural, one {# conversation} other {# conversations}} that only partly changed. Check them and try again."
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Couldn't load public context"
+msgstr "Couldn't load public context"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Couldn't move conversations. Please try again."
+msgstr "Couldn't move conversations. Please try again."
+
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Couldn't open this conversation"
+msgstr "Couldn't open this conversation"
+
+#. placeholder {0}: threadKeys.length
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue {failedCount} of {0} as spam"
+msgstr "Couldn't queue {failedCount} of {0} as spam"
+
+#. placeholder {0}: threadKeys.length
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue {failedCount} of {0} for snoozing"
+msgstr "Couldn't queue {failedCount} of {0} for snoozing"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue {failedCount} of {total} as read"
+msgstr "Couldn't queue {failedCount} of {total} as read"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue {failedCount} of {total} as unread"
+msgstr "Couldn't queue {failedCount} of {total} as unread"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue {failedCount} of {total} for archiving"
+msgstr "Couldn't queue {failedCount} of {total} for archiving"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue {failedCount} of {total} for deletion"
+msgstr "Couldn't queue {failedCount} of {total} for deletion"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue {failedCount} of {total} for labeling"
+msgstr "Couldn't queue {failedCount} of {total} for labeling"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue {failedCount} of {total} for moving"
+msgstr "Couldn't queue {failedCount} of {total} for moving"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue {failedCount} of {total} for moving to inbox"
+msgstr "Couldn't queue {failedCount} of {total} for moving to inbox"
+
+#: app/(app)/[emailAccountId]/mail/use-optimistic-archive.ts
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue archiving"
+msgstr "Couldn't queue archiving"
+
+#: components/CommandK.tsx
+msgid "Couldn't queue archiving this email"
+msgstr "Couldn't queue archiving this email"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue deletion"
+msgstr "Couldn't queue deletion"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue labeling"
+msgstr "Couldn't queue labeling"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue marking as read"
+msgstr "Couldn't queue marking as read"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue marking as spam"
+msgstr "Couldn't queue marking as spam"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue marking as unread"
+msgstr "Couldn't queue marking as unread"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue moving"
+msgstr "Couldn't queue moving"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue moving to inbox"
+msgstr "Couldn't queue moving to inbox"
+
+#: app/(app)/[emailAccountId]/compose/undo-send.ts
+msgid "Couldn't reach the server to undo. Try again."
+msgstr "Couldn't reach the server to undo. Try again."
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Couldn't remove label"
+msgstr "Couldn't remove label"
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Couldn't research this sender right now."
+msgstr "Couldn't research this sender right now."
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't restore"
+msgstr "Couldn't restore"
+
+#. placeholder {0}: batch.targets.length
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't restore {failedCount} of {0}"
+msgstr "Couldn't restore {failedCount} of {0}"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+#: app/(app)/[emailAccountId]/mail/MailSplitTabs.tsx
+msgid "Couldn't save that"
+msgstr "Couldn't save that"
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "Couldn't sync this draft to your mailbox. It's saved on this device and we'll keep trying."
+msgstr "Couldn't sync this draft to your mailbox. It's saved on this device and we'll keep trying."
+
+#: app/(app)/[emailAccountId]/mail/use-thread-translation.ts
+msgid "Couldn't translate this email"
+msgstr "Couldn't translate this email"
+
+#: app/(app)/[emailAccountId]/compose/undo-send.ts
+msgid "Couldn't undo send"
+msgstr "Couldn't undo send"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Couldn't unsubscribe from {senderName}"
+msgstr "Couldn't unsubscribe from {senderName}"
+
+#: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
+msgid "Couldn't update All Accounts"
+msgstr "Couldn't update All Accounts"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn’t update stars for all conversations"
+msgstr "Couldn’t update stars for all conversations"
+
+#: components/CommandK.tsx
+msgid "Couldn’t update the star for this email"
+msgstr "Couldn’t update the star for this email"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Create"
 msgstr "Create"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Create “{name}”"
+msgstr "Create “{name}”"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Create {labelSingular}"
+msgstr "Create {labelSingular}"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Create key"
@@ -252,6 +985,10 @@ msgstr "Create key"
 msgid "Create new secret key"
 msgstr "Create new secret key"
 
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Create rule for sender"
+msgstr "Create rule for sender"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Create, update, and delete automation rules for this inbox."
 msgstr "Create, update, and delete automation rules for this inbox."
@@ -260,9 +997,31 @@ msgstr "Create, update, and delete automation rules for this inbox."
 msgid "Created"
 msgstr "Created"
 
+#: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
+msgid "Current account"
+msgstr "Current account"
+
+#: app/(app)/[emailAccountId]/compose/ComposeSignaturePicker.tsx
+msgid "Current signature"
+msgstr "Current signature"
+
 #: app/(app)/settings/AppearanceSection.tsx
 msgid "Dark mode"
 msgstr "Dark mode"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Date"
+msgstr "Date"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Date range"
+msgstr "Date range"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+msgid "Date within"
+msgstr "Date within"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Day"
@@ -276,9 +1035,24 @@ msgstr "days"
 msgid "Default"
 msgstr "Default"
 
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Default tab"
+msgstr "Default tab"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Definition"
+msgstr "Definition"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Delete"
 msgstr "Delete"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Delete {typeName}?"
+msgstr "Delete {typeName}?"
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Delete account"
@@ -296,9 +1070,33 @@ msgstr "Delete old drafts"
 msgid "Delete your Inbox Zero account?"
 msgstr "Delete your Inbox Zero account?"
 
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "Deleted Items"
+msgstr "Deleted Items"
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Deleting account..."
 msgstr "Deleting account..."
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Deleting..."
+msgstr "Deleting..."
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Describe it"
+msgstr "Describe it"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Describe this split"
+msgstr "Describe this split"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Describe what should land in this split…"
+msgstr "Describe what should land in this split…"
+
+#: app/(app)/[emailAccountId]/mail/SelectAllCheckbox.tsx
+msgid "Deselect all conversations"
+msgstr "Deselect all conversations"
 
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Developer"
@@ -328,6 +1126,19 @@ msgstr "Disable All Rules"
 msgid "Disable all rules?"
 msgstr "Disable all rules?"
 
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Disable auto archive"
+msgstr "Disable auto archive"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Disabling auto archive for {senderName}"
+msgstr "Disabling auto archive for {senderName}"
+
+#: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+msgid "Discard draft"
+msgstr "Discard draft"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Disconnect"
@@ -342,6 +1153,35 @@ msgstr "Disconnect {0}"
 msgid "Disconnected"
 msgstr "Disconnected"
 
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Discussions"
+msgstr "Discussions"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Doesn't have"
+msgstr "Doesn't have"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+msgid "Don't include chats"
+msgstr "Don't include chats"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Done"
+msgstr "Done"
+
+#: app/(app)/[emailAccountId]/mail/MessageSourceDialog.tsx
+msgid "Download"
+msgstr "Download"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Download message"
+msgstr "Download message"
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "Draft"
+msgstr "Draft"
+
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "Draft cleanup age in days"
 msgstr "Draft cleanup age in days"
@@ -350,9 +1190,44 @@ msgstr "Draft cleanup age in days"
 msgid "Draft cleanup settings updated."
 msgstr "Draft cleanup settings updated."
 
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "Drafts"
+msgstr "Drafts"
+
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Drafts, organization, and rules"
 msgstr "Drafts, organization, and rules"
+
+#: utils/date.ts
+msgid "Earlier this month"
+msgstr "Earlier this month"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Edit"
+msgstr "Edit"
+
+#: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
+msgid "Edit {emailAddress}"
+msgstr "Edit {emailAddress}"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Edit {typeName}"
+msgstr "Edit {typeName}"
+
+#: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
+msgid "Edit filters and name"
+msgstr "Edit filters and name"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Edit split"
+msgstr "Edit split"
+
+#. placeholder {0}: split.name
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Edit the {0} split"
+msgstr "Edit the {0} split"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Email account"
@@ -366,6 +1241,18 @@ msgstr "Email Accounts"
 msgid "Email delivery unavailable."
 msgstr "Email delivery unavailable."
 
+#: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
+msgid "Email from chat"
+msgstr "Email from chat"
+
+#: components/CommandK.tsx
+msgid "Email is still loading"
+msgstr "Email is still loading"
+
+#: components/CommandK.tsx
+msgid "Email is unavailable"
+msgstr "Email is unavailable"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Email not found in Slack"
 msgstr "Email not found in Slack"
@@ -378,9 +1265,50 @@ msgstr "Email paid invoices"
 msgid "Email paid Stripe invoices"
 msgstr "Email paid Stripe invoices"
 
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Email queued and will keep sending in the background."
+msgstr "Email queued and will keep sending in the background."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Email queued, but its local draft copy could not be cleared."
+msgstr "Email queued, but its local draft copy could not be cleared."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Email queued. It will send when you're back online."
+msgstr "Email queued. It will send when you're back online."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Email queued. Reconnect this account to send it."
+msgstr "Email queued. Reconnect this account to send it."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Email scheduled."
+msgstr "Email scheduled."
+
+#: app/(app)/[emailAccountId]/compose/undo-send.ts
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Email sent!"
+msgstr "Email sent!"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Enabling auto archive for {senderName}"
+msgstr "Enabling auto archive for {senderName}"
+
+#: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
+msgid "End of week"
+msgstr "End of week"
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Enter a valid recipient email address."
+msgstr "Enter a valid recipient email address."
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Error deleting account: {message}"
 msgstr "Error deleting account: {message}"
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "Error initiating reconnection"
+msgstr "Error initiating reconnection"
 
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 msgid "Error resetting analytics: {message}"
@@ -410,6 +1338,22 @@ msgstr "Error updating digest settings"
 msgid "Every"
 msgstr "Every"
 
+#: app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx
+msgid "Everything here works without the mouse."
+msgstr "Everything here works without the mouse."
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Expand {labelName}"
+msgstr "Expand {labelName}"
+
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+msgid "Expand all messages"
+msgstr "Expand all messages"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Expanded preview text"
+msgstr "Expanded preview text"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Expires"
 msgstr "Expires"
@@ -422,6 +1366,10 @@ msgstr "Expiry"
 msgid "Failed to connect Slack"
 msgstr "Failed to connect Slack"
 
+#: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
+msgid "Failed to copy code"
+msgstr "Failed to copy code"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Failed to create API key"
 msgstr "Failed to create API key"
@@ -429,6 +1377,10 @@ msgstr "Failed to create API key"
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Failed to deactivate API key"
 msgstr "Failed to deactivate API key"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Failed to delete {typeName}. Please try again."
+msgstr "Failed to delete {typeName}. Please try again."
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
@@ -443,9 +1395,17 @@ msgstr "Failed to generate code"
 msgid "Failed to link Slack"
 msgstr "Failed to link Slack"
 
+#: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
+msgid "Failed to save account order"
+msgstr "Failed to save account order"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Failed to update"
 msgstr "Failed to update"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Failed to update {typeName}. Please try again."
+msgstr "Failed to update {typeName}. Please try again."
 
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Failed to update invoice emails"
@@ -464,6 +1424,32 @@ msgstr "Failed to update read status setting"
 msgid "Failed to update settings"
 msgstr "Failed to update settings"
 
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "Flagged"
+msgstr "Flagged"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Focused"
+msgstr "Focused"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "folder"
+msgstr "folder"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Folders"
+msgstr "Folders"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Forums"
+msgstr "Forums"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "Forward"
+msgstr "Forward"
+
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Free trial"
 msgstr "Free trial"
@@ -472,9 +1458,43 @@ msgstr "Free trial"
 msgid "Friday"
 msgstr "Friday"
 
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "From"
+msgstr "From"
+
+#. placeholder {0}: selectedSendAs.email
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "from {0}"
+msgstr "from {0}"
+
+#: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
+msgid "From chat"
+msgstr "From chat"
+
+#. placeholder {0}: position.index + 1
+#. placeholder {1}: position.threadIds.length
+#: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
+msgid "From chat · {0} of {1}"
+msgstr "From chat · {0} of {1}"
+
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Full setup guide"
 msgstr "Full setup guide"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Future emails from {senderName} will be archived"
+msgstr "Future emails from {senderName} will be archived"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Future emails from {senderName} will stay in the inbox"
+msgstr "Future emails from {senderName} will stay in the inbox"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "General account settings"
+msgstr "General account settings"
 
 #: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
 msgid "Generate a new webhook secret to reveal it once for copying."
@@ -488,9 +1508,119 @@ msgstr "Generate secret"
 msgid "Generate Secret"
 msgstr "Generate Secret"
 
+#: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
+msgid "Go back"
+msgstr "Go back"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to {mailbox}"
+msgstr "Go to {mailbox}"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Analytics"
+msgstr "Go to Analytics"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Assistant"
+msgstr "Go to Assistant"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Bulk Unsubscribe"
+msgstr "Go to Bulk Unsubscribe"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Calendars"
+msgstr "Go to Calendars"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Cold Email Blocker"
+msgstr "Go to Cold Email Blocker"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Deep Clean"
+msgstr "Go to Deep Clean"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Go to inbox"
+msgstr "Go to inbox"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Integrations"
+msgstr "Go to Integrations"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Mail"
+msgstr "Go to Mail"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Meeting Briefs"
+msgstr "Go to Meeting Briefs"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "greater than"
+msgstr "greater than"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
+msgid "Has attachment"
+msgstr "Has attachment"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Has label"
+msgstr "Has label"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+msgid "Has the words"
+msgstr "Has the words"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Hide"
+msgstr "Hide"
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "Hide Cc and Bcc"
+msgstr "Hide Cc and Bcc"
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "Hide recipients"
+msgstr "Hide recipients"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "How do you want to read email?"
+msgstr "How do you want to read email?"
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "I've already cancelled my subscription"
 msgstr "I've already cancelled my subscription"
+
+#: app/(app)/[emailAccountId]/mail/MailSplitTabs.tsx
+msgid "Important"
+msgstr "Important"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "In {typeName} list"
+msgstr "In {typeName} list"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "In category"
+msgstr "In category"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "In message list"
+msgstr "In message list"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "Inbox"
+msgstr "Inbox"
+
+#: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
+msgid "Inbox: {label}"
+msgstr "Inbox: {label}"
 
 #: app/(app)/[emailAccountId]/settings/SentWithSignatureSection.tsx
 msgid "Include 'Sent with {BRAND_NAME}'"
@@ -499,6 +1629,22 @@ msgstr "Include 'Sent with {BRAND_NAME}'"
 #: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
 msgid "Include this in the X-Webhook-Secret header when setting up webhook endpoints. Existing secrets are not shown again. When you generate a new secret, copy it before closing this dialog."
 msgstr "Include this in the X-Webhook-Secret header when setting up webhook endpoints. Existing secrets are not shown again. When you generate a new secret, copy it before closing this dialog."
+
+#: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
+msgid "Included from the message you are forwarding"
+msgstr "Included from the message you are forwarding"
+
+#: app/(app)/[emailAccountId]/compose/useComposeAttachments.ts
+msgid "Inline image content does not match its file type."
+msgstr "Inline image content does not match its file type."
+
+#: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+msgid "Insert inline images"
+msgstr "Insert inline images"
+
+#: app/(app)/[emailAccountId]/compose/useComposeSnippets.tsx
+msgid "Insert snippet"
+msgstr "Insert snippet"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Install manually"
@@ -516,17 +1662,65 @@ msgstr "Invite"
 msgid "Invite members"
 msgstr "Invite members"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Is starred"
+msgstr "Is starred"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Is unread"
+msgstr "Is unread"
+
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "Junk Email"
+msgstr "Junk Email"
+
+#: app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx
+msgid "Keyboard shortcuts"
+msgstr "Keyboard shortcuts"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Keys created here are limited to the current inbox account."
 msgstr "Keys created here are limited to the current inbox account."
+
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Keywords"
+msgstr "Keywords"
+
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
+msgid "label"
+msgstr "label"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Label"
+msgstr "Label"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Label as…"
+msgstr "Label as…"
 
 #: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
 msgid "Label colors are already set to the defaults."
 msgstr "Label colors are already set to the defaults."
 
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Label conversations"
+msgstr "Label conversations"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
+msgid "Labels"
+msgstr "Labels"
+
 #: app/(app)/settings/LanguageSection.tsx
 msgid "Language"
 msgstr "Language"
+
+#: utils/date.ts
+msgid "Last 7 days"
+msgstr "Last 7 days"
 
 #. placeholder {0}: formatDigestDeliveryTime( new Date(delivery.lastDelivery.occurredAt), delivery.timezone, )
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
@@ -542,6 +1736,10 @@ msgstr "Last sent {0}"
 msgid "Last used"
 msgstr "Last used"
 
+#: hooks/useCommandPaletteCommands.ts
+msgid "Layout, tabs and bundles"
+msgstr "Layout, tabs and bundles"
+
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Leave blank to keep the current key"
 msgstr "Leave blank to keep the current key"
@@ -549,6 +1747,11 @@ msgstr "Leave blank to keep the current key"
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Leave this blank to keep the current API key, or enter a new key to replace it."
 msgstr "Leave this blank to keep the current API key, or enter a new key to replace it."
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "less than"
+msgstr "less than"
 
 #. placeholder {0}: existingWorkspace.teamName
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
@@ -559,13 +1762,109 @@ msgstr "Link to {0}"
 msgid "Linking..."
 msgstr "Linking..."
 
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "List"
+msgstr "List"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "List and inspect automation rules for this inbox."
 msgstr "List and inspect automation rules for this inbox."
 
+#: app/(app)/[emailAccountId]/mail/ThreadList.tsx
+msgid "Load more"
+msgstr "Load more"
+
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Load older messages"
+msgstr "Load older messages"
+
+#: app/(app)/[emailAccountId]/mail/MailReaderPane.tsx
+msgid "Loading"
+msgstr "Loading"
+
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Loading email"
+msgstr "Loading email"
+
+#: app/(app)/[emailAccountId]/mail/BufferedThreadReader.tsx
+msgid "Loading email…"
+msgstr "Loading email…"
+
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Loading messages…"
+msgstr "Loading messages…"
+
+#: app/(app)/[emailAccountId]/mail/ThreadList.tsx
+msgid "Loading more"
+msgstr "Loading more"
+
+#: app/(app)/[emailAccountId]/mail/MailReaderPane.tsx
+msgid "Loading…"
+msgstr "Loading…"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+msgid "Mail & Spam & Trash"
+msgstr "Mail & Spam & Trash"
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Mail is still starting. Try sending again in a moment."
+msgstr "Mail is still starting. Try sending again in a moment."
+
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
+msgid "Mail navigation"
+msgstr "Mail navigation"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+#: hooks/useCommandPaletteCommands.ts
+msgid "Mail setup"
+msgstr "Mail setup"
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device."
+msgstr "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device."
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Manage Accounts"
+msgstr "Manage Accounts"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Manage organization settings"
+msgstr "Manage organization settings"
+
 #: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
 msgid "Manage Secret"
 msgstr "Manage Secret"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+msgid "Mark as read"
+msgstr "Mark as read"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Mark as spam"
+msgstr "Mark as spam"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+msgid "Mark as unread"
+msgstr "Mark as unread"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Match all or any condition"
+msgstr "Match all or any condition"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Matched reason"
+msgstr "Matched reason"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Matched rule:"
+msgstr "Matched rule:"
+
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "Matches all conditions"
+msgstr "Matches all conditions"
 
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "MCP access disabled!"
@@ -584,6 +1883,11 @@ msgstr "MCP apps"
 msgid "MCP apps ({0})"
 msgstr "MCP apps ({0})"
 
+#: app/(app)/[emailAccountId]/mail/InboxBundleRow.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
+msgid "me"
+msgstr "me"
+
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Model"
 msgstr "Model"
@@ -591,6 +1895,54 @@ msgstr "Model"
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Monday"
 msgstr "Monday"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "More"
+msgstr "More"
+
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "More actions"
+msgstr "More actions"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "More message actions"
+msgstr "More message actions"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "More selection actions"
+msgstr "More selection actions"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Move"
+msgstr "Move"
+
+#. placeholder {0}: split.name
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Move {0} down"
+msgstr "Move {0} down"
+
+#. placeholder {0}: split.name
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Move {0} up"
+msgstr "Move {0} up"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Move conversations"
+msgstr "Move conversations"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+msgid "Move to inbox"
+msgstr "Move to inbox"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Move to…"
+msgstr "Move to…"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Moving…"
+msgstr "Moving…"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "My API key"
@@ -614,14 +1966,54 @@ msgstr "Name"
 msgid "Name (optional)"
 msgstr "Name (optional)"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Name this split"
+msgstr "Name this split"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "name@company.com or @company.com"
+msgstr "name@company.com or @company.com"
+
+#: components/CommandK.tsx
+msgid "Navigation"
+msgstr "Navigation"
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Needs attention"
+msgstr "Needs attention"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Never"
 msgstr "Never"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "New {labelSingular} name"
+msgstr "New {labelSingular} name"
+
+#: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
+msgid "New split"
+msgstr "New split"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "New split inbox"
+msgstr "New split inbox"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Next"
+msgstr "Next"
 
 #. placeholder {0}: formatDigestDeliveryTime( new Date(digestStatus.delivery.estimatedNextDeliveryAt), digestStatus.delivery.timezone, )
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Next delivery around {0}."
 msgstr "Next delivery around {0}."
+
+#: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
+msgid "Next email from chat"
+msgstr "Next email from chat"
+
+#: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
+msgid "Next week"
+msgstr "Next week"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Next, open Channels to choose where Slack messages go."
@@ -635,26 +2027,114 @@ msgstr "No active plan"
 msgid "No API keys yet."
 msgstr "No API keys yet."
 
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "No confident public professional profile was found."
+msgstr "No confident public professional profile was found."
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "No emails found"
+msgstr "No emails found"
+
+#: app/(app)/[emailAccountId]/mail/ThreadList.tsx
+msgid "No emails in this view"
+msgstr "No emails in this view"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "No expiry"
 msgstr "No expiry"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "No matched rules for this message."
+msgstr "No matched rules for this message."
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "No matching folders."
+msgstr "No matching folders."
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "No matching labels."
+msgstr "No matching labels."
+
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "No matching splits."
+msgstr "No matching splits."
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "No public context"
+msgstr "No public context"
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "No recipient"
+msgstr "No recipient"
+
+#: components/CommandK.tsx
+msgid "No results found."
+msgstr "No results found."
 
 #. placeholder {0}: selectedSource?.email
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "No rules found in {0}"
 msgstr "No rules found in {0}"
 
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "No senders to add"
+msgstr "No senders to add"
+
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "No stale drafts found."
 msgstr "No stale drafts found."
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "No tabs yet"
+msgstr "No tabs yet"
+
+#: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
+msgid "Not attached"
+msgstr "Not attached"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Nothing here yet — these splits need labels this account doesn't have."
+msgstr "Nothing here yet — these splits need labels this account doesn't have."
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Nothing scheduled. Emails you send later show up here until they're on their way."
+msgstr "Nothing scheduled. Emails you send later show up here until they're on their way."
+
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Nothing selected"
+msgstr "Nothing selected"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "notifications I have not read"
+msgstr "notifications I have not read"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "of these conditions"
+msgstr "of these conditions"
 
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Offline access"
 msgstr "Offline access"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Older than"
+msgstr "Older than"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Older than {age}"
+msgstr "Older than {age}"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "on"
 msgstr "on"
+
+#: app/(app)/[emailAccountId]/compose/useComposeAttachments.ts
+msgid "One of the files could not be read."
+msgstr "One of the files could not be read."
+
+#: app/(app)/[emailAccountId]/compose/useComposeAttachments.ts
+msgid "One of the inline images could not be inserted."
+msgstr "One of the inline images could not be inserted."
 
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "Only removes drafts created by {BRAND_NAME} that have not been edited by you."
@@ -664,13 +2144,46 @@ msgstr "Only removes drafts created by {BRAND_NAME} that have not been edited by
 msgid "Open"
 msgstr "Open"
 
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Open in email provider"
+msgstr "Open in email provider"
+
+#: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
+msgid "Open in reader"
+msgstr "Open in reader"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Open navigation"
+msgstr "Open navigation"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Open page"
+msgstr "Open page"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Open Telegram bot"
 msgstr "Open Telegram bot"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "or"
+msgstr "or"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Organization"
+msgstr "Organization"
+
 #: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
 msgid "Organization Analytics"
 msgstr "Organization Analytics"
+
+#: app/(app)/[emailAccountId]/mail/MessageSourceDialog.tsx
+msgid "Original message"
+msgstr "Original message"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Other"
+msgstr "Other"
 
 #. placeholder {0}: env.NEXT_PUBLIC_SUPPORT_EMAIL
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
@@ -690,17 +2203,64 @@ msgstr "Permissions"
 msgid "Permissions updated"
 msgstr "Permissions updated"
 
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Personal"
+msgstr "Personal"
+
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Pick another view, or head back to the inbox."
+msgstr "Pick another view, or head back to the inbox."
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Please cancel your subscription before deleting your account."
 msgstr "Please cancel your subscription before deleting your account."
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "Please try again or contact support."
+msgstr "Please try again or contact support."
+
+#: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+msgid "Pop out draft"
+msgstr "Pop out draft"
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Possible match"
+msgstr "Possible match"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Preview"
 msgstr "Preview"
 
+#: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
+msgid "Previous email from chat"
+msgstr "Previous email from chat"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Print"
+msgstr "Print"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Promotions"
+msgstr "Promotions"
+
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Provider"
 msgstr "Provider"
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Public context is temporarily unavailable. Try again shortly."
+msgstr "Public context is temporarily unavailable. Try again shortly."
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Public profiles are not researched for personal email addresses."
+msgstr "Public profiles are not researched for personal email addresses."
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Public sources"
+msgstr "Public sources"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Read aggregated inbox statistics for this inbox."
@@ -730,6 +2290,34 @@ msgstr "Read stats"
 msgid "Read status"
 msgstr "Read status"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "receipts from Stripe"
+msgstr "receipts from Stripe"
+
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Received"
+msgstr "Received"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Recipient"
+msgstr "Recipient"
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "recipients"
+msgstr "recipients"
+
+#: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
+msgid "Reconnect"
+msgstr "Reconnect"
+
+#: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
+msgid "Reconnect this account to enable contact suggestions."
+msgstr "Reconnect this account to enable contact suggestions."
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Reconnect your account to send this"
+msgstr "Reconnect your account to send this"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Redirecting to Slack authorization..."
 msgstr "Redirecting to Slack authorization..."
@@ -737,6 +2325,35 @@ msgstr "Redirecting to Slack authorization..."
 #: app/(app)/[emailAccountId]/settings/WebhookGenerate.tsx
 msgid "Regenerate secret"
 msgstr "Regenerate secret"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Remind me"
+msgstr "Remind me"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Remind me date and time"
+msgstr "Remind me date and time"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Remind me if no reply"
+msgstr "Remind me if no reply"
+
+#. placeholder {0}: attachment.filename
+#: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
+msgid "Remove {0}"
+msgstr "Remove {0}"
+
+#: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
+msgid "Remove {emailAddress}"
+msgstr "Remove {emailAddress}"
+
+#: app/(app)/[emailAccountId]/mail/MailLabelChip.tsx
+msgid "Remove {name} label"
+msgstr "Remove {name} label"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Remove condition"
+msgstr "Remove condition"
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Remove just one account instead"
@@ -753,6 +2370,14 @@ msgstr "Remove unedited drafts created by {BRAND_NAME} that are older than {save
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Removes your Inbox Zero data. Your emails aren't affected."
 msgstr "Removes your Inbox Zero data. Your emails aren't affected."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Reply queued, but its local draft copy could not be cleared."
+msgstr "Reply queued, but its local draft copy could not be cleared."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Reply scheduled, but its local draft copy could not be cleared."
+msgstr "Reply scheduled, but its local draft copy could not be cleared."
 
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 #: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
@@ -777,9 +2402,21 @@ msgstr "Reset Label Colors"
 msgid "Resetting analytics..."
 msgstr "Resetting analytics..."
 
+#: app/(app)/[emailAccountId]/mail/MailListPanel.tsx
+msgid "Resize email list"
+msgstr "Resize email list"
+
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
+msgid "Resize sidebar"
+msgstr "Resize sidebar"
+
 #: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
 msgid "Restore the default colors for Inbox Zero labels like To Reply and Newsletter"
 msgstr "Restore the default colors for Inbox Zero labels like To Reply and Newsletter"
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Retry send"
+msgstr "Retry send"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Revoke"
@@ -789,14 +2426,28 @@ msgstr "Revoke"
 msgid "Rule"
 msgstr "Rule"
 
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Rule actions"
+msgstr "Rule actions"
+
+#: components/CommandK.tsx
+msgid "Rules"
+msgstr "Rules"
+
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "Rules transferred successfully"
 msgstr "Rules transferred successfully"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Run mail setup again"
+msgstr "Run mail setup again"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Saturday"
 msgstr "Saturday"
 
+#: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
 #: app/(app)/[emailAccountId]/settings/AboutSectionForm.tsx
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
@@ -804,9 +2455,67 @@ msgstr "Saturday"
 msgid "Save"
 msgstr "Save"
 
+#: app/(app)/[emailAccountId]/compose/useComposeSnippets.tsx
+msgid "Save a reusable snippet."
+msgstr "Save a reusable snippet."
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Save changes"
+msgstr "Save changes"
+
+#: app/(app)/[emailAccountId]/compose/useComposeSnippets.tsx
+msgid "Save snippet"
+msgstr "Save snippet"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Saved. Next digest expected around {deliveryTime}."
 msgstr "Saved. Next digest expected around {deliveryTime}."
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Scheduled"
+msgstr "Scheduled"
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Scheduled emails"
+msgstr "Scheduled emails"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Search"
+msgstr "Search"
+
+#: components/CommandK.tsx
+msgid "Search accounts..."
+msgstr "Search accounts..."
+
+#: app/(app)/[emailAccountId]/mail/MailSearchSuggestions.tsx
+msgid "Search by sender, subject, or any words in the email"
+msgstr "Search by sender, subject, or any words in the email"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Search folders"
+msgstr "Search folders"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Search labels"
+msgstr "Search labels"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Search mail"
+msgstr "Search mail"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Search options"
+msgstr "Search options"
+
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "Search splits"
+msgstr "Search splits"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchSuggestions.tsx
+msgid "Search suggestions"
+msgstr "Search suggestions"
 
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "See when recipients open emails you send from the mail client."
@@ -824,6 +2533,10 @@ msgstr "Select {0}"
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "Select all"
 msgstr "Select all"
+
+#: app/(app)/[emailAccountId]/mail/SelectAllCheckbox.tsx
+msgid "Select all conversations"
+msgstr "Select all conversations"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Select an account"
@@ -849,6 +2562,18 @@ msgstr "Select..."
 msgid "Selected rules are combined into one digest email."
 msgstr "Selected rules are combined into one digest email."
 
+#: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+msgid "Send"
+msgstr "Send"
+
+#: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
+msgid "Send anyway"
+msgstr "Send anyway"
+
+#: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
+msgid "Send anyway?"
+msgstr "Send anyway?"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Send digest to email"
 msgstr "Send digest to email"
@@ -856,6 +2581,18 @@ msgstr "Send digest to email"
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Send email"
 msgstr "Send email"
+
+#: components/CommandK.tsx
+msgid "Send feedback"
+msgstr "Send feedback"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Send later"
+msgstr "Send later"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Send later date and time"
+msgstr "Send later date and time"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Send the digest email"
@@ -865,8 +2602,60 @@ msgstr "Send the digest email"
 msgid "Send this command in a direct message with the Inbox Zero bot on {providerName}. The code is one-time use and expires in 10 minutes."
 msgstr "Send this command in a direct message with the Inbox Zero bot on {providerName}. The code is one-time use and expires in 10 minutes."
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Sender"
+msgstr "Sender"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Sender blocked"
+msgstr "Sender blocked"
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Sender profile"
+msgstr "Sender profile"
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Sending…"
+msgstr "Sending…"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "Sent"
+msgstr "Sent"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+msgid "Sent Mail"
+msgstr "Sent Mail"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Sent to"
+msgstr "Sent to"
+
+#: components/CommandK.tsx
+msgid "Set Theme: Dark"
+msgstr "Set Theme: Dark"
+
+#: components/CommandK.tsx
+msgid "Set Theme: Light"
+msgstr "Set Theme: Light"
+
+#: components/CommandK.tsx
+msgid "Set Theme: System"
+msgstr "Set Theme: System"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Set time"
+msgstr "Set time"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Set up your inbox"
+msgstr "Set up your inbox"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 #: app/(app)/settings/page.tsx
 #: app/(app)/settings/SettingsDialog.tsx
+#: components/CommandK.tsx
+#: hooks/useCommandPaletteCommands.ts
 msgid "Settings"
 msgstr "Settings"
 
@@ -887,10 +2676,58 @@ msgstr "Settings updated! Please check it works on the Assistant page."
 msgid "Share your plan by inviting teammates to your organization."
 msgstr "Share your plan by inviting teammates to your organization."
 
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Show"
+msgstr "Show"
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "Show Cc and Bcc"
+msgstr "Show Cc and Bcc"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Show if unread"
+msgstr "Show if unread"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Show mail matching"
+msgstr "Show mail matching"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Show original"
+msgstr "Show original"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Show search options"
+msgstr "Show search options"
+
 #. placeholder {0}: data.email
 #: app/(app)/settings/EmailOtpSection.tsx
 msgid "Sign in with {0}."
 msgstr "Sign in with {0}."
+
+#: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
+msgid "Sign out"
+msgstr "Sign out"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Size"
+msgstr "Size"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Size amount"
+msgstr "Size amount"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Size comparison"
+msgstr "Size comparison"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Size unit"
+msgstr "Size unit"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Slack connected"
@@ -916,21 +2753,128 @@ msgstr "Slack returned an invalid or expired code. Please try connecting again."
 msgid "Slack session validation failed. Please try connecting again."
 msgstr "Slack session validation failed. Please try connecting again."
 
+#: components/CommandK.tsx
+msgid "Snooze until"
+msgstr "Snooze until"
+
+#. placeholder {0}: formatSnoozeTime(naturalLanguageDate)
+#: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
+msgid "Snooze until {0}"
+msgstr "Snooze until {0}"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Social"
+msgstr "Social"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Some inboxes couldn't be loaded. Try again shortly or check their connections."
+msgstr "Some inboxes couldn't be loaded. Try again shortly or check their connections."
+
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
+msgid "Something went wrong. Try again."
+msgstr "Something went wrong. Try again."
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Spam"
+msgstr "Spam"
+
 #: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
 msgid "Specialized decision model"
 msgstr "Specialized decision model"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Split"
+msgstr "Split"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Split name"
+msgstr "Split name"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Split order"
+msgstr "Split order"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Split view"
+msgstr "Split view"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Splits you build yourself land here."
+msgstr "Splits you build yourself land here."
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Star"
+msgstr "Star"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Starred"
+msgstr "Starred"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Start assistant chat sessions for this inbox."
 msgstr "Start assistant chat sessions for this inbox."
 
+#. placeholder {0}: stepIndex + 1
+#. placeholder {1}: steps.length
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Step {0} of {1}"
+msgstr "Step {0} of {1}"
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Subject"
+msgstr "Subject"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Sunday"
 msgstr "Sunday"
 
+#: components/CommandK.tsx
+msgid "Switch Account"
+msgstr "Switch Account"
+
+#: components/CommandK.tsx
+msgid "Switch accounts"
+msgstr "Switch accounts"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Syncing your mail…"
+msgstr "Syncing your mail…"
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Team"
 msgstr "Team"
+
+#: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+msgid "The image could not be read."
+msgstr "The image could not be read."
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "The local draft will be discarded. A mailbox draft may still exist; check Drafts in Gmail or Outlook."
+msgstr "The local draft will be discarded. A mailbox draft may still exist; check Drafts in Gmail or Outlook."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "There was an error sending the email :("
+msgstr "There was an error sending the email :("
+
+#. placeholder {0}: warning.placeholder
+#: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
+msgid "There's an unfilled placeholder: {0}"
+msgstr "There's an unfilled placeholder: {0}"
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "This draft is not ready to save yet."
+msgstr "This draft is not ready to save yet."
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "This draft was sent, deleted, or changed elsewhere, so edits here are no longer saved to your mailbox."
+msgstr "This draft was sent, deleted, or changed elsewhere, so edits here are no longer saved to your mailbox."
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "This key will only work for the selected inbox account."
@@ -940,6 +2884,18 @@ msgstr "This key will only work for the selected inbox account."
 msgid "This permanently deletes your Inbox Zero data and disconnects {connectedEmailList}. Your emails aren't affected."
 msgstr "This permanently deletes your Inbox Zero data and disconnects {connectedEmailList}. Your emails aren't affected."
 
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "This reply may have been sent. Check Sent before retrying."
+msgstr "This reply may have been sent. Check Sent before retrying."
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "This reply was already sent, so edits here are no longer saved to your mailbox."
+msgstr "This reply was already sent, so edits here are no longer saved to your mailbox."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "This reply was already submitted to the outbox. Check its delivery status before scheduling a new reply."
+msgstr "This reply was already submitted to the outbox. Check its delivery status before scheduling a new reply."
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "This Slack app is not distributed to every workspace yet. Use the currently supported workspace or contact support."
 msgstr "This Slack app is not distributed to every workspace yet. Use the currently supported workspace or contact support."
@@ -947,6 +2903,10 @@ msgstr "This Slack app is not distributed to every workspace yet. Use the curren
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "This subscription is billed through Apple. Manage or cancel it from your iPhone or iPad subscription settings."
 msgstr "This subscription is billed through Apple. Manage or cancel it from your iPhone or iPad subscription settings."
+
+#: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
+msgid "This weekend"
+msgstr "This weekend"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "This will create a new secret key for your account. You will need to use this secret key to authenticate your requests to the API."
@@ -964,6 +2924,31 @@ msgstr "This will only be shown once. Please copy it. Your secret key is:"
 msgid "Thursday"
 msgstr "Thursday"
 
+#: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "To"
+msgstr "To"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "To {recipient}"
+msgstr "To {recipient}"
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "to {summaryRecipients}"
+msgstr "to {summaryRecipients}"
+
+#. placeholder {0}: escapeHtml(to)
+#: app/(app)/[emailAccountId]/mail/print-messages.ts
+msgid "To: {0}"
+msgstr "To: {0}"
+
+#: app/(app)/[emailAccountId]/mail/ThreadList.tsx
+#: utils/date.ts
+msgid "Today"
+msgstr "Today"
+
 #: app/(app)/[emailAccountId]/settings/SentWithSignatureSection.tsx
 msgid "Toggle 'Sent with {BRAND_NAME}'"
 msgstr "Toggle 'Sent with {BRAND_NAME}'"
@@ -980,6 +2965,22 @@ msgstr "Toggle dark mode"
 msgid "Toggle read status"
 msgstr "Toggle read status"
 
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Toggle the assistant"
+msgstr "Toggle the assistant"
+
+#: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
+msgid "Tomorrow"
+msgstr "Tomorrow"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Tomorrow morning"
+msgstr "Tomorrow morning"
+
+#: app/(app)/[emailAccountId]/compose/undo-send.ts
+msgid "Too late to undo. This email was already sent."
+msgstr "Too late to undo. This email was already sent."
+
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "Transfer from"
 msgstr "Transfer from"
@@ -992,14 +2993,92 @@ msgstr "Transfer rules"
 msgid "Transfer rules to {targetAccountEmail}"
 msgstr "Transfer rules to {targetAccountEmail}"
 
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Translate"
+msgstr "Translate"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Trash"
+msgstr "Trash"
+
+#: components/CommandK.tsx
+msgid "Try a date like tomorrow at 3pm."
+msgstr "Try a date like tomorrow at 3pm."
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Try again"
+msgstr "Try again"
+
+#: app/(app)/[emailAccountId]/mail/MailPanelErrorBoundary.tsx
+msgid "Try again, or select another folder or conversation. If the problem continues, contact support with the reference below."
+msgstr "Try again, or select another folder or conversation. If the problem continues, contact support with the reference below."
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Tuesday"
 msgstr "Tuesday"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+#: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
+msgid "Turn off split"
+msgstr "Turn off split"
+
+#. placeholder {0}: entry.name
+#. placeholder {0}: split.name
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Turn off the {0} split"
+msgstr "Turn off the {0} split"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Turn on split"
+msgstr "Turn on split"
+
+#. placeholder {0}: entry.name
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Turn on the {0} split"
+msgstr "Turn on the {0} split"
+
+#: components/CommandK.tsx
+msgid "Type a command or search..."
+msgstr "Type a command or search..."
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Unable to download this message"
+msgstr "Unable to download this message"
+
+#: app/(app)/[emailAccountId]/mail/MailReaderPane.tsx
+msgid "Unable to show this conversation"
+msgstr "Unable to show this conversation"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Unable to show your mail list"
+msgstr "Unable to show your mail list"
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 msgid "Unknown error"
 msgstr "Unknown error"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Unread"
+msgstr "Unread"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "unread mail from my accountant"
+msgstr "unread mail from my accountant"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Unstar"
+msgstr "Unstar"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Unsubscribe"
+msgstr "Unsubscribe"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Unsubscribe from senders for this inbox."
@@ -1009,13 +3088,34 @@ msgstr "Unsubscribe from senders for this inbox."
 msgid "Unsubscribe senders"
 msgstr "Unsubscribe senders"
 
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Unsubscribed from {senderName}"
+msgstr "Unsubscribed from {senderName}"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Unsubscribing from {senderName}"
+msgstr "Unsubscribing from {senderName}"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Update inbox settings for this inbox."
 msgstr "Update inbox settings for this inbox."
 
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Updates"
+msgstr "Updates"
+
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Upgrade"
 msgstr "Upgrade"
+
+#: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
+msgid "Uploading…"
+msgstr "Uploading…"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Usage"
+msgstr "Usage"
 
 #: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
 msgid "Use an optional decision model for rule matching and other structured decisions. Falls back to your AI model if unavailable."
@@ -1025,9 +3125,22 @@ msgstr "Use an optional decision model for rule matching and other structured de
 msgid "Usually sent within 5 minutes."
 msgstr "Usually sent within 5 minutes."
 
+#: app/(app)/[emailAccountId]/compose/undo-send.ts
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "View"
+msgstr "View"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "View keys"
 msgstr "View keys"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "View options"
+msgstr "View options"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "View rule"
+msgstr "View rule"
 
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "View rules"
@@ -1037,6 +3150,15 @@ msgstr "View rules"
 msgid "View usage"
 msgstr "View usage"
 
+#: hooks/useCommandPaletteCommands.ts
+msgid "View usage statistics"
+msgstr "View usage statistics"
+
+#. placeholder {0}: company.name
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Visit {0}"
+msgstr "Visit {0}"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "We couldn't complete the Slack connection. Please try again."
 msgstr "We couldn't complete the Slack connection. Please try again."
@@ -1044,6 +3166,10 @@ msgstr "We couldn't complete the Slack connection. Please try again."
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "We couldn't validate your API key. Please try again."
 msgstr "We couldn't validate your API key. Please try again."
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Web search is not configured for this account."
+msgstr "Web search is not configured for this account."
 
 #: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
 msgid "Webhook Secret"
@@ -1065,9 +3191,30 @@ msgstr "Wednesday"
 msgid "Week"
 msgstr "Week"
 
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "What should All show?"
+msgstr "What should All show?"
+
+#. placeholder {0}: entry.name
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "What the {0} split does"
+msgstr "What the {0} split does"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "What to include in the digest email"
 msgstr "What to include in the digest email"
+
+#: components/CommandK.tsx
+msgid "When should it return? Try Friday at 3pm"
+msgstr "When should it return? Try Friday at 3pm"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Which tab should open first?"
+msgstr "Which tab should open first?"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Which tabs do you want?"
+msgstr "Which tabs do you want?"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"
@@ -1077,6 +3224,10 @@ msgstr "Write rules"
 msgid "Write settings"
 msgstr "Write settings"
 
+#: utils/date.ts
+msgid "Yesterday"
+msgstr "Yesterday"
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "You can manage your subscription by clicking \"Manage Subscription\" above or going to the <0>premium page</0> and clicking \"Manage subscription\"."
 msgstr "You can manage your subscription by clicking \"Manage Subscription\" above or going to the <0>premium page</0> and clicking \"Manage subscription\"."
@@ -1085,10 +3236,22 @@ msgstr "You can manage your subscription by clicking \"Manage Subscription\" abo
 msgid "You can manage your subscription from your iPhone or iPad subscription settings."
 msgstr "You can manage your subscription from your iPhone or iPad subscription settings."
 
+#: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
+msgid "You mention an attachment, but nothing is attached."
+msgstr "You mention an attachment, but nothing is attached."
+
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "You're on grandfathered Stripe pricing. The current plan prices shown elsewhere in the app are for new subscriptions."
 msgstr "You're on grandfathered Stripe pricing. The current plan prices shown elsewhere in the app are for new subscriptions."
 
+#: app/(app)/[emailAccountId]/mail/InboxZeroCelebration.tsx
+msgid "You've reached inbox zero"
+msgstr "You've reached inbox zero"
+
 #: app/(app)/[emailAccountId]/settings/AboutSectionForm.tsx
 msgid "Your profile has been updated!"
 msgstr "Your profile has been updated!"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Your splits"
+msgstr "Your splits"

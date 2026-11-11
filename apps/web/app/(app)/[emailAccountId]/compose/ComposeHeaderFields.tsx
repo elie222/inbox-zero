@@ -1,5 +1,8 @@
 "use client";
 
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ChevronDownIcon } from "lucide-react";
 import { type ReactNode, type RefObject, useRef, useState } from "react";
 import type { FieldError, UseFormRegisterReturn } from "react-hook-form";
@@ -72,6 +75,7 @@ export function ComposeHeaderFields({
   subjectError?: FieldError;
   popOutButton: ReactNode;
 }) {
+  const { t, i18n } = useLingui();
   const { userEmail } = useAccount();
   const [activeRecipientField, setActiveRecipientField] =
     useState<ComposeRecipientField>("to");
@@ -97,11 +101,11 @@ export function ComposeHeaderFields({
       redirectToSafeUrl(url, { allowExternal: true });
     } catch (error) {
       toastError({
-        title: "Error initiating reconnection",
+        title: t`Error initiating reconnection`,
         description:
           error instanceof Error
             ? error.message
-            : "Please try again or contact support.",
+            : t`Please try again or contact support.`,
       });
       setIsReconnectingContacts(false);
     }
@@ -162,6 +166,15 @@ export function ComposeHeaderFields({
     }
   };
 
+  const summaryRecipients =
+    formatRecipientNames(
+      [
+        ...splitRecipientList(recipients.to ?? replyingToEmail?.to ?? ""),
+        ...splitRecipientList(recipients.cc ?? replyingToEmail?.cc ?? ""),
+      ],
+      userEmail,
+    ) || t`recipients`;
+
   return (
     <div
       className={cn(isComposeWindow ? "shrink-0 px-4 pt-3" : "contents")}
@@ -169,7 +182,7 @@ export function ComposeHeaderFields({
     >
       {showAccountPicker && (
         <div className="flex min-h-7 items-center gap-2">
-          <ComposeFieldLabel htmlFor="from-account" label="From" />
+          <ComposeFieldLabel htmlFor="from-account" label={t`From`} />
           <Select
             disabled={sendAsDisabled}
             value={
@@ -184,7 +197,7 @@ export function ComposeHeaderFields({
             }}
           >
             <SelectTrigger
-              aria-label="From"
+              aria-label={t`From`}
               className="h-7 min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 text-sm shadow-none focus:ring-0 focus:ring-offset-0"
               id="from-account"
             >
@@ -225,25 +238,14 @@ export function ComposeHeaderFields({
             className="flex min-w-0 items-center gap-1.5 rounded-sm text-left text-sm font-medium leading-5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="text-emerald-600 dark:text-emerald-400">
-              Draft
+              <Trans>Draft</Trans>
             </span>
             <span className="min-w-0 truncate">
-              to{" "}
-              {formatRecipientNames(
-                [
-                  ...splitRecipientList(
-                    recipients.to ?? replyingToEmail?.to ?? "",
-                  ),
-                  ...splitRecipientList(
-                    recipients.cc ?? replyingToEmail?.cc ?? "",
-                  ),
-                ],
-                userEmail,
-              ) || "recipients"}
+              <Trans>to {summaryRecipients}</Trans>
             </span>
             {selectedSendAs && !selectedSendAs.isDefault && (
               <span className="min-w-0 truncate font-normal text-muted-foreground">
-                from {selectedSendAs.email}
+                <Trans>from {selectedSendAs.email}</Trans>
               </span>
             )}
             <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground" />
@@ -254,14 +256,14 @@ export function ComposeHeaderFields({
         <div className="space-y-1 [&_input]:bg-transparent">
           {selectedSendAs && !showAccountPicker && (
             <div className="flex min-h-7 items-center gap-2">
-              <ComposeFieldLabel htmlFor="from-address" label="From" />
+              <ComposeFieldLabel htmlFor="from-address" label={t`From`} />
               <Select
                 disabled={sendAsDisabled}
                 value={selectedSendAs.email}
                 onValueChange={onChangeSendAs}
               >
                 <SelectTrigger
-                  aria-label="From"
+                  aria-label={t`From`}
                   className="h-7 min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 text-sm shadow-none focus:ring-0 focus:ring-offset-0"
                   id="from-address"
                 >
@@ -282,7 +284,7 @@ export function ComposeHeaderFields({
               <div key={field} className="flex min-h-7 items-center gap-2">
                 <ComposeFieldLabel
                   htmlFor={field}
-                  label={RECIPIENT_LABELS[field]}
+                  label={i18n._(RECIPIENT_LABELS[field])}
                 />
                 <div className="min-w-0 flex-1">
                   <ComposeContactRecipientField
@@ -297,7 +299,7 @@ export function ComposeHeaderFields({
                 {field === "to" && canCollapseInlineReplyFields && (
                   <button
                     type="button"
-                    aria-label="Hide recipients"
+                    aria-label={t`Hide recipients`}
                     ref={collapseInlineReplyFieldsButtonRef}
                     onClick={closeInlineReplyFields}
                     className="rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -310,7 +312,7 @@ export function ComposeHeaderFields({
                     type="button"
                     aria-expanded={showCcBcc}
                     aria-label={
-                      showCcBcc ? "Hide Cc and Bcc" : "Show Cc and Bcc"
+                      showCcBcc ? t`Hide Cc and Bcc` : t`Show Cc and Bcc`
                     }
                     onClick={toggleCcBcc}
                     className="rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -330,7 +332,7 @@ export function ComposeHeaderFields({
               name="subject"
               registerProps={subjectRegisterProps}
               error={subjectError}
-              placeholder="Subject"
+              placeholder={t`Subject`}
               className="h-8 rounded-none border-0 bg-transparent p-0 text-sm font-medium text-foreground shadow-none focus:border-transparent focus:ring-0 sm:text-sm"
             />
           </div>
@@ -340,10 +342,10 @@ export function ComposeHeaderFields({
   );
 }
 
-const RECIPIENT_LABELS: Record<ComposeRecipientField, string> = {
-  to: "To",
-  cc: "Cc",
-  bcc: "Bcc",
+const RECIPIENT_LABELS: Record<ComposeRecipientField, MessageDescriptor> = {
+  to: msg`To`,
+  cc: msg`Cc`,
+  bcc: msg`Bcc`,
 };
 
 function ComposeFieldLabel({

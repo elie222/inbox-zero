@@ -1,3 +1,4 @@
+import { setupI18n } from "@lingui/core";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildSnoozeCommandPalette,
@@ -5,10 +6,13 @@ import {
   parseSnoozeDate,
 } from "./snooze-command-palette";
 
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
+
 describe("buildSnoozeCommandPalette", () => {
   it("offers a short list of days and shows when each one lands", () => {
     const now = new Date(2026, 7, 18, 10);
     const commands = buildSnoozeCommandPalette({
+      i18n,
       now,
       onSnooze: vi.fn(),
       query: "",
@@ -26,7 +30,7 @@ describe("buildSnoozeCommandPalette", () => {
 
   it("drops presets that have passed or would land on the same day", () => {
     const presetIdsOn = (date: Date) =>
-      getSnoozePresets(date).map(({ id }) => id);
+      getSnoozePresets(date, i18n).map(({ id }) => id);
 
     // Thursday: tomorrow is already Friday
     expect(presetIdsOn(new Date(2026, 7, 20, 10))).toEqual([
@@ -59,6 +63,7 @@ describe("buildSnoozeCommandPalette", () => {
   ])("offers tomorrow while typing %j", (query) => {
     const onSnooze = vi.fn();
     const commands = buildSnoozeCommandPalette({
+      i18n,
       now: new Date(2026, 7, 18, 21),
       onSnooze,
       query,
@@ -73,6 +78,7 @@ describe("buildSnoozeCommandPalette", () => {
     const now = new Date(2026, 7, 18, 10);
     const onSnooze = vi.fn();
     const commands = buildSnoozeCommandPalette({
+      i18n,
       now,
       onSnooze,
       query: "week",
@@ -84,6 +90,7 @@ describe("buildSnoozeCommandPalette", () => {
       "Next week",
     ]);
     const weekendCommands = buildSnoozeCommandPalette({
+      i18n,
       now,
       onSnooze,
       query: "weeken",
@@ -96,6 +103,7 @@ describe("buildSnoozeCommandPalette", () => {
   it("uses the next Monday preset date for an exact next week query", () => {
     const onSnooze = vi.fn();
     const commands = buildSnoozeCommandPalette({
+      i18n,
       now: new Date(2026, 7, 18, 10),
       onSnooze,
       query: " Next week ",
@@ -119,6 +127,7 @@ describe("buildSnoozeCommandPalette", () => {
   }) => {
     const onSnooze = vi.fn();
     const commands = buildSnoozeCommandPalette({
+      i18n,
       now: new Date(2026, 7, day, 10),
       onSnooze,
       query,
@@ -133,6 +142,7 @@ describe("buildSnoozeCommandPalette", () => {
   it("turns natural language into one actionable result", () => {
     const onSnooze = vi.fn();
     const commands = buildSnoozeCommandPalette({
+      i18n,
       now: new Date(2026, 7, 15, 10),
       onSnooze,
       query: "tomorrow at 3pm",
@@ -146,6 +156,17 @@ describe("buildSnoozeCommandPalette", () => {
 
   it("defaults date-only input to 9am", () => {
     expect(parseSnoozeDate("next Friday", new Date(2026, 7, 15, 10))).toEqual(
+      new Date(2026, 7, 21, 9),
+    );
+  });
+
+  it("reads dates in the app language and still accepts English", () => {
+    const now = new Date(2026, 7, 15, 10);
+
+    expect(parseSnoozeDate("viernes a las 15:00", now, "es")).toEqual(
+      new Date(2026, 7, 21, 15),
+    );
+    expect(parseSnoozeDate("next Friday", now, "es")).toEqual(
       new Date(2026, 7, 21, 9),
     );
   });

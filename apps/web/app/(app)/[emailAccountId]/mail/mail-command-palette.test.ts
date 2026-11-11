@@ -1,5 +1,8 @@
+import { setupI18n } from "@lingui/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildMailCommandPalette } from "./mail-command-palette";
+
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
 
 const actions = {
   archive: vi.fn(),
@@ -23,6 +26,7 @@ describe("buildMailCommandPalette", () => {
 
   it("targets the highlighted row when no checkbox selection exists", () => {
     const commands = buildMailCommandPalette({
+      i18n,
       actions,
       hasRead: false,
       hasUnread: true,
@@ -43,6 +47,7 @@ describe("buildMailCommandPalette", () => {
   it("offers moving back to the inbox instead of archiving archived conversations", () => {
     const moveToInbox = vi.fn();
     const commands = buildMailCommandPalette({
+      i18n,
       actions: { ...actions, moveToInbox },
       hasRead: true,
       hasUnread: false,
@@ -57,6 +62,7 @@ describe("buildMailCommandPalette", () => {
 
   it("labels commands for the full multi-selection", () => {
     const commands = buildMailCommandPalette({
+      i18n,
       actions,
       hasRead: true,
       hasUnread: true,
@@ -87,6 +93,7 @@ describe("buildMailCommandPalette", () => {
   it("returns no mail actions for an empty list", () => {
     expect(
       buildMailCommandPalette({
+        i18n,
         actions,
         hasRead: false,
         hasUnread: false,
@@ -97,6 +104,7 @@ describe("buildMailCommandPalette", () => {
 
   it("only exposes actions supported by the active mail source", () => {
     const commands = buildMailCommandPalette({
+      i18n,
       actions: { archive: actions.archive },
       hasRead: true,
       hasUnread: true,
@@ -108,6 +116,7 @@ describe("buildMailCommandPalette", () => {
 
   it("includes the reader actions with their shortcut hints", () => {
     const commands = buildMailCommandPalette({
+      i18n,
       actions,
       hasRead: true,
       hasUnread: false,
@@ -156,6 +165,7 @@ describe("buildMailCommandPalette", () => {
 
   it("labels the auto-archive action from its current state", () => {
     const commands = buildMailCommandPalette({
+      i18n,
       actions: { archive: actions.archive, toggleAutoArchive: vi.fn() },
       hasRead: false,
       hasUnread: true,
