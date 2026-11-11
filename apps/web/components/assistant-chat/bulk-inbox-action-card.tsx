@@ -315,19 +315,24 @@ function getTitle({
   output: PendingBulkInboxActionToolOutput;
   verb: string;
 }) {
-  const { estimate, matchSummary, pendingAction, samples = [] } = output;
-  const count = estimate
-    ? `${estimate.isApproximate ? "~" : ""}${estimate.threadCount.toLocaleString()}`
-    : "";
-  const senders = getSenderNames(samples);
-  const what =
-    matchSummary ||
-    (senders.length === 1 ? `emails from ${senders[0]}` : "emails");
+  const { estimate, matchSummary, pendingAction } = output;
+  const count = estimate ? formatCount(estimate) : "";
+  const what = matchSummary || "emails";
   const label =
     pendingAction.action === "label_threads" && pendingAction.labelName
       ? ` as "${pendingAction.labelName}"`
       : "";
   return [verb, count, what].filter(Boolean).join(" ") + label;
+}
+
+function formatCount({
+  threadCount,
+  isApproximate,
+  isLowerBound,
+}: NonNullable<PendingBulkInboxActionToolOutput["estimate"]>) {
+  const count = threadCount.toLocaleString();
+  if (isLowerBound) return `${isApproximate ? "~" : ""}${count}+`;
+  return isApproximate ? `~${count}` : count;
 }
 
 function getResultSentence({

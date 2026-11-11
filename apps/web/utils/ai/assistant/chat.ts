@@ -39,7 +39,10 @@ import {
   startSenderCategorizationTool,
 } from "./chat-inbox-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
-import { bulkManageInboxTool } from "./chat-bulk-inbox-tool";
+import {
+  bulkManageInboxTool,
+  endsWithPendingBulkInboxAction,
+} from "./chat-bulk-inbox-tool";
 import { buildBulkInboxActionStatusMessage } from "./bulk-inbox-action-status";
 import { getCalendarEventsTool } from "./chat-calendar-tools";
 import { controlMailScreenTool } from "./chat-mail-screen-tool";
@@ -422,7 +425,10 @@ export async function aiProcessAssistantChat({
       onModelResolved?.(resolvedModel);
     },
     onEnd,
-    stopWhen: () => false,
+    stopWhen: ({ steps }) => {
+      const lastStep = steps.at(-1);
+      return lastStep ? endsWithPendingBulkInboxAction(lastStep) : false;
+    },
     createSteering: finalReply.createSteering,
     prepareStep: ({
       messages: stepMessages,

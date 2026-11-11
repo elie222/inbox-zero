@@ -93,6 +93,7 @@ test("archives unread newsletters in the background and leaves conversations alo
   // Conversations the instruction keeps are not shown as examples.
   await expect(card.getByText(/Dana Levi|Sam Ortiz/)).toHaveCount(0);
   await expect(card.getByText(INSTRUCTION)).toBeHidden();
+  await expect(page.getByText("Text after the bulk card.")).toHaveCount(0);
   const archive = card.getByRole("button", { name: "Archive", exact: true });
   await expect(archive).toBeEnabled({ timeout: 30_000 });
   await card.scrollIntoViewIfNeeded();
@@ -223,9 +224,10 @@ async function seedMailboxAndScript(
       },
     },
   });
+  // The turn ends at the card, so this reply must never show.
   await scriptReply({
     match: "bulk_inbox_action",
-    text: "I set up the cleanup for your unread newsletters.",
+    text: "Text after the bulk card.",
   });
   // Serves both the card's preview and the job. Slow enough to see the job
   // running, fast enough to finish in seconds.

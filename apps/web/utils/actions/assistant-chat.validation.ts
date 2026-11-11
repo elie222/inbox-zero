@@ -201,6 +201,7 @@ export const pendingBulkInboxActionToolOutputSchema = z.object({
     .object({
       threadCount: z.number(),
       isApproximate: z.boolean(),
+      isLowerBound: z.boolean().optional(),
       searchThreadCount: z.number(),
     })
     .optional(),

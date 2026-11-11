@@ -112,7 +112,7 @@ const description = (searchToolTerms: string) =>
 
 Before calling, search to check the ${searchToolTerms} returns the intended emails, and ask the user about anything unclear. Add instruction when the search alone cannot separate which emails qualify. Only use trash_threads when the user explicitly asks to delete or trash.
 
-Nothing changes when this is called: it returns a card with an estimate and examples, and the user must confirm in the UI before the job starts. The card shows those details, asks for confirmation and updates as the job runs, so don't restate them, and don't describe the action as waiting or done, which goes stale once the user acts. At most add one short line. Once confirmed, the job's progress and totals appear in later context; report those numbers, not estimates.`;
+Nothing changes when this is called: it shows the user a card with an estimate and examples, and the user confirms there before the job starts. Once confirmed, the job's progress and totals appear in later context; report those numbers, not estimates.`;
 
 const gmailBulkInboxTool = (options: BulkInboxToolOptions) =>
   tool({
@@ -284,7 +284,9 @@ async function prepareBulkInboxAction({
       },
       estimate: {
         threadCount: estimatedThreadCount,
-        isApproximate: hasMore || Boolean(preview),
+        isApproximate: Boolean(preview),
+        // The preview stops after a few pages; the job covers every match.
+        isLowerBound: hasMore,
         searchThreadCount: threadIds.size,
       },
       matchSummary: preview?.matchSummary ?? null,
@@ -294,7 +296,7 @@ async function prepareBulkInboxAction({
         date: message.date,
       })),
       nextStep:
-        "Nothing has changed yet. The card handles confirmation and progress.",
+        "The card shows the details and handles confirmation and progress.",
     };
   } catch (error) {
     logger.error("Failed to prepare bulk inbox action", { error });
@@ -333,4 +335,21 @@ async function previewInstruction({
     logger.warn("Failed to preview bulk inbox action instruction", { error });
     return null;
   }
+}
+
+/**
+ * A pending bulk card is the whole reply: it asks for confirmation and then
+ * shows progress, so text after it would only repeat it and go stale.
+ */
+export function endsWithPendingBulkInboxAction(step: {
+  toolResults: Array<{ toolName: string; output: unknown }>;
+}) {
+  return step.toolResults.some(
+    ({ toolName, output }) =>
+      toolName === "bulkManageInbox" &&
+      typeof output === "object" &&
+      output !== null &&
+      (output as { requiresConfirmation?: unknown }).requiresConfirmation ===
+        true,
+  );
 }

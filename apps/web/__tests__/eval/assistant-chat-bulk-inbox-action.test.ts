@@ -61,20 +61,24 @@ describe.runIf(shouldRunEval)("Eval: assistant chat bulk inbox action", () => {
               .includes("deals@shop.example") &&
             manageInboxCalls.length === 0;
 
-          const judge = usedBulkTool
-            ? await judgeEvalOutput({
-                input: prompt,
-                output: finalText,
-                expected:
-                  "At most a short line about the cleanup. A confirmation card already shows the count and examples and asks the user to confirm.",
-                criterion: {
-                  name: "Brief reply that stays accurate",
-                  description:
-                    "The reply must not claim any emails were already archived, and must not restate the card's details such as the count, search, or list of examples. A brief line, or a mention that the user can review it, is fine.",
-                },
-              })
-            : null;
-          const pass = usedBulkTool && Boolean(judge?.pass);
+          // The turn normally ends at the card. Any text that still appears
+          // must stay accurate after the user confirms or cancels.
+          const judge =
+            usedBulkTool && finalText.trim()
+              ? await judgeEvalOutput({
+                  input: prompt,
+                  output: finalText,
+                  expected:
+                    "No text, or at most a short line. A confirmation card already shows the count and examples and asks the user to confirm.",
+                  criterion: {
+                    name: "Brief reply that stays accurate",
+                    description:
+                      "The card above the reply shows the count, examples and live status, so the reply must stay true after the user confirms or cancels. Fail if it claims emails were archived, describes the status (pending, awaiting confirmation, nothing archived yet), gives the count, or lists examples. Naming the kind of emails in a few words, or saying the user can review it, is fine.",
+                  },
+                })
+              : null;
+          const pass =
+            usedBulkTool && (!finalText.trim() || Boolean(judge?.pass));
 
           evalReporter.record({
             testName: `large cleanup uses bulk tool (${provider})`,
