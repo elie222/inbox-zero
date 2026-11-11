@@ -96,7 +96,7 @@ function DeliveryTimePicker({
   shortcut: "sendLater" | "remindMe";
   shortcutOwnerId: string;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const [custom, setCustom] = useState("");
   const [showCustom, setShowCustom] = useState(false);
   const isReminder = shortcut === "remindMe";
@@ -134,7 +134,7 @@ function DeliveryTimePicker({
             aria-label={label}
           >
             {value
-              ? new Date(value).toLocaleString(undefined, {
+              ? new Date(value).toLocaleString(i18n.locale, {
                   month: "short",
                   day: "numeric",
                   hour: "numeric",
@@ -210,7 +210,7 @@ function DeliveryTimePicker({
                         : t`${plural(days, { one: "In # day", other: "In # days" })}`}
                   </span>
                   <span className="shrink-0 text-muted-foreground">
-                    {date.toLocaleDateString(undefined, {
+                    {date.toLocaleDateString(i18n.locale, {
                       month: "short",
                       day: "numeric",
                     })}{" "}

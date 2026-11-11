@@ -173,6 +173,7 @@ export function ComposeHeaderFields({
         ...splitRecipientList(recipients.cc ?? replyingToEmail?.cc ?? ""),
       ],
       userEmail,
+      t`me`,
     ) || t`recipients`;
 
   return (

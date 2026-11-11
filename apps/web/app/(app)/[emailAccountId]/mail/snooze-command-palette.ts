@@ -53,12 +53,16 @@ export function parseSnoozeDate(
   const parsers = [LOCALE_DATE_PARSERS[locale], chrono.casual].filter(
     (parser) => parser !== undefined,
   );
-  const result = parsers
-    .map(
-      (parser) =>
-        parser.parse(input.trim(), now, { forwardDate: true })[0] ?? null,
-    )
-    .find((parsed) => parsed !== null);
+  // Keep the parse that understood the most of the input, so a locale parser
+  // that only recognises "3pm" in "next Friday at 3pm" can't win. Ties go to
+  // the app language.
+  let result: chrono.ParsedResult | undefined;
+  for (const parser of parsers) {
+    const parsed = parser.parse(input.trim(), now, { forwardDate: true })[0];
+    if (parsed && (!result || parsed.text.length > result.text.length)) {
+      result = parsed;
+    }
+  }
   if (!result) return null;
 
   const date = result.start.date();

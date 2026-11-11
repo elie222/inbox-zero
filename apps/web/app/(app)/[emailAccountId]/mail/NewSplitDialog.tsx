@@ -182,12 +182,13 @@ export function NewSplitDialog({
         return OLDER_THAN_OPTIONS.map((option) => ({
           id: option.value,
           name: option.name,
+          label: getOlderThanLabel(option.value, i18n),
           value: option.value,
         }));
       }
       return [];
     },
-    [categories, labels],
+    [categories, i18n, labels],
   );
 
   const defaultCondition = useCallback(
@@ -572,21 +573,21 @@ export function NewSplitDialog({
         ) : mode === "build" ? (
           <div className="min-h-0 flex-1 overflow-y-auto p-3.5 scrollbar-thin">
             <div className="mb-3 flex items-center gap-2 text-muted-foreground text-xs">
-              <span>
-                <Trans>Show mail matching</Trans>
-              </span>
-              <select
-                aria-label={t`Match all or any condition`}
-                value={matchAll ? "all" : "any"}
-                onChange={(event) => setMatchAll(event.target.value === "all")}
-                className="h-7 rounded-lg border border-border bg-background py-0 pr-8 pl-1.5 text-foreground text-xs outline-none transition-[color,box-shadow] focus:border-ring focus:ring-[3px] focus:ring-ring/50"
-              >
-                <option value="all">{t`all`}</option>
-                <option value="any">{t`any`}</option>
-              </select>
-              <span>
-                <Trans>of these conditions</Trans>
-              </span>
+              <Trans>
+                Show mail matching{" "}
+                <select
+                  aria-label={t`Match all or any condition`}
+                  value={matchAll ? "all" : "any"}
+                  onChange={(event) =>
+                    setMatchAll(event.target.value === "all")
+                  }
+                  className="h-7 rounded-lg border border-border bg-background py-0 pr-8 pl-1.5 text-foreground text-xs outline-none transition-[color,box-shadow] focus:border-ring focus:ring-[3px] focus:ring-ring/50"
+                >
+                  <option value="all">{t`all`}</option>
+                  <option value="any">{t`any`}</option>
+                </select>{" "}
+                of these conditions
+              </Trans>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -994,10 +995,9 @@ function conditionLabel(
       return recipient ? i18n._(msg`To ${recipient}`) : i18n._(msg`Sent to`);
     }
     case MailSplitFilterKind.OLDER_THAN: {
-      const age =
-        OLDER_THAN_OPTIONS.find((o) => o.value === condition.value)?.name ??
-        condition.value ??
-        "";
+      const age = condition.value
+        ? getOlderThanLabel(condition.value, i18n)
+        : "";
       return i18n._(msg`Older than ${age}`);
     }
     case MailSplitFilterKind.LABEL: {
@@ -1011,4 +1011,15 @@ function conditionLabel(
       return choice?.label ?? choice?.name ?? i18n._(msg`Category`);
     }
   }
+}
+
+const OLDER_THAN_LABELS: Record<string, MessageDescriptor> = {
+  "3d": msg`3 days`,
+  "1w": msg`a week`,
+  "1m": msg`a month`,
+};
+
+function getOlderThanLabel(value: string, i18n: I18n) {
+  const label = OLDER_THAN_LABELS[value];
+  return label ? i18n._(label) : value;
 }

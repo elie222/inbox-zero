@@ -169,6 +169,9 @@ describe("buildSnoozeCommandPalette", () => {
     expect(parseSnoozeDate("next Friday", now, "es")).toEqual(
       new Date(2026, 7, 21, 9),
     );
+    expect(parseSnoozeDate("next Friday at 3pm", now, "es")).toEqual(
+      new Date(2026, 7, 21, 15),
+    );
   });
 
   it("does not offer invalid or past dates", () => {
