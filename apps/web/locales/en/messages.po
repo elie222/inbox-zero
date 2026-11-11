@@ -87,8 +87,8 @@ msgid "{archivedEmailCount, plural, one {# email} other {# emails}}"
 msgstr "{archivedEmailCount, plural, one {# email} other {# emails}}"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
-msgid "{created} created"
-msgstr "{created} created"
+msgid "{created, plural, one {# created} other {# created}}"
+msgstr "{created, plural, one {# created} other {# created}}"
 
 #: app/(app)/[emailAccountId]/assistant/settings/cron-schedule-messages.ts
 msgid "{days} at {times} {timeZoneName}"
@@ -103,8 +103,8 @@ msgid "{displayName} isn't connected. Connect it to use this action."
 msgstr "{displayName} isn't connected. Connect it to use this action."
 
 #: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
-msgid "{enabled} enabled"
-msgstr "{enabled} enabled"
+msgid "{enabled, plural, one {# enabled} other {# enabled}}"
+msgstr "{enabled, plural, one {# enabled} other {# enabled}}"
 
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "{errorCount, plural, one {Failed to send # invitation} other {Failed to send # invitations}}"
@@ -168,8 +168,8 @@ msgid "{readPercentage}% read"
 msgstr "{readPercentage}% read"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
-msgid "{skipped} already existed"
-msgstr "{skipped} already existed"
+msgid "{skipped, plural, one {# already existed} other {# already existed}}"
+msgstr "{skipped, plural, one {# already existed} other {# already existed}}"
 
 #: app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer.ts
 msgid "{stoppedCount, plural, one {Processed # email} other {Processed # emails}}"
@@ -2192,12 +2192,12 @@ msgid "Import rules from JSON file"
 msgstr "Import rules from JSON file"
 
 #: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
-msgid "Imported {createdCount} new, updated {updatedCount} existing"
-msgstr "Imported {createdCount} new, updated {updatedCount} existing"
+msgid "Imported {createdCount, plural, one {# new} other {# new}}, updated {updatedCount, plural, one {# existing} other {# existing}}"
+msgstr "Imported {createdCount, plural, one {# new} other {# new}}, updated {updatedCount, plural, one {# existing} other {# existing}}"
 
 #: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
-msgid "Imported {createdCount} new, updated {updatedCount} existing, skipped {skippedCount}"
-msgstr "Imported {createdCount} new, updated {updatedCount} existing, skipped {skippedCount}"
+msgid "Imported {createdCount, plural, one {# new} other {# new}}, updated {updatedCount, plural, one {# existing} other {# existing}}, skipped {skippedCount, plural, one {#} other {#}}"
+msgstr "Imported {createdCount, plural, one {# new} other {# new}}, updated {updatedCount, plural, one {# existing} other {# existing}}, skipped {skippedCount, plural, one {#} other {#}}"
 
 #: utils/mcp/tool-specs-messages.ts
 msgid "In a week"

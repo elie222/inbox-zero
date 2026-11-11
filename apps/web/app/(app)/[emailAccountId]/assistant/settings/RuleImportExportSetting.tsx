@@ -1,5 +1,6 @@
 "use client";
 
+import { plural } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
@@ -109,8 +110,8 @@ export function RuleImportExportSetting({
           const { createdCount, updatedCount, skippedCount } = result.data;
           toast.success(
             skippedCount > 0
-              ? t`Imported ${createdCount} new, updated ${updatedCount} existing, skipped ${skippedCount}`
-              : t`Imported ${createdCount} new, updated ${updatedCount} existing`,
+              ? t`Imported ${plural(createdCount, { one: "# new", other: "# new" })}, updated ${plural(updatedCount, { one: "# existing", other: "# existing" })}, skipped ${plural(skippedCount, { one: "#", other: "#" })}`
+              : t`Imported ${plural(createdCount, { one: "# new", other: "# new" })}, updated ${plural(updatedCount, { one: "# existing", other: "# existing" })}`,
           );
           mutate();
         }

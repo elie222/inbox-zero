@@ -123,9 +123,18 @@ export function SyncToExtensionSetting() {
       if (result.success && result.summary) {
         const { enabled, created, skipped } = result.summary;
         const parts: string[] = [];
-        if (enabled > 0) parts.push(t`${enabled} enabled`);
-        if (created > 0) parts.push(t`${created} created`);
-        if (skipped > 0) parts.push(t`${skipped} already existed`);
+        if (enabled > 0)
+          parts.push(
+            t`${plural(enabled, { one: "# enabled", other: "# enabled" })}`,
+          );
+        if (created > 0)
+          parts.push(
+            t`${plural(created, { one: "# created", other: "# created" })}`,
+          );
+        if (skipped > 0)
+          parts.push(
+            t`${plural(skipped, { one: "# already existed", other: "# already existed" })}`,
+          );
         const summary = parts.join(", ");
         toast.success(t`Synced tabs to extension: ${summary}`);
       } else {
