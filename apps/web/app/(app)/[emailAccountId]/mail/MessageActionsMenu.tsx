@@ -1,6 +1,7 @@
 "use client";
 
 import { type ComponentProps, useState } from "react";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import {
   CodeIcon,
   DownloadIcon,
@@ -48,6 +49,7 @@ export function MessageActionsMenu({
   plans: ThreadPlan[];
   showFixWithChat: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId } = useAccount();
   const [isSourceOpen, setIsSourceOpen] = useState(false);
   const messagePlans = plans.filter((plan) => plan.messageId === message.id);
@@ -61,7 +63,7 @@ export function MessageActionsMenu({
       );
     } catch (error) {
       captureException(error);
-      toastError({ description: "Unable to download this message" });
+      toastError({ description: t`Unable to download this message` });
     }
   };
 
@@ -70,7 +72,7 @@ export function MessageActionsMenu({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            aria-label="More message actions"
+            aria-label={t`More message actions`}
             size="iconXs"
             variant="ghostMuted"
             onClick={(event) => event.stopPropagation()}
@@ -87,7 +89,7 @@ export function MessageActionsMenu({
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <SparklesIcon className="mr-2 size-4" />
-              Matched reason
+              <Trans>Matched reason</Trans>
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
               <DropdownMenuSubContent
@@ -106,7 +108,7 @@ export function MessageActionsMenu({
                   ))
                 ) : (
                   <p className="p-3 text-muted-foreground text-xs">
-                    No matched rules for this message.
+                    <Trans>No matched rules for this message.</Trans>
                   </p>
                 )}
               </DropdownMenuSubContent>
@@ -116,20 +118,22 @@ export function MessageActionsMenu({
           <DropdownMenuSeparator />
 
           <DropdownMenuItem
-            onSelect={() => printMessages({ subject, messages: [message] })}
+            onSelect={() =>
+              printMessages({ subject, messages: [message], i18n })
+            }
           >
             <PrinterIcon className="mr-2 size-4" />
-            Print
+            <Trans>Print</Trans>
           </DropdownMenuItem>
 
           <DropdownMenuItem onSelect={downloadMessage}>
             <DownloadIcon className="mr-2 size-4" />
-            Download message
+            <Trans>Download message</Trans>
           </DropdownMenuItem>
 
           <DropdownMenuItem onSelect={() => setIsSourceOpen(true)}>
             <CodeIcon className="mr-2 size-4" />
-            Show original
+            <Trans>Show original</Trans>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -154,6 +158,7 @@ function RuleAttribution({
   message: ParsedMessage | null;
   showFixWithChat: boolean;
 }) {
+  const { t } = useLingui();
   const { provider } = useAccount();
   const { setInput: setChatInput } = useChat();
   const reasonDisplay = getRuleResultReasonDisplay(plan.reason ?? "");
@@ -162,12 +167,14 @@ function RuleAttribution({
     <div className="min-w-0 border-border border-b px-3 py-3 last:border-b-0">
       <div className="min-w-0 text-xs">
         <span className="text-muted-foreground">
-          {plan.status === ExecutedRuleStatus.APPLIED
-            ? "Applied rule:"
-            : "Matched rule:"}{" "}
+          {plan.status === ExecutedRuleStatus.APPLIED ? (
+            <Trans>Applied rule:</Trans>
+          ) : (
+            <Trans>Matched rule:</Trans>
+          )}{" "}
         </span>
         <span className="font-medium text-foreground break-words [overflow-wrap:anywhere]">
-          {plan.rule?.name ?? "a deleted rule"}
+          {plan.rule?.name ?? t`a deleted rule`}
         </span>
       </div>
 
@@ -180,9 +187,11 @@ function RuleAttribution({
       {reasonDisplay.actionFailureMessages.length > 0 ? (
         <div className="mt-2 rounded-md bg-destructive/10 px-2 py-1.5 text-destructive text-xs">
           <div className="font-medium">
-            {reasonDisplay.actionFailureMessages.length === 1
-              ? "Action issue"
-              : "Action issues"}
+            <Plural
+              value={reasonDisplay.actionFailureMessages.length}
+              one="Action issue"
+              other="Action issues"
+            />
           </div>
           <ul className="mt-0.5 list-disc space-y-0.5 pl-4">
             {reasonDisplay.actionFailureMessages.map(
@@ -203,9 +212,11 @@ function RuleAttribution({
         <div className="mt-3 space-y-2">
           <div className="font-medium text-xs">
             {plan.status === ExecutedRuleStatus.APPLIED &&
-            reasonDisplay.actionFailureMessages.length === 0
-              ? "Actions applied"
-              : "Rule actions"}
+            reasonDisplay.actionFailureMessages.length === 0 ? (
+              <Trans>Actions applied</Trans>
+            ) : (
+              <Trans>Rule actions</Trans>
+            )}
           </div>
           <RuleActions
             actions={plan.actionItems}

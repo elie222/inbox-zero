@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { HistoryIcon } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Kbd } from "@/components/Kbd";
 import useSWR from "swr";
 import type { ContactsResponse } from "@/app/api/user/contacts/route";
@@ -103,9 +104,10 @@ export function MailSearchSuggestionList({
   onSelect: (suggestion: MailSearchSuggestion) => void;
   suggestions: MailSearchSuggestion[];
 }) {
+  const { t } = useLingui();
   return (
     <div
-      aria-label="Search suggestions"
+      aria-label={t`Search suggestions`}
       className="absolute top-full right-0 left-0 z-20 mt-1 overflow-hidden rounded-lg border border-border bg-popover py-1 text-popover-foreground text-sm shadow-md"
       id={id}
       role="listbox"
@@ -172,10 +174,12 @@ export function MailSearchHint() {
   return (
     <div className="absolute top-full right-0 left-0 z-20 mt-1 flex items-center justify-between gap-3 rounded-lg border border-border bg-popover px-3 py-2 text-muted-foreground text-sm shadow-md">
       <span className="min-w-0 truncate">
-        Search by sender, subject, or any words in the email
+        <Trans>Search by sender, subject, or any words in the email</Trans>
       </span>
       <span className="flex shrink-0 items-center gap-1.5 text-xs">
-        <Kbd>Esc</Kbd> to close
+        <Trans>
+          <Kbd>Esc</Kbd> to close
+        </Trans>
       </span>
     </div>
   );

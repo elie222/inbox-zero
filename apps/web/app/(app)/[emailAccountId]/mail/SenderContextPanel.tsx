@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback } from "react";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Building2Icon,
   ExternalLinkIcon,
@@ -46,6 +48,7 @@ export function SenderContextPanel({
   variant,
   onClose,
 }: SenderContextPanelProps) {
+  const { t } = useLingui();
   const { data, isLoading, isValidating, error, mutate } =
     usePublicContactContext({
       messageId,
@@ -120,7 +123,7 @@ export function SenderContextPanel({
 
   return (
     <aside
-      aria-label="Sender profile"
+      aria-label={t`Sender profile`}
       className="flex w-80 shrink-0 flex-col border-border border-l bg-card outline-none"
       data-testid="sender-context-panel"
       onKeyDown={(event) => {
@@ -137,7 +140,7 @@ export function SenderContextPanel({
       <div className="flex items-start gap-2 border-border border-b px-5 py-4">
         {identity}
         <Button
-          aria-label="Close sender profile"
+          aria-label={t`Close sender profile`}
           className="-mr-2 -mt-1"
           onClick={onClose}
           size="iconXs"
@@ -165,7 +168,7 @@ function PublicContext({ context }: { context: PublicContactContext }) {
             ) : null}
             {context.confidence === "low" ? (
               <Badge className="font-normal" variant="outline">
-                Possible match
+                <Trans>Possible match</Trans>
               </Badge>
             ) : null}
           </div>
@@ -176,7 +179,7 @@ function PublicContext({ context }: { context: PublicContactContext }) {
 
       <section className="border-border border-t pt-5">
         <h3 className="font-medium text-foreground text-xs uppercase tracking-wide">
-          Public sources
+          <Trans>Public sources</Trans>
         </h3>
         <div className="mt-3 space-y-2">
           {context.sources.map((source, index) => (
@@ -202,6 +205,7 @@ function CompanyContext({
 }: {
   company: NonNullable<PublicContactContext["company"]>;
 }) {
+  const { t } = useLingui();
   return (
     <section className="rounded-lg border border-border bg-muted/30 p-4">
       <div className="flex items-start gap-3">
@@ -215,7 +219,7 @@ function CompanyContext({
             </h3>
             {company.website ? (
               <a
-                aria-label={`Visit ${company.name}`}
+                aria-label={t`Visit ${company.name}`}
                 className="text-muted-foreground hover:text-foreground"
                 href={company.website}
                 rel="noreferrer"
@@ -275,7 +279,8 @@ function ContextUnavailable({
   retrying: boolean;
   onRetry: () => void;
 }) {
-  const message = getUnavailableMessage(reason);
+  const { i18n } = useLingui();
+  const message = i18n._(getUnavailableMessage(reason));
 
   return (
     <div className="flex min-h-64 flex-col items-center justify-center text-center">
@@ -283,7 +288,7 @@ function ContextUnavailable({
         <SparklesIcon className="size-4 text-muted-foreground" />
       </div>
       <div className="mt-3 font-medium text-foreground text-sm">
-        No public context
+        <Trans>No public context</Trans>
       </div>
       <p className="mt-1 max-w-64 text-muted-foreground text-xs leading-5">
         {message}
@@ -296,7 +301,7 @@ function ContextUnavailable({
           size="sm"
           variant="outline"
         >
-          Try again
+          <Trans>Try again</Trans>
         </Button>
       )}
     </div>
@@ -313,13 +318,13 @@ function ContextError({
   return (
     <div className="flex min-h-64 flex-col items-center justify-center text-center">
       <div className="font-medium text-foreground text-sm">
-        Couldn't load public context
+        <Trans>Couldn't load public context</Trans>
       </div>
       <p className="mt-1 max-w-64 text-muted-foreground text-xs leading-5">
         {getSWRFetchErrorMessage(error?.info)}
       </p>
       <Button className="mt-3" onClick={onRetry} size="sm" variant="outline">
-        Try again
+        <Trans>Try again</Trans>
       </Button>
     </div>
   );
@@ -354,15 +359,15 @@ function getInitials(value: string) {
 function getUnavailableMessage(reason?: PublicContactContextUnavailableReason) {
   switch (reason) {
     case "personal_email":
-      return "Public profiles are not researched for personal email addresses.";
+      return msg`Public profiles are not researched for personal email addresses.`;
     case "search_unavailable":
-      return "Web search is not configured for this account.";
+      return msg`Web search is not configured for this account.`;
     case "research_failed":
-      return "Couldn't research this sender right now.";
+      return msg`Couldn't research this sender right now.`;
     case "cache_unavailable":
-      return "Public context is temporarily unavailable. Try again shortly.";
+      return msg`Public context is temporarily unavailable. Try again shortly.`;
     default:
-      return "No confident public professional profile was found.";
+      return msg`No confident public professional profile was found.`;
   }
 }
 

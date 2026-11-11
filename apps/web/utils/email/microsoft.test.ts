@@ -1442,6 +1442,7 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
       getThreadParticipantNames(
         [...(thread?.participantMessages ?? []), ...(thread?.messages ?? [])],
         "owner@example.com",
+        "me",
       ),
     ).toEqual(["Dana Example", "me"]);
     expect(thread?.messages.map((message) => message.id)).toEqual([

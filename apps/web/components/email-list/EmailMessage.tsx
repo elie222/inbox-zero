@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { CalendarInvitation } from "@/components/email-list/CalendarInvitation";
 import { isCalendarInvitationMessage } from "@/utils/calendar/invitations/detection";
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
@@ -534,12 +535,13 @@ function MessageHeader({
   hasDraft: boolean;
   sentMessageOpen?: SentMessageOpenState;
 }) {
+  const { t } = useLingui();
   const { emailAccount, emailAccountId, userEmail } = useAccount();
 
   const isSent = message.labelIds?.includes(GmailLabel.SENT) ?? false;
   const senderEmail = extractEmailAddress(message.headers.from);
   const senderName = isSent
-    ? "Me"
+    ? t`Me`
     : extractNameFromEmail(message.headers.from) || senderEmail;
   const contactPhoto = useContactPhoto({
     email: expanded && !isSent ? senderEmail : null,
@@ -552,6 +554,7 @@ function MessageHeader({
       ...splitRecipientList(message.headers.cc ?? ""),
     ],
     userEmail,
+    t`me`,
   );
   const canResearchSender =
     Boolean(onOpenSenderContext) &&
@@ -651,10 +654,12 @@ function MessageHeader({
               <span className={senderNameClassName}>{senderName}</span>
               {recipients && (
                 <span className="hidden min-w-0 shrink-[999] truncate text-muted-foreground text-sm sm:block">
-                  to{" "}
-                  <span className="font-medium text-foreground">
-                    {recipients}
-                  </span>
+                  <Trans>
+                    to{" "}
+                    <span className="font-medium text-foreground">
+                      {recipients}
+                    </span>
+                  </Trans>
                 </span>
               )}
               <ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground transition-opacity group-hover/message:opacity-100 group-focus-visible/details:opacity-100 sm:opacity-0" />

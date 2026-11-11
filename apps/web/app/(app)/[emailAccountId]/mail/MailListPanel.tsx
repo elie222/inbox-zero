@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef } from "react";
+import { useLingui } from "@lingui/react/macro";
 import {
   MAIL_LIST_WIDTH_BOUNDS,
   MAIL_LIST_WIDTH_COOKIE,
@@ -22,6 +23,7 @@ export function MailListPanel({
   inert?: boolean;
   children: React.ReactNode;
 }) {
+  const { t } = useLingui();
   // Dragging writes straight to the CSS variable: re-rendering MailShell on
   // every pointer move would make the edge lag behind the cursor.
   const panelRef = useRef<HTMLElement>(null);
@@ -62,7 +64,7 @@ export function MailListPanel({
     >
       {children}
       <PanelResizeHandle
-        label="Resize email list"
+        label={t`Resize email list`}
         edge="right"
         bounds={MAIL_LIST_WIDTH_BOUNDS}
         onResize={onResize}

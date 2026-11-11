@@ -14,11 +14,13 @@ export function LinguiClientProvider({
   messages: Messages;
   children: ReactNode;
 }) {
-  // Rebuilt when the locale changes: switching languages refreshes the server
-  // layout, which passes the new locale's catalog down.
+  // Rebuilt only when the locale changes. Every server re-render of the layout
+  // (refreshes, revalidated actions) sends a new copy of the same catalog, and a
+  // new instance would change `t` and re-run every effect that depends on it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a locale's catalog never changes at runtime
   const i18n = useMemo(
     () => setupI18n({ locale, messages: { [locale]: messages } }),
-    [locale, messages],
+    [locale],
   );
 
   // The root layout is static and always renders lang="en". Restore it on

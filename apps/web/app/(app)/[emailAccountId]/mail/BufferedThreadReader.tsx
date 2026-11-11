@@ -7,6 +7,7 @@ import {
   useState,
   type ReactElement,
 } from "react";
+import { Trans } from "@lingui/react/macro";
 import type { ThreadReaderProps } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
 import { LoadingMiniSpinner } from "@/components/Loading";
 
@@ -94,7 +95,7 @@ export function BufferedThreadReader({
           role="status"
         >
           <LoadingMiniSpinner />
-          Loading email…
+          <Trans>Loading email…</Trans>
         </div>
       )}
       {readers.map((reader) => {
