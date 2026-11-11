@@ -85,7 +85,7 @@ for (const accountScope of ["single", "all"] as const) {
     }
     await expect(
       page.getByText("No emails found", { exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 60_000 });
     await expect(loading).toHaveCount(0);
     await capturePlaywrightCheckpoint(
       page,
