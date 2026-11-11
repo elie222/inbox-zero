@@ -156,6 +156,8 @@ import { redirectToSafeUrl } from "@/utils/redirect";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
+import { ErrorDisplay } from "@/components/ErrorDisplay";
+import { Button } from "@/components/ui/button";
 import { useTeamCommentsAvailable } from "@/components/team-comments/use-team-comments-available";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
 import type { ThreadsQuery } from "@/utils/threads/validation";
@@ -2158,6 +2160,23 @@ export function MailShell() {
                         }
                         error={
                           searchQuery && threads.length ? undefined : error
+                        }
+                        errorComponent={
+                          searchQuery && error && !threads.length ? (
+                            <div className="flex flex-col items-center pb-8">
+                              <ErrorDisplay error={error} />
+                              <Button
+                                variant="outline"
+                                onClick={() =>
+                                  refetchThreadList().catch(() =>
+                                    toast.error(error.error),
+                                  )
+                                }
+                              >
+                                <Trans>Retry search</Trans>
+                              </Button>
+                            </div>
+                          ) : undefined
                         }
                         loadingComponent={
                           <div className="px-6 py-12 text-center text-muted-foreground text-sm">

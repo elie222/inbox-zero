@@ -129,16 +129,21 @@ for (const accountScope of ["single", "all"] as const) {
     );
   });
 
-  test(`${accountScope}: an empty failed search identifies the search error`, async ({
+  test(`${accountScope}: an empty failed search can be retried`, async ({
     page,
   }, testInfo) => {
     const { emailAccountId } = await openMail(page);
     if (accountScope === "all")
       await page.goto(`/${emailAccountId}/mail?accountScope=all`);
     await expect(page.getByRole("option").first()).toBeVisible();
-    await page.route("**/api/mail/v1/accounts/*/search", (route) =>
-      route.fulfill({ status: 503, json: { error: "Search unavailable" } }),
-    );
+    let failSearch = true;
+    let requests = 0;
+    await page.route("**/api/mail/v1/accounts/*/search", (route) => {
+      requests += 1;
+      return failSearch
+        ? route.fulfill({ status: 503, json: { error: "Search unavailable" } })
+        : route.continue();
+    });
     await page.getByPlaceholder("Search mail").fill("no-matching-mail-947263");
     await expect(
       page.getByText("Couldn't complete this search.", { exact: true }),
@@ -151,6 +156,12 @@ for (const accountScope of ["single", "all"] as const) {
       testInfo,
       `mail-search-empty-error-${accountScope}`,
     );
+    failSearch = false;
+    await page.getByRole("button", { name: "Retry search" }).click();
+    await expect(
+      page.getByText("No emails found", { exact: true }),
+    ).toBeVisible();
+    expect(requests).toBeGreaterThan(1);
   });
 
   test(`${accountScope}: slash focuses search and Command K opens commands`, async ({

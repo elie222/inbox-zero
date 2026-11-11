@@ -589,15 +589,22 @@ export function createMailEngine(input: {
             })
             .catch(async (error) => {
               if (search) search.failed = true;
+              await store.completeJob({
+                jobId: work.jobId,
+                attemptId: work.attemptId,
+              });
               await queries.refreshAll();
               throw error;
             });
-          if (search) {
-            search.failed =
-              searched.status === "blocked_auth" ||
-              (searched.status === "paused" &&
-                searched.reason === "unavailable");
-          }
+          const failed =
+            searched.status === "blocked_auth" ||
+            (searched.status === "paused" && searched.reason === "unavailable");
+          if (search) search.failed = failed;
+          if (failed)
+            await store.completeJob({
+              jobId: work.jobId,
+              attemptId: work.attemptId,
+            });
           if (searched.status === "ok") {
             for (const key of searched.value.matches)
               search?.hydration.set(key.messageId, "loading");
@@ -609,6 +616,10 @@ export function createMailEngine(input: {
                 })
                 .catch(async (error) => {
                   if (search) search.failed = true;
+                  await store.completeJob({
+                    jobId: work.jobId,
+                    attemptId: work.attemptId,
+                  });
                   await queries.refreshAll();
                   throw error;
                 });

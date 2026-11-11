@@ -10691,6 +10691,10 @@ msgstr "Retest"
 msgid "Retry"
 msgstr "Retry"
 
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Retry search"
+msgstr "Retry search"
+
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
 msgid "Retry send"
 msgstr "Retry send"

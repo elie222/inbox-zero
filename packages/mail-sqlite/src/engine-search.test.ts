@@ -132,13 +132,25 @@ describe("engine search and body hydration", () => {
     await engine.close();
   });
 
-  it("restarts a failed provider search when its window is observed again", async () => {
+  it.each([
+    "unavailable",
+    "blocked_auth",
+  ] as const)("retries a %s search without waiting for its old lease", async (failure) => {
+    let calls = 0;
     const { engine } = await pagedSearchEngine({
       async search() {
+        calls += 1;
+        if (calls === 1) {
+          if (failure === "blocked_auth") return { status: "blocked_auth" };
+          return {
+            status: "paused",
+            retryAfterMs: 60_000,
+            reason: "unavailable",
+          };
+        }
         return {
-          status: "paused",
-          retryAfterMs: 60_000,
-          reason: "unavailable",
+          status: "ok",
+          value: { matches: [], nextPage: null, semantics: "exact" },
         };
       },
     });
@@ -150,14 +162,36 @@ describe("engine search and body hydration", () => {
     const retry = engine.observeMailboxWindow?.(bodySearchQuery());
     if (!retry) throw new Error("missing mailbox handle");
     await waitForReady(retry);
-    expect(retry.getSnapshot().data?.searchStatus).toBe("loading");
+    await engine.runUntil(Date.now() + 500);
+    expect(calls).toBe(2);
+    expect(retry.getSnapshot().data?.searchStatus).toBe("ready");
+    await engine.close();
+  });
+
+  it("keeps a throttled search queued for automatic retry", async () => {
+    const { engine, store } = await pagedSearchEngine({
+      async search() {
+        return { status: "paused", reason: "throttled", retryAfterMs: 60_000 };
+      },
+    });
+    const handle = engine.observeMailboxWindow?.(bodySearchQuery());
+    if (!handle) throw new Error("missing mailbox handle");
+    await engine.runUntil(Date.now() + 500);
+    expect(handle.getSnapshot().data?.searchStatus).toBe("loading");
+    expect((await store.getDiagnostics("acc-1")).pendingJobs).toBe(1);
     await engine.close();
   });
 
   it("reports a thrown provider error to the active search", async () => {
+    let calls = 0;
     const { engine } = await pagedSearchEngine({
       async search() {
-        throw new Error("provider unavailable");
+        calls += 1;
+        if (calls === 1) throw new Error("provider unavailable");
+        return {
+          status: "ok",
+          value: { matches: [], nextPage: null, semantics: "exact" },
+        };
       },
     });
     const handle = engine.observeMailboxWindow?.(bodySearchQuery());
@@ -166,6 +200,12 @@ describe("engine search and body hydration", () => {
       "provider unavailable",
     );
     expect(handle.getSnapshot().data?.searchStatus).toBe("error");
+    handle.close();
+    const retry = engine.observeMailboxWindow?.(bodySearchQuery());
+    if (!retry) throw new Error("missing mailbox handle");
+    await engine.runUntil(Date.now() + 500);
+    expect(calls).toBe(2);
+    expect(retry.getSnapshot().data?.searchStatus).toBe("ready");
     await engine.close();
   });
 

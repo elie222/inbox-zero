@@ -3804,6 +3804,10 @@ msgstr "Não foi possível adicionar os remetentes. Tente novamente."
 msgid "Couldn't apply label. Please try again."
 msgstr "Não foi possível aplicar o marcador. Tente novamente."
 
+#: app/(app)/[emailAccountId]/mail/use-engine-mail-threads.ts
+msgid "Couldn't complete this search."
+msgstr "Não foi possível concluir esta busca."
+
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
 msgid "Couldn't confirm delivery"
 msgstr "Não foi possível confirmar o envio"
@@ -3824,6 +3828,10 @@ msgstr "Não foi possível reverter totalmente {0, plural, one {# conversa} othe
 #: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
 msgid "Couldn't load public context"
 msgstr "Não foi possível carregar o contexto público"
+
+#: app/(app)/[emailAccountId]/mail/use-engine-mail-threads.ts
+msgid "Couldn't load this mailbox."
+msgstr "Não foi possível carregar esta caixa de entrada."
 
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Couldn't move conversations. Please try again."
@@ -3873,6 +3881,10 @@ msgstr "Não foi possível colocar a movimentação para a caixa de entrada na f
 #: app/(app)/[emailAccountId]/compose/undo-send.ts
 msgid "Couldn't reach the server to undo. Try again."
 msgstr "Não foi possível acessar o servidor para desfazer. Tente novamente."
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Couldn't refresh search results. Showing previously loaded emails."
+msgstr "Não foi possível atualizar os resultados da busca. Exibindo os e-mails carregados anteriormente."
 
 #: app/(app)/[emailAccountId]/mail/MailShell.tsx
 msgid "Couldn't remove label"
@@ -10678,6 +10690,10 @@ msgstr "Testar novamente"
 #: app/(app)/shared/activity/ConversationActivity.tsx
 msgid "Retry"
 msgstr "Tentar novamente"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Retry search"
+msgstr "Tentar buscar novamente"
 
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
 msgid "Retry send"
