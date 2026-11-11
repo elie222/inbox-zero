@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useQueryState } from "nuqs";
 import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   AlertCircleIcon,
   ArchiveIcon,
@@ -68,6 +68,7 @@ import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
+import { getEmailTerminologyMessages } from "@/utils/terminology-messages";
 import { NavUser } from "@/components/NavUser";
 import { SidebarCards } from "@/components/sidebar-cards/SidebarCards";
 import { AppSidebarHeader } from "@/components/AppSidebarHeader";
@@ -429,7 +430,9 @@ function MailNav({ path }: { path: string }) {
   const [showHiddenLabels, setShowHiddenLabels] = useState(false);
   const { visibleLabels, hiddenLabels, isLoading } = useSplitLabels();
   const { provider } = useAccount();
+  const { i18n } = useLingui();
   const isOutlook = isMicrosoftProvider(provider);
+  const terminology = getEmailTerminologyMessages(provider);
 
   const [currentType] = useQueryState("type");
   const [currentLabelId] = useQueryState("labelId");
@@ -486,7 +489,7 @@ function MailNav({ path }: { path: string }) {
 
       <SidebarGroup>
         <SidebarGroupLabel>
-          {isOutlook ? <Trans>Categories</Trans> : <Trans>Labels</Trans>}
+          {i18n._(terminology.label.pluralCapitalized)}
         </SidebarGroupLabel>
         <LoadingContent loading={isLoading}>
           {visibleLabels.length > 0 ? (

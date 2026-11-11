@@ -4903,7 +4903,6 @@ msgstr "etiquetas"
 
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
 #: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
-#: components/SideNav.tsx
 #: utils/terminology-messages.ts
 msgid "Labels"
 msgstr "Etiquetas"
