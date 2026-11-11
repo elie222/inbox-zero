@@ -425,8 +425,8 @@ export async function aiProcessAssistantChat({
       onModelResolved?.(resolvedModel);
     },
     onEnd,
-    stopWhen: ({ steps }) => {
-      const lastStep = steps.at(-1);
+    stopWhen: (options) => {
+      const lastStep = options?.steps.at(-1);
       return lastStep ? endsWithPendingBulkInboxAction(lastStep) : false;
     },
     createSteering: finalReply.createSteering,
