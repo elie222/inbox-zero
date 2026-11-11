@@ -8027,6 +8027,10 @@ msgstr "Carregando e-mail"
 msgid "Loading email…"
 msgstr "Carregando e-mail…"
 
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Loading mail…"
+msgstr "Carregando e-mails…"
+
 #: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
 msgid "Loading messages…"
 msgstr "Carregando mensagens…"
@@ -11050,6 +11054,10 @@ msgstr "Procurando “{query}” na tela"
 #: components/assistant-chat/message-part.tsx
 msgid "Searching inbox..."
 msgstr "Pesquisando na caixa de entrada..."
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Searching mail…"
+msgstr "Buscando e-mails…"
 
 #: components/assistant-chat/message-part.tsx
 msgid "Searching memories..."

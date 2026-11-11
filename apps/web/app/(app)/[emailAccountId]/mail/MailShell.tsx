@@ -558,12 +558,8 @@ export function MailShell() {
     previousSearchFocus.current = next;
     if (next.index !== focusedIndex) setFocusedIndex(next.index);
   }, [orderedIds, focusedIndex, searchQuery, searchViewIdentity]);
-  // Local reads answer fast, so the list stays blank while one is in flight
-  // rather than flashing a spinner.
   let emptyListMessage: ReactNode;
-  if (isLoading || !searchSettled) {
-    emptyListMessage = null;
-  } else if (isSyncing) {
+  if (isSyncing) {
     emptyListMessage = (
       <span className="inline-flex items-center gap-2">
         <LoadingMiniSpinner />
@@ -2145,8 +2141,23 @@ export function MailShell() {
                     <ScheduledEmailList />
                   ) : (
                     <LoadingContent
-                      loading={false}
-                      error={searchQuery ? undefined : error}
+                      loading={!threads.length && (isLoading || !searchSettled)}
+                      error={error}
+                      loadingComponent={
+                        <div className="px-6 py-12 text-center text-muted-foreground text-sm">
+                          <span
+                            className="inline-flex items-center gap-2"
+                            role="status"
+                          >
+                            <LoadingMiniSpinner />
+                            {searchQuery ? (
+                              <Trans>Searching mail…</Trans>
+                            ) : (
+                              <Trans>Loading mail…</Trans>
+                            )}
+                          </span>
+                        </div>
+                      }
                     >
                       <ThreadList
                         threads={threads}

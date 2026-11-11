@@ -7,7 +7,7 @@ import { conversationWithSubject, openMail } from "./mail-test-helpers";
 for (const accountScope of ["single", "all"] as const) {
   test(`${accountScope}: searches the mailbox and clears back to the inbox`, async ({
     page,
-  }) => {
+  }, testInfo) => {
     const { conversations, emailAccountId } = await openMail(page);
     if (accountScope === "all")
       await page.goto(`/${emailAccountId}/mail?accountScope=all`);
@@ -35,11 +35,52 @@ for (const accountScope of ["single", "all"] as const) {
     expect(new URL(page.url()).searchParams.get("q")).toBe("Archive Action");
     await expect(matching).toBeVisible();
     await expect(nonMatching).toHaveCount(0);
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      `mail-search-results-${accountScope}`,
+    );
 
     await page.getByRole("button", { name: "Clear search" }).click();
     await expect(page).not.toHaveURL(/[?&]q=/);
     await expect(matching).toBeVisible();
     await expect(nonMatching).toBeVisible();
+  });
+
+  test(`${accountScope}: search shows loading before an empty result`, async ({
+    page,
+  }, testInfo) => {
+    const { emailAccountId } = await openMail(page);
+    if (accountScope === "all")
+      await page.goto(`/${emailAccountId}/mail?accountScope=all`);
+    await expect(page.getByRole("option").first()).toBeVisible();
+    await page.clock.install();
+    await page.clock.pauseAt(new Date());
+
+    await page.getByPlaceholder("Search mail").fill("no-matching-mail-947263");
+    const loading = page
+      .getByRole("status")
+      .filter({ hasText: "Searching mail" });
+    await expect(loading).toBeVisible();
+    await expect(
+      page.getByText("No emails found", { exact: true }),
+    ).toHaveCount(0);
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      `mail-search-loading-${accountScope}`,
+    );
+
+    await page.clock.resume();
+    await expect(
+      page.getByText("No emails found", { exact: true }),
+    ).toBeVisible();
+    await expect(loading).toHaveCount(0);
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      `mail-search-empty-${accountScope}`,
+    );
   });
 
   test(`${accountScope}: slash focuses search and Command K opens commands`, async ({
