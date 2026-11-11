@@ -1,6 +1,9 @@
 "use client";
 
 import type { ReactElement, ReactNode } from "react";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
@@ -69,6 +72,7 @@ export function ReaderToolbar({
   showChat = true,
   messageExpansion,
 }: ReaderToolbarProps) {
+  const { t, i18n } = useLingui();
   const { toggleSidebar } = useSidebar();
   return (
     <MailReaderToolbar
@@ -96,8 +100,8 @@ export function ReaderToolbar({
         <>
           {showChat && (
             <Button
-              aria-label="Chat about this email"
-              title="Chat about this email"
+              aria-label={t`Chat about this email`}
+              title={t`Chat about this email`}
               size="iconXs"
               variant="ghost"
               onClick={() => toggleSidebar(["chat-sidebar"])}
@@ -114,20 +118,24 @@ export function ReaderToolbar({
       onBackToInbox={onBackToInbox}
       onMarkRead={onMarkRead}
       onMarkUnread={onMarkUnread}
-      renderActionTooltip={renderActionTooltip}
-      renderButton={renderButton}
+      renderActionTooltip={(button, children) =>
+        renderActionTooltip(button, children, i18n)
+      }
+      renderButton={(button) => renderButton(button, i18n)}
       subject={subject}
     />
   );
 }
 
-function renderButton(button: MailReaderToolbarButton) {
+function renderButton(button: MailReaderToolbarButton, i18n: I18n) {
+  // The shared toolbar names its buttons in English.
+  const label = i18n._(TOOLBAR_BUTTON_LABELS[button.action]);
   return (
     <Button
-      aria-label={button.ariaLabel}
+      aria-label={label}
       onClick={button.onClick}
       size="iconXs"
-      title={button.title}
+      title={button.title ? label : undefined}
       variant="ghost"
     >
       {button.icon}
@@ -138,18 +146,32 @@ function renderButton(button: MailReaderToolbarButton) {
 function renderActionTooltip(
   button: MailReaderToolbarButton,
   children: ReactElement,
+  i18n: I18n,
 ) {
   if (button.action === "archive") {
     return <Tooltip shortcuts={["archive"]}>{children}</Tooltip>;
   }
   if (button.action === "move_to_inbox") {
-    return <Tooltip content="Move to inbox">{children}</Tooltip>;
+    return <Tooltip content={i18n._(msg`Move to inbox`)}>{children}</Tooltip>;
   }
   if (button.action === "mark_unread") {
     return <Tooltip shortcuts={["markUnread"]}>{children}</Tooltip>;
   }
   if (button.action === "mark_read") {
-    return <Tooltip content="Mark as read">{children}</Tooltip>;
+    return <Tooltip content={i18n._(msg`Mark as read`)}>{children}</Tooltip>;
   }
   return children;
 }
+
+const TOOLBAR_BUTTON_LABELS: Record<
+  MailReaderToolbarButton["action"],
+  MessageDescriptor
+> = {
+  back: msg`Back to inbox`,
+  expand_all: msg`Expand all messages`,
+  collapse_all: msg`Collapse all messages`,
+  archive: msg`Archive`,
+  move_to_inbox: msg`Move to inbox`,
+  mark_read: msg`Mark as read`,
+  mark_unread: msg`Mark as unread`,
+};

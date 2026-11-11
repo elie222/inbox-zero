@@ -1,5 +1,8 @@
 "use client";
 
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowDownIcon,
@@ -40,16 +43,22 @@ import { cn } from "@/utils";
 const YOUR_SPLITS = "Your splits";
 
 const FIELDS = [
-  { kind: MailSplitFilterKind.LABEL, name: "Has label" },
-  { kind: MailSplitFilterKind.FROM, name: "From" },
-  { kind: MailSplitFilterKind.TO, name: "Sent to" },
-  { kind: MailSplitFilterKind.CATEGORY, name: "In category" },
-  { kind: MailSplitFilterKind.UNREAD, name: "Is unread" },
-  { kind: MailSplitFilterKind.STARRED, name: "Is starred" },
-  { kind: MailSplitFilterKind.OLDER_THAN, name: "Older than" },
+  { kind: MailSplitFilterKind.LABEL, label: msg`Has label` },
+  { kind: MailSplitFilterKind.FROM, label: msg`From` },
+  { kind: MailSplitFilterKind.TO, label: msg`Sent to` },
+  { kind: MailSplitFilterKind.CATEGORY, label: msg`In category` },
+  { kind: MailSplitFilterKind.UNREAD, label: msg`Is unread` },
+  { kind: MailSplitFilterKind.STARRED, label: msg`Is starred` },
+  { kind: MailSplitFilterKind.OLDER_THAN, label: msg`Older than` },
 ] as const;
 
-export type SplitChoice = { id: string; name: string; value: string };
+/** `name` matches library splits and is sent to the AI; `label` is shown. */
+export type SplitChoice = {
+  id: string;
+  name: string;
+  value: string;
+  label?: string;
+};
 
 export type ExistingSplit = {
   id: string;
@@ -94,10 +103,10 @@ export type NewSplitDialogProps = {
 };
 
 const EXAMPLES = [
-  "unread mail from my accountant",
-  "receipts from Stripe",
-  "notifications I have not read",
-  "anything awaiting my reply",
+  msg`unread mail from my accountant`,
+  msg`receipts from Stripe`,
+  msg`notifications I have not read`,
+  msg`anything awaiting my reply`,
 ];
 
 export function NewSplitDialog({
@@ -116,6 +125,7 @@ export function NewSplitDialog({
   onDescribe,
   onToggleSystemType,
 }: NewSplitDialogProps) {
+  const { t, i18n } = useLingui();
   const [mode, setMode] = useState<"library" | "build" | "describe">("library");
   const [category, setCategory] = useState(YOUR_SPLITS);
   const [detail, setDetail] = useState<SplitLibraryEntry | null>(null);
@@ -172,12 +182,13 @@ export function NewSplitDialog({
         return OLDER_THAN_OPTIONS.map((option) => ({
           id: option.value,
           name: option.name,
+          label: getOlderThanLabel(option.value, i18n),
           value: option.value,
         }));
       }
       return [];
     },
-    [categories, labels],
+    [categories, i18n, labels],
   );
 
   const defaultCondition = useCallback(
@@ -224,9 +235,9 @@ export function NewSplitDialog({
   const describedName = useMemo(
     () =>
       conditions
-        .map((c) => conditionLabel(c, labels, categories))
-        .join(matchAll ? " · " : " or "),
-    [categories, conditions, labels, matchAll],
+        .map((c) => conditionLabel(i18n, c, labels, categories))
+        .join(matchAll ? " · " : ` ${t`or`} `),
+    [categories, conditions, i18n, labels, matchAll, t],
   );
 
   const libraryEntries = useMemo(() => {
@@ -323,11 +334,11 @@ export function NewSplitDialog({
   const title =
     mode === "build"
       ? editing
-        ? "Edit split"
-        : "Build a split"
+        ? t`Edit split`
+        : t`Build a split`
       : mode === "describe"
-        ? "Describe this split"
-        : "New split inbox";
+        ? t`Describe this split`
+        : t`New split inbox`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -344,7 +355,7 @@ export function NewSplitDialog({
           {(mode !== "library" || detail) && (
             <Button
               type="button"
-              aria-label="Back"
+              aria-label={t`Back`}
               onClick={() => {
                 if (detail) setDetail(null);
                 else {
@@ -362,11 +373,11 @@ export function NewSplitDialog({
             {detail ? detail.name : title}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Add a filtered tab to your inbox.
+            <Trans>Add a filtered tab to your inbox.</Trans>
           </DialogDescription>
           <Button
             type="button"
-            aria-label="Close"
+            aria-label={t`Close`}
             onClick={close}
             variant="ghostMuted"
             size="icon2xs"
@@ -381,7 +392,7 @@ export function NewSplitDialog({
           <div className="flex min-h-0 flex-1 overflow-hidden">
             <div className="flex w-[142px] shrink-0 flex-col gap-0.5 overflow-y-auto border-border border-r bg-sidebar p-2 scrollbar-thin">
               <div className="px-2 pt-0.5 pb-1.5 font-medium text-[11px] text-muted-foreground">
-                Category
+                <Trans>Category</Trans>
               </div>
               {[YOUR_SPLITS, ...SPLIT_LIBRARY_CATEGORIES].map((option) => (
                 <button
@@ -396,7 +407,7 @@ export function NewSplitDialog({
                       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                   )}
                 >
-                  {option}
+                  {option === YOUR_SPLITS ? t`Your splits` : option}
                 </button>
               ))}
             </div>
@@ -405,7 +416,7 @@ export function NewSplitDialog({
               <div className="mb-3.5 grid grid-cols-2 gap-2.5">
                 <RouteCard
                   icon={<PlusIcon className="size-3.5" />}
-                  label="Build your own"
+                  label={t`Build your own`}
                   onClick={() => {
                     setConditions(
                       conditions.length ? conditions : [newCondition()],
@@ -415,20 +426,20 @@ export function NewSplitDialog({
                 />
                 <RouteCard
                   icon={<SparklesIcon className="size-3.5" />}
-                  label="Describe it"
+                  label={t`Describe it`}
                   onClick={() => setMode("describe")}
                 />
               </div>
 
               <div className="mb-2 font-medium text-[11px] text-muted-foreground">
-                {category}
+                {category === YOUR_SPLITS ? t`Your splits` : category}
               </div>
 
               {category === YOUR_SPLITS ? (
                 existingSplits.length ? (
                   <ul
                     className="space-y-1"
-                    aria-label="Split order"
+                    aria-label={t`Split order`}
                     aria-busy={isBusy}
                   >
                     {existingSplits.map((split, index) => (
@@ -481,7 +492,7 @@ export function NewSplitDialog({
                         <button
                           type="button"
                           disabled={isBusy || !split.filters.length}
-                          aria-label={`Edit the ${split.name} split`}
+                          aria-label={t`Edit the ${split.name} split`}
                           onClick={() => onEdit(split.id)}
                           className="min-w-0 flex-1 truncate rounded text-left font-medium text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
@@ -490,7 +501,7 @@ export function NewSplitDialog({
                         <Button
                           variant="ghostMuted"
                           size="iconXs"
-                          aria-label={`Move ${split.name} up`}
+                          aria-label={t`Move ${split.name} up`}
                           disabled={
                             isBusy ||
                             split.id === "all" ||
@@ -506,7 +517,7 @@ export function NewSplitDialog({
                         <Button
                           variant="ghostMuted"
                           size="iconXs"
-                          aria-label={`Move ${split.name} down`}
+                          aria-label={t`Move ${split.name} down`}
                           disabled={
                             isBusy ||
                             split.id === "all" ||
@@ -522,7 +533,7 @@ export function NewSplitDialog({
                           variant="ghostMuted"
                           size="iconXs"
                           disabled={isBusy || !split.filters.length}
-                          aria-label={`Turn off the ${split.name} split`}
+                          aria-label={t`Turn off the ${split.name} split`}
                           onClick={() => removeSplit(split.id)}
                         >
                           <XIcon className="size-3.5" />
@@ -532,7 +543,7 @@ export function NewSplitDialog({
                   </ul>
                 ) : (
                   <p className="text-muted-foreground text-xs leading-relaxed">
-                    Splits you build yourself land here.
+                    <Trans>Splits you build yourself land here.</Trans>
                   </p>
                 )
               ) : (
@@ -549,8 +560,10 @@ export function NewSplitDialog({
                   ))}
                   {!libraryEntries.length && (
                     <p className="col-span-2 text-muted-foreground text-xs leading-relaxed">
-                      Nothing here yet — these splits need labels this account
-                      doesn&apos;t have.
+                      <Trans>
+                        Nothing here yet — these splits need labels this account
+                        doesn&apos;t have.
+                      </Trans>
                     </p>
                   )}
                 </div>
@@ -560,17 +573,21 @@ export function NewSplitDialog({
         ) : mode === "build" ? (
           <div className="min-h-0 flex-1 overflow-y-auto p-3.5 scrollbar-thin">
             <div className="mb-3 flex items-center gap-2 text-muted-foreground text-xs">
-              <span>Show mail matching</span>
-              <select
-                aria-label="Match all or any condition"
-                value={matchAll ? "all" : "any"}
-                onChange={(event) => setMatchAll(event.target.value === "all")}
-                className="h-7 rounded-lg border border-border bg-background py-0 pr-8 pl-1.5 text-foreground text-xs outline-none transition-[color,box-shadow] focus:border-ring focus:ring-[3px] focus:ring-ring/50"
-              >
-                <option value="all">all</option>
-                <option value="any">any</option>
-              </select>
-              <span>of these conditions</span>
+              <Trans>
+                Show mail matching{" "}
+                <select
+                  aria-label={t`Match all or any condition`}
+                  value={matchAll ? "all" : "any"}
+                  onChange={(event) =>
+                    setMatchAll(event.target.value === "all")
+                  }
+                  className="h-7 rounded-lg border border-border bg-background py-0 pr-8 pl-1.5 text-foreground text-xs outline-none transition-[color,box-shadow] focus:border-ring focus:ring-[3px] focus:ring-ring/50"
+                >
+                  <option value="all">{t`all`}</option>
+                  <option value="any">{t`any`}</option>
+                </select>{" "}
+                of these conditions
+              </Trans>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -618,7 +635,7 @@ export function NewSplitDialog({
               className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-primary text-xs hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <PlusIcon className="size-3.5" />
-              Add condition
+              <Trans>Add condition</Trans>
             </button>
           </div>
         ) : (
@@ -628,21 +645,24 @@ export function NewSplitDialog({
               rows={3}
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
-              placeholder="Describe what should land in this split…"
+              placeholder={t`Describe what should land in this split…`}
               maxLength={300}
               className="resize-none rounded-xl text-[13.5px]"
             />
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {EXAMPLES.map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  onClick={() => setPrompt(example)}
-                  className="rounded-full border border-border bg-muted px-2.5 py-1 text-[11.5px] text-muted-foreground hover:border-primary/25 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {example}
-                </button>
-              ))}
+              {EXAMPLES.map((descriptor) => {
+                const example = i18n._(descriptor);
+                return (
+                  <button
+                    key={example}
+                    type="button"
+                    onClick={() => setPrompt(example)}
+                    className="rounded-full border border-border bg-muted px-2.5 py-1 text-[11.5px] text-muted-foreground hover:border-primary/25 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {example}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -670,17 +690,17 @@ export function NewSplitDialog({
                     detail,
                     libraryFiltersFor(detail, labels, categories) ?? [],
                   )
-                    ? "Turn off split"
-                    : "Turn on split"}
+                    ? t`Turn off split`
+                    : t`Turn on split`}
                 </Button>
               </>
             ) : mode === "build" ? (
               <>
                 <span className="shrink-0 text-muted-foreground text-xs">
-                  Split name
+                  <Trans>Split name</Trans>
                 </span>
                 <Input
-                  aria-label="Split name"
+                  aria-label={t`Split name`}
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   onKeyDown={(event) => {
@@ -688,7 +708,7 @@ export function NewSplitDialog({
                     event.preventDefault();
                     save();
                   }}
-                  placeholder={describedName || "Name this split"}
+                  placeholder={describedName || t`Name this split`}
                   maxLength={60}
                   className="h-8 w-[190px] shrink-0 text-xs"
                 />
@@ -699,7 +719,7 @@ export function NewSplitDialog({
                   disabled={!conditions.length || isBusy}
                   onClick={save}
                 >
-                  {editing ? "Save changes" : "Add split"}
+                  {editing ? t`Save changes` : t`Add split`}
                 </Button>
               </>
             ) : mode === "describe" ? (
@@ -714,10 +734,10 @@ export function NewSplitDialog({
                   {isBusy ? (
                     <>
                       <Loader2Icon className="mr-1.5 size-3.5 animate-spin" />
-                      Building…
+                      <Trans>Building…</Trans>
                     </>
                   ) : (
-                    "Build it"
+                    <Trans>Build it</Trans>
                   )}
                 </Button>
               </>
@@ -767,6 +787,7 @@ function LibraryTile({
   onInfo: () => void;
   onToggle: () => void;
 }) {
+  const { t } = useLingui();
   return (
     <div
       className={cn(
@@ -786,7 +807,7 @@ function LibraryTile({
       </button>
       <button
         type="button"
-        aria-label={`What the ${entry.name} split does`}
+        aria-label={t`What the ${entry.name} split does`}
         onClick={onInfo}
         className="hidden size-4.5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-focus-within:flex group-hover:flex"
       >
@@ -796,8 +817,8 @@ function LibraryTile({
         type="button"
         aria-label={
           on
-            ? `Turn off the ${entry.name} split`
-            : `Turn on the ${entry.name} split`
+            ? t`Turn off the ${entry.name} split`
+            : t`Turn on the ${entry.name} split`
         }
         onClick={onToggle}
         disabled={disabled}
@@ -821,7 +842,7 @@ function LibraryDetail({ entry }: { entry: SplitLibraryEntry }) {
     <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
       <div className="p-4">
         <div className="mb-2 font-medium text-[11px] text-muted-foreground">
-          Definition
+          <Trans>Definition</Trans>
         </div>
         <div className="flex flex-col gap-1.5">
           {libraryDefinition(entry).map((row) => (
@@ -852,12 +873,13 @@ function ConditionRow({
   onRemove,
 }: {
   condition: MailSplitFilterDraft;
-  fields: readonly { kind: MailSplitFilterKind; name: string }[];
+  fields: readonly { kind: MailSplitFilterKind; label: MessageDescriptor }[];
   valueOptions: SplitChoice[];
   onChangeField: (kind: MailSplitFilterKind) => void;
   onChangeValue: (value: string) => void;
   onRemove: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const takesFreeText =
     condition.kind === MailSplitFilterKind.FROM ||
     condition.kind === MailSplitFilterKind.TO;
@@ -868,7 +890,7 @@ function ConditionRow({
   return (
     <div className="flex items-center gap-2">
       <select
-        aria-label="Condition field"
+        aria-label={t`Condition field`}
         value={condition.kind}
         onChange={(event) =>
           onChangeField(event.target.value as MailSplitFilterKind)
@@ -877,7 +899,7 @@ function ConditionRow({
       >
         {fields.map((field) => (
           <option key={field.kind} value={field.kind}>
-            {field.name}
+            {i18n._(field.label)}
           </option>
         ))}
       </select>
@@ -888,22 +910,22 @@ function ConditionRow({
         <Input
           value={condition.value ?? ""}
           onChange={(event) => onChangeValue(event.target.value)}
-          placeholder="name@company.com or @company.com"
+          placeholder={t`name@company.com or @company.com`}
           aria-label={
-            condition.kind === MailSplitFilterKind.TO ? "Recipient" : "Sender"
+            condition.kind === MailSplitFilterKind.TO ? t`Recipient` : t`Sender`
           }
           className="h-8 min-w-0 flex-1 text-xs"
         />
       ) : (
         <select
-          aria-label="Condition value"
+          aria-label={t`Condition value`}
           value={condition.value ?? ""}
           onChange={(event) => onChangeValue(event.target.value)}
           className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-background px-2 text-foreground text-xs outline-none transition-[color,box-shadow] focus:border-ring focus:ring-[3px] focus:ring-ring/50"
         >
           {valueOptions.map((option) => (
             <option key={option.id} value={option.value}>
-              {option.name}
+              {option.label ?? option.name}
             </option>
           ))}
         </select>
@@ -911,7 +933,7 @@ function ConditionRow({
 
       <Button
         type="button"
-        aria-label="Remove condition"
+        aria-label={t`Remove condition`}
         onClick={onRemove}
         variant="destructiveGhost"
         size="iconXs"
@@ -956,32 +978,48 @@ function libraryFiltersFor(
 }
 
 function conditionLabel(
+  i18n: I18n,
   condition: MailSplitFilterDraft,
   labels: SplitChoice[],
   categories: SplitChoice[],
 ): string {
   switch (condition.kind) {
     case MailSplitFilterKind.UNREAD:
-      return "Unread";
+      return i18n._(msg`Unread`);
     case MailSplitFilterKind.STARRED:
-      return "Starred";
+      return i18n._(msg`Starred`);
     case MailSplitFilterKind.FROM:
-      return condition.value ?? "From";
-    case MailSplitFilterKind.TO:
-      return condition.value ? `To ${condition.value}` : "Sent to";
-    case MailSplitFilterKind.OLDER_THAN:
-      return `Older than ${
-        OLDER_THAN_OPTIONS.find((o) => o.value === condition.value)?.name ??
-        condition.value
-      }`;
-    case MailSplitFilterKind.LABEL:
-      return (
-        labels.find((label) => label.value === condition.value)?.name ?? "Label"
+      return condition.value ?? i18n._(msg`From`);
+    case MailSplitFilterKind.TO: {
+      const recipient = condition.value;
+      return recipient ? i18n._(msg`To ${recipient}`) : i18n._(msg`Sent to`);
+    }
+    case MailSplitFilterKind.OLDER_THAN: {
+      const age = condition.value
+        ? getOlderThanLabel(condition.value, i18n)
+        : "";
+      return i18n._(msg`Older than ${age}`);
+    }
+    case MailSplitFilterKind.LABEL: {
+      const choice = labels.find((label) => label.value === condition.value);
+      return choice?.label ?? choice?.name ?? i18n._(msg`Label`);
+    }
+    case MailSplitFilterKind.CATEGORY: {
+      const choice = categories.find(
+        (category) => category.value === condition.value,
       );
-    case MailSplitFilterKind.CATEGORY:
-      return (
-        categories.find((category) => category.value === condition.value)
-          ?.name ?? "Category"
-      );
+      return choice?.label ?? choice?.name ?? i18n._(msg`Category`);
+    }
   }
+}
+
+const OLDER_THAN_LABELS: Record<string, MessageDescriptor> = {
+  "3d": msg`3 days`,
+  "1w": msg`a week`,
+  "1m": msg`a month`,
+};
+
+function getOlderThanLabel(value: string, i18n: I18n) {
+  const label = OLDER_THAN_LABELS[value];
+  return label ? i18n._(label) : value;
 }

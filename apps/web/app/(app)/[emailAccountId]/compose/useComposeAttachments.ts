@@ -4,6 +4,7 @@ import {
   validateEmailAttachmentMetadata,
 } from "@inboxzero/email-editor/core";
 import type { EmailEditorHandle } from "@inboxzero/email-editor/web";
+import { useLingui } from "@lingui/react/macro";
 import {
   type ChangeEvent,
   type RefObject,
@@ -41,6 +42,7 @@ export function useComposeAttachments({
   isSubmitting: boolean;
   replyingToEmail?: ReplyingToEmail;
 }) {
+  const { t } = useLingui();
   const {
     attachmentsRef,
     draftQueueKey,
@@ -109,7 +111,7 @@ export function useComposeAttachments({
         const description =
           error instanceof Error
             ? error.message
-            : `Could not attach ${attachment.filename}.`;
+            : t`Could not attach ${attachment.filename}.`;
         toastError({ description });
         updateAttachments(
           attachmentsRef.current.map((item) =>
@@ -150,7 +152,7 @@ export function useComposeAttachments({
           description:
             error instanceof Error
               ? error.message
-              : `Could not remove ${attachment.filename}.`,
+              : t`Could not remove ${attachment.filename}.`,
         });
         updateAttachments([
           ...attachmentsRef.current,
@@ -197,7 +199,7 @@ export function useComposeAttachments({
       for (const { file } of created) {
         if (!(await isInlineImageContent(file))) {
           toastError({
-            description: "Inline image content does not match its file type.",
+            description: t`Inline image content does not match its file type.`,
           });
           return;
         }
@@ -220,7 +222,7 @@ export function useComposeAttachments({
     });
     if (accepted.length !== created.length) {
       toastError({
-        description: "One of the inline images could not be inserted.",
+        description: t`One of the inline images could not be inserted.`,
       });
     }
     if (!accepted.length) return;
@@ -250,7 +252,7 @@ export function useComposeAttachments({
       event.target.value = "";
       if (files.length) {
         addFiles(files, disposition).catch(() =>
-          toastError({ description: "One of the files could not be read." }),
+          toastError({ description: t`One of the files could not be read.` }),
         );
       }
     };

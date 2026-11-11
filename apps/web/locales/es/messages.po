@@ -19,6 +19,16 @@ msgstr "- Vi tu perfil y..."
 msgid "- Your weekly roundup of the latest..."
 msgstr "- Tu resumen semanal de lo último..."
 
+#. placeholder {0}: item.name
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "“{0}” and its contents will be removed from your mailbox."
+msgstr "Se eliminará “{0}” y su contenido de tu buzón."
+
+#. placeholder {0}: item.name
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "“{0}” will be removed from your mailbox. Emails using it will remain."
+msgstr "Se eliminará “{0}” de tu buzón. Los correos que la usan se conservarán."
+
 #: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
 msgid "(default)"
 msgstr "(predeterminada)"
@@ -27,6 +37,7 @@ msgstr "(predeterminada)"
 msgid "(disabled)"
 msgstr "(desactivada)"
 
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "(no subject)"
 msgstr "(sin asunto)"
@@ -50,10 +61,50 @@ msgstr "{0, plural, one {# correo en cola} other {# correos en cola}}"
 msgid "{0, plural, one {# email} other {# emails}}"
 msgstr "{0, plural, one {# correo} other {# correos}}"
 
+#. placeholder {0}: selectedRuleIds.size
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "{0, plural, one {# of {ruleCount} selected} other {# of {ruleCount} selected}}"
+msgstr "{0, plural, one {# de {ruleCount} seleccionada} other {# de {ruleCount} seleccionadas}}"
+
+#. placeholder {0}: reasonDisplay.actionFailureMessages.length
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "{0, plural, one {Action issue} other {Action issues}}"
+msgstr "{0, plural, one {Problema con la acción} other {Problemas con las acciones}}"
+
+#. placeholder {0}: threadKeys.length
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{0, plural, one {Couldn't queue snoozing} other {Couldn't queue snoozing conversations}}"
+msgstr "{0, plural, one {No se pudo poner en cola la posposición} other {No se pudo poner en cola la posposición de las conversaciones}}"
+
+#. placeholder {0}: snapshots.length
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{0, plural, one {Marked as read} other {Marked # conversations as read}}"
+msgstr "{0, plural, one {Marcada como leída} other {# conversaciones marcadas como leídas}}"
+
+#. placeholder {0}: snapshots.length
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{0, plural, one {Marked as spam} other {Marked # conversations as spam}}"
+msgstr "{0, plural, one {Marcada como spam} other {# conversaciones marcadas como spam}}"
+
+#. placeholder {0}: snapshots.length
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{0, plural, one {Marked as unread} other {Marked # conversations as unread}}"
+msgstr "{0, plural, one {Marcada como no leída} other {# conversaciones marcadas como no leídas}}"
+
 #. placeholder {0}: data.updated
 #: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
 msgid "{0, plural, one {Reset # label to the default colors.} other {Reset # labels to the default colors.}}"
 msgstr "{0, plural, one {Se restableció # etiqueta a los colores predeterminados.} other {Se restablecieron # etiquetas a los colores predeterminados.}}"
+
+#. placeholder {0}: restored.length
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{0, plural, one {Restored} other {Restored # conversations}}"
+msgstr "{0, plural, one {Restaurada} other {# conversaciones restauradas}}"
+
+#. placeholder {0}: snapshots.length
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{0, plural, one {Snoozed until {snoozedUntilLabel}} other {Snoozed # conversations}}"
+msgstr "{0, plural, one {Pospuesta hasta {snoozedUntilLabel}} other {# conversaciones pospuestas}}"
 
 #. placeholder {0}: selectedRuleIds.size
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
@@ -70,11 +121,10 @@ msgstr "{0, plural, one {Encontramos # remitente que casi nunca lees} other {Enc
 msgid "{0} (disabled)"
 msgstr "{0} (desactivada)"
 
-#. placeholder {0}: selectedRuleIds.size
-#. placeholder {1}: rules.length
-#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
-msgid "{0} of {1} selected"
-msgstr "{0} de {1} seleccionadas"
+#. placeholder {0}: failedAttachment.filename
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "{0} isn't attached. Remove it or attach it again before sending."
+msgstr "{0} no está adjunto. Quítalo o vuelve a adjuntarlo antes de enviar."
 
 #. placeholder {0}: getPremiumTierName(premium.tier)
 #. placeholder {0}: getPremiumTierName(tier)
@@ -86,9 +136,41 @@ msgstr "Plan {0}"
 msgid "{archivedEmailCount, plural, one {# email} other {# emails}}"
 msgstr "{archivedEmailCount, plural, one {# correo} other {# correos}}"
 
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{count, plural, one {Archived} other {Archived # conversations}}"
+msgstr "{count, plural, one {Archivada} other {# conversaciones archivadas}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{count, plural, one {Deleted} other {Deleted # conversations}}"
+msgstr "{count, plural, one {Eliminada} other {# conversaciones eliminadas}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{count, plural, one {Label applied} other {Label applied to # conversations}}"
+msgstr "{count, plural, one {Etiqueta aplicada} other {Etiqueta aplicada a # conversaciones}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{count, plural, one {Moved to inbox} other {Moved # conversations to inbox}}"
+msgstr "{count, plural, one {Movida a Recibidos} other {# conversaciones movidas a Recibidos}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{count, plural, one {Moved} other {Moved # conversations}}"
+msgstr "{count, plural, one {Movida} other {# conversaciones movidas}}"
+
+#: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
+msgid "{countLabel} in this view"
+msgstr "{countLabel} en esta vista"
+
 #: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
 msgid "{created, plural, one {# created} other {# created}}"
 msgstr "{created, plural, one {# creada} other {# creadas}}"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "{days, plural, one {# day after sending} other {# days after sending}}"
+msgstr "{days, plural, one {# día después del envío} other {# días después del envío}}"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "{days, plural, one {In # day} other {In # days}}"
+msgstr "{days, plural, one {En # día} other {En # días}}"
 
 #: app/(app)/[emailAccountId]/assistant/settings/cron-schedule-messages.ts
 msgid "{days} at {times} {timeZoneName}"
@@ -110,6 +192,46 @@ msgstr "{enabled, plural, one {# activada} other {# activadas}}"
 msgid "{errorCount, plural, one {Failed to send # invitation} other {Failed to send # invitations}}"
 msgstr "{errorCount, plural, one {No se pudo enviar # invitación} other {No se pudieron enviar # invitaciones}}"
 
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} as read} other {Couldn't queue # of {total} as read}}"
+msgstr "{failedCount, plural, one {No se pudo poner en cola # de {total} como leída} other {No se pudieron poner en cola # de {total} como leídas}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} as spam} other {Couldn't queue # of {total} as spam}}"
+msgstr "{failedCount, plural, one {No se pudo poner en cola # de {total} como spam} other {No se pudieron poner en cola # de {total} como spam}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} as unread} other {Couldn't queue # of {total} as unread}}"
+msgstr "{failedCount, plural, one {No se pudo poner en cola # de {total} como no leída} other {No se pudieron poner en cola # de {total} como no leídas}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} for archiving} other {Couldn't queue # of {total} for archiving}}"
+msgstr "{failedCount, plural, one {No se pudo poner en cola # de {total} para archivar} other {No se pudieron poner en cola # de {total} para archivar}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} for deletion} other {Couldn't queue # of {total} for deletion}}"
+msgstr "{failedCount, plural, one {No se pudo poner en cola # de {total} para eliminar} other {No se pudieron poner en cola # de {total} para eliminar}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} for labeling} other {Couldn't queue # of {total} for labeling}}"
+msgstr "{failedCount, plural, one {No se pudo poner en cola # de {total} para etiquetar} other {No se pudieron poner en cola # de {total} para etiquetar}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} for moving to inbox} other {Couldn't queue # of {total} for moving to inbox}}"
+msgstr "{failedCount, plural, one {No se pudo poner en cola # de {total} para mover a Recibidos} other {No se pudieron poner en cola # de {total} para mover a Recibidos}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} for moving} other {Couldn't queue # of {total} for moving}}"
+msgstr "{failedCount, plural, one {No se pudo poner en cola # de {total} para mover} other {No se pudieron poner en cola # de {total} para mover}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} for snoozing} other {Couldn't queue # of {total} for snoozing}}"
+msgstr "{failedCount, plural, one {No se pudo poner en cola # de {total} para posponer} other {No se pudieron poner en cola # de {total} para posponer}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't restore # of {total}} other {Couldn't restore # of {total}}}"
+msgstr "{failedCount, plural, one {No se pudo restaurar # de {total}} other {No se pudieron restaurar # de {total}}}"
+
 #: app/(app)/[emailAccountId]/assistant/attachment-source-selection.ts
 msgid "{files, plural, one {# file} other {# files}}"
 msgstr "{files, plural, one {# archivo} other {# archivos}}"
@@ -129,6 +251,10 @@ msgstr "{label} (Desconectado)"
 #: utils/action-display-messages.ts
 msgid "{labelAction} as {quotedLabelName}"
 msgstr "{labelAction} como {quotedLabelName}"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "{labelSingular} name"
+msgstr "Nombre de la {labelSingular}"
 
 #. placeholder {0}: connection.name
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
@@ -167,9 +293,17 @@ msgstr "{providerName} desconectado"
 msgid "{readPercentage}% read"
 msgstr "{readPercentage}% leído"
 
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "{selectedCount, plural, one {# selected} other {# selected}}"
+msgstr "{selectedCount, plural, one {# seleccionada} other {# seleccionadas}}"
+
 #: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
 msgid "{skipped, plural, one {# already existed} other {# already existed}}"
 msgstr "{skipped, plural, one {# ya existía} other {# ya existían}}"
+
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "{splitName} already includes {senderCount, plural, one {this sender} other {these senders}}"
+msgstr "{splitName} ya incluye {senderCount, plural, one {este remitente} other {estos remitentes}}"
 
 #: app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer.ts
 msgid "{stoppedCount, plural, one {Processed # email} other {Processed # emails}}"
@@ -178,6 +312,38 @@ msgstr "{stoppedCount, plural, one {Se procesó # correo} other {Se procesaron #
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "{successCount, plural, one {# invitation sent successfully!} other {# invitations sent successfully!}}"
 msgstr "{successCount, plural, one {¡# invitación enviada correctamente!} other {¡# invitaciones enviadas correctamente!}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Archive conversation} other {Archive # conversations}}"
+msgstr "{targetCount, plural, one {Archivar conversación} other {Archivar # conversaciones}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Delete conversation} other {Delete # conversations}}"
+msgstr "{targetCount, plural, one {Eliminar conversación} other {Eliminar # conversaciones}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Mark as read} other {Mark # as read}}"
+msgstr "{targetCount, plural, one {Marcar como leído} other {Marcar # como leídas}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Mark as unread} other {Mark # as unread}}"
+msgstr "{targetCount, plural, one {Marcar como no leído} other {Marcar # como no leídas}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Move to inbox} other {Move # conversations to inbox}}"
+msgstr "{targetCount, plural, one {Mover a Recibidos} other {Mover # conversaciones a Recibidos}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Snooze} other {Snooze # conversations}}"
+msgstr "{targetCount, plural, one {Posponer} other {Posponer # conversaciones}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Star} other {Star # conversations}}"
+msgstr "{targetCount, plural, one {Destacar} other {Destacar # conversaciones}}"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+msgid "{targetCount, plural, one {Unstar} other {Unstar # conversations}}"
+msgstr "{targetCount, plural, one {Quitar destacado} other {Quitar destacado de # conversaciones}}"
 
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "{targetLabel} (Slack workspace)"
@@ -190,6 +356,14 @@ msgstr "{total, plural, one {Se procesó # correo} other {Se procesaron # correo
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "{transferredCount, plural, one {# rule transferred} other {# rules transferred}}, {updatedCount, plural, one {# rule updated} other {# rules updated}}."
 msgstr "{transferredCount, plural, one {Se transfirió # regla} other {Se transfirieron # reglas}}, {updatedCount, plural, one {se actualizó # regla} other {se actualizaron # reglas}}."
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "{typeName} color"
+msgstr "Color de la {typeName}"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "{typeName} name"
+msgstr "Nombre de la {typeName}"
 
 #: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
 msgid "* Label urgent emails as \"Urgent\"\n"
@@ -213,10 +387,31 @@ msgstr "+ Conectar nuevo canal"
 msgid "<0>Email</0><1> — Draft appears in your inbox</1>"
 msgstr "<0>Correo</0><1> — El borrador aparece en tu bandeja de entrada</1>"
 
+#: app/(app)/[emailAccountId]/mail/MailSearchSuggestions.tsx
+msgid "<0>Esc</0> to close"
+msgstr "<0>Esc</0> para cerrar"
+
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "✨ Use {OPEN_VARIABLE}variables{CLOSE_VARIABLE} for personalized content"
 msgstr "✨ Usa {OPEN_VARIABLE}variables{CLOSE_VARIABLE} para contenido personalizado"
 
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "1 day"
+msgstr "1 día"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "1 month"
+msgstr "1 mes"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "1 week"
+msgstr "1 semana"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "1 year"
 msgstr "1 año"
@@ -246,17 +441,38 @@ msgstr "11-100 personas"
 msgid "12 emails archived"
 msgstr "12 correos archivados"
 
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "2 months"
+msgstr "2 meses"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "2 months free!"
 msgstr "¡2 meses gratis!"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "2 weeks"
+msgstr "2 semanas"
 
 #: app/(app)/[emailAccountId]/onboarding/StepCompanySize.tsx
 msgid "2-10 people"
 msgstr "2-10 personas"
 
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "3 days"
+msgstr "3 días"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "30 days"
 msgstr "30 días"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "6 months"
+msgstr "6 meses"
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "7-day free trial"
@@ -286,9 +502,21 @@ msgstr "90 días"
 msgid "A chat that runs your email"
 msgstr "Un chat que gestiona tu correo"
 
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "a deleted rule"
+msgstr "una regla eliminada"
+
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
 msgid "A fast, free app for reading and sending your email."
 msgstr "Una app rápida y gratuita para leer y enviar tu correo."
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "a month"
+msgstr "un mes"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "a week"
+msgstr "una semana"
 
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Account"
@@ -306,6 +534,14 @@ msgstr "Acción"
 msgid "Action issues:"
 msgstr "Problemas con acciones:"
 
+#: components/CommandK.tsx
+msgid "Actions"
+msgstr "Acciones"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Actions applied"
+msgstr "Acciones aplicadas"
+
 #: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
 msgid "Actions:"
 msgstr "Acciones:"
@@ -313,6 +549,7 @@ msgstr "Acciones:"
 #: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 msgid "Add"
 msgstr "Añadir"
 
@@ -324,6 +561,14 @@ msgstr "Añade 'Redactado con {BRAND_NAME}' con tu enlace de referido a los corr
 msgid "Add 'Sent with {BRAND_NAME}' with your referral link after your signature on emails you send from the mail client. Earn a month of credit for each person who signs up with your link."
 msgstr "Añade 'Enviado con {BRAND_NAME}' con tu enlace de referido después de tu firma en los correos que envías desde el cliente de correo. Gana un mes de crédito por cada persona que se registre con tu enlace."
 
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "Add {senderCount, plural, one {# sender} other {# senders}} to…"
+msgstr "Añadir {senderCount, plural, one {# remitente} other {# remitentes}} a…"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Add a filtered tab to your inbox."
+msgstr "Añade una pestaña filtrada a tu bandeja de entrada."
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Add Account"
 msgstr "Añadir cuenta"
@@ -331,6 +576,10 @@ msgstr "Añadir cuenta"
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Add Action"
 msgstr "Añadir acción"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Add condition"
+msgstr "Añadir condición"
 
 #: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
 msgid "Add Condition"
@@ -360,6 +609,14 @@ msgstr "Puedes añadir más cuando quieras desde la configuración."
 msgid "Add new rules"
 msgstr "Añadir nuevas reglas"
 
+#: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
+msgid "Add or manage accounts"
+msgstr "Añadir o gestionar cuentas"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Add or switch email accounts"
+msgstr "Añade o cambia de cuenta de correo"
+
 #: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
 msgid "Add Outlook Calendar"
 msgstr "Añadir Outlook Calendar"
@@ -377,6 +634,12 @@ msgstr "Añadir regla"
 msgid "Add rule manually"
 msgstr "Añadir regla manualmente"
 
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "Add senders to split"
+msgstr "Añadir remitentes a la pestaña"
+
 #: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
 msgid "Add signature"
 msgstr "Añadir firma"
@@ -384,6 +647,10 @@ msgstr "Añadir firma"
 #: app/(app)/[emailAccountId]/assistant/knowledge/DraftDocsSites.tsx
 msgid "Add site"
 msgstr "Añadir sitio"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Add split"
+msgstr "Añadir pestaña"
 
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Add this URL in ChatGPT, Claude, or Cursor. You'll be asked to allow access."
@@ -401,6 +668,14 @@ msgstr "Añadir a la integración"
 #: utils/mcp/tool-specs-messages.ts
 msgid "Add Todoist task"
 msgstr "Añadir tarea de Todoist"
+
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "Added {added, plural, one {# sender} other {# senders}} to {splitName}"
+msgstr "{added, plural, one {Se añadió # remitente} other {Se añadieron # remitentes}} a {splitName}"
+
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "Adding senders…"
+msgstr "Añadiendo remitentes…"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SettingsTab.tsx
 msgid "Advanced"
@@ -458,13 +733,39 @@ msgstr "Fuentes seleccionadas por la IA"
 msgid "Alerts, status updates, and system messages"
 msgstr "Alertas, actualizaciones de estado y mensajes del sistema"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "all"
+msgstr "todas"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "All"
 msgstr "Todos"
 
+#: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
+#: lib/shortcuts/registry.ts
+msgid "All accounts"
+msgstr "Todas las cuentas"
+
+#: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
+msgid "All Accounts updated"
+msgstr "Todas las cuentas actualizadas"
+
+#: app/(app)/[emailAccountId]/mail/InboxZeroCelebration.tsx
+msgid "All clear"
+msgstr "Todo listo"
+
 #: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
 msgid "All emails"
 msgstr "Todos los correos"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "All inboxes"
+msgstr "Todas las bandejas"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "All Mail"
+msgstr "Todos"
 
 #: app/(app)/[emailAccountId]/assistant/RulesSelect.tsx
 msgid "All rules"
@@ -507,6 +808,14 @@ msgstr "Permite que la IA seleccione varias reglas para un mismo correo cuando c
 msgid "Already cancelled your subscription? Click the button below to proceed."
 msgstr "¿Ya cancelaste tu suscripción? Haz clic en el botón de abajo para continuar."
 
+#: app/(app)/[emailAccountId]/mail/use-thread-translation.ts
+msgid "Already in {languageName}"
+msgstr "Ya está en {languageName}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-translation.ts
+msgid "Already in your language"
+msgstr "Ya está en tu idioma"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/ChatIllustration.tsx
 msgid "Also in Slack and Telegram"
 msgstr "También en Slack y Telegram"
@@ -543,6 +852,14 @@ msgstr "y"
 msgid "AND"
 msgstr "Y"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "any"
+msgstr "alguna"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "anything awaiting my reply"
+msgstr "todo lo que espera mi respuesta"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "API Access"
 msgstr "Acceso a la API"
@@ -571,6 +888,10 @@ msgstr "Aplicada"
 msgid "Applied manually"
 msgstr "Aplicada manualmente"
 
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Applied rule:"
+msgstr "Regla aplicada:"
+
 #: app/(app)/[emailAccountId]/assistant/Process.tsx
 msgid "Apply"
 msgstr "Aplicar"
@@ -583,7 +904,15 @@ msgstr "Aplicar a hilos"
 msgid "Applying"
 msgstr "Aplicando"
 
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Applying label…"
+msgstr "Aplicando etiqueta…"
+
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+#: lib/shortcuts/registry.ts
 #: utils/action-display-messages.ts
 #: utils/action-display.tsx
 msgid "Archive"
@@ -597,10 +926,15 @@ msgstr "Archivar tras 7 días"
 msgid "Archive all newsletters from last week"
 msgstr "Archiva todos los boletines de la semana pasada"
 
+#: lib/shortcuts/registry.ts
+msgid "Archive current email"
+msgstr "Archivar el correo actual"
+
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Archive shipping updates once they're delivered"
 msgstr "Archiva los avisos de envío cuando se entreguen"
 
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
 msgid "Archived"
 msgstr "Archivado"
@@ -621,26 +955,51 @@ msgstr "¿Seguro que quieres eliminar esta regla?"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+#: lib/shortcuts/registry.ts
 msgid "Assistant"
 msgstr "Asistente"
+
+#: lib/shortcuts/registry.ts
+msgid "Assistant & rules"
+msgstr "Asistente y reglas"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Assistant chat"
 msgstr "Chat del asistente"
 
+#: hooks/useCommandPaletteCommands.ts
+msgid "Assistant Settings"
+msgstr "Configuración del asistente"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "at"
 msgstr "a las"
 
+#: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+#: lib/shortcuts/registry.ts
+msgid "Attach files"
+msgstr "Adjuntar archivos"
+
 #: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
+#: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
 msgid "Attachments"
 msgstr "Adjuntos"
+
+#. placeholder {0}: attachments.map(escapeHtml).join(", ")
+#: app/(app)/[emailAccountId]/mail/print-messages.ts
+msgid "Attachments: {0}"
+msgstr "Adjuntos: {0}"
 
 #. placeholder {0}: staticAttachments.length
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Attachments: <0>{0}</0>"
 msgstr "Adjuntos: <0>{0}</0>"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Auto archive future emails"
+msgstr "Archivar automáticamente los correos futuros"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Auto draft replies"
@@ -670,9 +1029,32 @@ msgstr "Acciones disponibles"
 msgid "Available on the Professional plan."
 msgstr "Disponible en el plan Professional."
 
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Back"
+msgstr "Atrás"
+
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+msgid "Back to inbox"
+msgstr "Volver a Recibidos"
+
+#: lib/shortcuts/registry.ts
+msgid "Back to the app"
+msgstr "Volver a la app"
+
+#: lib/shortcuts/registry.ts
+msgid "Back to the list"
+msgstr "Volver a la lista"
+
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "BASIC LABELS"
 msgstr "ETIQUETAS BÁSICAS"
+
+#: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "Bcc"
+msgstr "Cco"
 
 #: utils/action-item.ts
 msgid "BCC"
@@ -701,6 +1083,10 @@ msgstr "Facturación"
 #: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
 msgid "Block"
 msgstr "Bloquear"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Block sender"
+msgstr "Bloquear remitente"
 
 #: app/(app)/[emailAccountId]/assistant/LearnedPatternExclusionHint.tsx
 msgid "body"
@@ -731,6 +1117,22 @@ msgstr "¡Informe enviado! Revisa tu bandeja de entrada"
 msgid "Briefs for every external meeting"
 msgstr "Informes para cada reunión externa"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Build a split"
+msgstr "Crear una pestaña"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Build it"
+msgstr "Crearla"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Build your own"
+msgstr "Crea la tuya"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Building…"
+msgstr "Creando…"
+
 #: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
 msgid "Bulk Process Emails"
 msgstr "Procesar correos en bloque"
@@ -738,6 +1140,22 @@ msgstr "Procesar correos en bloque"
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
 msgid "Bulk unsubscribe and archive"
 msgstr "Cancela suscripciones y archiva en bloque"
+
+#: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
+msgid "Bundle in Inbox"
+msgstr "Agrupar en Recibidos"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Bundle low-priority email?"
+msgstr "¿Agrupar los correos de baja prioridad?"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Bundle low-priority emails"
+msgstr "Agrupar los correos de baja prioridad"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Bundle my inbox"
+msgstr "Agrupar mi bandeja de entrada"
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepConnectCalendar.tsx
 msgid "Calendar Connected!"
@@ -760,12 +1178,18 @@ msgstr "¿Podemos mover la llamada del jueves?"
 #: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
 #: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
+#: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 #: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
 #: components/ConfirmDialog.tsx
 msgid "Cancel"
 msgstr "Cancelar"
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Cancel send"
+msgstr "Cancelar envío"
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Cancel subscription first"
@@ -775,6 +1199,8 @@ msgstr "Cancela primero la suscripción"
 msgid "categories"
 msgstr "categorías"
 
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
 #: utils/terminology-messages.ts
 msgid "Categories"
 msgstr "Categorías"
@@ -1098,21 +1524,37 @@ msgstr "Categoriza los correos de Stripe como @[Stripe]"
 msgid "Categorize urgent emails as @[Urgent]"
 msgstr "Categoriza los correos urgentes como @[Urgent]"
 
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
 #: utils/terminology-messages.ts
 msgid "category"
 msgstr "categoría"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 #: utils/terminology-messages.ts
 msgid "Category"
 msgstr "Categoría"
+
+#: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "Cc"
+msgstr "Cc"
 
 #: utils/action-item.ts
 msgid "CC"
 msgstr "CC"
 
+#. placeholder {0}: escapeHtml(cc)
+#: app/(app)/[emailAccountId]/mail/print-messages.ts
+msgid "Cc: {0}"
+msgstr "Cc: {0}"
+
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Change plan"
 msgstr "Cambiar plan"
+
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+msgid "Chat about this email"
+msgstr "Chatear sobre este correo"
 
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Chat app"
@@ -1130,9 +1572,17 @@ msgstr "ChatGPT, Claude u otra IA"
 msgid "Check how your rules perform against previous emails"
 msgstr "Comprueba cómo funcionan tus reglas con correos anteriores"
 
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Check Sent"
+msgstr "Revisar Enviados"
+
 #: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
 msgid "Choose"
 msgstr "Elegir"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Choose a date and time"
+msgstr "Elige una fecha y hora"
 
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Choose a delivery destination from More options."
@@ -1146,6 +1596,27 @@ msgstr "Elige un destino"
 msgid "Choose a persona"
 msgstr "Elige un perfil"
 
+#: app/(app)/[emailAccountId]/compose/delivery-times.ts
+msgid "Choose a valid reminder time, or clear the reminder."
+msgstr "Elige una hora de recordatorio válida o quita el recordatorio."
+
+#: app/(app)/[emailAccountId]/compose/delivery-times.ts
+msgid "Choose a valid send time, or clear Send later to send now."
+msgstr "Elige una hora de envío válida o quita Enviar más tarde para enviar ahora."
+
+#: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
+msgid "Choose account"
+msgstr "Elegir cuenta"
+
+#: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
+msgid "Choose accounts"
+msgstr "Elegir cuentas"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Choose date and time"
+msgstr "Elegir fecha y hora"
+
 #: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
 msgid "Choose files or folders the AI can search after you save."
 msgstr "Elige archivos o carpetas en los que la IA pueda buscar después de guardar."
@@ -1157,6 +1628,14 @@ msgstr "Elige los archivos que esta regla debe adjuntar siempre después de guar
 #: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
 msgid "Choose from examples"
 msgstr "Elegir entre ejemplos"
+
+#: app/(app)/[emailAccountId]/compose/ComposeSignaturePicker.tsx
+msgid "Choose signature"
+msgstr "Elegir firma"
+
+#: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
+msgid "Choose which accounts appear in All Accounts."
+msgstr "Elige qué cuentas aparecen en Todas las cuentas."
 
 #: app/(app)/[emailAccountId]/onboarding/StepChat.tsx
 msgid "Clean up, draft replies, set up rules. Works in Slack, Telegram, or here, and pings you when you're needed."
@@ -1171,17 +1650,58 @@ msgstr "{0, plural, one {Se limpió # borrador} other {Se limpiaron # borradores
 msgid "Clear"
 msgstr "Borrar"
 
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Clear search"
+msgstr "Borrar búsqueda"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Clear selection"
+msgstr "Borrar selección"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Clear time"
+msgstr "Quitar hora"
+
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Click Save to view available models for your API key."
 msgstr "Haz clic en Guardar para ver los modelos disponibles para tu clave de API."
 
 #: app/(app)/[emailAccountId]/assistant/RuleDialog.tsx
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Close"
 msgstr "Cerrar"
+
+#: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
+msgid "Close email"
+msgstr "Cerrar correo"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Close mail setup"
+msgstr "Cerrar configuración del correo"
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Close sender profile"
+msgstr "Cerrar perfil del remitente"
+
+#: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
+msgid "Code copied"
+msgstr "Código copiado"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
 msgid "Cold Emails"
 msgstr "Cold Emails"
+
+#: app/(app)/[emailAccountId]/mail/InboxBundleRow.tsx
+msgid "Collapse"
+msgstr "Contraer"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Collapse {labelName}"
+msgstr "Contraer {labelName}"
+
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+msgid "Collapse all messages"
+msgstr "Contraer todos los mensajes"
 
 #: app/(app)/[emailAccountId]/assistant/History.tsx
 msgid "Collapse conversation"
@@ -1191,11 +1711,38 @@ msgstr "Contraer conversación"
 msgid "Command"
 msgstr "Comando"
 
+#: lib/shortcuts/registry.ts
+msgid "Command palette"
+msgstr "Paleta de comandos"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+#: lib/shortcuts/registry.ts
+msgid "Comment"
+msgstr "Comentar"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: lib/shortcuts/registry.ts
+msgid "Compose"
+msgstr "Redactar"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Condition field"
+msgstr "Campo de la condición"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Condition value"
+msgstr "Valor de la condición"
+
 #: app/(app)/[emailAccountId]/assistant/settings/DigestSetting.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 msgid "Configure"
 msgstr "Configurar"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Configure AI assistant behavior"
+msgstr "Configura el comportamiento del asistente de IA"
 
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Configure attachments"
@@ -1305,6 +1852,22 @@ msgstr "Creador de contenido"
 msgid "Continue"
 msgstr "Continuar"
 
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Conversation"
+msgstr "Conversación"
+
+#: app/(app)/[emailAccountId]/mail/MessageSourceDialog.tsx
+msgid "Copied to clipboard"
+msgstr "Copiado al portapapeles"
+
+#: app/(app)/[emailAccountId]/mail/MessageSourceDialog.tsx
+msgid "Copy"
+msgstr "Copiar"
+
+#: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
+msgid "Copy code {code}"
+msgstr "Copiar código {code}"
+
 #: app/(app)/[emailAccountId]/settings/CopyRulesSection.tsx
 msgid "Copy Rules"
 msgstr "Copiar reglas"
@@ -1313,11 +1876,185 @@ msgstr "Copiar reglas"
 msgid "Copy Rules From Another Account"
 msgstr "Copiar reglas de otra cuenta"
 
+#. placeholder {0}: attachment.filename
+#: app/(app)/[emailAccountId]/compose/useComposeAttachments.ts
+msgid "Could not attach {0}."
+msgstr "No se pudo adjuntar {0}."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Could not confirm delivery. Check the thread status before trying again."
+msgstr "No se pudo confirmar el envío. Revisa el estado de la conversación antes de volver a intentarlo."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Could not confirm this reply was queued. Check the thread delivery status before retrying."
+msgstr "No se pudo confirmar que esta respuesta se pusiera en cola. Revisa el estado de envío de la conversación antes de reintentar."
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "Could not discard this draft."
+msgstr "No se pudo descartar este borrador."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Could not find this draft in your mailbox to send its attachments. Reopen it and try again."
+msgstr "No se encontró este borrador en tu buzón para enviar sus adjuntos. Vuelve a abrirlo e inténtalo de nuevo."
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "Could not find this draft in your mailbox. Reopen it and try again."
+msgstr "No se encontró este borrador en tu buzón. Vuelve a abrirlo e inténtalo de nuevo."
+
+#. placeholder {0}: attachment.filename
+#: app/(app)/[emailAccountId]/compose/useComposeAttachments.ts
+msgid "Could not remove {0}."
+msgstr "No se pudo quitar {0}."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Could not schedule this email"
+msgstr "No se pudo programar este correo"
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Could not schedule this email. Check the thread status before trying again."
+msgstr "No se pudo programar este correo. Revisa el estado de la conversación antes de volver a intentarlo."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Could not schedule this reply"
+msgstr "No se pudo programar esta respuesta"
+
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "Couldn't add senders. Please try again."
+msgstr "No se pudieron añadir los remitentes. Inténtalo de nuevo."
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Couldn't apply label. Please try again."
+msgstr "No se pudo aplicar la etiqueta. Inténtalo de nuevo."
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Couldn't confirm delivery"
+msgstr "No se pudo confirmar el envío"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Couldn't disable auto archive for {senderName}"
+msgstr "No se pudo desactivar el archivado automático para {senderName}"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Couldn't enable auto archive for {senderName}"
+msgstr "No se pudo activar el archivado automático para {senderName}"
+
+#. placeholder {0}: unreverted.size
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't fully reverse {0, plural, one {# conversation} other {# conversations}} that only partly changed. Check them and try again."
+msgstr "{0, plural, one {No se pudo revertir del todo # conversación que solo cambió en parte. Revísala e inténtalo de nuevo.} other {No se pudieron revertir del todo # conversaciones que solo cambiaron en parte. Revísalas e inténtalo de nuevo.}}"
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Couldn't load public context"
+msgstr "No se pudo cargar el contexto público"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Couldn't move conversations. Please try again."
+msgstr "No se pudieron mover las conversaciones. Inténtalo de nuevo."
+
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Couldn't open this conversation"
+msgstr "No se pudo abrir esta conversación"
+
+#: app/(app)/[emailAccountId]/mail/use-optimistic-archive.ts
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue archiving"
+msgstr "No se pudo poner en cola el archivado"
+
+#: components/CommandK.tsx
+msgid "Couldn't queue archiving this email"
+msgstr "No se pudo poner en cola el archivado de este correo"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue deletion"
+msgstr "No se pudo poner en cola la eliminación"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue labeling"
+msgstr "No se pudo poner en cola el etiquetado"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue marking as read"
+msgstr "No se pudo poner en cola el marcado como leído"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue marking as spam"
+msgstr "No se pudo poner en cola el marcado como spam"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue marking as unread"
+msgstr "No se pudo poner en cola el marcado como no leído"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue moving"
+msgstr "No se pudo poner en cola el movimiento"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't queue moving to inbox"
+msgstr "No se pudo poner en cola el movimiento a Recibidos"
+
+#: app/(app)/[emailAccountId]/compose/undo-send.ts
+msgid "Couldn't reach the server to undo. Try again."
+msgstr "No se pudo contactar con el servidor para deshacer. Inténtalo de nuevo."
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Couldn't remove label"
+msgstr "No se pudo quitar la etiqueta"
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Couldn't research this sender right now."
+msgstr "No se pudo investigar a este remitente en este momento."
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn't restore"
+msgstr "No se pudo restaurar"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+#: app/(app)/[emailAccountId]/mail/MailSplitTabs.tsx
+msgid "Couldn't save that"
+msgstr "No se pudo guardar"
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "Couldn't sync this draft to your mailbox. It's saved on this device and we'll keep trying."
+msgstr "No se pudo sincronizar este borrador con tu buzón. Está guardado en este dispositivo y seguiremos intentándolo."
+
+#: app/(app)/[emailAccountId]/mail/use-thread-translation.ts
+msgid "Couldn't translate this email"
+msgstr "No se pudo traducir este correo"
+
+#: app/(app)/[emailAccountId]/compose/undo-send.ts
+msgid "Couldn't undo send"
+msgstr "No se pudo deshacer el envío"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Couldn't unsubscribe from {senderName}"
+msgstr "No se pudo cancelar la suscripción a {senderName}"
+
+#: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
+msgid "Couldn't update All Accounts"
+msgstr "No se pudo actualizar Todas las cuentas"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "Couldn’t update stars for all conversations"
+msgstr "No se pudieron actualizar los destacados de todas las conversaciones"
+
+#: components/CommandK.tsx
+msgid "Couldn’t update the star for this email"
+msgstr "No se pudo actualizar el destacado de este correo"
+
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm.tsx
 #: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Create"
 msgstr "Crear"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Create “{name}”"
+msgstr "Crear “{name}”"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Create {labelSingular}"
+msgstr "Crear {labelSingular}"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Create key"
@@ -1330,6 +2067,10 @@ msgstr "Crear nueva clave secreta"
 #: app/(app)/[emailAccountId]/assistant/RuleDialog.tsx
 msgid "Create Rule"
 msgstr "Crear regla"
+
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Create rule for sender"
+msgstr "Crear regla para el remitente"
 
 #: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
 msgid "Create rules"
@@ -1350,6 +2091,14 @@ msgstr "¡Creada!"
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 msgid "Cron expression in UTC"
 msgstr "Expresión cron en UTC"
+
+#: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
+msgid "Current account"
+msgstr "Cuenta actual"
+
+#: app/(app)/[emailAccountId]/compose/ComposeSignaturePicker.tsx
+msgid "Current signature"
+msgstr "Firma actual"
 
 #: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
@@ -1372,9 +2121,23 @@ msgstr "Ofertas del día"
 msgid "Dark mode"
 msgstr "Modo oscuro"
 
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Date"
+msgstr "Fecha"
+
 #: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
 msgid "Date added"
 msgstr "Fecha de creación"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Date range"
+msgstr "Rango de fechas"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+msgid "Date within"
+msgstr "Fecha dentro de"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Day"
@@ -1389,17 +2152,29 @@ msgstr "días"
 msgid "Default"
 msgstr "Predeterminado"
 
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Default tab"
+msgstr "Pestaña predeterminada"
+
 #: app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting.tsx
 msgid "Define your tone and style."
 msgstr "Define tu tono y estilo."
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Definition"
+msgstr "Definición"
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 #: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
 #: app/(app)/[emailAccountId]/assistant/Rules.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 #: components/ConfirmDialog.tsx
+#: lib/shortcuts/registry.ts
 #: utils/action-display-messages.ts
 #: utils/action-display.tsx
 msgid "Delete"
@@ -1414,6 +2189,10 @@ msgstr "Eliminar {0}"
 #: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
 msgid "Delete {0}? This cannot be undone."
 msgstr "¿Eliminar {0}? Esta acción no se puede deshacer."
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Delete {typeName}?"
+msgstr "¿Eliminar {typeName}?"
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Delete account"
@@ -1443,6 +2222,10 @@ msgstr "Eliminar firma"
 msgid "Delete your Inbox Zero account?"
 msgstr "¿Eliminar tu cuenta de Inbox Zero?"
 
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "Deleted Items"
+msgstr "Elementos eliminados"
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Deleting account..."
 msgstr "Eliminando cuenta..."
@@ -1450,6 +2233,10 @@ msgstr "Eliminando cuenta..."
 #: app/(app)/[emailAccountId]/assistant/Rules.tsx
 msgid "Deleting rule..."
 msgstr "Eliminando regla..."
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Deleting..."
+msgstr "Eliminando..."
 
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Deliver to <0>{deliverySummaryText}</0>"
@@ -1463,9 +2250,25 @@ msgstr "Destino de entrega"
 msgid "Delivery options"
 msgstr "Opciones de entrega"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Describe it"
+msgstr "Descríbela"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Describe this split"
+msgstr "Describe esta pestaña"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Describe what should land in this split…"
+msgstr "Describe qué debe llegar a esta pestaña…"
+
 #: utils/mcp/tool-specs-messages.ts
 msgid "Description"
 msgstr "Descripción"
+
+#: app/(app)/[emailAccountId]/mail/SelectAllCheckbox.tsx
+msgid "Deselect all conversations"
+msgstr "Deseleccionar todas las conversaciones"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Designer"
@@ -1513,9 +2316,23 @@ msgstr "Desactivar todas las reglas"
 msgid "Disable all rules?"
 msgstr "¿Desactivar todas las reglas?"
 
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Disable auto archive"
+msgstr "Desactivar archivado automático"
+
 #: app/(app)/[emailAccountId]/assistant/Rules.tsx
 msgid "Disabled by your organization"
 msgstr "Desactivada por tu organización"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Disabling auto archive for {senderName}"
+msgstr "Desactivando el archivado automático para {senderName}"
+
+#: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+#: lib/shortcuts/registry.ts
+msgid "Discard draft"
+msgstr "Descartar borrador"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
@@ -1531,6 +2348,10 @@ msgstr "Desconectar {0}"
 msgid "Disconnected"
 msgstr "Desconectado"
 
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Discussions"
+msgstr "Debates"
+
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "Do nothing"
 msgstr "No hacer nada"
@@ -1539,10 +2360,32 @@ msgstr "No hacer nada"
 msgid "Documentation sites"
 msgstr "Sitios de documentación"
 
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Doesn't have"
+msgstr "No contiene"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+msgid "Don't include chats"
+msgstr "No incluir chats"
+
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 msgid "done"
 msgstr "listo"
 
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Done"
+msgstr "Listo"
+
+#: app/(app)/[emailAccountId]/mail/MessageSourceDialog.tsx
+msgid "Download"
+msgstr "Descargar"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Download message"
+msgstr "Descargar mensaje"
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Draft"
 msgstr "Borrador"
@@ -1605,6 +2448,9 @@ msgstr "Enviar borrador a"
 msgid "Draft to chat channel"
 msgstr "Enviar borrador a un canal de chat"
 
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Drafts"
 msgstr "Borradores"
@@ -1649,6 +2495,10 @@ msgstr "p. ej., Etiquetar recibos"
 msgid "e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
 msgstr "p. ej., Newsletters, contenido periódico de publicaciones, blogs o servicios a los que me he suscrito"
 
+#: utils/date.ts
+msgid "Earlier this month"
+msgstr "Este mes"
+
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 msgid "edit"
 msgstr "editar"
@@ -1658,8 +2508,21 @@ msgstr "editar"
 #: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting.tsx
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
 msgid "Edit"
 msgstr "Editar"
+
+#: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
+msgid "Edit {emailAddress}"
+msgstr "Editar {emailAddress}"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Edit {typeName}"
+msgstr "Editar {typeName}"
+
+#: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
+msgid "Edit filters and name"
+msgstr "Editar filtros y nombre"
 
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Edit Knowledge"
@@ -1676,6 +2539,15 @@ msgstr "Editar regla"
 #: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
 msgid "Edit signature"
 msgstr "Editar firma"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Edit split"
+msgstr "Editar pestaña"
+
+#. placeholder {0}: split.name
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Edit the {0} split"
+msgstr "Editar la pestaña {0}"
 
 #: app/(app)/[emailAccountId]/assistant/Rules.tsx
 msgid "Edit via AI"
@@ -1717,6 +2589,18 @@ msgstr "App de correo"
 msgid "Email delivery unavailable."
 msgstr "El envío de correos no está disponible."
 
+#: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
+msgid "Email from chat"
+msgstr "Correo del chat"
+
+#: components/CommandK.tsx
+msgid "Email is still loading"
+msgstr "El correo aún se está cargando"
+
+#: components/CommandK.tsx
+msgid "Email is unavailable"
+msgstr "El correo no está disponible"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Email not found in Slack"
 msgstr "Correo no encontrado en Slack"
@@ -1728,6 +2612,31 @@ msgstr "Enviar por correo las facturas pagadas"
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Email paid Stripe invoices"
 msgstr "Enviar por correo las facturas pagadas de Stripe"
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Email queued and will keep sending in the background."
+msgstr "Correo en cola; se seguirá enviando en segundo plano."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Email queued, but its local draft copy could not be cleared."
+msgstr "Correo en cola, pero no se pudo borrar su copia local del borrador."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Email queued. It will send when you're back online."
+msgstr "Correo en cola. Se enviará cuando vuelvas a estar en línea."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Email queued. Reconnect this account to send it."
+msgstr "Correo en cola. Vuelve a conectar esta cuenta para enviarlo."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Email scheduled."
+msgstr "Correo programado."
+
+#: app/(app)/[emailAccountId]/compose/undo-send.ts
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Email sent!"
+msgstr "¡Correo enviado!"
 
 #: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
 msgid "Email signature"
@@ -1753,9 +2662,21 @@ msgstr "Activa los borradores de respuesta para editar la base de conocimiento"
 msgid "Enabled"
 msgstr "Activada"
 
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Enabling auto archive for {senderName}"
+msgstr "Activando el archivado automático para {senderName}"
+
+#: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
+msgid "End of week"
+msgstr "Final de la semana"
+
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "Enter a valid email"
 msgstr "Introduce un correo válido"
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Enter a valid recipient email address."
+msgstr "Introduce una dirección de correo de destinatario válida."
 
 #: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
 msgid "Enter your email signature..."
@@ -1802,6 +2723,10 @@ msgstr "Error al iniciar la conexión con Google Calendar"
 #: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
 msgid "Error initiating Microsoft calendar connection"
 msgstr "Error al iniciar la conexión con el calendario de Microsoft"
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "Error initiating reconnection"
+msgstr "Error al iniciar la reconexión"
 
 #: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
 msgid "Error loading signature from {providerName}"
@@ -1877,6 +2802,10 @@ msgstr "Cada correo recibe una etiqueta como \"To Reply\", \"Newsletter\" o \"Co
 msgid "Every email needing a reply gets a draft, written in your tone."
 msgstr "Cada correo que necesita respuesta recibe un borrador, escrito con tu estilo."
 
+#: app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx
+msgid "Everything here works without the mouse."
+msgstr "Todo aquí funciona sin ratón."
+
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Example: Email Content"
 msgstr "Ejemplo: contenido del correo"
@@ -1912,9 +2841,21 @@ msgstr "Excluida por {0}: <0>{1}</0>"
 msgid "Executive"
 msgstr "Directivo"
 
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Expand {labelName}"
+msgstr "Expandir {labelName}"
+
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+msgid "Expand all messages"
+msgstr "Expandir todos los mensajes"
+
 #: app/(app)/[emailAccountId]/assistant/History.tsx
 msgid "Expand conversation"
 msgstr "Expandir conversación"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Expanded preview text"
+msgstr "Texto de vista previa ampliado"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Expires"
@@ -1927,6 +2868,14 @@ msgstr "Caducidad"
 #: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
 msgid "Export"
 msgstr "Exportar"
+
+#: lib/shortcuts/registry.ts
+msgid "Extend the selection down"
+msgstr "Ampliar la selección hacia abajo"
+
+#: lib/shortcuts/registry.ts
+msgid "Extend the selection up"
+msgstr "Ampliar la selección hacia arriba"
 
 #: utils/action-item.ts
 msgid "Extra Content"
@@ -1941,6 +2890,10 @@ msgstr "No se pudo añadir el patrón. {0}"
 msgid "Failed to connect Slack"
 msgstr "No se pudo conectar Slack"
 
+#: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
+msgid "Failed to copy code"
+msgstr "No se pudo copiar el código"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Failed to create API key"
 msgstr "No se pudo crear la clave de API"
@@ -1952,6 +2905,10 @@ msgstr "No se pudo crear la organización ni enviar las invitaciones"
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Failed to deactivate API key"
 msgstr "No se pudo desactivar la clave de API"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Failed to delete {typeName}. Please try again."
+msgstr "No se pudo eliminar la {typeName}. Inténtalo de nuevo."
 
 #: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
 msgid "Failed to delete rule."
@@ -1996,6 +2953,10 @@ msgstr "No se pudieron procesar los correos. Inténtalo de nuevo."
 msgid "Failed to remove {0}. {1}"
 msgstr "No se pudo quitar {0}. {1}"
 
+#: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
+msgid "Failed to save account order"
+msgstr "No se pudo guardar el orden de las cuentas"
+
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 msgid "Failed to save settings"
@@ -2032,6 +2993,10 @@ msgstr "No se pudieron sincronizar las pestañas con la extensión"
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Failed to update"
 msgstr "No se pudo actualizar"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Failed to update {typeName}. Please try again."
+msgstr "No se pudo actualizar la {typeName}. Inténtalo de nuevo."
 
 #: app/(app)/[emailAccountId]/assistant/knowledge/DraftDocsSites.tsx
 msgid "Failed to update documentation sites"
@@ -2100,9 +3065,26 @@ msgstr "Cinco ideas que vale la pena robar esta semana"
 msgid "Fix"
 msgstr "Corregir"
 
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "Flagged"
+msgstr "Marcados"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Focused"
+msgstr "Prioritarios"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "folder"
+msgstr "carpeta"
+
 #: utils/action-item.ts
 msgid "Folder name"
 msgstr "Nombre de la carpeta"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Folders"
+msgstr "Carpetas"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Follow-up reminders"
@@ -2116,7 +3098,14 @@ msgstr "Para desarrolladores: activa integraciones externas enviando los datos d
 msgid "For example:"
 msgstr "Por ejemplo:"
 
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Forums"
+msgstr "Foros"
+
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: lib/shortcuts/registry.ts
 #: utils/action-display-messages.ts
 #: utils/action-display.tsx
 msgid "Forward"
@@ -2198,8 +3187,27 @@ msgstr "remitente"
 
 #: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
 #: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
 msgid "From"
 msgstr "De"
+
+#. placeholder {0}: selectedSendAs.email
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "from {0}"
+msgstr "de {0}"
+
+#: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
+msgid "From chat"
+msgstr "Del chat"
+
+#. placeholder {0}: position.index + 1
+#. placeholder {1}: position.threadIds.length
+#: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
+msgid "From chat · {0} of {1}"
+msgstr "Del chat · {0} de {1}"
 
 #. placeholder {0}: rule.from
 #: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
@@ -2209,6 +3217,18 @@ msgstr "De: {0}"
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Full setup guide"
 msgstr "Guía de configuración completa"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Future emails from {senderName} will be archived"
+msgstr "Los correos futuros de {senderName} se archivarán"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Future emails from {senderName} will stay in the inbox"
+msgstr "Los correos futuros de {senderName} se quedarán en la bandeja de entrada"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "General account settings"
+msgstr "Configuración general de la cuenta"
 
 #: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
 msgid "Generate a new webhook secret to reveal it once for copying."
@@ -2250,6 +3270,54 @@ msgstr "Primeros pasos con el Asistente de IA"
 msgid "Getting started with AI Personal Assistant"
 msgstr "Primeros pasos con el Asistente personal de IA"
 
+#: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
+msgid "Go back"
+msgstr "Volver"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to {mailbox}"
+msgstr "Ir a {mailbox}"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Analytics"
+msgstr "Ir a Estadísticas"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Assistant"
+msgstr "Ir al Asistente"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Bulk Unsubscribe"
+msgstr "Ir a Cancelar suscripciones en bloque"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Calendars"
+msgstr "Ir a Calendarios"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Cold Email Blocker"
+msgstr "Ir al Bloqueador de correos en frío"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Deep Clean"
+msgstr "Ir a Limpieza profunda"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Go to inbox"
+msgstr "Ir a Recibidos"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Integrations"
+msgstr "Ir a Integraciones"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Mail"
+msgstr "Ir a Correo"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Go to Meeting Briefs"
+msgstr "Ir a Informes de reunión"
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "Google Calendar & Outlook"
 msgstr "Google Calendar y Outlook"
@@ -2258,9 +3326,28 @@ msgstr "Google Calendar y Outlook"
 msgid "Great to meet you! Happy to share the brand guidelines"
 msgstr "¡Encantada de conocerte! Con gusto te comparto la guía de marca"
 
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "greater than"
+msgstr "mayor que"
+
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 msgid "Group emails together and receive them as a daily summary"
 msgstr "Agrupa correos y recíbelos como un resumen diario"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
+msgid "Has attachment"
+msgstr "Tiene adjunto"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Has label"
+msgstr "Tiene la etiqueta"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+msgid "Has the words"
+msgstr "Contiene las palabras"
 
 #: app/(app)/[emailAccountId]/assistant/rule/[ruleId]/page.tsx
 msgid "Here are your rule settings!"
@@ -2274,6 +3361,14 @@ msgstr "Hola, John: quería hacer seguimiento del calendario del proyecto. ¿Cu�
 msgid "Hi Sarah,"
 msgstr "Hola, Sarah:"
 
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Hide"
+msgstr "Ocultar"
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "Hide Cc and Bcc"
+msgstr "Ocultar Cc y Cco"
+
 #: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
 msgid "Hide credentials and card numbers, then send to AI."
 msgstr "Oculta credenciales y números de tarjeta y luego envía a la IA."
@@ -2285,6 +3380,10 @@ msgstr "Ocultar ejemplos"
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Hide extra fields"
 msgstr "Ocultar campos adicionales"
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "Hide recipients"
+msgstr "Ocultar destinatarios"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
 msgid "High confidence"
@@ -2298,6 +3397,10 @@ msgstr "Historial"
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
 msgid "How did you hear about Inbox Zero?"
 msgstr "¿Cómo conociste Inbox Zero?"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "How do you want to read email?"
+msgstr "¿Cómo quieres leer tu correo?"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
 msgid "How do you want to use {BRAND_NAME}?"
@@ -2615,6 +3718,10 @@ msgstr "Error al importar"
 msgid "Import rules from JSON file"
 msgstr "Importar reglas desde un archivo JSON"
 
+#: app/(app)/[emailAccountId]/mail/MailSplitTabs.tsx
+msgid "Important"
+msgstr "Importantes"
+
 #: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
 msgid "Imported {createdCount, plural, one {# new} other {# new}}, updated {updatedCount, plural, one {# existing} other {# existing}}"
 msgstr "{createdCount, plural, one {Se importó # nueva} other {Se importaron # nuevas}} y {updatedCount, plural, one {se actualizó # existente} other {se actualizaron # existentes}}"
@@ -2623,10 +3730,26 @@ msgstr "{createdCount, plural, one {Se importó # nueva} other {Se importaron # 
 msgid "Imported {createdCount, plural, one {# new} other {# new}}, updated {updatedCount, plural, one {# existing} other {# existing}}, skipped {skippedCount, plural, one {#} other {#}}"
 msgstr "{createdCount, plural, one {Se importó # nueva} other {Se importaron # nuevas}}, {updatedCount, plural, one {se actualizó # existente} other {se actualizaron # existentes}} y {skippedCount, plural, one {se omitió #} other {se omitieron #}}"
 
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "In {typeName} list"
+msgstr "En la lista de {typeName}"
+
 #: utils/mcp/tool-specs-messages.ts
 msgid "In a week"
 msgstr "En una semana"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "In category"
+msgstr "En la categoría"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "In message list"
+msgstr "En la lista de mensajes"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
 #: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Inbox"
@@ -2635,6 +3758,10 @@ msgstr "Bandeja de entrada"
 #: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
 msgid "Inbox Zero Tabs extension not found. Install it first."
 msgstr "No se encontró la extensión Inbox Zero Tabs. Instálala primero."
+
+#: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
+msgid "Inbox: {label}"
+msgstr "Recibidos: {label}"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SentWithSignatureSetting.tsx
 #: app/(app)/[emailAccountId]/settings/SentWithSignatureSection.tsx
@@ -2657,6 +3784,10 @@ msgstr "Incluir firma de referido"
 msgid "Include this in the X-Webhook-Secret header when setting up webhook endpoints. Existing secrets are not shown again. When you generate a new secret, copy it before closing this dialog."
 msgstr "Inclúyelo en el encabezado X-Webhook-Secret al configurar los endpoints de webhook. Los secretos existentes no se vuelven a mostrar. Cuando generes un nuevo secreto, cópialo antes de cerrar este cuadro de diálogo."
 
+#: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
+msgid "Included from the message you are forwarding"
+msgstr "Incluido del mensaje que estás reenviando"
+
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Individual"
 msgstr "Particular"
@@ -2668,6 +3799,18 @@ msgstr "Influencer"
 #: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
 msgid "Information the assistant uses when writing replies."
 msgstr "Información que usa el asistente al escribir respuestas."
+
+#: app/(app)/[emailAccountId]/compose/useComposeAttachments.ts
+msgid "Inline image content does not match its file type."
+msgstr "El contenido de la imagen insertada no coincide con su tipo de archivo."
+
+#: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+msgid "Insert inline images"
+msgstr "Insertar imágenes en el texto"
+
+#: app/(app)/[emailAccountId]/compose/useComposeSnippets.tsx
+msgid "Insert snippet"
+msgstr "Insertar fragmento"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
 msgid "Install"
@@ -2723,9 +3866,30 @@ msgstr "Invita a tu equipo"
 msgid "Invoices, receipts, and payments"
 msgstr "Facturas, recibos y pagos"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Is starred"
+msgstr "Está destacado"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Is unread"
+msgstr "No está leído"
+
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+msgid "Junk Email"
+msgstr "Correo no deseado"
+
+#: app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx
+#: lib/shortcuts/registry.ts
+msgid "Keyboard shortcuts"
+msgstr "Atajos de teclado"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Keys created here are limited to the current inbox account."
 msgstr "Las claves creadas aquí se limitan a la cuenta de correo actual."
+
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Keywords"
+msgstr "Palabras clave"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SettingsTab.tsx
 msgid "Knowledge"
@@ -2743,12 +3907,18 @@ msgstr "Entrada de la base de conocimiento eliminada correctamente"
 msgid "Knowledge base entry updated successfully"
 msgstr "Entrada de la base de conocimiento actualizada correctamente"
 
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
 #: utils/terminology-messages.ts
 msgid "label"
 msgstr "etiqueta"
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
+#: lib/shortcuts/registry.ts
 #: utils/action-item.ts
 #: utils/terminology-messages.ts
 msgid "Label"
@@ -2763,6 +3933,10 @@ msgstr "Etiquetar"
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "Label & archive"
 msgstr "Etiquetar y archivar"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Label as…"
+msgstr "Etiquetar como…"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Label brand partnership emails as @[Brand Deal] and forward to manager@example.com"
@@ -2779,6 +3953,10 @@ msgstr "Etiqueta las solicitudes de colaboración como @[Collab] y redacta una r
 #: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
 msgid "Label colors are already set to the defaults."
 msgstr "Los colores de las etiquetas ya son los predeterminados."
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Label conversations"
+msgstr "Etiquetar conversaciones"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Label customer requests for help as @[Support Ticket]"
@@ -3083,6 +4261,8 @@ msgstr "Etiqueta los correos urgentes como @[Urgent]"
 msgid "labels"
 msgstr "etiquetas"
 
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
 #: utils/terminology-messages.ts
 msgid "Labels"
 msgstr "Etiquetas"
@@ -3098,6 +4278,10 @@ msgstr "Las etiquetas están listas"
 #: app/(app)/settings/LanguageSection.tsx
 msgid "Language"
 msgstr "Idioma"
+
+#: utils/date.ts
+msgid "Last 7 days"
+msgstr "Últimos 7 días"
 
 #. placeholder {0}: formatDigestDeliveryTime( new Date(delivery.lastDelivery.occurredAt), delivery.timezone, )
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
@@ -3116,6 +4300,10 @@ msgstr "Última actualización"
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Last used"
 msgstr "Último uso"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Layout, tabs and bundles"
+msgstr "Diseño, pestañas y grupos"
 
 #: app/(app)/[emailAccountId]/onboarding/page.tsx
 msgid "Learn how {BRAND_NAME} works and get set up."
@@ -3151,6 +4339,11 @@ msgstr "Déjalo en blanco para conservar la clave actual"
 msgid "Leave this blank to keep the current API key, or enter a new key to replace it."
 msgstr "Déjalo en blanco para conservar la clave de API actual o introduce una nueva clave para reemplazarla."
 
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "less than"
+msgstr "menor que"
+
 #: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
 msgid "Let AI-generated drafts use custom anchor text like 'click here'. This is more convenient, but it hides the full destination and any data in the link."
 msgstr "Permite que los borradores generados por IA usen texto de enlace personalizado como 'haz clic aquí'. Es más cómodo, pero oculta el destino completo y cualquier dato del enlace."
@@ -3172,17 +4365,53 @@ msgstr "Investigación en LinkedIn y la web"
 msgid "Linking..."
 msgstr "Vinculando..."
 
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "List"
+msgstr "Lista"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "List and inspect automation rules for this inbox."
 msgstr "Lista y consulta las reglas de automatización de esta bandeja de entrada."
+
+#: lib/shortcuts/registry.ts
+msgid "List view / split view"
+msgstr "Vista de lista / vista dividida"
 
 #: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
 msgid "Load from {providerName}"
 msgstr "Cargar desde {providerName}"
 
+#: app/(app)/[emailAccountId]/mail/ThreadList.tsx
+msgid "Load more"
+msgstr "Cargar más"
+
 #: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
 msgid "Load More"
 msgstr "Cargar más"
+
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Load older messages"
+msgstr "Cargar mensajes anteriores"
+
+#: app/(app)/[emailAccountId]/mail/MailReaderPane.tsx
+msgid "Loading"
+msgstr "Cargando"
+
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Loading email"
+msgstr "Cargando correo"
+
+#: app/(app)/[emailAccountId]/mail/BufferedThreadReader.tsx
+msgid "Loading email…"
+msgstr "Cargando correo…"
+
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Loading messages…"
+msgstr "Cargando mensajes…"
+
+#: app/(app)/[emailAccountId]/mail/ThreadList.tsx
+msgid "Loading more"
+msgstr "Cargando más"
 
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Loading recently organized emails"
@@ -3197,9 +4426,34 @@ msgstr "Cargando remitentes"
 msgid "Loading..."
 msgstr "Cargando..."
 
+#: app/(app)/[emailAccountId]/mail/MailReaderPane.tsx
+msgid "Loading…"
+msgstr "Cargando…"
+
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Look for the \"{FOLLOW_UP_LABEL}\" category in Outlook."
 msgstr "Busca la categoría \"{FOLLOW_UP_LABEL}\" en Outlook."
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+msgid "Mail & Spam & Trash"
+msgstr "Correo, spam y papelera"
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Mail is still starting. Try sending again in a moment."
+msgstr "El correo aún se está iniciando. Intenta enviarlo de nuevo en un momento."
+
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
+msgid "Mail navigation"
+msgstr "Navegación del correo"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+#: hooks/useCommandPaletteCommands.ts
+msgid "Mail setup"
+msgstr "Configuración del correo"
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device."
+msgstr "No se pudo confirmar la creación del borrador en el buzón. Revisa Borradores en Gmail u Outlook; tu mensaje sigue guardado en este dispositivo."
 
 #: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
 msgid "Make sure your Drive connection contains PDF files or folders."
@@ -3211,6 +4465,14 @@ msgstr "Asegúrate de que tu conexión de Drive contenga archivos o carpetas PDF
 msgid "Manage"
 msgstr "Gestionar"
 
+#: hooks/useCommandPaletteCommands.ts
+msgid "Manage Accounts"
+msgstr "Gestionar cuentas"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Manage organization settings"
+msgstr "Gestiona la configuración de la organización"
+
 #: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
 msgid "Manage Secret"
 msgstr "Gestionar secreto"
@@ -3220,12 +4482,23 @@ msgid "Managed by Organization"
 msgstr "Gestionada por la organización"
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
 msgid "Mark as read"
 msgstr "Marcar como leído"
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+#: lib/shortcuts/registry.ts
 msgid "Mark as spam"
 msgstr "Marcar como spam"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+#: lib/shortcuts/registry.ts
+msgid "Mark as unread"
+msgstr "Marcar como no leído"
 
 #: utils/action-display.tsx
 msgid "Mark read"
@@ -3251,6 +4524,22 @@ msgstr "Profesional de marketing"
 msgid "Marketing"
 msgstr "Marketing"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Match all or any condition"
+msgstr "Cumplir todas o alguna de las condiciones"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Matched reason"
+msgstr "Motivo de la coincidencia"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Matched rule:"
+msgstr "Regla coincidente:"
+
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "Matches all conditions"
+msgstr "Cumple todas las condiciones"
+
 #: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
 msgid "Maximum number of conditions reached."
 msgstr "Se alcanzó el número máximo de condiciones."
@@ -3271,6 +4560,17 @@ msgstr "Apps MCP"
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "MCP apps ({0})"
 msgstr "Apps MCP ({0})"
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+#: app/(app)/[emailAccountId]/mail/InboxBundleRow.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
+#: components/email-list/EmailMessage.tsx
+msgid "me"
+msgstr "yo"
+
+#: components/email-list/EmailMessage.tsx
+msgid "Me"
+msgstr "Yo"
 
 #: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
 msgid "Meet the Inbox Zero email app"
@@ -3296,9 +4596,26 @@ msgstr "lun."
 msgid "Monday"
 msgstr "Lunes"
 
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "More"
+msgstr "Más"
+
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+#: lib/shortcuts/registry.ts
+msgid "More actions"
+msgstr "Más acciones"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "More message actions"
+msgstr "Más acciones del mensaje"
+
 #: app/(app)/[emailAccountId]/assistant/RuleStep.tsx
 msgid "More options"
 msgstr "Más opciones"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "More selection actions"
+msgstr "Más acciones de selección"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
 msgid "More signatures"
@@ -3307,6 +4624,26 @@ msgstr "Más firmas"
 #: utils/automation-jobs/defaults.ts
 msgid "Morning"
 msgstr "Mañana"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+#: lib/shortcuts/registry.ts
+msgid "Move"
+msgstr "Mover"
+
+#. placeholder {0}: split.name
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Move {0} down"
+msgstr "Bajar {0}"
+
+#. placeholder {0}: split.name
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Move {0} up"
+msgstr "Subir {0}"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Move conversations"
+msgstr "Mover conversaciones"
 
 #: utils/action-display-messages.ts
 msgid "Move to {quotedFolderName} folder"
@@ -3318,6 +4655,19 @@ msgstr "Mover a la carpeta {quotedFolderName}"
 #: utils/action-display.tsx
 msgid "Move to folder"
 msgstr "Mover a carpeta"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+msgid "Move to inbox"
+msgstr "Mover a Recibidos"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Move to…"
+msgstr "Mover a…"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Moving…"
+msgstr "Moviendo…"
 
 #: app/(app)/[emailAccountId]/assistant/settings/MultiRuleSetting.tsx
 msgid "Multi-rule selection"
@@ -3351,9 +4701,45 @@ msgstr "Nombre (opcional)"
 msgid "Name the signature and set its content."
 msgstr "Ponle nombre a la firma y define su contenido."
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Name this split"
+msgstr "Ponle nombre a esta pestaña"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "name@company.com or @company.com"
+msgstr "nombre@empresa.com o @empresa.com"
+
+#: lib/shortcuts/registry.ts
+msgid "Navigate"
+msgstr "Navegar"
+
+#: components/CommandK.tsx
+msgid "Navigation"
+msgstr "Navegación"
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Needs attention"
+msgstr "Requiere atención"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Never"
 msgstr "Nunca"
+
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "New {labelSingular} name"
+msgstr "Nombre de la nueva {labelSingular}"
+
+#: lib/shortcuts/registry.ts
+msgid "New message"
+msgstr "Mensaje nuevo"
+
+#: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
+msgid "New split"
+msgstr "Nueva pestaña"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "New split inbox"
+msgstr "Nueva pestaña de la bandeja de entrada"
 
 #: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
 msgid "New!"
@@ -3371,14 +4757,34 @@ msgstr "Newsletters"
 msgid "Newsletters, blogs, and publications"
 msgstr "Newsletters, blogs y publicaciones"
 
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Next"
+msgstr "Siguiente"
+
 #. placeholder {0}: formatDigestDeliveryTime( new Date(digestStatus.delivery.estimatedNextDeliveryAt), digestStatus.delivery.timezone, )
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Next delivery around {0}."
 msgstr "Próximo envío alrededor de {0}."
 
+#: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
+msgid "Next email from chat"
+msgstr "Siguiente correo del chat"
+
+#: lib/shortcuts/registry.ts
+msgid "Next message"
+msgstr "Mensaje siguiente"
+
 #: app/(app)/[emailAccountId]/assistant/History.tsx
 msgid "Next messages"
 msgstr "Mensajes siguientes"
+
+#: lib/shortcuts/registry.ts
+msgid "Next split"
+msgstr "Pestaña siguiente"
+
+#: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
+msgid "Next week"
+msgstr "La próxima semana"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Next, open Channels to choose where Slack messages go."
@@ -3396,6 +4802,10 @@ msgstr "Sin plan activo"
 msgid "No API keys yet."
 msgstr "Aún no hay claves de API."
 
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "No confident public professional profile was found."
+msgstr "No se encontró ningún perfil profesional público fiable."
+
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "No connected destinations"
 msgstr "No hay destinos conectados"
@@ -3409,6 +4819,7 @@ msgid "No due date"
 msgstr "Sin fecha de vencimiento"
 
 #: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
 msgid "No emails found"
 msgstr "No se encontraron correos"
 
@@ -3423,6 +4834,10 @@ msgstr "No se han procesado correos para esta regla."
 #: app/(app)/[emailAccountId]/assistant/History.tsx
 msgid "No emails have been processed yet."
 msgstr "Todavía no se han procesado correos."
+
+#: app/(app)/[emailAccountId]/mail/ThreadList.tsx
+msgid "No emails in this view"
+msgstr "No hay correos en esta vista"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "No expiry"
@@ -3457,6 +4872,22 @@ msgstr "Sin coincidencia"
 msgid "No match found"
 msgstr "No se encontró ninguna coincidencia"
 
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "No matched rules for this message."
+msgstr "Ninguna regla coincide con este mensaje."
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "No matching folders."
+msgstr "No hay carpetas que coincidan."
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "No matching labels."
+msgstr "No hay etiquetas que coincidan."
+
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "No matching splits."
+msgstr "No hay pestañas que coincidan."
+
 #: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
 msgid "No More Messages"
 msgstr "No hay más mensajes"
@@ -3477,6 +4908,18 @@ msgstr "No se encontraron PDF"
 msgid "No personal rules to export."
 msgstr "No hay reglas personales para exportar."
 
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "No public context"
+msgstr "Sin contexto público"
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "No recipient"
+msgstr "Sin destinatario"
+
+#: components/CommandK.tsx
+msgid "No results found."
+msgstr "No se encontraron resultados."
+
 #: app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting.tsx
 msgid "No rule"
 msgstr "Sin regla"
@@ -3489,6 +4932,10 @@ msgstr "No se encontraron reglas en {0}"
 #: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
 msgid "No rules with label actions found."
 msgstr "No se encontraron reglas con acciones de etiqueta."
+
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "No senders to add"
+msgstr "No hay remitentes para añadir"
 
 #: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
 msgid "No signature found in recent sent emails"
@@ -3510,6 +4957,10 @@ msgstr "No se encontraron borradores antiguos."
 msgid "No tabs selected"
 msgstr "No hay pestañas seleccionadas"
 
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "No tabs yet"
+msgstr "Aún no hay pestañas"
+
 #: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
 msgid "No unprocessed emails found in your inbox in the selected date range."
 msgstr "No se encontraron correos sin procesar en tu bandeja de entrada en el rango de fechas seleccionado."
@@ -3529,6 +4980,26 @@ msgstr "No se encontraron próximas reuniones"
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "No, thanks"
 msgstr "No, gracias"
+
+#: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
+msgid "Not attached"
+msgstr "No adjunto"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Nothing here yet — these splits need labels this account doesn't have."
+msgstr "Aún no hay nada aquí: estas pestañas necesitan etiquetas que esta cuenta no tiene."
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Nothing scheduled. Emails you send later show up here until they're on their way."
+msgstr "No hay nada programado. Los correos que envíes más tarde aparecen aquí hasta que salgan."
+
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Nothing selected"
+msgstr "Nada seleccionado"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "notifications I have not read"
+msgstr "notificaciones que no he leído"
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 #: utils/action-display-messages.ts
@@ -3577,6 +5048,14 @@ msgstr "Desactivado"
 msgid "Offline access"
 msgstr "Acceso sin conexión"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Older than"
+msgstr "Anterior a"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Older than {age}"
+msgstr "Anterior a {age}"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "on"
 msgstr "el"
@@ -3584,6 +5063,14 @@ msgstr "el"
 #: app/(app)/[emailAccountId]/onboarding/page.tsx
 msgid "Onboarding"
 msgstr "Configuración inicial"
+
+#: app/(app)/[emailAccountId]/compose/useComposeAttachments.ts
+msgid "One of the files could not be read."
+msgstr "No se pudo leer uno de los archivos."
+
+#: app/(app)/[emailAccountId]/compose/useComposeAttachments.ts
+msgid "One of the inline images could not be inserted."
+msgstr "No se pudo insertar una de las imágenes en el texto."
 
 #: app/(app)/[emailAccountId]/onboarding/category-messages.ts
 msgid "One-time passwords, 2FA codes, and sign-in links"
@@ -3617,11 +5104,34 @@ msgstr "Solo elimina los borradores creados por {BRAND_NAME} que no hayas editad
 msgid "Open"
 msgstr "Abrir"
 
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+#: lib/shortcuts/registry.ts
+msgid "Open in email provider"
+msgstr "Abrir en el proveedor de correo"
+
+#: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
+msgid "Open in reader"
+msgstr "Abrir en el lector"
+
+#: lib/shortcuts/registry.ts
+msgid "Open message"
+msgstr "Abrir mensaje"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Open navigation"
+msgstr "Abrir navegación"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Open page"
+msgstr "Abrir página"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Open Telegram bot"
 msgstr "Abrir el bot de Telegram"
 
 #: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "or"
 msgstr "o"
 
@@ -3633,11 +5143,20 @@ msgstr "O"
 msgid "Org"
 msgstr "Org."
 
+#: hooks/useCommandPaletteCommands.ts
+msgid "Organization"
+msgstr "Organización"
+
 #: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
 msgid "Organization Analytics"
 msgstr "Estadísticas de la organización"
 
+#: app/(app)/[emailAccountId]/mail/MessageSourceDialog.tsx
+msgid "Original message"
+msgstr "Mensaje original"
+
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Other"
@@ -3702,6 +5221,11 @@ msgstr "Permisos"
 msgid "Permissions updated"
 msgstr "Permisos actualizados"
 
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Personal"
+msgstr "Personal"
+
 #: app/(app)/[emailAccountId]/assistant/settings/AboutSetting.tsx
 msgid "Personal instructions"
 msgstr "Instrucciones personales"
@@ -3709,6 +5233,10 @@ msgstr "Instrucciones personales"
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Pick an upcoming meeting and we'll send you a sample brief so you can see exactly what you'll receive."
 msgstr "Elige una próxima reunión y te enviaremos un informe de muestra para que veas exactamente lo que recibirás."
+
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Pick another view, or head back to the inbox."
+msgstr "Elige otra vista o vuelve a la bandeja de entrada."
 
 #: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
 msgid "Pick one of these instead of your default signature when you compose."
@@ -3734,6 +5262,10 @@ msgstr "Selecciona una fecha de inicio"
 msgid "Please try again or contact support"
 msgstr "Vuelve a intentarlo o contacta con soporte"
 
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "Please try again or contact support."
+msgstr "Inténtalo de nuevo o contacta con soporte."
+
 #: app/(app)/[emailAccountId]/assistant/bulk-run.ts
 msgid "Please try again."
 msgstr "Inténtalo de nuevo."
@@ -3746,6 +5278,15 @@ msgstr "Espera a que termine la respuesta actual del chat."
 msgid "Plus a deep dive on pricing pages that convert"
 msgstr "Además, un análisis a fondo de las páginas de precios que convierten"
 
+#: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+#: lib/shortcuts/registry.ts
+msgid "Pop out draft"
+msgstr "Abrir borrador en ventana aparte"
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Possible match"
+msgstr "Posible coincidencia"
+
 #: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
 msgid "Prevent credentials and card numbers from being sent to AI."
 msgstr "Evita que se envíen credenciales y números de tarjeta a la IA."
@@ -3755,13 +5296,30 @@ msgstr "Evita que se envíen credenciales y números de tarjeta a la IA."
 msgid "Preview"
 msgstr "Vista previa"
 
+#: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
+msgid "Previous email from chat"
+msgstr "Correo anterior del chat"
+
+#: lib/shortcuts/registry.ts
+msgid "Previous message"
+msgstr "Mensaje anterior"
+
 #: app/(app)/[emailAccountId]/assistant/History.tsx
 msgid "Previous messages"
 msgstr "Mensajes anteriores"
 
+#: lib/shortcuts/registry.ts
+msgid "Previous split"
+msgstr "Pestaña anterior"
+
 #: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
 msgid "Previous:"
 msgstr "Anteriores:"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Print"
+msgstr "Imprimir"
 
 #: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
 msgid "Process Emails"
@@ -3799,6 +5357,11 @@ msgstr "Alerta de promociones"
 msgid "Promotional emails about sales and offers"
 msgstr "Correos promocionales sobre rebajas y ofertas"
 
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Promotions"
+msgstr "Promociones"
+
 #: app/(app)/[emailAccountId]/assistant/Rules.tsx
 msgid "Prompt"
 msgstr "Instrucción"
@@ -3807,9 +5370,21 @@ msgstr "Instrucción"
 msgid "Provider"
 msgstr "Proveedor"
 
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Public context is temporarily unavailable. Try again shortly."
+msgstr "El contexto público no está disponible temporalmente. Inténtalo de nuevo en breve."
+
 #: app/(app)/[emailAccountId]/assistant/knowledge/DraftDocsSites.tsx
 msgid "Public docs the assistant can look things up in when drafting replies. Only pages under these URLs are read."
 msgstr "Documentación pública que el asistente puede consultar al redactar respuestas. Solo se leen las páginas bajo estas URL."
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Public profiles are not researched for personal email addresses."
+msgstr "No se investigan perfiles públicos de direcciones de correo personales."
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Public sources"
+msgstr "Fuentes públicas"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Q3 planning: can you review?"
@@ -3872,9 +5447,37 @@ msgstr "Motivo para elegir esta regla:"
 msgid "Receipt for your purchase"
 msgstr "Recibo de tu compra"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "receipts from Stripe"
+msgstr "recibos de Stripe"
+
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Received"
+msgstr "Recibido"
+
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Recently organized emails"
 msgstr "Correos organizados recientemente"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Recipient"
+msgstr "Destinatario"
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "recipients"
+msgstr "destinatarios"
+
+#: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
+msgid "Reconnect"
+msgstr "Reconectar"
+
+#: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
+msgid "Reconnect this account to enable contact suggestions."
+msgstr "Vuelve a conectar esta cuenta para activar las sugerencias de contactos."
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Reconnect your account to send this"
+msgstr "Vuelve a conectar tu cuenta para enviar esto"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Recruiter"
@@ -3900,6 +5503,19 @@ msgstr "Regenerar secreto"
 msgid "Rejected"
 msgstr "Rechazada"
 
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+#: lib/shortcuts/registry.ts
+msgid "Remind me"
+msgstr "Recordarme"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Remind me date and time"
+msgstr "Fecha y hora del recordatorio"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Remind me if no reply"
+msgstr "Recordarme si no hay respuesta"
+
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Remind me when I haven't replied after"
 msgstr "Recordarme cuando no haya respondido después de"
@@ -3912,6 +5528,19 @@ msgstr "Recordarme cuando no hayan respondido después de"
 msgid "Remove"
 msgstr "Quitar"
 
+#. placeholder {0}: attachment.filename
+#: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
+msgid "Remove {0}"
+msgstr "Quitar {0}"
+
+#: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
+msgid "Remove {emailAddress}"
+msgstr "Quitar {emailAddress}"
+
+#: app/(app)/[emailAccountId]/mail/MailLabelChip.tsx
+msgid "Remove {name} label"
+msgstr "Quitar la etiqueta {name}"
+
 #: app/(app)/[emailAccountId]/assistant/knowledge/DraftDocsSites.tsx
 msgid "Remove {url}"
 msgstr "Quitar {url}"
@@ -3921,6 +5550,7 @@ msgid "Remove action"
 msgstr "Quitar acción"
 
 #: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Remove condition"
 msgstr "Quitar condición"
 
@@ -3937,8 +5567,8 @@ msgid "Remove optional access below, or disconnect to remove all access. To add 
 msgstr "Quita los accesos opcionales a continuación o desconecta para quitar todo el acceso. Para añadir permisos, vuelve a conectar desde la aplicación y aprueba el nuevo acceso."
 
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
-msgid "Remove unedited drafts created by {BRAND_NAME} that are older than {savedCleanupDays} days."
-msgstr "Elimina los borradores sin editar creados por {BRAND_NAME} con más de {savedCleanupDays} días de antigüedad."
+msgid "Remove unedited drafts created by {BRAND_NAME} that are older than {savedCleanupDays, plural, one {# day} other {# days}}."
+msgstr "Elimina los borradores sin editar creados por {BRAND_NAME} con más de {savedCleanupDays, plural, one {# día} other {# días}} de antigüedad."
 
 #: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
 msgid "Removed learned pattern!"
@@ -3948,10 +5578,23 @@ msgstr "¡Patrón aprendido eliminado!"
 msgid "Removes your Inbox Zero data. Your emails aren't affected."
 msgstr "Elimina tus datos de Inbox Zero. Tus correos no se ven afectados."
 
+#: lib/shortcuts/registry.ts
 #: utils/action-display-messages.ts
 #: utils/action-display.tsx
 msgid "Reply"
 msgstr "Responder"
+
+#: lib/shortcuts/registry.ts
+msgid "Reply all"
+msgstr "Responder a todos"
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Reply queued, but its local draft copy could not be cleared."
+msgstr "Respuesta en cola, pero no se pudo borrar su copia local del borrador."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "Reply scheduled, but its local draft copy could not be cleared."
+msgstr "Respuesta programada, pero no se pudo borrar su copia local del borrador."
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Reply to cold emails by telling them to check out {BRAND_NAME}. Then mark them as spam"
@@ -3988,6 +5631,14 @@ msgstr "Restablecer colores de etiquetas"
 msgid "Resetting analytics..."
 msgstr "Restableciendo estadísticas..."
 
+#: app/(app)/[emailAccountId]/mail/MailListPanel.tsx
+msgid "Resize email list"
+msgstr "Cambiar el tamaño de la lista de correos"
+
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
+msgid "Resize sidebar"
+msgstr "Cambiar el tamaño de la barra lateral"
+
 #: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
 msgid "Restore the default colors for Inbox Zero labels like To Reply and Newsletter"
 msgstr "Restaura los colores predeterminados de las etiquetas de Inbox Zero, como To Reply y Newsletter"
@@ -3999,6 +5650,10 @@ msgstr "Reanudar"
 #: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
 msgid "Retest"
 msgstr "Volver a probar"
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Retry send"
+msgstr "Reintentar envío"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SnippetsSetting.tsx
 msgid "Reuse saved replies in drafts by typing / followed by a shortcut."
@@ -4015,6 +5670,10 @@ msgstr "Revocar"
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "Rule"
 msgstr "Regla"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Rule actions"
+msgstr "Acciones de la regla"
 
 #: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
 msgid "Rule created, but draft attachment sources could not be saved."
@@ -4037,6 +5696,7 @@ msgid "Rule saved, but draft attachment sources could not be updated."
 msgstr "Se guardó la regla, pero no se pudieron actualizar las fuentes de adjuntos del borrador."
 
 #: app/(app)/[emailAccountId]/automation/AutomationTabs.tsx
+#: components/CommandK.tsx
 msgid "Rules"
 msgstr "Reglas"
 
@@ -4051,6 +5711,10 @@ msgstr "Reglas transferidas correctamente"
 #: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
 msgid "Run"
 msgstr "Ejecutar"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Run mail setup again"
+msgstr "Volver a configurar el correo"
 
 #: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
 msgid "Run on All"
@@ -4082,12 +5746,22 @@ msgstr "Sábado"
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting.tsx
+#: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
 #: app/(app)/[emailAccountId]/settings/AboutSectionForm.tsx
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Save"
 msgstr "Guardar"
+
+#: app/(app)/[emailAccountId]/compose/useComposeSnippets.tsx
+msgid "Save a reusable snippet."
+msgstr "Guarda un fragmento reutilizable."
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Save changes"
+msgstr "Guardar cambios"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
 msgid "Save signature"
@@ -4096,6 +5770,10 @@ msgstr "Guardar firma"
 #: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
 msgid "Save Signature"
 msgstr "Guardar firma"
+
+#: app/(app)/[emailAccountId]/compose/useComposeSnippets.tsx
+msgid "Save snippet"
+msgstr "Guardar fragmento"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SnippetsSetting.tsx
 msgid "Saved replies you can insert from compose with /."
@@ -4126,6 +5804,10 @@ msgstr "Escaneando tus correos..."
 msgid "Schedule"
 msgstr "Programación"
 
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Scheduled"
+msgstr "Programados"
+
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 msgid "Scheduled check-in settings saved"
 msgstr "Configuración de check-ins programados guardada"
@@ -4138,9 +5820,49 @@ msgstr "Check-ins programados"
 msgid "Scheduled check-ins updated"
 msgstr "Check-ins programados actualizados"
 
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Scheduled emails"
+msgstr "Correos programados"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
+#: lib/shortcuts/registry.ts
 msgid "Search"
 msgstr "Buscador"
+
+#: components/CommandK.tsx
+msgid "Search accounts..."
+msgstr "Buscar cuentas..."
+
+#: app/(app)/[emailAccountId]/mail/MailSearchSuggestions.tsx
+msgid "Search by sender, subject, or any words in the email"
+msgstr "Busca por remitente, asunto o cualquier palabra del correo"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Search folders"
+msgstr "Buscar carpetas"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+msgid "Search labels"
+msgstr "Buscar etiquetas"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Search mail"
+msgstr "Buscar correo"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Search options"
+msgstr "Opciones de búsqueda"
+
+#: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
+msgid "Search splits"
+msgstr "Buscar pestañas"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchSuggestions.tsx
+msgid "Search suggestions"
+msgstr "Sugerencias de búsqueda"
 
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "See examples"
@@ -4159,6 +5881,7 @@ msgid "See which emails you never read. One-click unsubscribe and archive them i
 msgstr "Descubre qué correos nunca lees. Cancela la suscripción con un clic y archívalos en bloque."
 
 #: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+#: lib/shortcuts/registry.ts
 msgid "Select"
 msgstr "Seleccionar"
 
@@ -4177,8 +5900,13 @@ msgid "Select action"
 msgstr "Seleccionar acción"
 
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+#: lib/shortcuts/registry.ts
 msgid "Select all"
 msgstr "Seleccionar todas"
+
+#: app/(app)/[emailAccountId]/mail/SelectAllCheckbox.tsx
+msgid "Select all conversations"
+msgstr "Seleccionar todas las conversaciones"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Select an account"
@@ -4228,7 +5956,9 @@ msgstr "Seleccionar..."
 msgid "Selected rules are combined into one digest email."
 msgstr "Las reglas seleccionadas se combinan en un solo correo de resumen."
 
+#: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
+#: lib/shortcuts/registry.ts
 msgid "Send"
 msgstr "Enviar"
 
@@ -4239,6 +5969,18 @@ msgstr "Envía un mensaje cuando esta regla coincida."
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Send a Test Brief"
 msgstr "Envía un informe de prueba"
+
+#: lib/shortcuts/registry.ts
+msgid "Send and mark done"
+msgstr "Enviar y marcar como hecho"
+
+#: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
+msgid "Send anyway"
+msgstr "Enviar de todos modos"
+
+#: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
+msgid "Send anyway?"
+msgstr "¿Enviar de todos modos?"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Send digest to email"
@@ -4262,9 +6004,22 @@ msgstr "Enviar correo a {to}"
 msgid "Send everything to AI without scanning."
 msgstr "Envía todo a la IA sin escanear."
 
+#: components/CommandK.tsx
+msgid "Send feedback"
+msgstr "Enviar comentarios"
+
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "Send invites"
 msgstr "Enviar invitaciones"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+#: lib/shortcuts/registry.ts
+msgid "Send later"
+msgstr "Enviar más tarde"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Send later date and time"
+msgstr "Fecha y hora de envío"
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 msgid "Send replies"
@@ -4294,6 +6049,18 @@ msgstr "Enviar a"
 msgid "Send to <0>{destinationLabel}</0>"
 msgstr "Enviar a <0>{destinationLabel}</0>"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Sender"
+msgstr "Remitente"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Sender blocked"
+msgstr "Remitente bloqueado"
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Sender profile"
+msgstr "Perfil del remitente"
+
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
 msgid "Senders you rarely read"
 msgstr "Remitentes que casi nunca lees"
@@ -4301,6 +6068,10 @@ msgstr "Remitentes que casi nunca lees"
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 msgid "Sending..."
 msgstr "Enviando..."
+
+#: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+msgid "Sending…"
+msgstr "Enviando…"
 
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Sends an automated notification from {BRAND_NAME} informing the sender their email was filtered as cold outreach."
@@ -4310,6 +6081,8 @@ msgstr "Envía una notificación automática de {BRAND_NAME} para informar al re
 msgid "Sensitive data protection"
 msgstr "Protección de datos sensibles"
 
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Sent"
 msgstr "Enviados"
@@ -4317,6 +6090,14 @@ msgstr "Enviados"
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "Sent 1-24 hours before (you choose)"
 msgstr "Se envía entre 1 y 24 horas antes (tú eliges)"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+msgid "Sent Mail"
+msgstr "Enviados"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Sent to"
+msgstr "Enviado a"
 
 #: app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting.tsx
 msgid "Set"
@@ -4338,6 +6119,22 @@ msgstr "Elegir fecha de fin (opcional)"
 msgid "Set start date"
 msgstr "Elegir fecha de inicio"
 
+#: components/CommandK.tsx
+msgid "Set Theme: Dark"
+msgstr "Tema: oscuro"
+
+#: components/CommandK.tsx
+msgid "Set Theme: Light"
+msgstr "Tema: claro"
+
+#: components/CommandK.tsx
+msgid "Set Theme: System"
+msgstr "Tema: sistema"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Set time"
+msgstr "Fijar hora"
+
 #: app/(app)/[emailAccountId]/assistant/Rules.tsx
 msgid "Set up default rules"
 msgstr "Configurar reglas predeterminadas"
@@ -4349,6 +6146,10 @@ msgstr "Configura los informes de reunión para recibir informes personalizados 
 #: app/(app)/[emailAccountId]/assistant/AllRulesDisabledBanner.tsx
 msgid "Set up rules"
 msgstr "Configurar reglas"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Set up your inbox"
+msgstr "Configura tu bandeja de entrada"
 
 #: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
 msgid "Set your email signature to include in all drafted messages. For Outlook, we can extract from recent sent emails or you can enter manually."
@@ -4363,8 +6164,11 @@ msgid "Set your email signature to include in drafted messages."
 msgstr "Configura tu firma de correo para incluirla en los mensajes redactados."
 
 #: app/(app)/[emailAccountId]/automation/AutomationTabs.tsx
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 #: app/(app)/settings/page.tsx
 #: app/(app)/settings/SettingsDialog.tsx
+#: components/CommandK.tsx
+#: hooks/useCommandPaletteCommands.ts
 msgid "Settings"
 msgstr "Configuración"
 
@@ -4389,17 +6193,47 @@ msgstr "¡Configuración actualizada! Comprueba que funciona en la página del A
 msgid "Share your plan by inviting teammates to your organization."
 msgstr "Comparte tu plan invitando a tus compañeros a tu organización."
 
+#: lib/shortcuts/registry.ts
+msgid "Short / expanded preview text"
+msgstr "Vista previa corta / ampliada"
+
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "Should we draft replies for you?"
 msgstr "¿Quieres que redactemos respuestas por ti?"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Show"
+msgstr "Mostrar"
 
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Show all fields"
 msgstr "Mostrar todos los campos"
 
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "Show Cc and Bcc"
+msgstr "Mostrar Cc y Cco"
+
+#: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
+msgid "Show if unread"
+msgstr "Mostrar si hay no leídos"
+
+#. placeholder {0}: "use client"; import type { I18n, MessageDescriptor } from "@lingui/core"; import { msg } from "@lingui/core/macro"; import { Trans, useLingui } from "@lingui/react/macro"; import { useCallback, useEffect, useMemo, useState } from "react"; import { ArrowDownIcon, ArrowUpIcon, CheckIcon, GripVerticalIcon, ChevronLeftIcon, Loader2Icon, PlusIcon, SparklesIcon, XIcon, } from "lucide-react"; import { MailSplitFilterKind, type SystemType } from "@/generated/prisma/enums"; import { Button } from "@/components/ui/button"; import { Dialog, DialogContent, DialogDescription, DialogTitle, } from "@/components/ui/dialog"; import { Input } from "@/components/ui/input"; import { Textarea } from "@/components/ui/textarea"; import { MAX_SPLIT_FILTERS, type MailSplitFilterDraft, } from "@/utils/split-inbox/split-filters"; import { OLDER_THAN_OPTIONS } from "@/utils/split-inbox/split-query"; import { availableLibraryFilters, findLibrarySplit as findMatchingLibrarySplit, libraryDefinition, SPLIT_LIBRARY, SPLIT_LIBRARY_CATEGORIES, type SplitLibraryEntry, } from "@/utils/split-inbox/split-library"; import { cn } from "@/utils"; const YOUR_SPLITS = "Your splits"; const FIELDS = [ { kind: MailSplitFilterKind.LABEL, label: msg`Has label` }, { kind: MailSplitFilterKind.FROM, label: msg`From` }, { kind: MailSplitFilterKind.TO, label: msg`Sent to` }, { kind: MailSplitFilterKind.CATEGORY, label: msg`In category` }, { kind: MailSplitFilterKind.UNREAD, label: msg`Is unread` }, { kind: MailSplitFilterKind.STARRED, label: msg`Is starred` }, { kind: MailSplitFilterKind.OLDER_THAN, label: msg`Older than` }, ] as const; /** `name` matches library splits and is sent to the AI; `label` is shown. */ export type SplitChoice = { id: string; name: string; value: string; label?: string; }; export type ExistingSplit = { id: string; name: string; matchAll: boolean; filters: { kind: MailSplitFilterKind; value: string | null }[]; }; export type NewSplitDialogProps = { open: boolean; onOpenChange: (open: boolean) => void; labels: SplitChoice[]; categories: SplitChoice[]; /** Splits already on the tab strip, so the library can show what's on. */ existingSplits: ExistingSplit[]; /** Set when the dialog was opened to change a split rather than add one. */ editing: ExistingSplit | null; supportsStarred: boolean; onCreate: (split: { name: string; matchAll: boolean; filters: MailSplitFilterDraft[]; }) => Promise<boolean>; onUpdate: (split: { id: string; name: string; matchAll: boolean; filters: MailSplitFilterDraft[]; }) => Promise<boolean>; onDelete: (id: string) => Promise<boolean>; onReorder: (ids: string[]) => Promise<boolean>; onEdit: (id: string) => void; onDescribe: (prompt: string) => Promise<{ filters: MailSplitFilterDraft[]; name: string | null; matchAll: boolean; } | null>; onToggleSystemType?: ( systemType: SystemType, enabled: boolean, ) => Promise<boolean>; }; const EXAMPLES = [ msg`unread mail from my accountant`, msg`receipts from Stripe`, msg`notifications I have not read`, msg`anything awaiting my reply`, ]; export function NewSplitDialog({ open, onOpenChange, labels, categories, existingSplits, editing, supportsStarred, onCreate, onUpdate, onDelete, onReorder, onEdit, onDescribe, onToggleSystemType, }: NewSplitDialogProps) { const { t, i18n } = useLingui(); const [mode, setMode] = useState<"library" | "build" | "describe">("library"); const [category, setCategory] = useState(YOUR_SPLITS); const [detail, setDetail] = useState<SplitLibraryEntry | null>(null); const [conditions, setConditions] = useState<MailSplitFilterDraft[]>([]); const [matchAll, setMatchAll] = useState(true); const [name, setName] = useState(""); const [prompt, setPrompt] = useState(""); const [isBusy, setIsBusy] = useState(false); const [draggedId, setDraggedId] = useState<string | null>(null); const [dropTargetId, setDropTargetId] = useState<string | null>(null); const moveSplit = async (id: string, targetId: string) => { if (isBusy || id === targetId || id === "all" || targetId === "all") return; const ids = existingSplits .filter((split) => split.id !== "all") .map((split) => split.id); const from = ids.indexOf(id); const to = ids.indexOf(targetId); if (from < 0 || to < 0) return; ids.splice(from, 1); ids.splice(to, 0, id); setIsBusy(true); try { await onReorder(ids); } finally { setIsBusy(false); } }; const removeSplit = async (id: string) => { if (isBusy) return; setIsBusy(true); try { await onDelete(id); } finally { setIsBusy(false); } }; const fields = useMemo( () => FIELDS.filter( (field) => supportsStarred || field.kind !== MailSplitFilterKind.STARRED, ), [supportsStarred], ); const valueOptionsFor = useCallback( (kind: MailSplitFilterKind): SplitChoice[] => { if (kind === MailSplitFilterKind.LABEL) return labels; if (kind === MailSplitFilterKind.CATEGORY) return categories; if (kind === MailSplitFilterKind.OLDER_THAN) { return OLDER_THAN_OPTIONS.map((option) => ({ id: option.value, name: option.name, label: getOlderThanLabel(option.value, i18n), value: option.value, })); } return []; }, [categories, i18n, labels], ); const defaultCondition = useCallback( (kind: MailSplitFilterKind): MailSplitFilterDraft => ({ kind, value: valueOptionsFor(kind)[0]?.value ?? null, }), [valueOptionsFor], ); /** * A new row starts on a field this account can actually fill in — seeding * "Has label" on an account with no labels would open the builder on a * condition that can't be saved. */ const newCondition = useCallback((): MailSplitFilterDraft => { if (labels.length) return defaultCondition(MailSplitFilterKind.LABEL); if (categories.length) return defaultCondition(MailSplitFilterKind.CATEGORY); return defaultCondition(MailSplitFilterKind.UNREAD); }, [categories.length, defaultCondition, labels.length]); // Opening for an edit drops straight into the builder holding that split. useEffect(() => { if (!open) return; if (editing) { setMode("build"); setConditions( editing.filters.map(({ kind, value }) => ({ kind, value })), ); setMatchAll(editing.matchAll); setName(editing.name); } else { setMode("library"); setCategory(YOUR_SPLITS); setConditions([]); setMatchAll(true); setName(""); } setDetail(null); setPrompt(""); }, [editing, open]); const describedName = useMemo( () => conditions .map((c) => conditionLabel(i18n, c, labels, categories)) .join(matchAll ? " · " : ` ${t`or`} `), [categories, conditions, i18n, labels, matchAll, t], ); const libraryEntries = useMemo(() => { const labelsByName = new Map( labels.map((label) => [label.name.toLowerCase(), label.value]), ); const categoriesByName = new Map( categories.map((choice) => [choice.name.toLowerCase(), choice.value]), ); return SPLIT_LIBRARY.filter( (entry) => entry.category === category && (supportsStarred || !entry.conditions.some((condition) => condition.kind === "STARRED")), ).flatMap((entry) => { const filters = availableLibraryFilters(entry, { labelsByName, categoriesByName, }); return filters !== null ? [{ entry, filters }] : []; }); }, [categories, category, labels, supportsStarred]); const findLibrarySplit = useCallback( (entry: SplitLibraryEntry, filters: MailSplitFilterDraft[]) => findMatchingLibrarySplit(entry, filters, existingSplits), [existingSplits], ); const close = () => onOpenChange(false); const save = async () => { if (!conditions.length || isBusy) return; setIsBusy(true); try { const payload = { name: name.trim() || describedName, matchAll, filters: conditions, }; const saved = editing ? await onUpdate({ id: editing.id, ...payload }) : await onCreate(payload); if (saved) close(); } finally { setIsBusy(false); } }; const toggleLibraryEntry = async ( entry: SplitLibraryEntry, filters: MailSplitFilterDraft[], ) => { if (isBusy) return; setIsBusy(true); try { const existing = findLibrarySplit(entry, filters); if (entry.createsSystemType) { if (!onToggleSystemType) return; await onToggleSystemType(entry.createsSystemType, !existing); return; } if (existing) await onDelete(existing.id); else await onCreate({ name: entry.name, matchAll: entry.matchAll ?? true, filters, }); } finally { setIsBusy(false); } }; const describe = async () => { const trimmed = prompt.trim(); if (!trimmed || isBusy) return; setIsBusy(true); try { const result = await onDescribe(trimmed); if (!result) return; // The conditions land in the builder rather than creating a split, so a // wrong guess costs a click instead of a tab the reader has to undo. setConditions(result.filters); setMatchAll(result.matchAll); if (result.name) setName(result.name); setMode("build"); } finally { setIsBusy(false); } }; const title = mode === "build" ? editing ? t`Edit split` : t`Build a split` : mode === "describe" ? t`Describe this split` : t`New split inbox`; return ( <Dialog open={open} onOpenChange={onOpenChange}> <DialogContent className={cn( "top-[9vh] flex max-h-[80vh] w-[620px] max-w-[94vw] translate-y-0 flex-col gap-0 overflow-hidden p-0", // The dialog primitive sets `md:w-full` and `sm:rounded-lg`; those // responsive variants outrank an unprefixed override in tailwind-merge. "rounded-2xl sm:rounded-2xl md:w-[620px]", )} hideCloseButton > <div className="flex shrink-0 items-center gap-2.5 border-border border-b px-4 py-3"> {(mode !== "library" || detail) && ( <Button type="button" aria-label={t`Back`} onClick={() => { if (detail) setDetail(null); else { setMode("library"); if (!editing) setConditions([]); } }} variant="secondary" size="icon2xs" > <ChevronLeftIcon className="size-3.5" /> </Button> )} <DialogTitle className="min-w-0 flex-1 truncate font-medium text-[15px] tracking-tight"> {detail ? detail.name : title} </DialogTitle> <DialogDescription className="sr-only"> <Trans>Add a filtered tab to your inbox.</Trans> </DialogDescription> <Button type="button" aria-label={t`Close`} onClick={close} variant="ghostMuted" size="icon2xs" > <XIcon className="size-3.5" /> </Button> </div> {detail ? ( <LibraryDetail entry={detail} /> ) : mode === "library" ? ( <div className="flex min-h-0 flex-1 overflow-hidden"> <div className="flex w-[142px] shrink-0 flex-col gap-0.5 overflow-y-auto border-border border-r bg-sidebar p-2 scrollbar-thin"> <div className="px-2 pt-0.5 pb-1.5 font-medium text-[11px] text-muted-foreground"> <Trans>Category</Trans> </div> {[YOUR_SPLITS, ...SPLIT_LIBRARY_CATEGORIES].map((option) => ( <button key={option} type="button" onClick={() => setCategory(option)} aria-current={option === category ? "true" : undefined} className={cn( "rounded-lg px-2 py-1.5 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", option === category ? "bg-card font-medium text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(17,24,39,0.05)]" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", )} > {option === YOUR_SPLITS ? t`Your splits` : option} </button> ))} </div> <div className="min-w-0 flex-1 overflow-y-auto p-3.5 scrollbar-thin"> <div className="mb-3.5 grid grid-cols-2 gap-2.5"> <RouteCard icon={<PlusIcon className="size-3.5" />} label={t`Build your own`} onClick={() => { setConditions( conditions.length ? conditions : [newCondition()], ); setMode("build"); }} /> <RouteCard icon={<SparklesIcon className="size-3.5" />} label={t`Describe it`} onClick={() => setMode("describe")} /> </div> <div className="mb-2 font-medium text-[11px] text-muted-foreground"> {category === YOUR_SPLITS ? t`Your splits` : category} </div> {category === YOUR_SPLITS ? ( existingSplits.length ? ( <ul className="space-y-1" aria-label={t`Split order`} aria-busy={isBusy} > {existingSplits.map((split, index) => ( <li key={split.id} className={cn( "flex min-w-0 items-center gap-1 rounded-lg px-1 py-1.5", dropTargetId === split.id ? "bg-accent ring-1 ring-border" : "hover:bg-muted/50", draggedId === split.id && "opacity-50", )} onDragOver={(event) => { if (!draggedId || isBusy || split.id === "all") return; event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDropTargetId(split.id); }} onDragLeave={() => setDropTargetId(null)} onDrop={(event) => { event.preventDefault(); if (draggedId) moveSplit(draggedId, split.id); setDraggedId(null); setDropTargetId(null); }} > <span draggable={!isBusy && split.id !== "all"} data-drag-split={split.id} aria-hidden="true" className={cn( "p-1 text-muted-foreground", split.id === "all" ? "invisible" : "cursor-grab active:cursor-grabbing", )} onDragStart={(event) => { event.dataTransfer.setData("text/plain", split.id); event.dataTransfer.effectAllowed = "move"; setDraggedId(split.id); }} onDragEnd={() => { setDraggedId(null); setDropTargetId(null); }} > <GripVerticalIcon className="size-3.5" /> </span> <button type="button" disabled={isBusy || !split.filters.length} aria-label={t`Edit the ${split.name} split`} onClick={() => onEdit(split.id)} className="min-w-0 flex-1 truncate rounded text-left font-medium text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" > {split.name} </button> <Button variant="ghostMuted" size="iconXs" aria-label={t`Move ${split.name} up`} disabled={ isBusy || split.id === "all" || index === 0 || existingSplits[index - 1].id === "all" } onClick={() => moveSplit(split.id, existingSplits[index - 1].id) } > <ArrowUpIcon className="size-3.5" /> </Button> <Button variant="ghostMuted" size="iconXs" aria-label={t`Move ${split.name} down`} disabled={ isBusy || split.id === "all" || index === existingSplits.length - 1 } onClick={() => moveSplit(split.id, existingSplits[index + 1].id) } > <ArrowDownIcon className="size-3.5" /> </Button> <Button variant="ghostMuted" size="iconXs" disabled={isBusy || !split.filters.length} aria-label={t`Turn off the ${split.name} split`} onClick={() => removeSplit(split.id)} > <XIcon className="size-3.5" /> </Button> </li> ))} </ul> ) : ( <p className="text-muted-foreground text-xs leading-relaxed"> <Trans>Splits you build yourself land here.</Trans> </p> ) ) : ( <div className="grid grid-cols-2 gap-2"> {libraryEntries.map(({ entry, filters }) => ( <LibraryTile key={entry.name} entry={entry} on={!!findLibrarySplit(entry, filters)} disabled={isBusy} onInfo={() => setDetail(entry)} onToggle={() => toggleLibraryEntry(entry, filters)} /> ))} {!libraryEntries.length && ( <p className="col-span-2 text-muted-foreground text-xs leading-relaxed"> <Trans> Nothing here yet — these splits need labels this account doesn&apos;t have. </Trans> </p> )} </div> )} </div> </div> ) : mode === "build" ? ( <div className="min-h-0 flex-1 overflow-y-auto p-3.5 scrollbar-thin"> <div className="mb-3 flex items-center gap-2 text-muted-foreground text-xs"> <Trans> Show mail matching{" "} <select aria-label={t`Match all or any condition`} value={matchAll ? "all" : "any"} onChange={(event) => setMatchAll(event.target.value === "all") } className="h-7 rounded-lg border border-border bg-background py-0 pr-8 pl-1.5 text-foreground text-xs outline-none transition-[color,box-shadow] focus:border-ring focus:ring-[3px] focus:ring-ring/50" > <option value="all">{t`all`}</option> <option value="any">{t`any`}</option> </select>{" "} of these conditions </Trans> </div> <div className="flex flex-col gap-2"> {conditions.map((condition, index) => ( <ConditionRow // Rows are positional: two "Has label" rows are distinct only // by where they sit, so the index is the identity. key={index} condition={condition} fields={fields} valueOptions={valueOptionsFor(condition.kind)} onChangeField={(kind) => setConditions((current) => current.map((item, i) => i === index ? defaultCondition(kind) : item, ), ) } onChangeValue={(value) => setConditions((current) => current.map((item, i) => i === index ? { ...item, value } : item, ), ) } onRemove={() => setConditions((current) => current.filter((_, i) => i !== index), ) } /> ))} </div> <button type="button" disabled={conditions.length >= MAX_SPLIT_FILTERS} onClick={() => setConditions((current) => current.length < MAX_SPLIT_FILTERS ? [...current, newCondition()] : current, ) } className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-primary text-xs hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" > <PlusIcon className="size-3.5" /> <Trans>Add condition</Trans> </button> </div> ) : ( <div className="flex min-h-0 flex-1 flex-col p-3.5"> <Textarea autoFocus rows={3} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={t`Describe what should land in this split…`} maxLength={300} className="resize-none rounded-xl text-[13.5px]" /> <div className="mt-3 flex flex-wrap gap-1.5"> {EXAMPLES.map((descriptor) => { const example = i18n._(descriptor); return ( <button key={example} type="button" onClick={() => setPrompt(example)} className="rounded-full border border-border bg-muted px-2.5 py-1 text-[11.5px] text-muted-foreground hover:border-primary/25 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" > {example} </button> ); })} </div> </div> )} {(detail || mode === "build" || mode === "describe") && ( <div className="flex shrink-0 items-center gap-2.5 border-border border-t bg-sidebar px-4 py-2.5"> {detail ? ( <> <div className="flex-1" /> <Button variant="gradient" size="sm" disabled={isBusy} onClick={() => { const filters = libraryFiltersFor( detail, labels, categories, ); if (filters) toggleLibraryEntry(detail, filters); setDetail(null); }} > {findLibrarySplit( detail, libraryFiltersFor(detail, labels, categories) ?? [], ) ? t`Turn off split` : t`Turn on split`} </Button> </> ) : mode === "build" ? ( <> <span className="shrink-0 text-muted-foreground text-xs"> <Trans>Split name</Trans> </span> <Input aria-label={t`Split name`} value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key !== "Enter") return; event.preventDefault(); save(); }} placeholder={describedName || t`Name this split`} maxLength={60} className="h-8 w-[190px] shrink-0 text-xs" /> <div className="flex-1" /> <Button variant="gradient" size="sm" disabled={!conditions.length || isBusy} onClick={save} > {editing ? t`Save changes` : t`Add split`} </Button> </> ) : mode === "describe" ? ( <> <div className="flex-1" /> <Button variant="gradient" size="sm" disabled={!prompt.trim() || isBusy} onClick={describe} > {isBusy ? ( <> <Loader2Icon className="mr-1.5 size-3.5 animate-spin" /> <Trans>Building…</Trans> </> ) : ( <Trans>Build it</Trans> )} </Button> </> ) : null} </div> )} </DialogContent> </Dialog> ); } function RouteCard({ icon, label, onClick, }: { icon: React.ReactNode; label: string; onClick: () => void; }) { return ( <button type="button" onClick={onClick} className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5 text-left shadow-sm hover:border-primary/25 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" > <span className="flex size-4.5 shrink-0 items-center justify-center text-primary"> {icon} </span> <span className="min-w-0 flex-1 truncate font-medium text-[12.5px] text-primary"> {label} </span> </button> ); } function LibraryTile({ entry, on, disabled, onInfo, onToggle, }: { entry: SplitLibraryEntry; on: boolean; disabled: boolean; onInfo: () => void; onToggle: () => void; }) { const { t } = useLingui(); return ( <div className={cn( "group flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5", on ? "border-primary/25 bg-primary/5 text-primary" : "border-border bg-card text-foreground", )} > <button type="button" onClick={onToggle} disabled={disabled} className="min-w-0 flex-1 truncate text-left font-medium text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" > {entry.name} </button> <button type="button" aria-label={t`What the ${entry.name} split does`} onClick={onInfo} className="hidden size-4.5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-focus-within:flex group-hover:flex" > <InfoGlyph /> </button> <button type="button" aria-label={ on ? t`Turn off the ${entry.name} split` : t`Turn on the ${entry.name} split` } onClick={onToggle} disabled={disabled} className={cn( "flex size-6 shrink-0 items-center justify-center rounded-md hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", on ? "text-primary" : "text-muted-foreground hover:text-foreground", )} > {on ? ( <CheckIcon className="size-3.5" /> ) : ( <PlusIcon className="size-3.5" /> )} </button> </div> ); } function LibraryDetail({ entry }: { entry: SplitLibraryEntry }) { return ( <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin"> <div className="p-4"> <div className="mb-2 font-medium text-[11px] text-muted-foreground"> <Trans>Definition</Trans> </div> <div className="flex flex-col gap-1.5"> {libraryDefinition(entry).map((row) => ( <div key={`${row.key}:${row.value}`} className="flex items-center gap-2.5 rounded-lg border border-border bg-muted px-3 py-2" > <span className="w-12 shrink-0 text-[11.5px] text-muted-foreground"> {row.key} </span> <span className="truncate font-mono text-[12px] text-foreground"> {row.value} </span> </div> ))} </div> </div> </div> ); } function ConditionRow({ condition, fields, valueOptions, onChangeField, onChangeValue, onRemove, }: { condition: MailSplitFilterDraft; fields: readonly { kind: MailSplitFilterKind; label: MessageDescriptor }[]; valueOptions: SplitChoice[]; onChangeField: (kind: MailSplitFilterKind) => void; onChangeValue: (value: string) => void; onRemove: () => void; }) { const { t, i18n } = useLingui(); const takesFreeText = condition.kind === MailSplitFilterKind.FROM || condition.kind === MailSplitFilterKind.TO; const takesNoValue = condition.kind === MailSplitFilterKind.UNREAD || condition.kind === MailSplitFilterKind.STARRED; return ( <div className="flex items-center gap-2"> <select aria-label={t`Condition field`} value={condition.kind} onChange={(event) => onChangeField(event.target.value as MailSplitFilterKind) } className="h-8 w-[132px] shrink-0 rounded-lg border border-border bg-background px-2 text-foreground text-xs outline-none transition-[color,box-shadow] focus:border-ring focus:ring-[3px] focus:ring-ring/50" > {fields.map((field) => ( <option key={field.kind} value={field.kind}> {i18n._(field.label)} </option> ))} </select> {takesNoValue ? ( <div className="min-w-0 flex-1" /> ) : takesFreeText ? ( <Input value={condition.value ?? ""} onChange={(event) => onChangeValue(event.target.value)} placeholder={t`name@company.com or @company.com`} aria-label={ condition.kind === MailSplitFilterKind.TO ? t`Recipient` : t`Sender` } className="h-8 min-w-0 flex-1 text-xs" /> ) : ( <select aria-label={t`Condition value`} value={condition.value ?? ""} onChange={(event) => onChangeValue(event.target.value)} className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-background px-2 text-foreground text-xs outline-none transition-[color,box-shadow] focus:border-ring focus:ring-[3px] focus:ring-ring/50" > {valueOptions.map((option) => ( <option key={option.id} value={option.value}> {option.label ?? option.name} </option> ))} </select> )} <Button type="button" aria-label={t`Remove condition`} onClick={onRemove} variant="destructiveGhost" size="iconXs" > <XIcon className="size-3.5" /> </Button> </div> ); } function InfoGlyph() { return ( <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" className="size-3.5" > <circle cx="12" cy="12" r="9" /> <path d="M12 11v5" /> <path d="M12 8h.01" /> </svg> ); } function libraryFiltersFor( entry: SplitLibraryEntry, labels: SplitChoice[], categories: SplitChoice[], ) { return availableLibraryFilters(entry, { labelsByName: new Map( labels.map((label) => [label.name.toLowerCase(), label.value]), ), categoriesByName: new Map( categories.map((choice) => [choice.name.toLowerCase(), choice.value]), ), }); } function conditionLabel( i18n: I18n, condition: MailSplitFilterDraft, labels: SplitChoice[], categories: SplitChoice[], ): string { switch (condition.kind) { case MailSplitFilterKind.UNREAD: return i18n._(msg`Unread`); case MailSplitFilterKind.STARRED: return i18n._(msg`Starred`); case MailSplitFilterKind.FROM: return condition.value ?? i18n._(msg`From`); case MailSplitFilterKind.TO: { const recipient = condition.value; return recipient ? i18n._(msg`To ${recipient}`) : i18n._(msg`Sent to`); } case MailSplitFilterKind.OLDER_THAN: { const age = condition.value ? getOlderThanLabel(condition.value, i18n) : ""; return i18n._(msg`Older than ${age}`); } case MailSplitFilterKind.LABEL: { const choice = labels.find((label) => label.value === condition.value); return choice?.label ?? choice?.name ?? i18n._(msg`Label`); } case MailSplitFilterKind.CATEGORY: { const choice = categories.find( (category) => category.value === condition.value, ); return choice?.label ?? choice?.name ?? i18n._(msg`Category`); } } } const OLDER_THAN_LABELS: Record<string, MessageDescriptor> = { "3d": msg`3 days`, "1w": msg`a week`, "1m": msg`a month`, }; function getOlderThanLabel(value: string, i18n: I18n) { const label = OLDER_THAN_LABELS[value]; return label ? i18n._(label) : value; } 
+#. placeholder {1}: "use client"; import type { I18n, MessageDescriptor } from "@lingui/core"; import { msg } from "@lingui/core/macro"; import { Trans, useLingui } from "@lingui/react/macro"; import { useCallback, useEffect, useMemo, useState } from "react"; import { ArrowDownIcon, ArrowUpIcon, CheckIcon, GripVerticalIcon, ChevronLeftIcon, Loader2Icon, PlusIcon, SparklesIcon, XIcon, } from "lucide-react"; import { MailSplitFilterKind, type SystemType } from "@/generated/prisma/enums"; import { Button } from "@/components/ui/button"; import { Dialog, DialogContent, DialogDescription, DialogTitle, } from "@/components/ui/dialog"; import { Input } from "@/components/ui/input"; import { Textarea } from "@/components/ui/textarea"; import { MAX_SPLIT_FILTERS, type MailSplitFilterDraft, } from "@/utils/split-inbox/split-filters"; import { OLDER_THAN_OPTIONS } from "@/utils/split-inbox/split-query"; import { availableLibraryFilters, findLibrarySplit as findMatchingLibrarySplit, libraryDefinition, SPLIT_LIBRARY, SPLIT_LIBRARY_CATEGORIES, type SplitLibraryEntry, } from "@/utils/split-inbox/split-library"; import { cn } from "@/utils"; const YOUR_SPLITS = "Your splits"; const FIELDS = [ { kind: MailSplitFilterKind.LABEL, label: msg`Has label` }, { kind: MailSplitFilterKind.FROM, label: msg`From` }, { kind: MailSplitFilterKind.TO, label: msg`Sent to` }, { kind: MailSplitFilterKind.CATEGORY, label: msg`In category` }, { kind: MailSplitFilterKind.UNREAD, label: msg`Is unread` }, { kind: MailSplitFilterKind.STARRED, label: msg`Is starred` }, { kind: MailSplitFilterKind.OLDER_THAN, label: msg`Older than` }, ] as const; /** `name` matches library splits and is sent to the AI; `label` is shown. */ export type SplitChoice = { id: string; name: string; value: string; label?: string; }; export type ExistingSplit = { id: string; name: string; matchAll: boolean; filters: { kind: MailSplitFilterKind; value: string | null }[]; }; export type NewSplitDialogProps = { open: boolean; onOpenChange: (open: boolean) => void; labels: SplitChoice[]; categories: SplitChoice[]; /** Splits already on the tab strip, so the library can show what's on. */ existingSplits: ExistingSplit[]; /** Set when the dialog was opened to change a split rather than add one. */ editing: ExistingSplit | null; supportsStarred: boolean; onCreate: (split: { name: string; matchAll: boolean; filters: MailSplitFilterDraft[]; }) => Promise<boolean>; onUpdate: (split: { id: string; name: string; matchAll: boolean; filters: MailSplitFilterDraft[]; }) => Promise<boolean>; onDelete: (id: string) => Promise<boolean>; onReorder: (ids: string[]) => Promise<boolean>; onEdit: (id: string) => void; onDescribe: (prompt: string) => Promise<{ filters: MailSplitFilterDraft[]; name: string | null; matchAll: boolean; } | null>; onToggleSystemType?: ( systemType: SystemType, enabled: boolean, ) => Promise<boolean>; }; const EXAMPLES = [ msg`unread mail from my accountant`, msg`receipts from Stripe`, msg`notifications I have not read`, msg`anything awaiting my reply`, ]; export function NewSplitDialog({ open, onOpenChange, labels, categories, existingSplits, editing, supportsStarred, onCreate, onUpdate, onDelete, onReorder, onEdit, onDescribe, onToggleSystemType, }: NewSplitDialogProps) { const { t, i18n } = useLingui(); const [mode, setMode] = useState<"library" | "build" | "describe">("library"); const [category, setCategory] = useState(YOUR_SPLITS); const [detail, setDetail] = useState<SplitLibraryEntry | null>(null); const [conditions, setConditions] = useState<MailSplitFilterDraft[]>([]); const [matchAll, setMatchAll] = useState(true); const [name, setName] = useState(""); const [prompt, setPrompt] = useState(""); const [isBusy, setIsBusy] = useState(false); const [draggedId, setDraggedId] = useState<string | null>(null); const [dropTargetId, setDropTargetId] = useState<string | null>(null); const moveSplit = async (id: string, targetId: string) => { if (isBusy || id === targetId || id === "all" || targetId === "all") return; const ids = existingSplits .filter((split) => split.id !== "all") .map((split) => split.id); const from = ids.indexOf(id); const to = ids.indexOf(targetId); if (from < 0 || to < 0) return; ids.splice(from, 1); ids.splice(to, 0, id); setIsBusy(true); try { await onReorder(ids); } finally { setIsBusy(false); } }; const removeSplit = async (id: string) => { if (isBusy) return; setIsBusy(true); try { await onDelete(id); } finally { setIsBusy(false); } }; const fields = useMemo( () => FIELDS.filter( (field) => supportsStarred || field.kind !== MailSplitFilterKind.STARRED, ), [supportsStarred], ); const valueOptionsFor = useCallback( (kind: MailSplitFilterKind): SplitChoice[] => { if (kind === MailSplitFilterKind.LABEL) return labels; if (kind === MailSplitFilterKind.CATEGORY) return categories; if (kind === MailSplitFilterKind.OLDER_THAN) { return OLDER_THAN_OPTIONS.map((option) => ({ id: option.value, name: option.name, label: getOlderThanLabel(option.value, i18n), value: option.value, })); } return []; }, [categories, i18n, labels], ); const defaultCondition = useCallback( (kind: MailSplitFilterKind): MailSplitFilterDraft => ({ kind, value: valueOptionsFor(kind)[0]?.value ?? null, }), [valueOptionsFor], ); /** * A new row starts on a field this account can actually fill in — seeding * "Has label" on an account with no labels would open the builder on a * condition that can't be saved. */ const newCondition = useCallback((): MailSplitFilterDraft => { if (labels.length) return defaultCondition(MailSplitFilterKind.LABEL); if (categories.length) return defaultCondition(MailSplitFilterKind.CATEGORY); return defaultCondition(MailSplitFilterKind.UNREAD); }, [categories.length, defaultCondition, labels.length]); // Opening for an edit drops straight into the builder holding that split. useEffect(() => { if (!open) return; if (editing) { setMode("build"); setConditions( editing.filters.map(({ kind, value }) => ({ kind, value })), ); setMatchAll(editing.matchAll); setName(editing.name); } else { setMode("library"); setCategory(YOUR_SPLITS); setConditions([]); setMatchAll(true); setName(""); } setDetail(null); setPrompt(""); }, [editing, open]); const describedName = useMemo( () => conditions .map((c) => conditionLabel(i18n, c, labels, categories)) .join(matchAll ? " · " : ` ${t`or`} `), [categories, conditions, i18n, labels, matchAll, t], ); const libraryEntries = useMemo(() => { const labelsByName = new Map( labels.map((label) => [label.name.toLowerCase(), label.value]), ); const categoriesByName = new Map( categories.map((choice) => [choice.name.toLowerCase(), choice.value]), ); return SPLIT_LIBRARY.filter( (entry) => entry.category === category && (supportsStarred || !entry.conditions.some((condition) => condition.kind === "STARRED")), ).flatMap((entry) => { const filters = availableLibraryFilters(entry, { labelsByName, categoriesByName, }); return filters !== null ? [{ entry, filters }] : []; }); }, [categories, category, labels, supportsStarred]); const findLibrarySplit = useCallback( (entry: SplitLibraryEntry, filters: MailSplitFilterDraft[]) => findMatchingLibrarySplit(entry, filters, existingSplits), [existingSplits], ); const close = () => onOpenChange(false); const save = async () => { if (!conditions.length || isBusy) return; setIsBusy(true); try { const payload = { name: name.trim() || describedName, matchAll, filters: conditions, }; const saved = editing ? await onUpdate({ id: editing.id, ...payload }) : await onCreate(payload); if (saved) close(); } finally { setIsBusy(false); } }; const toggleLibraryEntry = async ( entry: SplitLibraryEntry, filters: MailSplitFilterDraft[], ) => { if (isBusy) return; setIsBusy(true); try { const existing = findLibrarySplit(entry, filters); if (entry.createsSystemType) { if (!onToggleSystemType) return; await onToggleSystemType(entry.createsSystemType, !existing); return; } if (existing) await onDelete(existing.id); else await onCreate({ name: entry.name, matchAll: entry.matchAll ?? true, filters, }); } finally { setIsBusy(false); } }; const describe = async () => { const trimmed = prompt.trim(); if (!trimmed || isBusy) return; setIsBusy(true); try { const result = await onDescribe(trimmed); if (!result) return; // The conditions land in the builder rather than creating a split, so a // wrong guess costs a click instead of a tab the reader has to undo. setConditions(result.filters); setMatchAll(result.matchAll); if (result.name) setName(result.name); setMode("build"); } finally { setIsBusy(false); } }; const title = mode === "build" ? editing ? t`Edit split` : t`Build a split` : mode === "describe" ? t`Describe this split` : t`New split inbox`; return ( <Dialog open={open} onOpenChange={onOpenChange}> <DialogContent className={cn( "top-[9vh] flex max-h-[80vh] w-[620px] max-w-[94vw] translate-y-0 flex-col gap-0 overflow-hidden p-0", // The dialog primitive sets `md:w-full` and `sm:rounded-lg`; those // responsive variants outrank an unprefixed override in tailwind-merge. "rounded-2xl sm:rounded-2xl md:w-[620px]", )} hideCloseButton > <div className="flex shrink-0 items-center gap-2.5 border-border border-b px-4 py-3"> {(mode !== "library" || detail) && ( <Button type="button" aria-label={t`Back`} onClick={() => { if (detail) setDetail(null); else { setMode("library"); if (!editing) setConditions([]); } }} variant="secondary" size="icon2xs" > <ChevronLeftIcon className="size-3.5" /> </Button> )} <DialogTitle className="min-w-0 flex-1 truncate font-medium text-[15px] tracking-tight"> {detail ? detail.name : title} </DialogTitle> <DialogDescription className="sr-only"> <Trans>Add a filtered tab to your inbox.</Trans> </DialogDescription> <Button type="button" aria-label={t`Close`} onClick={close} variant="ghostMuted" size="icon2xs" > <XIcon className="size-3.5" /> </Button> </div> {detail ? ( <LibraryDetail entry={detail} /> ) : mode === "library" ? ( <div className="flex min-h-0 flex-1 overflow-hidden"> <div className="flex w-[142px] shrink-0 flex-col gap-0.5 overflow-y-auto border-border border-r bg-sidebar p-2 scrollbar-thin"> <div className="px-2 pt-0.5 pb-1.5 font-medium text-[11px] text-muted-foreground"> <Trans>Category</Trans> </div> {[YOUR_SPLITS, ...SPLIT_LIBRARY_CATEGORIES].map((option) => ( <button key={option} type="button" onClick={() => setCategory(option)} aria-current={option === category ? "true" : undefined} className={cn( "rounded-lg px-2 py-1.5 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", option === category ? "bg-card font-medium text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(17,24,39,0.05)]" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", )} > {option === YOUR_SPLITS ? t`Your splits` : option} </button> ))} </div> <div className="min-w-0 flex-1 overflow-y-auto p-3.5 scrollbar-thin"> <div className="mb-3.5 grid grid-cols-2 gap-2.5"> <RouteCard icon={<PlusIcon className="size-3.5" />} label={t`Build your own`} onClick={() => { setConditions( conditions.length ? conditions : [newCondition()], ); setMode("build"); }} /> <RouteCard icon={<SparklesIcon className="size-3.5" />} label={t`Describe it`} onClick={() => setMode("describe")} /> </div> <div className="mb-2 font-medium text-[11px] text-muted-foreground"> {category === YOUR_SPLITS ? t`Your splits` : category} </div> {category === YOUR_SPLITS ? ( existingSplits.length ? ( <ul className="space-y-1" aria-label={t`Split order`} aria-busy={isBusy} > {existingSplits.map((split, index) => ( <li key={split.id} className={cn( "flex min-w-0 items-center gap-1 rounded-lg px-1 py-1.5", dropTargetId === split.id ? "bg-accent ring-1 ring-border" : "hover:bg-muted/50", draggedId === split.id && "opacity-50", )} onDragOver={(event) => { if (!draggedId || isBusy || split.id === "all") return; event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDropTargetId(split.id); }} onDragLeave={() => setDropTargetId(null)} onDrop={(event) => { event.preventDefault(); if (draggedId) moveSplit(draggedId, split.id); setDraggedId(null); setDropTargetId(null); }} > <span draggable={!isBusy && split.id !== "all"} data-drag-split={split.id} aria-hidden="true" className={cn( "p-1 text-muted-foreground", split.id === "all" ? "invisible" : "cursor-grab active:cursor-grabbing", )} onDragStart={(event) => { event.dataTransfer.setData("text/plain", split.id); event.dataTransfer.effectAllowed = "move"; setDraggedId(split.id); }} onDragEnd={() => { setDraggedId(null); setDropTargetId(null); }} > <GripVerticalIcon className="size-3.5" /> </span> <button type="button" disabled={isBusy || !split.filters.length} aria-label={t`Edit the ${split.name} split`} onClick={() => onEdit(split.id)} className="min-w-0 flex-1 truncate rounded text-left font-medium text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" > {split.name} </button> <Button variant="ghostMuted" size="iconXs" aria-label={t`Move ${split.name} up`} disabled={ isBusy || split.id === "all" || index === 0 || existingSplits[index - 1].id === "all" } onClick={() => moveSplit(split.id, existingSplits[index - 1].id) } > <ArrowUpIcon className="size-3.5" /> </Button> <Button variant="ghostMuted" size="iconXs" aria-label={t`Move ${split.name} down`} disabled={ isBusy || split.id === "all" || index === existingSplits.length - 1 } onClick={() => moveSplit(split.id, existingSplits[index + 1].id) } > <ArrowDownIcon className="size-3.5" /> </Button> <Button variant="ghostMuted" size="iconXs" disabled={isBusy || !split.filters.length} aria-label={t`Turn off the ${split.name} split`} onClick={() => removeSplit(split.id)} > <XIcon className="size-3.5" /> </Button> </li> ))} </ul> ) : ( <p className="text-muted-foreground text-xs leading-relaxed"> <Trans>Splits you build yourself land here.</Trans> </p> ) ) : ( <div className="grid grid-cols-2 gap-2"> {libraryEntries.map(({ entry, filters }) => ( <LibraryTile key={entry.name} entry={entry} on={!!findLibrarySplit(entry, filters)} disabled={isBusy} onInfo={() => setDetail(entry)} onToggle={() => toggleLibraryEntry(entry, filters)} /> ))} {!libraryEntries.length && ( <p className="col-span-2 text-muted-foreground text-xs leading-relaxed"> <Trans> Nothing here yet — these splits need labels this account doesn&apos;t have. </Trans> </p> )} </div> )} </div> </div> ) : mode === "build" ? ( <div className="min-h-0 flex-1 overflow-y-auto p-3.5 scrollbar-thin"> <div className="mb-3 flex items-center gap-2 text-muted-foreground text-xs"> <Trans> Show mail matching{" "} <select aria-label={t`Match all or any condition`} value={matchAll ? "all" : "any"} onChange={(event) => setMatchAll(event.target.value === "all") } className="h-7 rounded-lg border border-border bg-background py-0 pr-8 pl-1.5 text-foreground text-xs outline-none transition-[color,box-shadow] focus:border-ring focus:ring-[3px] focus:ring-ring/50" > <option value="all">{t`all`}</option> <option value="any">{t`any`}</option> </select>{" "} of these conditions </Trans> </div> <div className="flex flex-col gap-2"> {conditions.map((condition, index) => ( <ConditionRow // Rows are positional: two "Has label" rows are distinct only // by where they sit, so the index is the identity. key={index} condition={condition} fields={fields} valueOptions={valueOptionsFor(condition.kind)} onChangeField={(kind) => setConditions((current) => current.map((item, i) => i === index ? defaultCondition(kind) : item, ), ) } onChangeValue={(value) => setConditions((current) => current.map((item, i) => i === index ? { ...item, value } : item, ), ) } onRemove={() => setConditions((current) => current.filter((_, i) => i !== index), ) } /> ))} </div> <button type="button" disabled={conditions.length >= MAX_SPLIT_FILTERS} onClick={() => setConditions((current) => current.length < MAX_SPLIT_FILTERS ? [...current, newCondition()] : current, ) } className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-primary text-xs hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" > <PlusIcon className="size-3.5" /> <Trans>Add condition</Trans> </button> </div> ) : ( <div className="flex min-h-0 flex-1 flex-col p-3.5"> <Textarea autoFocus rows={3} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={t`Describe what should land in this split…`} maxLength={300} className="resize-none rounded-xl text-[13.5px]" /> <div className="mt-3 flex flex-wrap gap-1.5"> {EXAMPLES.map((descriptor) => { const example = i18n._(descriptor); return ( <button key={example} type="button" onClick={() => setPrompt(example)} className="rounded-full border border-border bg-muted px-2.5 py-1 text-[11.5px] text-muted-foreground hover:border-primary/25 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" > {example} </button> ); })} </div> </div> )} {(detail || mode === "build" || mode === "describe") && ( <div className="flex shrink-0 items-center gap-2.5 border-border border-t bg-sidebar px-4 py-2.5"> {detail ? ( <> <div className="flex-1" /> <Button variant="gradient" size="sm" disabled={isBusy} onClick={() => { const filters = libraryFiltersFor( detail, labels, categories, ); if (filters) toggleLibraryEntry(detail, filters); setDetail(null); }} > {findLibrarySplit( detail, libraryFiltersFor(detail, labels, categories) ?? [], ) ? t`Turn off split` : t`Turn on split`} </Button> </> ) : mode === "build" ? ( <> <span className="shrink-0 text-muted-foreground text-xs"> <Trans>Split name</Trans> </span> <Input aria-label={t`Split name`} value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key !== "Enter") return; event.preventDefault(); save(); }} placeholder={describedName || t`Name this split`} maxLength={60} className="h-8 w-[190px] shrink-0 text-xs" /> <div className="flex-1" /> <Button variant="gradient" size="sm" disabled={!conditions.length || isBusy} onClick={save} > {editing ? t`Save changes` : t`Add split`} </Button> </> ) : mode === "describe" ? ( <> <div className="flex-1" /> <Button variant="gradient" size="sm" disabled={!prompt.trim() || isBusy} onClick={describe} > {isBusy ? ( <> <Loader2Icon className="mr-1.5 size-3.5 animate-spin" /> <Trans>Building…</Trans> </> ) : ( <Trans>Build it</Trans> )} </Button> </> ) : null} </div> )} </DialogContent> </Dialog> ); } function RouteCard({ icon, label, onClick, }: { icon: React.ReactNode; label: string; onClick: () => void; }) { return ( <button type="button" onClick={onClick} className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5 text-left shadow-sm hover:border-primary/25 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" > <span className="flex size-4.5 shrink-0 items-center justify-center text-primary"> {icon} </span> <span className="min-w-0 flex-1 truncate font-medium text-[12.5px] text-primary"> {label} </span> </button> ); } function LibraryTile({ entry, on, disabled, onInfo, onToggle, }: { entry: SplitLibraryEntry; on: boolean; disabled: boolean; onInfo: () => void; onToggle: () => void; }) { const { t } = useLingui(); return ( <div className={cn( "group flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5", on ? "border-primary/25 bg-primary/5 text-primary" : "border-border bg-card text-foreground", )} > <button type="button" onClick={onToggle} disabled={disabled} className="min-w-0 flex-1 truncate text-left font-medium text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" > {entry.name} </button> <button type="button" aria-label={t`What the ${entry.name} split does`} onClick={onInfo} className="hidden size-4.5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-focus-within:flex group-hover:flex" > <InfoGlyph /> </button> <button type="button" aria-label={ on ? t`Turn off the ${entry.name} split` : t`Turn on the ${entry.name} split` } onClick={onToggle} disabled={disabled} className={cn( "flex size-6 shrink-0 items-center justify-center rounded-md hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", on ? "text-primary" : "text-muted-foreground hover:text-foreground", )} > {on ? ( <CheckIcon className="size-3.5" /> ) : ( <PlusIcon className="size-3.5" /> )} </button> </div> ); } function LibraryDetail({ entry }: { entry: SplitLibraryEntry }) { return ( <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin"> <div className="p-4"> <div className="mb-2 font-medium text-[11px] text-muted-foreground"> <Trans>Definition</Trans> </div> <div className="flex flex-col gap-1.5"> {libraryDefinition(entry).map((row) => ( <div key={`${row.key}:${row.value}`} className="flex items-center gap-2.5 rounded-lg border border-border bg-muted px-3 py-2" > <span className="w-12 shrink-0 text-[11.5px] text-muted-foreground"> {row.key} </span> <span className="truncate font-mono text-[12px] text-foreground"> {row.value} </span> </div> ))} </div> </div> </div> ); } function ConditionRow({ condition, fields, valueOptions, onChangeField, onChangeValue, onRemove, }: { condition: MailSplitFilterDraft; fields: readonly { kind: MailSplitFilterKind; label: MessageDescriptor }[]; valueOptions: SplitChoice[]; onChangeField: (kind: MailSplitFilterKind) => void; onChangeValue: (value: string) => void; onRemove: () => void; }) { const { t, i18n } = useLingui(); const takesFreeText = condition.kind === MailSplitFilterKind.FROM || condition.kind === MailSplitFilterKind.TO; const takesNoValue = condition.kind === MailSplitFilterKind.UNREAD || condition.kind === MailSplitFilterKind.STARRED; return ( <div className="flex items-center gap-2"> <select aria-label={t`Condition field`} value={condition.kind} onChange={(event) => onChangeField(event.target.value as MailSplitFilterKind) } className="h-8 w-[132px] shrink-0 rounded-lg border border-border bg-background px-2 text-foreground text-xs outline-none transition-[color,box-shadow] focus:border-ring focus:ring-[3px] focus:ring-ring/50" > {fields.map((field) => ( <option key={field.kind} value={field.kind}> {i18n._(field.label)} </option> ))} </select> {takesNoValue ? ( <div className="min-w-0 flex-1" /> ) : takesFreeText ? ( <Input value={condition.value ?? ""} onChange={(event) => onChangeValue(event.target.value)} placeholder={t`name@company.com or @company.com`} aria-label={ condition.kind === MailSplitFilterKind.TO ? t`Recipient` : t`Sender` } className="h-8 min-w-0 flex-1 text-xs" /> ) : ( <select aria-label={t`Condition value`} value={condition.value ?? ""} onChange={(event) => onChangeValue(event.target.value)} className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-background px-2 text-foreground text-xs outline-none transition-[color,box-shadow] focus:border-ring focus:ring-[3px] focus:ring-ring/50" > {valueOptions.map((option) => ( <option key={option.id} value={option.value}> {option.label ?? option.name} </option> ))} </select> )} <Button type="button" aria-label={t`Remove condition`} onClick={onRemove} variant="destructiveGhost" size="iconXs" > <XIcon className="size-3.5" /> </Button> </div> ); } function InfoGlyph() { return ( <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" className="size-3.5" > <circle cx="12" cy="12" r="9" /> <path d="M12 11v5" /> <path d="M12 8h.01" /> </svg> ); } function libraryFiltersFor( entry: SplitLibraryEntry, labels: SplitChoice[], categories: SplitChoice[], ) { return availableLibraryFilters(entry, { labelsByName: new Map( labels.map((label) => [label.name.toLowerCase(), label.value]), ), categoriesByName: new Map( categories.map((choice) => [choice.name.toLowerCase(), choice.value]), ), }); } function conditionLabel( i18n: I18n, condition: MailSplitFilterDraft, labels: SplitChoice[], categories: SplitChoice[], ): string { switch (condition.kind) { case MailSplitFilterKind.UNREAD: return i18n._(msg`Unread`); case MailSplitFilterKind.STARRED: return i18n._(msg`Starred`); case MailSplitFilterKind.FROM: return condition.value ?? i18n._(msg`From`); case MailSplitFilterKind.TO: { const recipient = condition.value; return recipient ? i18n._(msg`To ${recipient}`) : i18n._(msg`Sent to`); } case MailSplitFilterKind.OLDER_THAN: { const age = condition.value ? getOlderThanLabel(condition.value, i18n) : ""; return i18n._(msg`Older than ${age}`); } case MailSplitFilterKind.LABEL: { const choice = labels.find((label) => label.value === condition.value); return choice?.label ?? choice?.name ?? i18n._(msg`Label`); } case MailSplitFilterKind.CATEGORY: { const choice = categories.find( (category) => category.value === condition.value, ); return choice?.label ?? choice?.name ?? i18n._(msg`Category`); } } } const OLDER_THAN_LABELS: Record<string, MessageDescriptor> = { "3d": msg`3 days`, "1w": msg`a week`, "1m": msg`a month`, }; function getOlderThanLabel(value: string, i18n: I18n) { const label = OLDER_THAN_LABELS[value]; return label ? i18n._(label) : value; } 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Show mail matching <0><1>{0}</1><2>{1}</2></0> of these conditions"
+msgstr "Mostrar correos que cumplan <0><1>{0}</1><2>{1}</2></0> estas condiciones"
+
 #: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
 msgid "Show matched emails in your digest summary."
 msgstr "Muestra los correos coincidentes en el resumen."
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Show original"
+msgstr "Mostrar original"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Show search options"
+msgstr "Mostrar opciones de búsqueda"
 
 #. placeholder {0}: previewSenders.length
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
@@ -4410,6 +6244,10 @@ msgstr "Mostrando los {0} principales. Seguiremos detectando más mientras usas 
 #: app/(app)/settings/EmailOtpSection.tsx
 msgid "Sign in with {0}."
 msgstr "Inicia sesión con {0}."
+
+#: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
+msgid "Sign out"
+msgstr "Cerrar sesión"
 
 #: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
@@ -4439,6 +6277,26 @@ msgstr "Firmas"
 #: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
 msgid "Signatures loaded"
 msgstr "Firmas cargadas"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Size"
+msgstr "Tamaño"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Size amount"
+msgstr "Cantidad del tamaño"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Size comparison"
+msgstr "Comparación de tamaño"
+
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+msgid "Size unit"
+msgstr "Unidad de tamaño"
 
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 msgid "Skip"
@@ -4502,9 +6360,31 @@ msgstr "Dueño de pequeña empresa"
 msgid "Snippets"
 msgstr "Fragmentos"
 
+#: lib/shortcuts/registry.ts
+msgid "Snooze"
+msgstr "Posponer"
+
+#: components/CommandK.tsx
+msgid "Snooze until"
+msgstr "Posponer hasta"
+
+#. placeholder {0}: formatSnoozeTime(naturalLanguageDate)
+#: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
+msgid "Snooze until {0}"
+msgstr "Posponer hasta {0}"
+
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Social"
+msgstr "Social"
+
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Software Engineer"
 msgstr "Ingeniero de software"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Some inboxes couldn't be loaded. Try again shortly or check their connections."
+msgstr "No se pudieron cargar algunas bandejas de entrada. Inténtalo de nuevo en breve o revisa sus conexiones."
 
 #: app/(app)/[emailAccountId]/assistant/LearnedPatternExclusionHint.tsx
 msgid "Some rules were excluded by learned patterns."
@@ -4518,20 +6398,58 @@ msgstr "Algunas reglas se omitieron porque este correo forma parte de un hilo."
 msgid "Something came up on my end. Would Friday morning work instead?"
 msgstr "Me ha surgido algo. ¿Te viene bien el viernes por la mañana?"
 
+#: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
+msgid "Something went wrong. Try again."
+msgstr "Algo salió mal. Inténtalo de nuevo."
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Spam"
+msgstr "Spam"
+
 #: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
 msgid "Specialized decision model"
 msgstr "Modelo de decisión especializado"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Split"
+msgstr "Pestaña"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Split name"
+msgstr "Nombre de la pestaña"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Split order"
+msgstr "Orden de las pestañas"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Split view"
+msgstr "Vista dividida"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Splits you build yourself land here."
+msgstr "Las pestañas que crees tú aparecen aquí."
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
 msgid "Standard"
 msgstr "Estándar"
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
 #: utils/action-display-messages.ts
 #: utils/action-display.tsx
 msgid "Star"
 msgstr "Destacar"
 
+#: lib/shortcuts/registry.ts
+msgid "Star / unstar"
+msgstr "Destacar / quitar destacado"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Starred"
 msgstr "Destacados"
@@ -4543,6 +6461,12 @@ msgstr "Inicia sesiones de chat con el asistente para esta bandeja de entrada."
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "Start Free Trial"
 msgstr "Iniciar prueba gratuita"
+
+#. placeholder {0}: stepIndex + 1
+#. placeholder {1}: steps.length
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Step {0} of {1}"
+msgstr "Paso {0} de {1}"
 
 #: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
 #: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
@@ -4560,6 +6484,9 @@ msgstr "asunto"
 
 #: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
 #: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
 #: utils/action-item.ts
 msgid "Subject"
 msgstr "Asunto"
@@ -4580,6 +6507,18 @@ msgstr "Domingo"
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Support"
 msgstr "Soporte"
+
+#: lib/shortcuts/registry.ts
+msgid "Switch account"
+msgstr "Cambiar de cuenta"
+
+#: components/CommandK.tsx
+msgid "Switch Account"
+msgstr "Cambiar de cuenta"
+
+#: components/CommandK.tsx
+msgid "Switch accounts"
+msgstr "Cambiar de cuenta"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
 msgid "Switch between signatures when you write, like one per language."
@@ -4617,6 +6556,10 @@ msgstr "Pestañas sincronizadas con la extensión: {summary}"
 #: app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting.tsx
 msgid "Syncing to extension requires a Chromium browser"
 msgstr "La sincronización con la extensión requiere un navegador basado en Chromium"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Syncing your mail…"
+msgstr "Sincronizando tu correo…"
 
 #: utils/mcp/tool-specs-messages.ts
 msgid "Task"
@@ -4681,6 +6624,10 @@ msgstr "No se pudo enviar el borrador de respuesta al canal de mensajería."
 msgid "The drafts will appear in your inbox, written in your tone.<0/>Our AI learns from your previous conversations to draft the best reply."
 msgstr "Los borradores aparecerán en tu bandeja de entrada, escritos con tu estilo.<0/>Nuestra IA aprende de tus conversaciones anteriores para redactar la mejor respuesta."
 
+#: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+msgid "The image could not be read."
+msgstr "No se pudo leer la imagen."
+
 #: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
 msgid "The integration action could not be completed."
 msgstr "No se pudo completar la acción de la integración."
@@ -4692,6 +6639,10 @@ msgstr "No se pudo ejecutar la acción de la integración porque un campo obliga
 #: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
 msgid "The integration isn't connected. Connect it on the Integrations page."
 msgstr "La integración no está conectada. Conéctala en la página de Integraciones."
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "The local draft will be discarded. A mailbox draft may still exist; check Drafts in Gmail or Outlook."
+msgstr "Se descartará el borrador local. Puede que aún exista un borrador en el buzón; revisa Borradores en Gmail u Outlook."
 
 #: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
 msgid "The messaging channel notification could not be completed."
@@ -4755,6 +6706,10 @@ msgstr "Se produjo un error al activar la regla. {0}"
 msgid "There was an error processing the email"
 msgstr "Se produjo un error al procesar el correo"
 
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "There was an error sending the email :("
+msgstr "Se produjo un error al enviar el correo :("
+
 #: app/(app)/[emailAccountId]/assistant/group/LearnedPatterns.tsx
 msgid "There was an error setting up learned patterns."
 msgstr "Se produjo un error al configurar los patrones aprendidos."
@@ -4774,6 +6729,11 @@ msgstr "Se produjo un error: {0}"
 msgid "There was an error: Unknown error"
 msgstr "Se produjo un error: error desconocido"
 
+#. placeholder {0}: warning.placeholder
+#: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
+msgid "There's an unfilled placeholder: {0}"
+msgstr "Hay un marcador sin completar: {0}"
+
 #: app/(app)/[emailAccountId]/assistant/rule/[ruleId]/page.tsx
 msgid "These rules were AI generated, feel free to adjust them to your needs."
 msgstr "Estas reglas las generó la IA; ajústalas a tus necesidades."
@@ -4785,6 +6745,14 @@ msgstr "Este informe ya se está preparando"
 #: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
 msgid "This can't be changed for this rule type."
 msgstr "Esto no se puede cambiar para este tipo de regla."
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "This draft is not ready to save yet."
+msgstr "Este borrador aún no está listo para guardarse."
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "This draft was sent, deleted, or changed elsewhere, so edits here are no longer saved to your mailbox."
+msgstr "Este borrador se envió, se eliminó o se cambió en otro lugar, así que los cambios aquí ya no se guardan en tu buzón."
 
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "This helps us set up your inbox the way you actually need it."
@@ -4818,6 +6786,18 @@ msgstr "Esta reunión no tiene invitados externos"
 msgid "This permanently deletes your Inbox Zero data and disconnects {connectedEmailList}. Your emails aren't affected."
 msgstr "Esto elimina permanentemente tus datos de Inbox Zero y desconecta {connectedEmailList}. Tus correos no se ven afectados."
 
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "This reply may have been sent. Check Sent before retrying."
+msgstr "Puede que esta respuesta ya se haya enviado. Revisa Enviados antes de reintentar."
+
+#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
+msgid "This reply was already sent, so edits here are no longer saved to your mailbox."
+msgstr "Esta respuesta ya se envió, así que los cambios aquí ya no se guardan en tu buzón."
+
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+msgid "This reply was already submitted to the outbox. Check its delivery status before scheduling a new reply."
+msgstr "Esta respuesta ya se envió a la bandeja de salida. Revisa su estado de envío antes de programar una nueva respuesta."
+
 #: app/(app)/[emailAccountId]/assistant/RuleNotFoundState.tsx
 msgid "This rule no longer exists. It may have been deleted."
 msgstr "Esta regla ya no existe. Es posible que se haya eliminado."
@@ -4833,6 +6813,10 @@ msgstr "Esta app de Slack aún no está disponible para todos los espacios de tr
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "This subscription is billed through Apple. Manage or cancel it from your iPhone or iPad subscription settings."
 msgstr "Esta suscripción se factura a través de Apple. Gestiónala o cancélala desde la configuración de suscripciones de tu iPhone o iPad."
+
+#: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
+msgid "This weekend"
+msgstr "Este fin de semana"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "This will create a new secret key for your account. You will need to use this secret key to authenticate your requests to the API."
@@ -4860,20 +6844,40 @@ msgid "Title"
 msgstr "Título"
 
 #: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
+#: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+#: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
+#: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
 #: utils/action-item.ts
 msgid "To"
 msgstr "Para"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "To {recipient}"
+msgstr "Para {recipient}"
+
+#: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+msgid "to {summaryRecipients}"
+msgstr "para {summaryRecipients}"
+
+#: components/email-list/EmailMessage.tsx
+msgid "to <0>{recipients}</0>"
+msgstr "para <0>{recipients}</0>"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
 msgid "To Reply"
 msgstr "To Reply"
 
+#. placeholder {0}: escapeHtml(to)
 #. placeholder {0}: rule.to
 #: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
+#: app/(app)/[emailAccountId]/mail/print-messages.ts
 msgid "To: {0}"
 msgstr "Para: {0}"
 
 #: app/(app)/[emailAccountId]/assistant/History.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadList.tsx
+#: utils/date.ts
 #: utils/mcp/tool-specs-messages.ts
 msgid "Today"
 msgstr "Hoy"
@@ -4885,6 +6889,10 @@ msgstr "Activar o desactivar 'Enviado con {BRAND_NAME}'"
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Toggle {channelLabel} draft delivery"
 msgstr "Activar o desactivar la entrega de borradores en {channelLabel}"
+
+#: lib/shortcuts/registry.ts
+msgid "Toggle auto archive for sender"
+msgstr "Activar o desactivar el archivado automático del remitente"
 
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "Toggle automatic AI draft cleanup"
@@ -4906,9 +6914,22 @@ msgstr "Mostrar u ocultar menú"
 msgid "Toggle read status"
 msgstr "Activar o desactivar el estado de lectura"
 
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Toggle the assistant"
+msgstr "Mostrar u ocultar el asistente"
+
+#: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
 #: utils/mcp/tool-specs-messages.ts
 msgid "Tomorrow"
 msgstr "Mañana"
+
+#: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
+msgid "Tomorrow morning"
+msgstr "Mañana por la mañana"
+
+#: app/(app)/[emailAccountId]/compose/undo-send.ts
+msgid "Too late to undo. This email was already sent."
+msgstr "Es demasiado tarde para deshacer. Este correo ya se envió."
 
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "Transfer from"
@@ -4922,14 +6943,65 @@ msgstr "Transferir reglas"
 msgid "Transfer rules to {targetAccountEmail}"
 msgstr "Transferir reglas a {targetAccountEmail}"
 
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Translate"
+msgstr "Traducir"
+
+#: lib/shortcuts/registry.ts
+msgid "Translate / show original"
+msgstr "Traducir / mostrar original"
+
+#: app/(app)/[emailAccountId]/mail/mail-search-query.ts
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+msgid "Trash"
+msgstr "Papelera"
+
+#: lib/shortcuts/registry.ts
+msgid "Triage"
+msgstr "Clasificar"
+
 #. placeholder {0}: TRIAL_BULK_PROCESS_EMAIL_LIMIT.toLocaleString()
 #: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
 msgid "Trials can process up to {0} past emails at a time."
 msgstr "Durante la prueba gratuita puedes procesar hasta {0} correos anteriores a la vez."
 
+#: components/CommandK.tsx
+msgid "Try a date like tomorrow at 3pm."
+msgstr "Prueba con una fecha como mañana a las 15:00."
+
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
+msgid "Try again"
+msgstr "Intentar de nuevo"
+
+#: app/(app)/[emailAccountId]/mail/MailPanelErrorBoundary.tsx
+msgid "Try again, or select another folder or conversation. If the problem continues, contact support with the reference below."
+msgstr "Inténtalo de nuevo o selecciona otra carpeta o conversación. Si el problema continúa, contacta con soporte indicando la referencia de abajo."
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Tuesday"
 msgstr "Martes"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+#: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
+msgid "Turn off split"
+msgstr "Desactivar pestaña"
+
+#. placeholder {0}: entry.name
+#. placeholder {0}: split.name
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Turn off the {0} split"
+msgstr "Desactivar la pestaña {0}"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Turn on split"
+msgstr "Activar pestaña"
+
+#. placeholder {0}: entry.name
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Turn on the {0} split"
+msgstr "Activar la pestaña {0}"
 
 #: app/(app)/[emailAccountId]/assistant/settings/MultiRuleSetting.tsx
 msgid "Turning this off stops the AI from intentionally choosing multiple custom rules for one email. Inbox Zero can still apply more than one rule in a few special cases."
@@ -4938,6 +7010,10 @@ msgstr "Si desactivas esta opción, la IA dejará de elegir intencionadamente va
 #: utils/automation-jobs/defaults.ts
 msgid "Twice daily"
 msgstr "Dos veces al día"
+
+#: components/CommandK.tsx
+msgid "Type a command or search..."
+msgstr "Escribe un comando o busca..."
 
 #: app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting.tsx
 msgid "Typical Length: 2-3 sentences\n"
@@ -4961,6 +7037,22 @@ msgstr "Longitud típica: 2-3 frases\n"
 "- Respuestas concisas y directas\n"
 "- Despedidas mínimas"
 
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Unable to download this message"
+msgstr "No se puede descargar este mensaje"
+
+#: app/(app)/[emailAccountId]/mail/MailReaderPane.tsx
+msgid "Unable to show this conversation"
+msgstr "No se puede mostrar esta conversación"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Unable to show your mail list"
+msgstr "No se puede mostrar tu lista de correos"
+
+#: lib/shortcuts/registry.ts
+msgid "Undo last action"
+msgstr "Deshacer la última acción"
+
 #: app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog.tsx
 msgid "Unknown"
 msgstr "Desconocido"
@@ -4975,9 +7067,28 @@ msgstr "Fecha desconocida"
 msgid "Unknown error"
 msgstr "Error desconocido"
 
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Unread"
+msgstr "No leídos"
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "unread mail from my accountant"
+msgstr "correos no leídos de mi contador"
+
 #: app/(app)/[emailAccountId]/onboarding/category-messages.ts
 msgid "Unsolicited sales pitches and cold emails. We'll never block someone that's emailed you before"
 msgstr "Propuestas de venta no solicitadas y correos en frío. Nunca bloquearemos a alguien que ya te haya escrito antes"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Unstar"
+msgstr "Quitar destacado"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Unsubscribe"
+msgstr "Cancelar la suscripción"
 
 #. placeholder {0}: selectedSenders.length
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
@@ -4988,9 +7099,21 @@ msgstr "Cancelar suscripciones ({0})"
 msgid "Unsubscribe from senders for this inbox."
 msgstr "Cancela la suscripción a remitentes de esta bandeja de entrada."
 
+#: lib/shortcuts/registry.ts
+msgid "Unsubscribe or block sender"
+msgstr "Cancelar la suscripción o bloquear al remitente"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Unsubscribe senders"
 msgstr "Cancelar suscripciones"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Unsubscribed from {senderName}"
+msgstr "Suscripción a {senderName} cancelada"
+
+#: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
+msgid "Unsubscribing from {senderName}"
+msgstr "Cancelando la suscripción a {senderName}"
 
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm.tsx
 msgid "Update"
@@ -5005,6 +7128,8 @@ msgid "Updated"
 msgstr "Actualizada"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SettingsTab.tsx
+#: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
+#: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
 msgid "Updates"
 msgstr "Novedades"
@@ -5038,6 +7163,14 @@ msgstr "Mejora tu plan para incluir correos leídos"
 #: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
 msgid "Upgrade to use rerun rules on already processed emails"
 msgstr "Mejora tu plan para volver a ejecutar las reglas en correos ya procesados"
+
+#: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
+msgid "Uploading…"
+msgstr "Subiendo…"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "Usage"
+msgstr "Uso"
 
 #: app/(app)/[emailAccountId]/assistant/RuleStep.tsx
 msgid "Use AI draft"
@@ -5079,6 +7212,9 @@ msgstr "Ejemplos de variables"
 #: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting.tsx
+#: app/(app)/[emailAccountId]/compose/undo-send.ts
+#: app/(app)/[emailAccountId]/compose/useComposeSend.ts
+#: lib/shortcuts/registry.ts
 msgid "View"
 msgstr "Ver"
 
@@ -5097,6 +7233,14 @@ msgstr "Ver patrones aprendidos"
 #: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
 msgid "View matching rule"
 msgstr "Ver regla coincidente"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "View options"
+msgstr "Opciones de vista"
+
+#: hooks/useCommandPaletteCommands.ts
+msgid "View rule"
+msgstr "Ver regla"
 
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "View rules"
@@ -5118,9 +7262,18 @@ msgstr "Consulta los patrones que el asistente ha aprendido de tu historial de c
 msgid "View usage"
 msgstr "Ver uso"
 
+#: hooks/useCommandPaletteCommands.ts
+msgid "View usage statistics"
+msgstr "Ver estadísticas de uso"
+
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "View your follow-ups in Gmail."
 msgstr "Consulta tus seguimientos en Gmail."
+
+#. placeholder {0}: company.name
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Visit {0}"
+msgstr "Visitar {0}"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Want pings in your chat app? <0>Configure on the Channels page</0>."
@@ -5197,6 +7350,10 @@ msgstr "Usaremos estas etiquetas para organizar tu bandeja de entrada. Puedes a�
 msgid "We've set up the basics, but that's just the beginning. Your AI assistant can handle any email workflow you'd give to a human."
 msgstr "Ya configuramos lo básico, pero esto es solo el comienzo. Tu asistente de IA puede encargarse de cualquier tarea de correo que le darías a una persona."
 
+#: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
+msgid "Web search is not configured for this account."
+msgstr "La búsqueda web no está configurada para esta cuenta."
+
 #: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
 msgid "Webhook Secret"
 msgstr "Secreto de webhook"
@@ -5241,6 +7398,15 @@ msgstr "Resumen semanal"
 msgid "What do you do?"
 msgstr "¿A qué te dedicas?"
 
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "What should All show?"
+msgstr "¿Qué debe mostrar Todos?"
+
+#. placeholder {0}: entry.name
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "What the {0} split does"
+msgstr "Qué hace la pestaña {0}"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "What to include in the digest email"
 msgstr "Qué incluir en el correo de resumen"
@@ -5265,6 +7431,10 @@ msgstr "Si está activado, nunca coincidir con este patrón."
 msgid "When I get an email"
 msgstr "Cuando reciba un correo"
 
+#: components/CommandK.tsx
+msgid "When should it return? Try Friday at 3pm"
+msgstr "¿Cuándo debe volver? Prueba con el viernes a las 15:00"
+
 #: app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting.tsx
 msgid "When the AI processes your emails, it learns which senders or email types consistently match the same rules. For example, it might learn that emails from newsletter@example.com always match your \"Newsletter\" rule. These learned patterns help the AI make faster, more accurate decisions over time. You can view, edit, or remove patterns that have been learned."
 msgstr "Cuando la IA procesa tus correos, aprende qué remitentes o tipos de correo coinciden siempre con las mismas reglas. Por ejemplo, puede aprender que los correos de newsletter@example.com siempre coinciden con tu regla \"Newsletter\". Estos patrones aprendidos ayudan a la IA a tomar decisiones más rápidas y precisas con el tiempo. Puedes ver, editar o eliminar los patrones aprendidos."
@@ -5280,6 +7450,14 @@ msgstr "Cuando se detecten estos patrones, la regla nunca coincidirá:"
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
 msgid "Where did you hear about us?"
 msgstr "¿Dónde nos conociste?"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Which tab should open first?"
+msgstr "¿Qué pestaña se debe abrir primero?"
+
+#: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
+msgid "Which tabs do you want?"
+msgstr "¿Qué pestañas quieres?"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"
@@ -5304,6 +7482,7 @@ msgstr "Sí, por favor"
 #: app/(app)/[emailAccountId]/assistant/History.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+#: utils/date.ts
 msgid "Yesterday"
 msgstr "Ayer"
 
@@ -5335,6 +7514,10 @@ msgstr "No tienes ninguna regla de IA configurada. La prueba no coincidirá con 
 msgid "You don't have any rules yet."
 msgstr "Todavía no tienes reglas."
 
+#: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
+msgid "You mention an attachment, but nothing is attached."
+msgstr "Mencionas un adjunto, pero no hay nada adjunto."
+
 #: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
 msgid "You'll get a brief like this before every external meeting, automatically."
 msgstr "Recibirás automáticamente un informe como este antes de cada reunión externa."
@@ -5342,6 +7525,10 @@ msgstr "Recibirás automáticamente un informe como este antes de cada reunión 
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "You're on grandfathered Stripe pricing. The current plan prices shown elsewhere in the app are for new subscriptions."
 msgstr "Tienes un precio heredado de Stripe. Los precios de los planes que se muestran en otras partes de la app son para suscripciones nuevas."
+
+#: app/(app)/[emailAccountId]/mail/InboxZeroCelebration.tsx
+msgid "You've reached inbox zero"
+msgstr "Has llegado a inbox zero"
 
 #: app/(app)/[emailAccountId]/assistant/AllRulesDisabledBanner.tsx
 msgid "Your AI Assistant isn't processing emails because all rules are disabled. Enable them to get started."
@@ -5375,6 +7562,10 @@ msgstr "Tus correos enviados recientes solo usan firmas que ya tienes."
 #: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
 msgid "Your signature preview will appear here..."
 msgstr "La vista previa de tu firma aparecerá aquí..."
+
+#: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+msgid "Your splits"
+msgstr "Tus pestañas"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SettingsTab.tsx
 msgid "Your voice"
