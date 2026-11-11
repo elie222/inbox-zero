@@ -34,7 +34,8 @@ export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
           description: result.success
             ? t`Test brief sent! Check your inbox.`
             : i18n._(
-                BRIEF_SKIPPED_MESSAGES[result.message] ?? msg`Brief not sent`,
+                (result.message && BRIEF_SKIPPED_MESSAGES[result.message]) ||
+                  msg`Brief not sent`,
               ),
         });
         setBriefSent(true);
