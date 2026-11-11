@@ -182,6 +182,8 @@ function SharedMessage({
       ...splitRecipientList(message.to ?? ""),
       ...splitRecipientList(message.cc ?? ""),
     ],
+    // Without an account address there is no "me" to label.
+    "",
     "",
   );
   return (
