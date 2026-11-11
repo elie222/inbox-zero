@@ -72,12 +72,12 @@ msgid "{0} plan"
 msgstr "Plan {0}"
 
 #: components/assistant-chat/inline-email-card.tsx
-msgid "{archivedCount} archived"
-msgstr "{archivedCount} archivados"
+msgid "{archivedCount, plural, one {# archived} other {# archived}}"
+msgstr "{archivedCount, plural, one {# archivado} other {# archivados}}"
 
 #: components/assistant-chat/inline-email-card.tsx
-msgid "{archivedCount} archived, {readOnlyCount} marked read"
-msgstr "{archivedCount} archivados, {readOnlyCount} marcados como leídos"
+msgid "{archivedCount, plural, one {# archived} other {# archived}}, {readOnlyCount, plural, one {# marked read} other {# marked read}}"
+msgstr "{archivedCount, plural, one {# archivado} other {# archivados}}, {readOnlyCount, plural, one {# marcado como leído} other {# marcados como leídos}}"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
 msgid "{archivedEmailCount, plural, one {# email} other {# emails}}"
@@ -125,8 +125,8 @@ msgid "{providerName} disconnected"
 msgstr "{providerName} desconectado"
 
 #: components/assistant-chat/inline-email-card.tsx
-msgid "{readOnlyCount} marked read"
-msgstr "{readOnlyCount} marcados como leídos"
+msgid "{readOnlyCount, plural, one {# marked read} other {# marked read}}"
+msgstr "{readOnlyCount, plural, one {# marcado como leído} other {# marcados como leídos}}"
 
 #: app/(app)/[emailAccountId]/onboarding/UnsubscribeSuggestionRow.tsx
 msgid "{readPercentage}% read"
@@ -1354,28 +1354,28 @@ msgid "Forward receipts to your accountant"
 msgstr "Reenvía recibos a tu contable"
 
 #: components/assistant-chat/tools.tsx
-msgid "Forward to"
-msgstr "Reenviar a"
+msgid "Forward to {recipient}"
+msgstr "Reenviar a {recipient}"
 
 #: components/assistant-chat/tools.tsx
-msgid "Forwarded to"
-msgstr "Reenviado a"
+msgid "Forwarded to {recipient}"
+msgstr "Reenviado a {recipient}"
 
 #: components/assistant-chat/message-part.tsx
 msgid "Found {categoryCount, plural, one {# category} other {# categories}}"
-msgstr "Se encontraron {categoryCount, plural, one {# categoría} other {# categorías}}"
+msgstr "{categoryCount, plural, one {Se encontró # categoría} other {Se encontraron # categorías}}"
 
 #: components/assistant-chat/message-part.tsx
 msgid "Found {categoryCount, plural, one {# category} other {# categories}}, {uncategorized, plural, one {# uncategorized sender} other {# uncategorized senders}}"
-msgstr "Se encontraron {categoryCount, plural, one {# categoría} other {# categorías}}, {uncategorized, plural, one {# remitente sin categoría} other {# remitentes sin categoría}}"
+msgstr "{categoryCount, plural, one {Se encontró # categoría} other {Se encontraron # categorías}}, {uncategorized, plural, one {# remitente sin categoría} other {# remitentes sin categoría}}"
 
 #: components/assistant-chat/message-part.tsx
 msgid "Found {memoriesCount, plural, one {# memory} other {# memories}}"
-msgstr "Se encontraron {memoriesCount, plural, one {# recuerdo} other {# recuerdos}}"
+msgstr "{memoriesCount, plural, one {Se encontró # recuerdo} other {Se encontraron # recuerdos}}"
 
 #: components/assistant-chat/message-part.tsx
 msgid "Found {uncategorized, plural, one {# uncategorized sender} other {# uncategorized senders}}"
-msgstr "Se encontraron {uncategorized, plural, one {# remitente sin categoría} other {# remitentes sin categoría}}"
+msgstr "{uncategorized, plural, one {Se encontró # remitente sin categoría} other {Se encontraron # remitentes sin categoría}}"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/ChatIllustration.tsx
 msgid "Found 12 newsletters from last week. Archiving now."
@@ -1708,14 +1708,13 @@ msgstr "Marcar como leído"
 
 #. placeholder {0}: remainingReadThreadIds.length
 #: components/assistant-chat/inline-email-card.tsx
-msgid "Marked {0} as read"
-msgstr "{0} marcados como leídos"
+msgid "Marked {0, plural, one {# as read} other {# as read}}"
+msgstr "{0, plural, one {# marcado como leído} other {# marcados como leídos}}"
 
-#. placeholder {0}: results.length - failedCount
-#. placeholder {1}: results.length
+#. placeholder {0}: total - failedCount
 #: components/assistant-chat/inline-email-card.tsx
-msgid "Marked {0} of {1} as read"
-msgstr "{0} de {1} marcados como leídos"
+msgid "Marked {0, plural, one {# of {total} as read} other {# of {total} as read}}"
+msgstr "{0, plural, one {# de {total} marcado como leído} other {# de {total} marcados como leídos}}"
 
 #: components/assistant-chat/inline-email-card.tsx
 msgid "Marked as read"
@@ -2261,16 +2260,16 @@ msgid "Rename chat"
 msgstr "Renombrar chat"
 
 #: components/assistant-chat/tools.tsx
-msgid "Replied to"
-msgstr "Respondido a"
+msgid "Replied to {recipient}"
+msgstr "Respondido a {recipient}"
 
 #: components/assistant-chat/tools.tsx
 msgid "Reply sent."
 msgstr "Respuesta enviada."
 
 #: components/assistant-chat/tools.tsx
-msgid "Reply to"
-msgstr "Responder a"
+msgid "Reply to {recipient}"
+msgstr "Responder a {recipient}"
 
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 #: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
@@ -2541,8 +2540,8 @@ msgid "Sent 1-24 hours before (you choose)"
 msgstr "Se envía entre 1 y 24 horas antes (tú eliges)"
 
 #: components/assistant-chat/tools.tsx
-msgid "Sent email to"
-msgstr "Correo enviado a"
+msgid "Sent email to {recipient}"
+msgstr "Correo enviado a {recipient}"
 
 #: app/(app)/[emailAccountId]/onboarding-brief/page.tsx
 msgid "Set up meeting briefs to receive personalized briefings before your meetings."

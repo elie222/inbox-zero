@@ -708,7 +708,6 @@ function EmailActionResult({
     provider,
   });
 
-  const actionLabel = getEmailActionLabel(actionType);
   const recipientInitial = recipient ? recipient.charAt(0).toUpperCase() : "?";
   const providerName = provider === "microsoft" ? "Outlook" : "Gmail";
 
@@ -758,10 +757,12 @@ function EmailActionResult({
     }
   };
 
-  const sentLabelDescriptor = isConfirmed
-    ? getEmailActionSentLabel(actionType)
-    : actionLabel;
-  const sentLabel = sentLabelDescriptor ? i18n._(sentLabelDescriptor) : "";
+  const heading = getEmailActionHeading({
+    actionType,
+    isConfirmed,
+    recipient,
+    i18n,
+  });
 
   return (
     <Card>
@@ -770,10 +771,7 @@ function EmailActionResult({
           <AvatarFallbackColor content={recipientInitial} className="text-xs" />
         </Avatar>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold leading-tight">
-            {sentLabel ? `${sentLabel} ` : ""}
-            {recipient}
-          </div>
+          <div className="text-sm font-semibold leading-tight">{heading}</div>
           {cc && (
             <div className="mt-0.5 text-xs text-muted-foreground">
               <Trans>CC: {cc}</Trans>
@@ -2278,20 +2276,28 @@ function getActionBodyText({
   return decodeHtmlEntities(getPendingString(pendingAction, "content"));
 }
 
-function getEmailActionLabel(
-  actionType: PendingEmailActionType,
-): MessageDescriptor | null {
-  if (actionType === "reply_email") return msg`Reply to`;
-  if (actionType === "forward_email") return msg`Forward to`;
-  return null;
-}
-
-function getEmailActionSentLabel(
-  actionType: PendingEmailActionType,
-): MessageDescriptor {
-  if (actionType === "send_email") return msg`Sent email to`;
-  if (actionType === "reply_email") return msg`Replied to`;
-  return msg`Forwarded to`;
+function getEmailActionHeading({
+  actionType,
+  isConfirmed,
+  recipient = "",
+  i18n,
+}: {
+  actionType: PendingEmailActionType;
+  isConfirmed: boolean;
+  recipient?: string;
+  i18n: I18n;
+}): string {
+  if (isConfirmed) {
+    if (actionType === "send_email")
+      return i18n._(msg`Sent email to ${recipient}`);
+    if (actionType === "reply_email")
+      return i18n._(msg`Replied to ${recipient}`);
+    return i18n._(msg`Forwarded to ${recipient}`);
+  }
+  if (actionType === "reply_email") return i18n._(msg`Reply to ${recipient}`);
+  if (actionType === "forward_email")
+    return i18n._(msg`Forward to ${recipient}`);
+  return recipient;
 }
 
 function getAssistantEmailSuccessMessage(

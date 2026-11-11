@@ -216,8 +216,12 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
           "mark_read_threads",
           successfulThreadIds,
         );
+        const total = results.length;
         toastSuccess({
-          description: t`Marked ${results.length - failedCount} of ${results.length} as read`,
+          description: t`Marked ${plural(total - failedCount, {
+            one: `# of ${total} as read`,
+            other: `# of ${total} as read`,
+          })}`,
         });
         setMarkReadState("idle");
       } else {
@@ -227,7 +231,10 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
           successfulThreadIds,
         );
         toastSuccess({
-          description: t`Marked ${remainingReadThreadIds.length} as read`,
+          description: t`Marked ${plural(remainingReadThreadIds.length, {
+            one: "# as read",
+            other: "# as read",
+          })}`,
         });
         setMarkReadState("done");
       }
@@ -919,9 +926,28 @@ function formatCompletedSummary({
   ).length;
 
   if (archivedCount > 0 && readOnlyCount > 0) {
-    return i18n._(msg`${archivedCount} archived, ${readOnlyCount} marked read`);
+    return i18n._(
+      msg`${plural(archivedCount, {
+        one: "# archived",
+        other: "# archived",
+      })}, ${plural(readOnlyCount, {
+        one: "# marked read",
+        other: "# marked read",
+      })}`,
+    );
   }
-  if (archivedCount > 0) return i18n._(msg`${archivedCount} archived`);
-  if (readOnlyCount > 0) return i18n._(msg`${readOnlyCount} marked read`);
+  if (archivedCount > 0) {
+    return i18n._(
+      msg`${plural(archivedCount, { one: "# archived", other: "# archived" })}`,
+    );
+  }
+  if (readOnlyCount > 0) {
+    return i18n._(
+      msg`${plural(readOnlyCount, {
+        one: "# marked read",
+        other: "# marked read",
+      })}`,
+    );
+  }
   return "";
 }
