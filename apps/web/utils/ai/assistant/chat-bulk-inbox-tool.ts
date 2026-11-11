@@ -112,7 +112,7 @@ const description = (searchToolTerms: string) =>
 
 Before calling, search to check the ${searchToolTerms} returns the intended emails, and ask the user about anything unclear. Add instruction when the search alone cannot separate which emails qualify. Only use trash_threads when the user explicitly asks to delete or trash.
 
-Nothing changes when this is called: it returns a card with an estimate and examples, and the user must confirm in the UI before the job starts. The card already shows those details, so reply in one short line that it is ready to confirm. Once confirmed, the job's progress and totals appear in later context; report those numbers, not estimates.`;
+Nothing changes when this is called: it returns a card with an estimate and examples, and the user must confirm in the UI before the job starts. The card shows those details, asks for confirmation and updates as the job runs, so don't restate them, and don't describe the action as waiting or done, which goes stale once the user acts. At most add one short line. Once confirmed, the job's progress and totals appear in later context; report those numbers, not estimates.`;
 
 const gmailBulkInboxTool = (options: BulkInboxToolOptions) =>
   tool({
@@ -294,7 +294,7 @@ async function prepareBulkInboxAction({
         date: message.date,
       })),
       nextStep:
-        "Nothing has changed yet. It is waiting for the user's confirmation.",
+        "Nothing has changed yet. The card handles confirmation and progress.",
     };
   } catch (error) {
     logger.error("Failed to prepare bulk inbox action", { error });

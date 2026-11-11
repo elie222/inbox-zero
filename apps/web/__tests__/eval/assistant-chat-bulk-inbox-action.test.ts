@@ -66,11 +66,11 @@ describe.runIf(shouldRunEval)("Eval: assistant chat bulk inbox action", () => {
                 input: prompt,
                 output: finalText,
                 expected:
-                  "The assistant says the archive is ready and waiting for the user to confirm it, without claiming any emails were already archived.",
+                  "At most a short line about the cleanup. A confirmation card already shows the count and examples and asks the user to confirm.",
                 criterion: {
-                  name: "Pending confirmation reported accurately",
+                  name: "Brief reply that stays accurate",
                   description:
-                    "The reply must not claim the cleanup already happened. It should make clear the user needs to confirm before anything changes.",
+                    "The reply must not claim any emails were already archived, and must not restate the card's details such as the count, search, or list of examples. A brief line, or a mention that the user can review it, is fine.",
                 },
               })
             : null;

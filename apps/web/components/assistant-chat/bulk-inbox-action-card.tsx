@@ -43,6 +43,10 @@ const ACTION_COPY: Record<
 
 const MAX_SENDER_NAMES = 3;
 
+// Chat messages size to their content, so the card asks for the full column
+// and shrinks on narrow screens.
+const CARD_WIDTH = "w-[50rem] max-w-full";
+
 const RESULT_PREFIXES: Record<string, string> = {
   CANCELLED: "Stopped · ",
   FAILED: "Couldn't finish · ",
@@ -154,11 +158,10 @@ export function BulkInboxActionCard({
   if (jobId) {
     if (!job || job.status === "RUNNING") {
       const acted = job?.actedCount ?? 0;
+      const processed = job?.processedCount ?? 0;
       const total = estimate?.searchThreadCount ?? 0;
       // The total is an estimate, so the bar never claims to be finished.
-      const progress = total
-        ? Math.min(95, ((job?.processedCount ?? 0) / total) * 100)
-        : 0;
+      const progress = total ? Math.min(95, (processed / total) * 100) : 0;
       return (
         <StatusCard
           action={
@@ -175,7 +178,7 @@ export function BulkInboxActionCard({
           <div className="flex items-center gap-2">
             <Loader2 className="size-4 animate-spin text-muted-foreground" />
             <span className="font-medium">{copy.running}…</span>
-            {acted > 0 && (
+            {processed > 0 && (
               <span className="tabular-nums text-muted-foreground">
                 {acted.toLocaleString()} so far
               </span>
@@ -217,7 +220,7 @@ export function BulkInboxActionCard({
   const hasMore = (estimate?.threadCount ?? 0) > senders.length;
 
   return (
-    <Card data-testid="bulk-inbox-action-card">
+    <Card data-testid="bulk-inbox-action-card" className={CARD_WIDTH}>
       <CardHeader className="space-y-1 border-b px-4 py-3.5">
         <h3 className="text-sm font-semibold leading-tight">
           {getTitle({ output, verb: copy.verb })}
@@ -296,7 +299,7 @@ function StatusCard({
   action?: ReactNode;
 }) {
   return (
-    <Card data-testid="bulk-inbox-action-card">
+    <Card data-testid="bulk-inbox-action-card" className={CARD_WIDTH}>
       <CardContent className="flex items-center gap-3 px-4 py-3 text-sm">
         <div className="min-w-0 flex-1">{children}</div>
         {action}

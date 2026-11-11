@@ -218,36 +218,47 @@ async function runChunk({
       continue;
     }
 
-    const result = await processThreads({
-      jobId,
-      threads: unseen,
-      action,
-      labelId: job.labelId,
-      labelName: job.labelName,
-      instruction: job.instruction,
-      emailAccount,
-      emailProvider,
-      provider,
-      logger,
-    });
-
     const pageThreadIds = new Set(threads.map((thread) => thread.threadId));
-    seenThreadIds = new Set([
-      ...[...seenThreadIds].filter((threadId) => pageThreadIds.has(threadId)),
-      ...result.handledThreadIds,
-    ]);
+    seenThreadIds = new Set(
+      [...seenThreadIds].filter((threadId) => pageThreadIds.has(threadId)),
+    );
 
-    if (result.rateLimitError) {
-      rateLimitedUntil = getRateLimitedUntil(result.rateLimitError, provider);
+    // Saving after each small batch keeps the card's progress moving and
+    // limits what a crashed chunk has to redo.
+    for (
+      let index = 0;
+      index < unseen.length && Date.now() < deadline;
+      index += FILTER_BATCH_SIZE
+    ) {
+      const result = await processThreads({
+        jobId,
+        threads: unseen.slice(index, index + FILTER_BATCH_SIZE),
+        action,
+        labelId: job.labelId,
+        labelName: job.labelName,
+        instruction: job.instruction,
+        emailAccount,
+        emailProvider,
+        provider,
+        logger,
+      });
+
+      for (const threadId of result.handledThreadIds) {
+        seenThreadIds.add(threadId);
+      }
+      if (result.rateLimitError) {
+        rateLimitedUntil = getRateLimitedUntil(result.rateLimitError, provider);
+      }
+
+      await saveProgress(jobId, {
+        pageSeenThreadIds: [...seenThreadIds],
+        rateLimitedUntil: result.rateLimitError ? rateLimitedUntil : null,
+        totals: result.totals,
+      });
+
+      if (result.cancelled) return { status: "stopped" };
+      if (result.rateLimitError) break;
     }
-
-    await saveProgress(jobId, {
-      pageSeenThreadIds: [...seenThreadIds],
-      rateLimitedUntil: result.rateLimitError ? rateLimitedUntil : null,
-      totals: result.totals,
-    });
-
-    if (result.cancelled) return { status: "stopped" };
   }
 
   return continueLater();

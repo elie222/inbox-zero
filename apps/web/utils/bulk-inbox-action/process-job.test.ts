@@ -200,7 +200,7 @@ describe("processBulkInboxActionJobChunk", () => {
     expect(mailbox.inboxThreadIds()).toHaveLength(10);
   });
 
-  it("saves the page's progress before handing off when the budget runs out", async () => {
+  it("saves each batch's progress before handing off when the budget runs out", async () => {
     mailbox = createMailbox(80);
     let offsetMs = 0;
     const realNow = Date.now.bind(Date);
@@ -210,7 +210,7 @@ describe("processBulkInboxActionJobChunk", () => {
     useMailbox(mailbox, {
       archiveThread: async (threadId) => {
         mailbox.archive(threadId);
-        // The first page uses up the whole budget.
+        // The first batch uses up the whole budget.
         offsetMs = 10 * 60 * 1000;
       },
     });
@@ -220,14 +220,14 @@ describe("processBulkInboxActionJobChunk", () => {
 
       expect(outcome.status).toBe("continue");
       if (outcome.status !== "continue") return;
-      expect(mailbox.inboxThreadIds()).toHaveLength(30);
+      expect(mailbox.inboxThreadIds()).toHaveLength(55);
       expect(job).toMatchObject({
-        processedCount: 50,
-        actedCount: 50,
+        processedCount: 25,
+        actedCount: 25,
         chunkToken: outcome.nextChunkToken,
         leaseExpiresAt: null,
       });
-      expect(job.pageSeenThreadIds).toHaveLength(50);
+      expect(job.pageSeenThreadIds).toHaveLength(25);
     } finally {
       nowSpy.mockRestore();
     }

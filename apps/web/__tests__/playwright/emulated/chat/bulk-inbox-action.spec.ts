@@ -105,6 +105,10 @@ test("archives unread newsletters in the background and leaves conversations alo
   await archive.click();
   await expect(card.getByText("Archiving…")).toBeVisible({ timeout: 30_000 });
   await expect(card.getByRole("button", { name: "Stop" })).toBeVisible();
+  // Progress is saved after each small batch, so a count shows mid-run.
+  await expect(card.getByText(/^\d+ so far$/)).toBeVisible({
+    timeout: 30_000,
+  });
   await capturePlaywrightCheckpoint(
     page,
     testInfo,
@@ -221,7 +225,7 @@ async function seedMailboxAndScript(
   });
   await scriptReply({
     match: "bulk_inbox_action",
-    text: "Ready to archive your unread newsletters once you confirm.",
+    text: "I set up the cleanup for your unread newsletters.",
   });
   // Serves both the card's preview and the job. Slow enough to see the job
   // running, fast enough to finish in seconds.
