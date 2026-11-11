@@ -3804,6 +3804,10 @@ msgstr "Couldn't add senders. Please try again."
 msgid "Couldn't apply label. Please try again."
 msgstr "Couldn't apply label. Please try again."
 
+#: app/(app)/[emailAccountId]/mail/use-engine-mail-threads.ts
+msgid "Couldn't complete this search."
+msgstr "Couldn't complete this search."
+
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
 msgid "Couldn't confirm delivery"
 msgstr "Couldn't confirm delivery"
@@ -3824,6 +3828,10 @@ msgstr "Couldn't fully reverse {0, plural, one {# conversation} other {# convers
 #: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
 msgid "Couldn't load public context"
 msgstr "Couldn't load public context"
+
+#: app/(app)/[emailAccountId]/mail/use-engine-mail-threads.ts
+msgid "Couldn't load this mailbox."
+msgstr "Couldn't load this mailbox."
 
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Couldn't move conversations. Please try again."

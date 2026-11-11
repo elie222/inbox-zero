@@ -1,5 +1,8 @@
 /** @vitest-environment jsdom */
 
+import { setupI18n } from "@lingui/core";
+import { I18nProvider } from "@lingui/react";
+import { messages as en } from "@/locales/en/messages.po";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -14,7 +17,9 @@ import type { ThreadsQuery } from "@/utils/threads/validation";
 import { useEngineMailThreads } from "./use-engine-mail-threads";
 
 function wrapper({ children }: { children: ReactNode }) {
-  return <MailEngineProvider client={null}>{children}</MailEngineProvider>;
+  return (
+    <TestMailEngineProvider client={null}>{children}</TestMailEngineProvider>
+  );
 }
 
 describe("useEngineMailThreads", () => {
@@ -38,7 +43,9 @@ describe("useEngineMailThreads", () => {
         }),
       {
         wrapper: ({ children }) => (
-          <MailEngineProvider client={client}>{children}</MailEngineProvider>
+          <TestMailEngineProvider client={client}>
+            {children}
+          </TestMailEngineProvider>
         ),
       },
     );
@@ -46,6 +53,114 @@ describe("useEngineMailThreads", () => {
       expect(result.current.isLoading).toBe(searchStatus === "loading");
       expect(Boolean(result.current.error)).toBe(searchStatus === "error");
     });
+  });
+
+  it("reopens a failed search when refetched", async () => {
+    const failed = mailboxSnapshot([]);
+    if (!failed.data) throw new Error("missing mailbox data");
+    failed.data.searchStatus = "error";
+    const first = { ...staticMailboxHandle(failed), close: vi.fn() };
+    const observeMailbox = vi
+      .fn()
+      .mockReturnValueOnce(first)
+      .mockReturnValue(staticMailboxHandle(mailboxSnapshot([])));
+    const client = {
+      observeMailbox,
+      requestSync: vi.fn(async () => ({ status: "scheduled" })),
+    } as unknown as MailClient;
+    const { result } = renderHook(
+      () =>
+        useEngineMailThreads({
+          emailAccountId: "acc-1",
+          query: { q: "invoice" },
+        }),
+      {
+        wrapper: ({ children }) => (
+          <TestMailEngineProvider client={client}>
+            {children}
+          </TestMailEngineProvider>
+        ),
+      },
+    );
+    await waitFor(() =>
+      expect(result.current.error?.error).toBe(
+        "Couldn't complete this search.",
+      ),
+    );
+    await act(() => result.current.refetch());
+    await waitFor(() => expect(result.current.error).toBeUndefined());
+    expect(first.close).toHaveBeenCalledOnce();
+    expect(observeMailbox).toHaveBeenCalledTimes(2);
+  });
+
+  it("retains loaded rows if a refetch fails before returning any data", async () => {
+    const retained = mailboxSnapshot();
+    retained.status = "error";
+    retained.error = { code: "unavailable", retryable: true };
+    const unavailable: QuerySnapshot<MailboxView> = {
+      status: "error",
+      revision: null,
+      refreshing: false,
+      data: null,
+      error: { code: "unavailable", retryable: true },
+    };
+    const observeMailbox = vi
+      .fn()
+      .mockReturnValueOnce(staticMailboxHandle(retained))
+      .mockReturnValue(staticMailboxHandle(unavailable));
+    const client = {
+      observeMailbox,
+      requestSync: async () => ({ status: "scheduled" }),
+    } as unknown as MailClient;
+    const { result } = renderHook(
+      () =>
+        useEngineMailThreads({
+          emailAccountId: "acc-1",
+          query: { q: "invoice" },
+        }),
+      {
+        wrapper: ({ children }) => (
+          <TestMailEngineProvider client={client}>
+            {children}
+          </TestMailEngineProvider>
+        ),
+      },
+    );
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+    await act(() => result.current.refetch());
+    await waitFor(() =>
+      expect(result.current.error?.error).toBe("Couldn't load this mailbox."),
+    );
+    expect(result.current.threads).toHaveLength(1);
+  });
+
+  it("keeps mailbox-read wording when the local read also failed", async () => {
+    const snapshot = mailboxSnapshot([]);
+    snapshot.status = "error";
+    snapshot.error = { code: "unavailable", retryable: true };
+    if (!snapshot.data) throw new Error("missing mailbox data");
+    snapshot.data.searchStatus = "error";
+    const client = {
+      observeMailbox: () => staticMailboxHandle(snapshot),
+      requestSync: async () => ({ status: "scheduled" }),
+    } as unknown as MailClient;
+    const { result } = renderHook(
+      () =>
+        useEngineMailThreads({
+          emailAccountId: "acc-1",
+          query: { q: "invoice" },
+        }),
+      {
+        wrapper: ({ children }) => (
+          <TestMailEngineProvider client={client}>
+            {children}
+          </TestMailEngineProvider>
+        ),
+      },
+    );
+    await waitFor(() =>
+      expect(result.current.error?.error).toBe("Couldn't load this mailbox."),
+    );
   });
 
   it("keeps the disabled empty result stable across query identity changes", async () => {
@@ -100,7 +215,9 @@ describe("useEngineMailThreads", () => {
       purgeAccount: vi.fn(),
     } as unknown as MailClient;
     const clientWrapper = ({ children }: { children: ReactNode }) => (
-      <MailEngineProvider client={client}>{children}</MailEngineProvider>
+      <TestMailEngineProvider client={client}>
+        {children}
+      </TestMailEngineProvider>
     );
 
     const { result } = renderHook(
@@ -156,7 +273,9 @@ describe("useEngineMailThreads", () => {
       purgeAccount: vi.fn(),
     } as unknown as MailClient;
     const clientWrapper = ({ children }: { children: ReactNode }) => (
-      <MailEngineProvider client={client}>{children}</MailEngineProvider>
+      <TestMailEngineProvider client={client}>
+        {children}
+      </TestMailEngineProvider>
     );
 
     renderHook(
@@ -198,7 +317,9 @@ describe("useEngineMailThreads", () => {
       requestSync: vi.fn(async () => ({ status: "scheduled" as const })),
     } as unknown as MailClient;
     const clientWrapper = ({ children }: { children: ReactNode }) => (
-      <MailEngineProvider client={client}>{children}</MailEngineProvider>
+      <TestMailEngineProvider client={client}>
+        {children}
+      </TestMailEngineProvider>
     );
     const { result } = renderHook(
       () =>
@@ -266,7 +387,9 @@ describe("useEngineMailThreads", () => {
       requestSync: vi.fn(async () => ({ status: "scheduled" as const })),
     } as unknown as MailClient;
     const clientWrapper = ({ children }: { children: ReactNode }) => (
-      <MailEngineProvider client={client}>{children}</MailEngineProvider>
+      <TestMailEngineProvider client={client}>
+        {children}
+      </TestMailEngineProvider>
     );
 
     const { result } = renderHook(
@@ -341,4 +464,20 @@ function mailboxSnapshot(
       connection: "ready",
     },
   };
+}
+
+const testI18n = setupI18n({ locale: "en", messages: { en } });
+
+function TestMailEngineProvider({
+  client,
+  children,
+}: {
+  client: MailClient | null;
+  children: ReactNode;
+}) {
+  return (
+    <I18nProvider i18n={testI18n}>
+      <MailEngineProvider client={client}>{children}</MailEngineProvider>
+    </I18nProvider>
+  );
 }

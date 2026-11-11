@@ -132,6 +132,28 @@ describe("engine search and body hydration", () => {
     await engine.close();
   });
 
+  it("restarts a failed provider search when its window is observed again", async () => {
+    const { engine } = await pagedSearchEngine({
+      async search() {
+        return {
+          status: "paused",
+          retryAfterMs: 60_000,
+          reason: "unavailable",
+        };
+      },
+    });
+    const first = engine.observeMailboxWindow?.(bodySearchQuery());
+    if (!first) throw new Error("missing mailbox handle");
+    await engine.runUntil(Date.now() + 500);
+    expect(first.getSnapshot().data?.searchStatus).toBe("error");
+    first.close();
+    const retry = engine.observeMailboxWindow?.(bodySearchQuery());
+    if (!retry) throw new Error("missing mailbox handle");
+    await waitForReady(retry);
+    expect(retry.getSnapshot().data?.searchStatus).toBe("loading");
+    await engine.close();
+  });
+
   it("reports a thrown provider error to the active search", async () => {
     const { engine } = await pagedSearchEngine({
       async search() {

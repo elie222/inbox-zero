@@ -3804,6 +3804,10 @@ msgstr "No se pudieron añadir los remitentes. Inténtalo de nuevo."
 msgid "Couldn't apply label. Please try again."
 msgstr "No se pudo aplicar la etiqueta. Inténtalo de nuevo."
 
+#: app/(app)/[emailAccountId]/mail/use-engine-mail-threads.ts
+msgid "Couldn't complete this search."
+msgstr "No se pudo completar esta búsqueda."
+
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
 msgid "Couldn't confirm delivery"
 msgstr "No se pudo confirmar el envío"
@@ -3824,6 +3828,10 @@ msgstr "{0, plural, one {No se pudo revertir del todo # conversación que solo c
 #: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
 msgid "Couldn't load public context"
 msgstr "No se pudo cargar el contexto público"
+
+#: app/(app)/[emailAccountId]/mail/use-engine-mail-threads.ts
+msgid "Couldn't load this mailbox."
+msgstr "No se pudo cargar este buzón."
 
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Couldn't move conversations. Please try again."
