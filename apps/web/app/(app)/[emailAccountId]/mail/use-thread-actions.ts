@@ -215,7 +215,8 @@ export function useThreadActions({
       const restored = batch.targets.filter(
         (target) => !failedKeys.has(target.key),
       );
-      const failedCount = batch.targets.length - restored.length;
+      const total = batch.targets.length;
+      const failedCount = total - restored.length;
 
       if (restored.length) {
         toast.success(
@@ -230,9 +231,10 @@ export function useThreadActions({
         toast.error(
           failedCount === batch.targets.length
             ? t(i18n)`Couldn't restore`
-            : t(
-                i18n,
-              )`Couldn't restore ${failedCount} of ${batch.targets.length}`,
+            : t(i18n)`${plural(failedCount, {
+                one: `Couldn't restore # of ${total}`,
+                other: `Couldn't restore # of ${total}`,
+              })}`,
         );
       }
       if (!restored.length) {
@@ -425,7 +427,8 @@ export function useThreadActions({
         kind: "snooze",
         untilMs: snoozedUntil.getTime(),
       });
-      const failedCount = threadKeys.length - snapshots.length;
+      const total = threadKeys.length;
+      const failedCount = total - snapshots.length;
       if (snapshots.length) {
         const snoozedUntilLabel = format(snoozedUntil, "EEE, MMM d 'at' p");
         toast.success(
@@ -443,9 +446,10 @@ export function useThreadActions({
                   one: "Couldn't queue snoozing",
                   other: "Couldn't queue snoozing conversations",
                 })}`
-              : t(
-                  i18n,
-                )`Couldn't queue ${failedCount} of ${threadKeys.length} for snoozing`,
+              : t(i18n)`${plural(failedCount, {
+                  one: `Couldn't queue # of ${total} for snoozing`,
+                  other: `Couldn't queue # of ${total} for snoozing`,
+                })}`,
             rejectionCodes,
           ),
         );
@@ -462,7 +466,8 @@ export function useThreadActions({
         kind: "set_spam",
         spam: true,
       });
-      const failedCount = threadKeys.length - snapshots.length;
+      const total = threadKeys.length;
+      const failedCount = total - snapshots.length;
       if (snapshots.length) {
         toast.success(
           t(i18n)`${plural(snapshots.length, {
@@ -476,9 +481,10 @@ export function useThreadActions({
           enqueueFailureCopy(
             failedCount === threadKeys.length
               ? t(i18n)`Couldn't queue marking as spam`
-              : t(
-                  i18n,
-                )`Couldn't queue ${failedCount} of ${threadKeys.length} as spam`,
+              : t(i18n)`${plural(failedCount, {
+                  one: `Couldn't queue # of ${total} as spam`,
+                  other: `Couldn't queue # of ${total} as spam`,
+                })}`,
             rejectionCodes,
           ),
         );
@@ -547,7 +553,10 @@ const ARCHIVE: UndoableAction = {
   queueFailed: (i18n, failedCount, total) =>
     failedCount === total
       ? t(i18n)`Couldn't queue archiving`
-      : t(i18n)`Couldn't queue ${failedCount} of ${total} for archiving`,
+      : t(i18n)`${plural(failedCount, {
+          one: `Couldn't queue # of ${total} for archiving`,
+          other: `Couldn't queue # of ${total} for archiving`,
+        })}`,
   removesFromView: true,
 };
 
@@ -561,7 +570,10 @@ const MOVE_TO_INBOX: UndoableAction = {
   queueFailed: (i18n, failedCount, total) =>
     failedCount === total
       ? t(i18n)`Couldn't queue moving to inbox`
-      : t(i18n)`Couldn't queue ${failedCount} of ${total} for moving to inbox`,
+      : t(i18n)`${plural(failedCount, {
+          one: `Couldn't queue # of ${total} for moving to inbox`,
+          other: `Couldn't queue # of ${total} for moving to inbox`,
+        })}`,
   removesFromView: true,
 };
 
@@ -580,7 +592,10 @@ const TRASH: UndoableAction = {
   queueFailed: (i18n, failedCount, total) =>
     failedCount === total
       ? t(i18n)`Couldn't queue deletion`
-      : t(i18n)`Couldn't queue ${failedCount} of ${total} for deletion`,
+      : t(i18n)`${plural(failedCount, {
+          one: `Couldn't queue # of ${total} for deletion`,
+          other: `Couldn't queue # of ${total} for deletion`,
+        })}`,
   removesFromView: true,
 };
 
@@ -609,7 +624,10 @@ function labelAction(labelId: string, archive: boolean): UndoableAction {
       queueFailed: (i18n, failedCount, total) =>
         failedCount === total
           ? t(i18n)`Couldn't queue labeling`
-          : t(i18n)`Couldn't queue ${failedCount} of ${total} for labeling`,
+          : t(i18n)`${plural(failedCount, {
+              one: `Couldn't queue # of ${total} for labeling`,
+              other: `Couldn't queue # of ${total} for labeling`,
+            })}`,
       removesFromView: false,
     };
   }
@@ -634,7 +652,10 @@ function movedCopy(i18n: I18n, count: number) {
 function movingQueueFailedCopy(i18n: I18n, failedCount: number, total: number) {
   return failedCount === total
     ? t(i18n)`Couldn't queue moving`
-    : t(i18n)`Couldn't queue ${failedCount} of ${total} for moving`;
+    : t(i18n)`${plural(failedCount, {
+        one: `Couldn't queue # of ${total} for moving`,
+        other: `Couldn't queue # of ${total} for moving`,
+      })}`;
 }
 
 function getReadQueueFailedCopy(
@@ -651,8 +672,14 @@ function getReadQueueFailedCopy(
       : t(i18n)`Couldn't queue marking as unread`;
   }
   return read
-    ? t(i18n)`Couldn't queue ${failedCount} of ${total} as read`
-    : t(i18n)`Couldn't queue ${failedCount} of ${total} as unread`;
+    ? t(i18n)`${plural(failedCount, {
+        one: `Couldn't queue # of ${total} as read`,
+        other: `Couldn't queue # of ${total} as read`,
+      })}`
+    : t(i18n)`${plural(failedCount, {
+        one: `Couldn't queue # of ${total} as unread`,
+        other: `Couldn't queue # of ${total} as unread`,
+      })}`;
 }
 
 function enqueueFailureCopy(generic: string, rejectionCodes: string[]) {

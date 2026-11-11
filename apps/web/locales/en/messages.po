@@ -49,6 +49,11 @@ msgstr "{0, plural, one {# email queued} other {# emails queued}}"
 msgid "{0, plural, one {# email} other {# emails}}"
 msgstr "{0, plural, one {# email} other {# emails}}"
 
+#. placeholder {0}: selectedRuleIds.size
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "{0, plural, one {# of {ruleCount} selected} other {# of {ruleCount} selected}}"
+msgstr "{0, plural, one {# of {ruleCount} selected} other {# of {ruleCount} selected}}"
+
 #. placeholder {0}: reasonDisplay.actionFailureMessages.length
 #: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
 msgid "{0, plural, one {Action issue} other {Action issues}}"
@@ -104,12 +109,6 @@ msgstr "{0, plural, one {We found # sender you rarely read} other {We found # se
 msgid "{0} isn't attached. Remove it or attach it again before sending."
 msgstr "{0} isn't attached. Remove it or attach it again before sending."
 
-#. placeholder {0}: selectedRuleIds.size
-#. placeholder {1}: rules.length
-#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
-msgid "{0} of {1} selected"
-msgstr "{0} of {1} selected"
-
 #. placeholder {0}: getPremiumTierName(premium.tier)
 #. placeholder {0}: getPremiumTierName(tier)
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
@@ -160,6 +159,46 @@ msgstr "{description} Details: {details}"
 msgid "{errorCount, plural, one {Failed to send # invitation} other {Failed to send # invitations}}"
 msgstr "{errorCount, plural, one {Failed to send # invitation} other {Failed to send # invitations}}"
 
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} as read} other {Couldn't queue # of {total} as read}}"
+msgstr "{failedCount, plural, one {Couldn't queue # of {total} as read} other {Couldn't queue # of {total} as read}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} as spam} other {Couldn't queue # of {total} as spam}}"
+msgstr "{failedCount, plural, one {Couldn't queue # of {total} as spam} other {Couldn't queue # of {total} as spam}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} as unread} other {Couldn't queue # of {total} as unread}}"
+msgstr "{failedCount, plural, one {Couldn't queue # of {total} as unread} other {Couldn't queue # of {total} as unread}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} for archiving} other {Couldn't queue # of {total} for archiving}}"
+msgstr "{failedCount, plural, one {Couldn't queue # of {total} for archiving} other {Couldn't queue # of {total} for archiving}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} for deletion} other {Couldn't queue # of {total} for deletion}}"
+msgstr "{failedCount, plural, one {Couldn't queue # of {total} for deletion} other {Couldn't queue # of {total} for deletion}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} for labeling} other {Couldn't queue # of {total} for labeling}}"
+msgstr "{failedCount, plural, one {Couldn't queue # of {total} for labeling} other {Couldn't queue # of {total} for labeling}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} for moving to inbox} other {Couldn't queue # of {total} for moving to inbox}}"
+msgstr "{failedCount, plural, one {Couldn't queue # of {total} for moving to inbox} other {Couldn't queue # of {total} for moving to inbox}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} for moving} other {Couldn't queue # of {total} for moving}}"
+msgstr "{failedCount, plural, one {Couldn't queue # of {total} for moving} other {Couldn't queue # of {total} for moving}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't queue # of {total} for snoozing} other {Couldn't queue # of {total} for snoozing}}"
+msgstr "{failedCount, plural, one {Couldn't queue # of {total} for snoozing} other {Couldn't queue # of {total} for snoozing}}"
+
+#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
+msgid "{failedCount, plural, one {Couldn't restore # of {total}} other {Couldn't restore # of {total}}}"
+msgstr "{failedCount, plural, one {Couldn't restore # of {total}} other {Couldn't restore # of {total}}}"
+
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 msgid "{labelSingular} name"
 msgstr "{labelSingular} name"
@@ -178,8 +217,8 @@ msgid "{readPercentage}% read"
 msgstr "{readPercentage}% read"
 
 #: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
-msgid "{selectedCount} selected"
-msgstr "{selectedCount} selected"
+msgid "{selectedCount, plural, one {# selected} other {# selected}}"
+msgstr "{selectedCount, plural, one {# selected} other {# selected}}"
 
 #: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
 msgid "{splitName} already includes {senderCount, plural, one {this sender} other {these senders}}"
@@ -1109,44 +1148,6 @@ msgstr "Couldn't move conversations. Please try again."
 msgid "Couldn't open this conversation"
 msgstr "Couldn't open this conversation"
 
-#. placeholder {0}: threadKeys.length
-#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
-msgid "Couldn't queue {failedCount} of {0} as spam"
-msgstr "Couldn't queue {failedCount} of {0} as spam"
-
-#. placeholder {0}: threadKeys.length
-#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
-msgid "Couldn't queue {failedCount} of {0} for snoozing"
-msgstr "Couldn't queue {failedCount} of {0} for snoozing"
-
-#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
-msgid "Couldn't queue {failedCount} of {total} as read"
-msgstr "Couldn't queue {failedCount} of {total} as read"
-
-#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
-msgid "Couldn't queue {failedCount} of {total} as unread"
-msgstr "Couldn't queue {failedCount} of {total} as unread"
-
-#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
-msgid "Couldn't queue {failedCount} of {total} for archiving"
-msgstr "Couldn't queue {failedCount} of {total} for archiving"
-
-#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
-msgid "Couldn't queue {failedCount} of {total} for deletion"
-msgstr "Couldn't queue {failedCount} of {total} for deletion"
-
-#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
-msgid "Couldn't queue {failedCount} of {total} for labeling"
-msgstr "Couldn't queue {failedCount} of {total} for labeling"
-
-#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
-msgid "Couldn't queue {failedCount} of {total} for moving"
-msgstr "Couldn't queue {failedCount} of {total} for moving"
-
-#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
-msgid "Couldn't queue {failedCount} of {total} for moving to inbox"
-msgstr "Couldn't queue {failedCount} of {total} for moving to inbox"
-
 #: app/(app)/[emailAccountId]/mail/use-optimistic-archive.ts
 #: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
 msgid "Couldn't queue archiving"
@@ -1199,11 +1200,6 @@ msgstr "Couldn't research this sender right now."
 #: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
 msgid "Couldn't restore"
 msgstr "Couldn't restore"
-
-#. placeholder {0}: batch.targets.length
-#: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
-msgid "Couldn't restore {failedCount} of {0}"
-msgstr "Couldn't restore {failedCount} of {0}"
 
 #: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
 #: app/(app)/[emailAccountId]/mail/MailShell.tsx
@@ -3012,8 +3008,8 @@ msgid "Remove optional access below, or disconnect to remove all access. To add 
 msgstr "Remove optional access below, or disconnect to remove all access. To add permissions, reconnect from the application and approve the new access."
 
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
-msgid "Remove unedited drafts created by {BRAND_NAME} that are older than {savedCleanupDays} days."
-msgstr "Remove unedited drafts created by {BRAND_NAME} that are older than {savedCleanupDays} days."
+msgid "Remove unedited drafts created by {BRAND_NAME} that are older than {savedCleanupDays, plural, one {# day} other {# days}}."
+msgstr "Remove unedited drafts created by {BRAND_NAME} that are older than {savedCleanupDays, plural, one {# day} other {# days}}."
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Removes your Inbox Zero data. Your emails aren't affected."
