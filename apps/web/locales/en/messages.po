@@ -53,8 +53,20 @@ msgid "{providerName} disconnected"
 msgstr "{providerName} disconnected"
 
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
-msgid "{transferredCount} rules transferred, {updatedCount} rules updated."
-msgstr "{transferredCount} rules transferred, {updatedCount} rules updated."
+msgid "{transferredCount, plural, one {# rule transferred} other {# rules transferred}}, {updatedCount, plural, one {# rule updated} other {# rules updated}}."
+msgstr "{transferredCount, plural, one {# rule transferred} other {# rules transferred}}, {updatedCount, plural, one {# rule updated} other {# rules updated}}."
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "1 year"
+msgstr "1 year"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "30 days"
+msgstr "30 days"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "90 days"
+msgstr "90 days"
 
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Account"
@@ -128,6 +140,10 @@ msgstr "API key deactivated!"
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "API Keys"
 msgstr "API Keys"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Assistant chat"
+msgstr "Assistant chat"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "at"
@@ -235,6 +251,10 @@ msgstr "Create key"
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Create new secret key"
 msgstr "Create new secret key"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Create, update, and delete automation rules for this inbox."
+msgstr "Create, update, and delete automation rules for this inbox."
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Created"
@@ -539,6 +559,10 @@ msgstr "Link to {0}"
 msgid "Linking..."
 msgstr "Linking..."
 
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "List and inspect automation rules for this inbox."
+msgstr "List and inspect automation rules for this inbox."
+
 #: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
 msgid "Manage Secret"
 msgstr "Manage Secret"
@@ -611,6 +635,10 @@ msgstr "No active plan"
 msgid "No API keys yet."
 msgstr "No API keys yet."
 
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "No expiry"
+msgstr "No expiry"
+
 #. placeholder {0}: selectedSource?.email
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "No rules found in {0}"
@@ -674,9 +702,29 @@ msgstr "Preview"
 msgid "Provider"
 msgstr "Provider"
 
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Read aggregated inbox statistics for this inbox."
+msgstr "Read aggregated inbox statistics for this inbox."
+
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Read and search mail"
 msgstr "Read and search mail"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Read inbox settings for this inbox."
+msgstr "Read inbox settings for this inbox."
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Read rules"
+msgstr "Read rules"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Read settings"
+msgstr "Read settings"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Read stats"
+msgstr "Read stats"
 
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "Read status"
@@ -872,6 +920,10 @@ msgstr "Slack session validation failed. Please try connecting again."
 msgid "Specialized decision model"
 msgstr "Specialized decision model"
 
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Start assistant chat sessions for this inbox."
+msgstr "Start assistant chat sessions for this inbox."
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Sunday"
 msgstr "Sunday"
@@ -949,6 +1001,18 @@ msgstr "Tuesday"
 msgid "Unknown error"
 msgstr "Unknown error"
 
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Unsubscribe from senders for this inbox."
+msgstr "Unsubscribe from senders for this inbox."
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Unsubscribe senders"
+msgstr "Unsubscribe senders"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Update inbox settings for this inbox."
+msgstr "Update inbox settings for this inbox."
+
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Upgrade"
 msgstr "Upgrade"
@@ -1004,6 +1068,14 @@ msgstr "Week"
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "What to include in the digest email"
 msgstr "What to include in the digest email"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Write rules"
+msgstr "Write rules"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Write settings"
+msgstr "Write settings"
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "You can manage your subscription by clicking \"Manage Subscription\" above or going to the <0>premium page</0> and clicking \"Manage subscription\"."

@@ -88,7 +88,13 @@ export function CopyRulesDialog({
       const transferredCount = copiedCount || 0;
       const updatedCount = replacedCount || 0;
       toast.success(t`Rules transferred successfully`, {
-        description: t`${transferredCount} rules transferred, ${updatedCount} rules updated.`,
+        description: t`${plural(transferredCount, {
+          one: "# rule transferred",
+          other: "# rules transferred",
+        })}, ${plural(updatedCount, {
+          one: "# rule updated",
+          other: "# rules updated",
+        })}.`,
         action: {
           label: t`View rules`,
           onClick: () => {

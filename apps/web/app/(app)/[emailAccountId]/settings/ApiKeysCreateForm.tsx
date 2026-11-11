@@ -34,6 +34,10 @@ import {
   DEFAULT_API_KEY_SCOPES,
 } from "@/utils/api-key-scopes";
 import {
+  API_KEY_EXPIRY_MESSAGES,
+  API_KEY_SCOPE_MESSAGES,
+} from "./api-key-messages";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -71,7 +75,7 @@ export function ApiKeysCreateButtonModal({ mutate }: { mutate: () => void }) {
 }
 
 function ApiKeysForm({ mutate }: { mutate: () => void }) {
-  const { t } = useLingui();
+  const { i18n, t } = useLingui();
   const [secretKey, setSecretKey] = useState("");
   const [selectedScopes, setSelectedScopes] = useState<
     CreateApiKeyBody["scopes"]
@@ -189,8 +193,12 @@ function ApiKeysForm({ mutate }: { mutate: () => void }) {
                 aria-labelledby={`${scope.value}-label`}
               />
               <div className="space-y-1" id={`${scope.value}-label`}>
-                <div className="font-medium">{scope.label}</div>
-                <p className="text-muted-foreground">{scope.description}</p>
+                <div className="font-medium">
+                  {i18n._(API_KEY_SCOPE_MESSAGES[scope.value].label)}
+                </div>
+                <p className="text-muted-foreground">
+                  {i18n._(API_KEY_SCOPE_MESSAGES[scope.value].description)}
+                </p>
               </div>
             </div>
           ))}
@@ -216,7 +224,7 @@ function ApiKeysForm({ mutate }: { mutate: () => void }) {
           <SelectContent>
             {API_KEY_EXPIRY_OPTIONS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                {option.label}
+                {i18n._(API_KEY_EXPIRY_MESSAGES[option.value])}
               </SelectItem>
             ))}
           </SelectContent>

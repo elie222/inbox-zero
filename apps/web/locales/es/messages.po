@@ -53,8 +53,20 @@ msgid "{providerName} disconnected"
 msgstr "{providerName} desconectado"
 
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
-msgid "{transferredCount} rules transferred, {updatedCount} rules updated."
-msgstr "{transferredCount} reglas transferidas, {updatedCount} reglas actualizadas."
+msgid "{transferredCount, plural, one {# rule transferred} other {# rules transferred}}, {updatedCount, plural, one {# rule updated} other {# rules updated}}."
+msgstr "{transferredCount, plural, one {Se transfirió # regla} other {Se transfirieron # reglas}}, {updatedCount, plural, one {se actualizó # regla} other {se actualizaron # reglas}}."
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "1 year"
+msgstr "1 año"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "30 days"
+msgstr "30 días"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "90 days"
+msgstr "90 días"
 
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Account"
@@ -129,6 +141,10 @@ msgstr "¡Clave de API desactivada!"
 msgid "API Keys"
 msgstr "Claves de API"
 
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Assistant chat"
+msgstr "Chat del asistente"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "at"
 msgstr "a las"
@@ -170,7 +186,7 @@ msgstr "Envío por chat: <0>Configurar en Canales</0>."
 #. placeholder {0}: res.data.deleted
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "Cleaned up {0, plural, one {# draft} other {# drafts}}."
-msgstr "Se limpiaron {0, plural, one {# borrador} other {# borradores}}."
+msgstr "{0, plural, one {Se limpió # borrador} other {Se limpiaron # borradores}}."
 
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Click Save to view available models for your API key."
@@ -235,6 +251,10 @@ msgstr "Crear clave"
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Create new secret key"
 msgstr "Crear nueva clave secreta"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Create, update, and delete automation rules for this inbox."
+msgstr "Crea, actualiza y elimina reglas de automatización de esta bandeja de entrada."
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
 msgid "Created"
@@ -511,7 +531,7 @@ msgstr "Idioma"
 #. placeholder {0}: formatDigestDeliveryTime( new Date(delivery.lastDelivery.occurredAt), delivery.timezone, )
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Last delivery failed {0}"
-msgstr "El último envío falló {0}"
+msgstr "Falló el último envío: {0}"
 
 #. placeholder {0}: formatDigestDeliveryTime( new Date(delivery.lastDelivery.occurredAt), delivery.timezone, )
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
@@ -538,6 +558,10 @@ msgstr "Vincular a {0}"
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Linking..."
 msgstr "Vinculando..."
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "List and inspect automation rules for this inbox."
+msgstr "Lista y consulta las reglas de automatización de esta bandeja de entrada."
 
 #: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
 msgid "Manage Secret"
@@ -611,6 +635,10 @@ msgstr "Sin plan activo"
 msgid "No API keys yet."
 msgstr "Aún no hay claves de API."
 
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "No expiry"
+msgstr "Sin caducidad"
+
 #. placeholder {0}: selectedSource?.email
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "No rules found in {0}"
@@ -674,9 +702,29 @@ msgstr "Vista previa"
 msgid "Provider"
 msgstr "Proveedor"
 
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Read aggregated inbox statistics for this inbox."
+msgstr "Lee las estadísticas agregadas de esta bandeja de entrada."
+
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Read and search mail"
 msgstr "Leer y buscar correos"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Read inbox settings for this inbox."
+msgstr "Lee la configuración de esta bandeja de entrada."
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Read rules"
+msgstr "Leer reglas"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Read settings"
+msgstr "Leer configuración"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Read stats"
+msgstr "Leer estadísticas"
 
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "Read status"
@@ -715,7 +763,7 @@ msgstr "Restablecer"
 #. placeholder {1}: data.failed
 #: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
 msgid "Reset {0, plural, one {# label} other {# labels}}, but {1, plural, one {# label} other {# labels}} couldn't be updated. Please try again."
-msgstr "Se restablecieron {0, plural, one {# etiqueta} other {# etiquetas}}, pero no se pudieron actualizar {1, plural, one {# etiqueta} other {# etiquetas}}. Inténtalo de nuevo."
+msgstr "{0, plural, one {Se restableció # etiqueta} other {Se restablecieron # etiquetas}}, pero {1, plural, one {no se pudo actualizar # etiqueta} other {no se pudieron actualizar # etiquetas}}. Inténtalo de nuevo."
 
 #: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
 msgid "Reset Analytics"
@@ -872,6 +920,10 @@ msgstr "Falló la validación de la sesión de Slack. Intenta conectarte de nuev
 msgid "Specialized decision model"
 msgstr "Modelo de decisión especializado"
 
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Start assistant chat sessions for this inbox."
+msgstr "Inicia sesiones de chat con el asistente para esta bandeja de entrada."
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Sunday"
 msgstr "Domingo"
@@ -949,6 +1001,18 @@ msgstr "Martes"
 msgid "Unknown error"
 msgstr "Error desconocido"
 
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Unsubscribe from senders for this inbox."
+msgstr "Cancela la suscripción a remitentes de esta bandeja de entrada."
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Unsubscribe senders"
+msgstr "Cancelar suscripciones"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Update inbox settings for this inbox."
+msgstr "Actualiza la configuración de esta bandeja de entrada."
+
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Upgrade"
 msgstr "Mejorar plan"
@@ -1004,6 +1068,14 @@ msgstr "Semana"
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "What to include in the digest email"
 msgstr "Qué incluir en el correo de resumen"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Write rules"
+msgstr "Editar reglas"
+
+#: app/(app)/[emailAccountId]/settings/api-key-messages.ts
+msgid "Write settings"
+msgstr "Editar configuración"
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "You can manage your subscription by clicking \"Manage Subscription\" above or going to the <0>premium page</0> and clicking \"Manage subscription\"."

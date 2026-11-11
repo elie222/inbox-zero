@@ -29,11 +29,11 @@ import {
 } from "@/components/ui/dialog";
 import { useApiKeys } from "@/hooks/useApiKeys";
 import { LoadingContent } from "@/components/LoadingContent";
-import { formatApiKeyScope } from "@/utils/api-key-scopes";
+import { API_KEY_SCOPE_MESSAGES } from "./api-key-messages";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function ApiKeysSection() {
-  const { t } = useLingui();
+  const { i18n, t } = useLingui();
   const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } = useApiKeys();
   const keyCount = data?.apiKeys.length ?? 0;
@@ -92,7 +92,13 @@ export function ApiKeysSection() {
                       <TableRow key={apiKey.id}>
                         <TableCell>{apiKey.name}</TableCell>
                         <TableCell>
-                          {apiKey.scopes.map(formatApiKeyScope).join(", ")}
+                          {apiKey.scopes
+                            .map((scope) => {
+                              const label =
+                                API_KEY_SCOPE_MESSAGES[scope]?.label;
+                              return label ? i18n._(label) : scope;
+                            })
+                            .join(", ")}
                         </TableCell>
                         <TableCell>
                           {new Date(apiKey.createdAt).toLocaleString()}
