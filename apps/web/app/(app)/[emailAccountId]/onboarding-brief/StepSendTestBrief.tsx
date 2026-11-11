@@ -1,5 +1,7 @@
 "use client";
 
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useState } from "react";
 import { format } from "date-fns";
@@ -18,7 +20,7 @@ import { extractDomainFromEmail } from "@/utils/email";
 import { sleep } from "@/utils/sleep";
 
 export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const { emailAccountId } = useAccount();
   const { data, isLoading, error } = useCalendarUpcomingEvents();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -29,7 +31,11 @@ export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
     {
       onSuccess: async ({ data: result }) => {
         toastSuccess({
-          description: result.message || t`Test brief sent! Check your inbox.`,
+          description: result.success
+            ? t`Test brief sent! Check your inbox.`
+            : i18n._(
+                BRIEF_SKIPPED_MESSAGES[result.message] ?? msg`Brief not sent`,
+              ),
         });
         setBriefSent(true);
         await sleep(1000);
@@ -189,3 +195,9 @@ export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
     </>
   );
 }
+
+// The server reports why a brief was skipped in English.
+const BRIEF_SKIPPED_MESSAGES: Record<string, MessageDescriptor> = {
+  "Already being processed": msg`This brief is already being prepared`,
+  "No external guests found": msg`This meeting has no external guests`,
+};

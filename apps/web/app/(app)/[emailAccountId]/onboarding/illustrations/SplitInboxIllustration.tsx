@@ -1,6 +1,5 @@
 "use client";
 
-import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useEffect, useState } from "react";
@@ -16,13 +15,6 @@ const ALL_SPLIT_ID = "All";
 const splitNames = ["To Reply", "Newsletter", "Calendar", "Receipt"];
 // The tabs the illustration steps through to show a split narrowing the list.
 const cycle = [ALL_SPLIT_ID, "To Reply", "Newsletter"];
-const splitLabels: Record<string, MessageDescriptor> = {
-  [ALL_SPLIT_ID]: msg`All`,
-  "To Reply": msg`To Reply`,
-  Newsletter: msg`Newsletter`,
-  Calendar: msg`Calendar`,
-  Receipt: msg`Receipt`,
-};
 
 const threads = [
   {
@@ -115,7 +107,8 @@ export function SplitInboxIllustration() {
       : threads.filter((thread) => thread.label === activeSplitId);
   const splits = [ALL_SPLIT_ID, ...splitNames].map((id) => ({
     id,
-    name: i18n._(splitLabels[id]),
+    // Split names are real label names, so only "All" is translated.
+    name: id === ALL_SPLIT_ID ? i18n._(msg`All`) : id,
     deletable: false,
   }));
 
@@ -172,10 +165,7 @@ export function SplitInboxIllustration() {
                     </span>
                   }
                   labels={[
-                    <MailLabelChip
-                      key={thread.label}
-                      name={i18n._(splitLabels[thread.label])}
-                    />,
+                    <MailLabelChip key={thread.label} name={thread.label} />,
                   ]}
                   isUnread={thread.unread}
                   isStarred={false}

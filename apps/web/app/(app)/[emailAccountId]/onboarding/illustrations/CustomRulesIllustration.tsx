@@ -14,28 +14,28 @@ const rules = [
   {
     instruction: msg`Forward receipts and invoices to my accountant`,
     actions: [
-      { type: ActionType.LABEL, text: msg`Receipt` },
+      { type: ActionType.LABEL, text: "Receipt" },
       { type: ActionType.FORWARD, text: "accountant@example.com" },
     ],
   },
   {
     instruction: msg`Label newsletters and archive them after a week`,
     actions: [
-      { type: ActionType.LABEL, text: msg`Newsletter` },
+      { type: ActionType.LABEL, text: "Newsletter" },
       { type: ActionType.ARCHIVE, text: msg`Archive after 7 days` },
     ],
   },
   {
     instruction: msg`Draft replies to customer questions using our help docs`,
     actions: [
-      { type: ActionType.LABEL, text: msg`Support` },
+      { type: ActionType.LABEL, text: "Support" },
       { type: ActionType.DRAFT_EMAIL, text: msg`Draft reply` },
     ],
   },
   {
     instruction: msg`Let me know in Slack when an investor emails`,
     actions: [
-      { type: ActionType.LABEL, text: msg`Investors` },
+      { type: ActionType.LABEL, text: "Investors" },
       { type: ActionType.NOTIFY_MESSAGING_CHANNEL, text: msg`Notify in Slack` },
     ],
   },

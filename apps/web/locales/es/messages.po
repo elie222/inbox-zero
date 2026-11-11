@@ -341,6 +341,10 @@ msgid "Both"
 msgstr "Ambos"
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "Brief not sent"
+msgstr "No se envió el informe"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Brief sent! Check your inbox"
 msgstr "¡Informe enviado! Revisa tu bandeja de entrada"
 
@@ -351,10 +355,6 @@ msgstr "Informes para cada reunión externa"
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
 msgid "Bulk unsubscribe and archive"
 msgstr "Cancela suscripciones y archiva en bloque"
-
-#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
-msgid "Calendar"
-msgstr "Calendar"
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepConnectCalendar.tsx
 msgid "Calendar Connected!"
@@ -930,10 +930,6 @@ msgstr "Clave de API no válida"
 msgid "Investor"
 msgstr "Inversor"
 
-#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
-msgid "Investors"
-msgstr "Inversores"
-
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Invitation: Design sync"
 msgstr "Invitación: Reunión de diseño"
@@ -1118,8 +1114,6 @@ msgid "Never"
 msgstr "Nunca"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
-#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
-#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Newsletter"
 msgstr "Newsletter"
 
@@ -1311,11 +1305,6 @@ msgstr "¿Listo para llegar preparado a cada reunión?"
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Realtor"
 msgstr "Agente inmobiliario"
-
-#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
-#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
-msgid "Receipt"
-msgstr "Receipt"
 
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Recently organized emails"
@@ -1617,10 +1606,6 @@ msgstr "SUGERIDAS PARA TI"
 msgid "Sunday"
 msgstr "Domingo"
 
-#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
-msgid "Support"
-msgstr "Soporte"
-
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Team"
 msgstr "Equipo"
@@ -1646,6 +1631,10 @@ msgstr "Los borradores aparecerán en tu bandeja de entrada, escritos con tu est
 msgid "There was an error: {0}"
 msgstr "Se produjo un error: {0}"
 
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "This brief is already being prepared"
+msgstr "Este informe ya se está preparando"
+
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "This helps us set up your inbox the way you actually need it."
 msgstr "Esto nos ayuda a configurar tu bandeja de entrada como realmente la necesitas."
@@ -1657,6 +1646,10 @@ msgstr "Esto nos ayuda a adaptar la experiencia a las necesidades de tu organiza
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "This key will only work for the selected inbox account."
 msgstr "Esta clave solo funcionará con la cuenta de correo seleccionada."
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "This meeting has no external guests"
+msgstr "Esta reunión no tiene invitados externos"
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "This permanently deletes your Inbox Zero data and disconnects {connectedEmailList}. Your emails aren't affected."
@@ -1691,7 +1684,6 @@ msgid "Thursday 2:00 PM to 2:30 PM. Join with video link"
 msgstr "Jueves de 14:00 a 14:30. Únete con el enlace de videollamada"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
-#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "To Reply"
 msgstr "To Reply"
 
@@ -1735,7 +1727,7 @@ msgstr "Error desconocido"
 #. placeholder {0}: selectedSenders.length
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
 msgid "Unsubscribe from {0}"
-msgstr "Cancelar suscripción a {0}"
+msgstr "Cancelar suscripciones ({0})"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Unsubscribe from senders for this inbox."

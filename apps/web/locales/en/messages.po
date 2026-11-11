@@ -341,6 +341,10 @@ msgid "Both"
 msgstr "Both"
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "Brief not sent"
+msgstr "Brief not sent"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Brief sent! Check your inbox"
 msgstr "Brief sent! Check your inbox"
 
@@ -351,10 +355,6 @@ msgstr "Briefs for every external meeting"
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
 msgid "Bulk unsubscribe and archive"
 msgstr "Bulk unsubscribe and archive"
-
-#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
-msgid "Calendar"
-msgstr "Calendar"
 
 #: app/(app)/[emailAccountId]/onboarding-brief/StepConnectCalendar.tsx
 msgid "Calendar Connected!"
@@ -930,10 +930,6 @@ msgstr "Invalid API Key"
 msgid "Investor"
 msgstr "Investor"
 
-#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
-msgid "Investors"
-msgstr "Investors"
-
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Invitation: Design sync"
 msgstr "Invitation: Design sync"
@@ -1118,8 +1114,6 @@ msgid "Never"
 msgstr "Never"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
-#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
-#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Newsletter"
 msgstr "Newsletter"
 
@@ -1311,11 +1305,6 @@ msgstr "Ready to walk into every meeting prepared?"
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Realtor"
 msgstr "Realtor"
-
-#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
-#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
-msgid "Receipt"
-msgstr "Receipt"
 
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Recently organized emails"
@@ -1617,10 +1606,6 @@ msgstr "SUGGESTED FOR YOU"
 msgid "Sunday"
 msgstr "Sunday"
 
-#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
-msgid "Support"
-msgstr "Support"
-
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Team"
 msgstr "Team"
@@ -1646,6 +1631,10 @@ msgstr "The drafts will appear in your inbox, written in your tone.<0/>Our AI le
 msgid "There was an error: {0}"
 msgstr "There was an error: {0}"
 
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "This brief is already being prepared"
+msgstr "This brief is already being prepared"
+
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "This helps us set up your inbox the way you actually need it."
 msgstr "This helps us set up your inbox the way you actually need it."
@@ -1657,6 +1646,10 @@ msgstr "This helps us tailor the experience to your organization's needs."
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "This key will only work for the selected inbox account."
 msgstr "This key will only work for the selected inbox account."
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "This meeting has no external guests"
+msgstr "This meeting has no external guests"
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "This permanently deletes your Inbox Zero data and disconnects {connectedEmailList}. Your emails aren't affected."
@@ -1691,7 +1684,6 @@ msgid "Thursday 2:00 PM to 2:30 PM. Join with video link"
 msgstr "Thursday 2:00 PM to 2:30 PM. Join with video link"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
-#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "To Reply"
 msgstr "To Reply"
 
