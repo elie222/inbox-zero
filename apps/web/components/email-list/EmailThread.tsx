@@ -436,6 +436,7 @@ export function EmailThread({
         <ul className="relative flex flex-col gap-2 pt-1">
           {enableMessageNavigation && (
             <SelectionBar
+              animateSelection={selectedMessageId === selectedId}
               selectedId={selectedId}
               selectedConcealed={organizedMessages.some(
                 ({ message, outgoing }) =>
@@ -705,12 +706,14 @@ function draftRecency(draft: ThreadMessage) {
 }
 
 // One bar for the whole thread so it can slide between messages. It only
-// animates when the selection moves; layout changes (expanding, bodies
-// loading) reposition it instantly so it never trails the card.
+// animates for deliberate selection changes; automatic selection and layout
+// changes reposition it instantly so it never trails the card.
 function SelectionBar({
+  animateSelection,
   selectedId,
   selectedConcealed,
 }: {
+  animateSelection: boolean;
   selectedId?: string;
   selectedConcealed: boolean;
 }) {
@@ -735,21 +738,32 @@ function SelectionBar({
       // A sent reply stays hidden until its body loads. It takes its
       // composer's place, so the list may not resize when it is revealed.
       if (!item || selectedConcealed) return setPosition(undefined);
-      setPosition({ top: item.offsetTop, height: item.offsetHeight, animate });
+      const top = item.offsetTop;
+      const height = item.offsetHeight;
+      setPosition((previous) =>
+        previous?.top === top && previous.height === height
+          ? previous
+          : { top, height, animate },
+      );
     };
     measure(
-      previousId.current !== undefined && previousId.current !== selectedId,
+      animateSelection &&
+        previousId.current !== undefined &&
+        previousId.current !== selectedId,
     );
     previousId.current = selectedId;
-    // The observer reports once on start; skipping it keeps the slide running.
-    let started = false;
-    const observer = new ResizeObserver(() => {
-      if (started) measure(false);
-      started = true;
-    });
+    // The composer can close after the initial measurement. Even the first
+    // observer delivery must correct that layout before the browser paints.
+    // Unchanged measurements keep the selection's slide animation running.
+    const observer = new ResizeObserver(() => measure(false));
     observer.observe(list);
+    for (const item of list.querySelectorAll<HTMLElement>(
+      ":scope > [data-thread-message-id]",
+    )) {
+      observer.observe(item);
+    }
     return () => observer.disconnect();
-  }, [selectedId, selectedConcealed]);
+  });
 
   return (
     <li

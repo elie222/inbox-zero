@@ -113,6 +113,7 @@ export function CopyRulesDialog({
     },
   });
 
+  const ruleCount = rules?.length ?? 0;
   const selectedSource = sourceAccounts.find((a) => a.id === selectedSourceId);
 
   const allSelected = useMemo(() => {
@@ -260,9 +261,10 @@ export function CopyRulesDialog({
                     </TableBody>
                   </Table>
                   <div className="border-t bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-                    <Trans>
-                      {selectedRuleIds.size} of {rules.length} selected
-                    </Trans>
+                    {t`${plural(selectedRuleIds.size, {
+                      one: `# of ${ruleCount} selected`,
+                      other: `# of ${ruleCount} selected`,
+                    })}`}
                   </div>
                 </div>
               ) : (

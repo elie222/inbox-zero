@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { CheckIcon, LayersIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { isBundleEligibleSplit } from "@/app/(app)/[emailAccountId]/mail/inbox-bundles";
@@ -32,12 +35,12 @@ import {
 
 type Step = "layout" | "tabs" | "all" | "default" | "bundles";
 
-const STEP_QUESTIONS: Record<Step, string> = {
-  layout: "How do you want to read email?",
-  tabs: "Which tabs do you want?",
-  all: "What should All show?",
-  default: "Which tab should open first?",
-  bundles: "Bundle low-priority email?",
+const STEP_QUESTIONS: Record<Step, MessageDescriptor> = {
+  layout: msg`How do you want to read email?`,
+  tabs: msg`Which tabs do you want?`,
+  all: msg`What should All show?`,
+  default: msg`Which tab should open first?`,
+  bundles: msg`Bundle low-priority email?`,
 };
 
 /**
@@ -68,6 +71,7 @@ export function MailSetupPanel({
   canHideFromAll: boolean;
   supportsStarred: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId } = useAccount();
   const { data: rules } = useRules();
   const { data: settings, mutate: mutateSettings } = useMailSettings();
@@ -149,7 +153,7 @@ export function MailSetupPanel({
       if (result?.serverError || result?.validationErrors)
         toast.error(getActionErrorMessage(result));
     } catch {
-      toast.error("Couldn't save that");
+      toast.error(t`Couldn't save that`);
     } finally {
       // Also drops an optimistic switch state the server never saved. The
       // lock holds until then so the next click reads fresh settings.
@@ -192,7 +196,7 @@ export function MailSetupPanel({
 
   return (
     <section
-      aria-label="Mail setup"
+      aria-label={t`Mail setup`}
       className="fixed right-4 bottom-4 left-4 z-40 flex max-h-[min(32rem,calc(100vh-2rem))] flex-col overflow-hidden rounded-xl border border-blue-200 bg-popover dark:border-blue-900 text-popover-foreground text-sm shadow-xl sm:left-auto sm:w-96"
     >
       <div className="h-1 bg-blue-100 dark:bg-blue-950" aria-hidden>
@@ -204,18 +208,22 @@ export function MailSetupPanel({
       <header className="bg-gradient-to-b from-blue-50 to-transparent px-4 pt-3 pb-2 dark:from-blue-950/40">
         <div className="flex items-center justify-between">
           <span className="font-medium text-blue-600 dark:text-blue-400">
-            Step {stepIndex + 1} of {steps.length}
+            <Trans>
+              Step {stepIndex + 1} of {steps.length}
+            </Trans>
           </span>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close mail setup"
+            aria-label={t`Close mail setup`}
             className="-mr-1.5 flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <XIcon className="size-4" />
           </button>
         </div>
-        <h2 className="mt-1 font-medium text-base">{STEP_QUESTIONS[step]}</h2>
+        <h2 className="mt-1 font-medium text-base">
+          {i18n._(STEP_QUESTIONS[step])}
+        </h2>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
@@ -240,7 +248,7 @@ export function MailSetupPanel({
                 )}
               >
                 <LayoutSketch mode={mode} />
-                {mode === "list" ? "List" : "Split"}
+                {mode === "list" ? <Trans>List</Trans> : <Trans>Split</Trans>}
               </button>
             ))}
           </div>
@@ -271,12 +279,16 @@ export function MailSetupPanel({
               />
             ))
           ) : (
-            <p className="px-2 py-1.5 text-muted-foreground">No tabs yet</p>
+            <p className="px-2 py-1.5 text-muted-foreground">
+              <Trans>No tabs yet</Trans>
+            </p>
           ))}
 
         {step === "default" && (
           <fieldset>
-            <legend className="sr-only">Default tab</legend>
+            <legend className="sr-only">
+              <Trans>Default tab</Trans>
+            </legend>
             {splits.map((split) => (
               <label
                 key={split.id}
@@ -308,7 +320,7 @@ export function MailSetupPanel({
           <>
             <BundleSketch bundled={bundleInbox} />
             <SwitchRow
-              label="Bundle my inbox"
+              label={t`Bundle my inbox`}
               checked={bundleInbox}
               disabled={isBundlePending}
               onCheckedChange={async () => {
@@ -342,7 +354,7 @@ export function MailSetupPanel({
       <footer className="flex justify-end gap-2 border-t px-4 py-3">
         {stepIndex > 0 && (
           <Button size="sm" variant="ghost" onClick={() => goTo(stepIndex - 1)}>
-            Back
+            <Trans>Back</Trans>
           </Button>
         )}
         <Button
@@ -350,7 +362,7 @@ export function MailSetupPanel({
           variant="gradient"
           onClick={() => (isLastStep ? onClose() : goTo(stepIndex + 1))}
         >
-          {isLastStep ? "Done" : "Next"}
+          {isLastStep ? <Trans>Done</Trans> : <Trans>Next</Trans>}
         </Button>
       </footer>
     </section>

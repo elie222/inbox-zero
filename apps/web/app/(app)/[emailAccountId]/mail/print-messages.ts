@@ -1,3 +1,5 @@
+import type { I18n } from "@lingui/core";
+import { t } from "@lingui/core/macro";
 import {
   IMAGE_PROXY_ORIGIN,
   prepareEmailImages,
@@ -21,7 +23,9 @@ let printFrame: HTMLIFrameElement | null = null;
 export async function printMessages({
   subject,
   messages,
+  i18n,
 }: {
+  i18n: I18n;
   subject: string;
   messages: PrintableMessage[];
 }) {
@@ -61,6 +65,7 @@ export async function printMessages({
     { once: true },
   );
   frame.srcdoc = buildPrintDocument({
+    i18n,
     subject,
     messages: messages.map((message, index) => ({
       ...message,
@@ -79,7 +84,9 @@ export function buildPrintDocument({
   subject,
   messages,
   allowRemoteImages = true,
+  i18n,
 }: {
+  i18n: I18n;
   subject: string;
   messages: (PrintableMessage & { html: string | null })[];
   allowRemoteImages?: boolean;
@@ -96,9 +103,9 @@ export function buildPrintDocument({
     return `<section class="message">
   <div class="meta">
     <div class="row"><strong>${escapeHtml(from)}</strong><span>${escapeHtml(formatPrintDate(date))}</span></div>
-    ${to ? `<div>To: ${escapeHtml(to)}</div>` : ""}
-    ${cc ? `<div>Cc: ${escapeHtml(cc)}</div>` : ""}
-    ${attachments.length ? `<div>Attachments: ${attachments.map(escapeHtml).join(", ")}</div>` : ""}
+    ${to ? `<div>${t(i18n)`To: ${escapeHtml(to)}`}</div>` : ""}
+    ${cc ? `<div>${t(i18n)`Cc: ${escapeHtml(cc)}`}</div>` : ""}
+    ${attachments.length ? `<div>${t(i18n)`Attachments: ${attachments.map(escapeHtml).join(", ")}`}</div>` : ""}
   </div>
   <div class="body">${body}</div>
 </section>`;
