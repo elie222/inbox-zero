@@ -257,6 +257,122 @@ describe("createEmailProviderMailboxSource", () => {
     });
   });
 
+  it.each([
+    "upserts",
+    "deletions",
+    "mixed",
+  ] as const)("rebuilds an oversized %s delta instead of advancing past unapplied changes", async (kind) => {
+    const count = kind === "mixed" ? 501 : 1001;
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async getMailboxSyncPage() {
+          return {
+            reset: false,
+            cursor: "next-history",
+            upsertedMessages:
+              kind === "deletions"
+                ? []
+                : Array.from({ length: count }, (_, i) =>
+                    searchMessage(`updated-${i}`),
+                  ),
+            deletedMessageIds:
+              kind === "upserts"
+                ? []
+                : Array.from({ length: count }, (_, i) => `deleted-${i}`),
+            hasMore: false,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    await expect(
+      source.readChanges({
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "r1",
+        position: {
+          streamId: "primary",
+          generation: "g1",
+          checkpoint: "history",
+        },
+        pageSize: 50,
+        signal: new AbortController().signal,
+      }),
+    ).resolves.toEqual({ status: "reset_required", scopeId: "primary" });
+  });
+
+  it("finishes a snapshot rebuild and resumes catch-up within the page bound", async () => {
+    const freshCursor = encodeMailboxSyncCursor({
+      version: 1,
+      provider: "google",
+      phase: "delta",
+      historyId: "2000",
+      after: "1970-01-01T00:00:00.000Z",
+    });
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async getMailboxSyncPage({ cursor }: { cursor?: string }) {
+          return {
+            reset: false,
+            cursor: freshCursor,
+            upsertedMessages: [],
+            deletedMessageIds: Array.from(
+              { length: cursor === "old-history" ? 1001 : 1000 },
+              (_, i) => `deleted-${i}`,
+            ),
+            hasMore: false,
+          };
+        },
+        async getMessagesWithPagination() {
+          return { messages: [searchMessage("surviving-message")] };
+        },
+      } as unknown as EmailProvider,
+    });
+    const input = {
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "r1",
+      signal: new AbortController().signal,
+      pageSize: 50,
+    };
+    await expect(
+      source.readChanges({
+        ...input,
+        position: {
+          streamId: "primary",
+          generation: "g1",
+          checkpoint: "old-history",
+        },
+      }),
+    ).resolves.toEqual({ status: "reset_required", scopeId: "primary" });
+    const bootstrap = await source.beginBootstrap({
+      ...input,
+      scope: { id: "primary", kind: "account", folderId: null },
+      afterMs: null,
+    });
+    if (bootstrap.status !== "ok") throw new Error("expected bootstrap");
+    const snapshot = await source.enumerate({
+      ...input,
+      bootstrapId: bootstrap.value.bootstrapId,
+      page: bootstrap.value.enumerationToken,
+    });
+    if (snapshot.status !== "ok") throw new Error("expected snapshot");
+    expect(snapshot.value.nextPage).toBeNull();
+    expect(snapshot.value.changes).toMatchObject([
+      { key: { messageId: "surviving-message" } },
+    ]);
+    expect(snapshot.value.catchUpFrom?.checkpoint).toBe(freshCursor);
+    const result = await source.readChanges({
+      ...input,
+      position: snapshot.value.catchUpFrom!,
+    });
+    if (result.status !== "page") throw new Error("expected catch-up page");
+    expect(result.page.changes).toHaveLength(1000);
+    expect(syncPageSchema.safeParse(result.page).success).toBe(true);
+    expect(result.page.roundComplete).toBe(true);
+  });
+
   it("pauses catch-up when the provider is throttled", async () => {
     const source = createEmailProviderMailboxSource({
       accountId: "acc-1",

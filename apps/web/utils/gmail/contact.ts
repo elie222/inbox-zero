@@ -182,6 +182,15 @@ function isContactSourceDenied(error: unknown) {
 }
 
 async function searchSavedContacts(client: people_v1.People, query: string) {
+  // Google requires an empty-query warmup before searching its contact cache.
+  if (query) {
+    await client.people.searchContacts({
+      query: "",
+      readMask: CONTACT_READ_MASK,
+      pageSize: MAX_CONTACT_RESULTS,
+    });
+  }
+
   const res = await client.people.searchContacts({
     query,
     readMask: CONTACT_READ_MASK,
@@ -192,6 +201,14 @@ async function searchSavedContacts(client: people_v1.People, query: string) {
 }
 
 async function searchOtherContacts(client: people_v1.People, query: string) {
+  if (query) {
+    await client.otherContacts.search({
+      query: "",
+      readMask: CONTACT_READ_MASK,
+      pageSize: MAX_CONTACT_RESULTS,
+    });
+  }
+
   const res = await client.otherContacts.search({
     query,
     readMask: CONTACT_READ_MASK,

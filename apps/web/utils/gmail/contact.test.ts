@@ -65,6 +65,55 @@ describe("searchContacts", () => {
     ]);
   });
 
+  it("warms each contact source before searching and discards warmup results", async () => {
+    const createSearch = (emailAddress: string) => {
+      let warmed = false;
+      return vi.fn().mockImplementation(async ({ query }) => {
+        if (query === "") {
+          warmed = true;
+          return {
+            data: {
+              results: [
+                {
+                  person: { emailAddresses: [{ value: "warmup@example.com" }] },
+                },
+              ],
+            },
+          };
+        }
+        if (!warmed) throw new Error("Request failed due to cold cache data");
+        return {
+          data: {
+            results: [
+              { person: { emailAddresses: [{ value: emailAddress }] } },
+            ],
+          },
+        };
+      });
+    };
+    const saved = createSearch("saved@example.com");
+    const other = createSearch("other@example.com");
+    const { client } = createPeopleClient({
+      searchContactsMock: saved,
+      searchOtherContactsMock: other,
+    });
+
+    const result = await searchContacts(client, "contact", createTestLogger());
+
+    expect(result.map((contact) => contact.emailAddress)).toEqual([
+      "saved@example.com",
+      "other@example.com",
+    ]);
+    expect(saved.mock.calls.map(([params]) => params.query)).toEqual([
+      "",
+      "contact",
+    ]);
+    expect(other.mock.calls.map(([params]) => params.query)).toEqual([
+      "",
+      "contact",
+    ]);
+  });
+
   it("returns no suggestions without calling Google for queries longer than it accepts", async () => {
     const { client, searchContactsMock, searchOtherContactsMock } =
       createPeopleClient({});

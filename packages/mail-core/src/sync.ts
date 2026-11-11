@@ -61,13 +61,15 @@ export const bodyObservationSchema = z.object({
 });
 export type BodyObservation = z.infer<typeof bodyObservationSchema>;
 
+export const MAX_SYNC_PAGE_CHANGES = 1000;
+
 export const syncPageSchema = z.object({
   session: accountSessionSchema,
   requestId: z.string().min(1).max(128),
   from: syncPositionSchema,
   to: syncPositionSchema,
-  changes: z.array(providerChangeSchema).max(1000),
-  requiredHydration: z.array(messageKeySchema).max(1000),
+  changes: z.array(providerChangeSchema).max(MAX_SYNC_PAGE_CHANGES),
+  requiredHydration: z.array(messageKeySchema).max(MAX_SYNC_PAGE_CHANGES),
   bodies: z.array(bodyObservationSchema).max(1000).optional(),
   roundComplete: z.boolean(),
 });
