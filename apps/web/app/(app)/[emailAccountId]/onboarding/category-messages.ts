@@ -16,3 +16,10 @@ export const CATEGORY_TOOLTIP_MESSAGES: Partial<
   OTP: msg`One-time passwords, 2FA codes, and sign-in links`,
   COLD_EMAIL: msg`Unsolicited sales pitches and cold emails. We'll never block someone that's emailed you before`,
 };
+
+// Outlook calls labels categories.
+export const OUTLOOK_CATEGORY_TOOLTIP_MESSAGES: Partial<
+  Record<SystemType, MessageDescriptor>
+> = {
+  TO_REPLY: msg`Emails you need to reply to and those where you're awaiting a reply. The category will update automatically as the conversation progresses`,
+};

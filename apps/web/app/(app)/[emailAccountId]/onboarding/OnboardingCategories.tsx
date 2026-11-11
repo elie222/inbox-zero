@@ -30,7 +30,10 @@ import type {
   CategoryConfig,
 } from "@/utils/actions/rule.validation";
 import { categoryConfig } from "@/utils/category-config";
-import { CATEGORY_TOOLTIP_MESSAGES } from "@/app/(app)/[emailAccountId]/onboarding/category-messages";
+import {
+  CATEGORY_TOOLTIP_MESSAGES,
+  OUTLOOK_CATEGORY_TOOLTIP_MESSAGES,
+} from "@/app/(app)/[emailAccountId]/onboarding/category-messages";
 import { usePersona } from "@/hooks/usePersona";
 import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
 import {
@@ -137,7 +140,10 @@ export function CategoriesSetup({
             (c) => c.key === category.name,
           );
           if (!config) return null;
-          const tooltipMessage = CATEGORY_TOOLTIP_MESSAGES[config.key];
+          const tooltipMessage =
+            (isMicrosoftProvider(provider)
+              ? OUTLOOK_CATEGORY_TOOLTIP_MESSAGES[config.key]
+              : undefined) ?? CATEGORY_TOOLTIP_MESSAGES[config.key];
           return (
             <CategoryCard
               key={config.label}

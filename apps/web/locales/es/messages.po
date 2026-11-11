@@ -763,6 +763,7 @@ msgstr "¿Podemos mover la llamada del jueves?"
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 #: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
+#: components/ConfirmDialog.tsx
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -1398,6 +1399,7 @@ msgstr "Define tu tono y estilo."
 #: app/(app)/[emailAccountId]/assistant/Rules.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+#: components/ConfirmDialog.tsx
 #: utils/action-display-messages.ts
 #: utils/action-display.tsx
 msgid "Delete"
@@ -1734,6 +1736,10 @@ msgstr "Firma de correo"
 #: app/(app)/[emailAccountId]/assistant/History.tsx
 msgid "Email unavailable"
 msgstr "Correo no disponible"
+
+#: app/(app)/[emailAccountId]/onboarding/category-messages.ts
+msgid "Emails you need to reply to and those where you're awaiting a reply. The category will update automatically as the conversation progresses"
+msgstr "Correos que tienes que responder y aquellos en los que esperas respuesta. La categoría se actualizará automáticamente según avance la conversación"
 
 #: app/(app)/[emailAccountId]/onboarding/category-messages.ts
 msgid "Emails you need to reply to and those where you're awaiting a reply. The label will update automatically as the conversation progresses"

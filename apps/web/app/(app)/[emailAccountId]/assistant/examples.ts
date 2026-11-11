@@ -518,7 +518,7 @@ const PERSONAS = {
       {
         message: msg`Label emails about content marketing as @[Content]`,
         outlookMessage: msg`Categorize emails about content marketing as @[Content]`,
-        action: ActionType.MARK_READ,
+        action: ActionType.LABEL,
       },
       {
         message: msg`If someone asks about sponsorship, label as @[Sponsorship] and draft a reply asking about their audience size`,
