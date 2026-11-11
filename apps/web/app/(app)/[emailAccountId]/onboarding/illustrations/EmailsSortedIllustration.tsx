@@ -1,5 +1,7 @@
 "use client";
 
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Star, Square } from "lucide-react";
@@ -8,28 +10,28 @@ const emails = [
   {
     id: 1,
     from: "TechNews Daily",
-    subject: "Weekly digest",
-    snippet: "- Your weekly roundup of the latest...",
-    time: "10:30 AM",
-    label: "Newsletters",
+    subject: msg`Weekly digest`,
+    snippet: msg`- Your weekly roundup of the latest...`,
+    time: msg`10:30 AM`,
+    label: msg`Newsletters`,
     labelColor: "bg-purple-600",
   },
   {
     id: 2,
     from: "Sarah Chen",
-    subject: "Project update",
-    snippet: "- Hi! Just wanted to check in on...",
-    time: "9:15 AM",
-    label: "To Reply",
+    subject: msg`Project update`,
+    snippet: msg`- Hi! Just wanted to check in on...`,
+    time: msg`9:15 AM`,
+    label: msg`To Reply`,
     labelColor: "bg-blue-600",
   },
   {
     id: 3,
     from: "Mark Johnson",
-    subject: "Quick introduction",
-    snippet: "- I came across your profile and...",
-    time: "Yesterday",
-    label: "Cold Emails",
+    subject: msg`Quick introduction`,
+    snippet: msg`- I came across your profile and...`,
+    time: msg`Yesterday`,
+    label: msg`Cold Emails`,
     labelColor: "bg-orange-500",
   },
 ];
@@ -39,6 +41,7 @@ export function EmailsSortedIllustration({
 }: {
   animated?: boolean;
 }) {
+  const { i18n } = useLingui();
   const [showLabels, setShowLabels] = useState(() =>
     animated ? [false, false, false] : [true, true, true],
   );
@@ -102,22 +105,22 @@ export function EmailsSortedIllustration({
               }}
               className={`inline-block whitespace-nowrap rounded px-2 py-1 text-[9px] font-medium leading-none text-white ${email.labelColor}`}
             >
-              {email.label}
+              {i18n._(email.label)}
             </motion.span>
           </div>
 
           <div className="hidden h-5 min-w-0 flex-1 items-center truncate sm:flex">
             <span className="text-[12px] font-medium text-gray-900 dark:text-gray-100">
-              {email.subject}
+              {i18n._(email.subject)}
             </span>
             <span className="text-[12px] text-gray-500 dark:text-gray-400">
               {" "}
-              {email.snippet}
+              {i18n._(email.snippet)}
             </span>
           </div>
 
           <div className="shrink-0 pl-3 text-[11px] text-gray-500 dark:text-gray-400">
-            {email.time}
+            {i18n._(email.time)}
           </div>
         </motion.div>
       ))}

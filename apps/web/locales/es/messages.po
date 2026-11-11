@@ -7,6 +7,18 @@ msgstr ""
 "X-Generator: @lingui/cli\n"
 "Language: es\n"
 
+#: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
+msgid "- Hi! Just wanted to check in on..."
+msgstr "- ¡Hola! Solo quería saber cómo va..."
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
+msgid "- I came across your profile and..."
+msgstr "- Vi tu perfil y..."
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
+msgid "- Your weekly roundup of the latest..."
+msgstr "- Tu resumen semanal de lo último..."
+
 #. placeholder {0}: item.name
 #: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
 msgid "“{0}” and its contents will be removed from your mailbox."
@@ -18,6 +30,7 @@ msgid "“{0}” will be removed from your mailbox. Emails using it will remain.
 msgstr "Se eliminará “{0}” de tu buzón. Los correos que la usan se conservarán."
 
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+#: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "(no subject)"
 msgstr "(sin asunto)"
 
@@ -30,6 +43,11 @@ msgstr "{0, plural, one {Se conservó # borrador porque lo editaste} other {Se c
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "{0, plural, one {# email queued} other {# emails queued}}"
 msgstr "{0, plural, one {# correo en cola} other {# correos en cola}}"
+
+#. placeholder {0}: sender.value
+#: app/(app)/[emailAccountId]/onboarding/UnsubscribeSuggestionRow.tsx
+msgid "{0, plural, one {# email} other {# emails}}"
+msgstr "{0, plural, one {# correo} other {# correos}}"
 
 #. placeholder {0}: reasonDisplay.actionFailureMessages.length
 #: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
@@ -76,6 +94,11 @@ msgstr "{0, plural, one {Pospuesta hasta {snoozedUntilLabel}} other {# conversac
 msgid "{0, plural, one {Transfer # rule} other {Transfer # rules}}"
 msgstr "{0, plural, one {Transferir # regla} other {Transferir # reglas}}"
 
+#. placeholder {0}: suggestions.length
+#: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
+msgid "{0, plural, one {We found # sender you rarely read} other {We found # senders you rarely read}}"
+msgstr "{0, plural, one {Encontramos # remitente que casi nunca lees} other {Encontramos # remitentes que casi nunca lees}}"
+
 #. placeholder {0}: failedAttachment.filename
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "{0} isn't attached. Remove it or attach it again before sending."
@@ -92,6 +115,10 @@ msgstr "{0} de {1} seleccionadas"
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "{0} plan"
 msgstr "Plan {0}"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
+msgid "{archivedEmailCount, plural, one {# email} other {# emails}}"
+msgstr "{archivedEmailCount, plural, one {# correo} other {# correos}}"
 
 #: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
 msgid "{count, plural, one {Archived} other {Archived # conversations}}"
@@ -129,6 +156,10 @@ msgstr "{days, plural, one {En # día} other {En # días}}"
 msgid "{description} Details: {details}"
 msgstr "{description} Detalles: {details}"
 
+#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
+msgid "{errorCount, plural, one {Failed to send # invitation} other {Failed to send # invitations}}"
+msgstr "{errorCount, plural, one {No se pudo enviar # invitación} other {No se pudieron enviar # invitaciones}}"
+
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 msgid "{labelSingular} name"
 msgstr "Nombre de la {labelSingular}"
@@ -142,6 +173,10 @@ msgstr "{labelText} para {0}"
 msgid "{providerName} disconnected"
 msgstr "{providerName} desconectado"
 
+#: app/(app)/[emailAccountId]/onboarding/UnsubscribeSuggestionRow.tsx
+msgid "{readPercentage}% read"
+msgstr "{readPercentage}% leído"
+
 #: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
 msgid "{selectedCount} selected"
 msgstr "{selectedCount} seleccionadas"
@@ -149,6 +184,10 @@ msgstr "{selectedCount} seleccionadas"
 #: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
 msgid "{splitName} already includes {senderCount, plural, one {this sender} other {these senders}}"
 msgstr "{splitName} ya incluye {senderCount, plural, one {este remitente} other {estos remitentes}}"
+
+#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
+msgid "{successCount, plural, one {# invitation sent successfully!} other {# invitations sent successfully!}}"
+msgstr "{successCount, plural, one {¡# invitación enviada correctamente!} other {¡# invitaciones enviadas correctamente!}}"
 
 #: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
 msgid "{targetCount, plural, one {Archive conversation} other {Archive # conversations}}"
@@ -194,6 +233,10 @@ msgstr "Color de la {typeName}"
 msgid "{typeName} name"
 msgstr "Nombre de la {typeName}"
 
+#: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
+msgid "/month"
+msgstr "/mes"
+
 #: app/(app)/[emailAccountId]/mail/MailSearchSuggestions.tsx
 msgid "<0>Esc</0> to close"
 msgstr "<0>Esc</0> para cerrar"
@@ -219,15 +262,48 @@ msgstr "1 semana"
 msgid "1 year"
 msgstr "1 año"
 
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "10:24 AM"
+msgstr "10:24"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
+#: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
+msgid "10:30 AM"
+msgstr "10:30"
+
+#: app/(app)/[emailAccountId]/onboarding/StepCompanySize.tsx
+msgid "1000+ people"
+msgstr "Más de 1000 personas"
+
+#: app/(app)/[emailAccountId]/onboarding/StepCompanySize.tsx
+msgid "101-1000 people"
+msgstr "101-1000 personas"
+
+#: app/(app)/[emailAccountId]/onboarding/StepCompanySize.tsx
+msgid "11-100 people"
+msgstr "11-100 personas"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/ChatIllustration.tsx
+msgid "12 emails archived"
+msgstr "12 correos archivados"
+
 #: app/(app)/[emailAccountId]/mail/mail-search-query.ts
 #: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
 msgid "2 months"
 msgstr "2 meses"
 
+#: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
+msgid "2 months free!"
+msgstr "¡2 meses gratis!"
+
 #: app/(app)/[emailAccountId]/mail/mail-search-query.ts
 #: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
 msgid "2 weeks"
 msgstr "2 semanas"
+
+#: app/(app)/[emailAccountId]/onboarding/StepCompanySize.tsx
+msgid "2-10 people"
+msgstr "2-10 personas"
 
 #: app/(app)/[emailAccountId]/mail/mail-search-query.ts
 #: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
@@ -243,13 +319,41 @@ msgstr "30 días"
 msgid "6 months"
 msgstr "6 meses"
 
+#: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
+msgid "7-day free trial"
+msgstr "Prueba gratuita de 7 días"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "8:55 AM"
+msgstr "8:55"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "9:12 AM"
+msgstr "9:12"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
+msgid "9:15 AM"
+msgstr "9:15"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "9:40 AM"
+msgstr "9:40"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "90 days"
 msgstr "90 días"
 
+#: app/(app)/[emailAccountId]/onboarding/StepChat.tsx
+msgid "A chat that runs your email"
+msgstr "Un chat que gestiona tu correo"
+
 #: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
 msgid "a deleted rule"
 msgstr "una regla eliminada"
+
+#: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+msgid "A fast, free app for reading and sending your email."
+msgstr "Una app rápida y gratuita para leer y enviar tu correo."
 
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Account"
@@ -287,6 +391,14 @@ msgstr "Añadir cuenta"
 msgid "Add condition"
 msgstr "Añadir condición"
 
+#: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
+msgid "Add Google Calendar"
+msgstr "Añadir Google Calendar"
+
+#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
+msgid "Add more anytime from settings."
+msgstr "Puedes añadir más cuando quieras desde la configuración."
+
 #: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
 msgid "Add or manage accounts"
 msgstr "Añadir o gestionar cuentas"
@@ -294,6 +406,10 @@ msgstr "Añadir o gestionar cuentas"
 #: hooks/useCommandPaletteCommands.ts
 msgid "Add or switch email accounts"
 msgstr "Añade o cambia de cuenta de correo"
+
+#: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
+msgid "Add Outlook Calendar"
+msgstr "Añadir Outlook Calendar"
 
 #: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
 #: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
@@ -317,6 +433,14 @@ msgstr "{added, plural, one {Se añadió # remitente} other {Se añadieron # rem
 msgid "Adding senders…"
 msgstr "Añadiendo remitentes…"
 
+#: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+msgid "AI assistant"
+msgstr "Asistente de IA"
+
+#: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+msgid "AI labels emails and drafts replies. Keep using Gmail or Outlook."
+msgstr "La IA etiqueta tus correos y redacta borradores de respuesta. Sigue usando Gmail u Outlook."
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "AI Model"
 msgstr "Modelo de IA"
@@ -324,6 +448,10 @@ msgstr "Modelo de IA"
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "all"
 msgstr "todas"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "All"
+msgstr "Todos"
 
 #: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
 msgid "All accounts"
@@ -379,6 +507,10 @@ msgstr "Ya está en {languageName}"
 msgid "Already in your language"
 msgstr "Ya está en tu idioma"
 
+#: app/(app)/[emailAccountId]/onboarding/illustrations/ChatIllustration.tsx
+msgid "Also in Slack and Telegram"
+msgstr "También en Slack y Telegram"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "An error occurred while saving your settings"
 msgstr "Se produjo un error al guardar tu configuración"
@@ -429,9 +561,26 @@ msgstr "Aplicando etiqueta…"
 msgid "Archive"
 msgstr "Archivar"
 
+#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
+msgid "Archive after 7 days"
+msgstr "Archivar tras 7 días"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/ChatIllustration.tsx
+msgid "Archive all newsletters from last week"
+msgstr "Archiva todos los boletines de la semana pasada"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
+msgid "Archive shipping updates once they're delivered"
+msgstr "Archiva los avisos de envío cuando se entreguen"
+
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
 msgid "Archived"
-msgstr "Archivada"
+msgstr "Archivado"
+
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Assistant"
+msgstr "Asistente"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Assistant chat"
@@ -481,14 +630,30 @@ msgstr "Atrás"
 msgid "Back to inbox"
 msgstr "Volver a Recibidos"
 
+#: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
+msgid "BASIC LABELS"
+msgstr "ETIQUETAS BÁSICAS"
+
 #: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
 #: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
 msgid "Bcc"
 msgstr "Cco"
 
+#: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
+msgid "Best, John"
+msgstr "Saludos, John"
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Beta Features"
 msgstr "Funciones beta"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
+msgid "billed annually ($90/year)"
+msgstr "facturado anualmente ($90/año)"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
+msgid "billed monthly"
+msgstr "facturado mensualmente"
 
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Billing"
@@ -497,6 +662,22 @@ msgstr "Facturación"
 #: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
 msgid "Block sender"
 msgstr "Bloquear remitente"
+
+#: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+msgid "Both"
+msgstr "Ambos"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "Brief not sent"
+msgstr "No se envió el informe"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "Brief sent! Check your inbox"
+msgstr "¡Informe enviado! Revisa tu bandeja de entrada"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
+msgid "Briefs for every external meeting"
+msgstr "Informes para cada reunión externa"
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Build a split"
@@ -514,6 +695,10 @@ msgstr "Crea la tuya"
 msgid "Building…"
 msgstr "Creando…"
 
+#: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
+msgid "Bulk unsubscribe and archive"
+msgstr "Cancela suscripciones y archiva en bloque"
+
 #: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
 msgid "Bundle in Inbox"
 msgstr "Agrupar en Recibidos"
@@ -529,6 +714,14 @@ msgstr "Agrupar los correos de baja prioridad"
 #: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
 msgid "Bundle my inbox"
 msgstr "Agrupar mi bandeja de entrada"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepConnectCalendar.tsx
+msgid "Calendar Connected!"
+msgstr "¡Calendario conectado!"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "Can we move Thursday's call?"
+msgstr "¿Podemos mover la llamada del jueves?"
 
 #: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
 #: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
@@ -550,6 +743,18 @@ msgstr "Cancela primero la suscripción"
 #: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
 msgid "Categories"
 msgstr "Categorías"
+
+#: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
+msgid "Categories and drafts are ready"
+msgstr "Las categorías y los borradores están listos"
+
+#: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
+msgid "Categories are ready"
+msgstr "Las categorías están listas"
+
+#: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
+msgid "Categorise"
+msgstr "Categorizar"
 
 #: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
 msgid "category"
@@ -580,6 +785,10 @@ msgstr "Chatear sobre este correo"
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Chat delivery: <0>Configure in Channels</0>."
 msgstr "Envío por chat: <0>Configurar en Canales</0>."
+
+#: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
+msgid "ChatGPT, Claude, or other AI"
+msgstr "ChatGPT, Claude u otra IA"
 
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
 msgid "Check Sent"
@@ -617,6 +826,10 @@ msgstr "Elegir firma"
 #: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
 msgid "Choose which accounts appear in All Accounts."
 msgstr "Elige qué cuentas aparecen en Todas las cuentas."
+
+#: app/(app)/[emailAccountId]/onboarding/StepChat.tsx
+msgid "Clean up, draft replies, set up rules. Works in Slack, Telegram, or here, and pings you when you're needed."
+msgstr "Limpia tu correo, redacta respuestas y crea reglas. Funciona en Slack, Telegram o aquí, y te avisa cuando te necesita."
 
 #. placeholder {0}: res.data.deleted
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
@@ -658,6 +871,10 @@ msgstr "Cerrar perfil del remitente"
 #: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
 msgid "Code copied"
 msgstr "Código copiado"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
+msgid "Cold Emails"
+msgstr "Cold Emails"
 
 #: app/(app)/[emailAccountId]/mail/InboxBundleRow.tsx
 msgid "Collapse"
@@ -724,13 +941,35 @@ msgstr "Conectar Teams"
 msgid "Connect Telegram"
 msgstr "Conectar Telegram"
 
+#: app/(app)/[emailAccountId]/onboarding-brief/StepConnectCalendar.tsx
+msgid "Connect Your Calendar"
+msgstr "Conecta tu calendario"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Connected Apps"
 msgstr "Apps conectadas"
 
+#: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Connecting..."
 msgstr "Conectando..."
+
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Consultant"
+msgstr "Consultor"
+
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Content Creator"
+msgstr "Creador de contenido"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepConnectCalendar.tsx
+#: app/(app)/[emailAccountId]/onboarding/ContinueButton.tsx
+#: app/(app)/[emailAccountId]/onboarding/OnboardingFeatureStep.tsx
+#: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
+#: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Continue"
+msgstr "Continuar"
 
 #: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
 msgid "Conversation"
@@ -1005,6 +1244,22 @@ msgstr "Cuenta actual"
 msgid "Current signature"
 msgstr "Firma actual"
 
+#: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
+msgid "Custom"
+msgstr "Personalizada"
+
+#: app/(app)/[emailAccountId]/onboarding/StepCustomRules.tsx
+msgid "Custom rules"
+msgstr "Reglas personalizadas"
+
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Customer Support"
+msgstr "Atención al cliente"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
+msgid "Daily Deals"
+msgstr "Ofertas del día"
+
 #: app/(app)/settings/AppearanceSection.tsx
 msgid "Dark mode"
 msgstr "Modo oscuro"
@@ -1157,6 +1412,10 @@ msgstr "Desconectado"
 msgid "Discussions"
 msgstr "Debates"
 
+#: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
+msgid "Do nothing"
+msgstr "No hacer nada"
+
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
 #: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
 msgid "Doesn't have"
@@ -1179,6 +1438,7 @@ msgid "Download message"
 msgstr "Descargar mensaje"
 
 #: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+#: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Draft"
 msgstr "Borrador"
 
@@ -1190,15 +1450,36 @@ msgstr "Antigüedad en días para limpiar borradores"
 msgid "Draft cleanup settings updated."
 msgstr "Configuración de limpieza de borradores actualizada."
 
+#: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
+msgid "Draft replies"
+msgstr "Borradores de respuesta"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
+msgid "Draft replies to customer questions using our help docs"
+msgstr "Redacta respuestas a las preguntas de clientes usando nuestra documentación de ayuda"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
+msgid "Draft reply"
+msgstr "Redactar respuesta"
+
 #: app/(app)/[emailAccountId]/mail/mail-search-query.ts
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 #: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Drafts"
 msgstr "Borradores"
+
+#: app/(app)/[emailAccountId]/onboarding/StepDraftReplies.tsx
+msgid "Drafts ready to send"
+msgstr "Borradores listos para enviar"
 
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Drafts, organization, and rules"
 msgstr "Borradores, organización y reglas"
+
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "E-commerce"
+msgstr "Comercio electrónico"
 
 #: utils/date.ts
 msgid "Earlier this month"
@@ -1233,9 +1514,17 @@ msgstr "Editar la pestaña {0}"
 msgid "Email account"
 msgstr "Cuenta de correo"
 
+#: app/(app)/[emailAccountId]/clean/onboarding/page.tsx
+msgid "Email account not found"
+msgstr "No se encontró la cuenta de correo"
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Email Accounts"
 msgstr "Cuentas de correo"
+
+#: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+msgid "Email app"
+msgstr "App de correo"
 
 #: app/(app)/settings/EmailOtpSection.tsx
 msgid "Email delivery unavailable."
@@ -1298,13 +1587,33 @@ msgstr "Activando el archivado automático para {senderName}"
 msgid "End of week"
 msgstr "Final de la semana"
 
+#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
+msgid "Enter a valid email"
+msgstr "Introduce un correo válido"
+
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "Enter a valid recipient email address."
 msgstr "Introduce una dirección de correo de destinatario válida."
 
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Enter your role..."
+msgstr "Escribe tu puesto..."
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
+msgid "Error creating checkout session"
+msgstr "Error al crear la sesión de pago"
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Error deleting account: {message}"
 msgstr "Error al eliminar la cuenta: {message}"
+
+#: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
+msgid "Error initiating Google calendar connection"
+msgstr "Error al iniciar la conexión con Google Calendar"
+
+#: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
+msgid "Error initiating Microsoft calendar connection"
+msgstr "Error al iniciar la conexión con el calendario de Microsoft"
 
 #: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
 msgid "Error initiating reconnection"
@@ -1338,9 +1647,21 @@ msgstr "Error al actualizar la configuración del resumen"
 msgid "Every"
 msgstr "Cada"
 
+#: app/(app)/[emailAccountId]/onboarding/StepEmailsSorted.tsx
+msgid "Every email gets a label like \"To Reply\", \"Newsletter\", or \"Cold Email\"."
+msgstr "Cada correo recibe una etiqueta como \"To Reply\", \"Newsletter\" o \"Cold Email\"."
+
+#: app/(app)/[emailAccountId]/onboarding/StepDraftReplies.tsx
+msgid "Every email needing a reply gets a draft, written in your tone."
+msgstr "Cada correo que necesita respuesta recibe un borrador, escrito con tu estilo."
+
 #: app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx
 msgid "Everything here works without the mouse."
 msgstr "Todo aquí funciona sin ratón."
+
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Executive"
+msgstr "Directivo"
 
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 msgid "Expand {labelName}"
@@ -1374,6 +1695,10 @@ msgstr "No se pudo copiar el código"
 msgid "Failed to create API key"
 msgstr "No se pudo crear la clave de API"
 
+#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
+msgid "Failed to create organization and send invitations"
+msgstr "No se pudo crear la organización ni enviar las invitaciones"
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "Failed to deactivate API key"
 msgstr "No se pudo desactivar la clave de API"
@@ -1398,6 +1723,14 @@ msgstr "No se pudo vincular Slack"
 #: app/(app)/[emailAccountId]/mail/MailAccountSwitcher.tsx
 msgid "Failed to save account order"
 msgstr "No se pudo guardar el orden de las cuentas"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "Failed to send brief"
+msgstr "No se pudo enviar el informe"
+
+#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
+msgid "Failed to send invitations"
+msgstr "No se pudieron enviar las invitaciones"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Failed to update"
@@ -1424,6 +1757,14 @@ msgstr "No se pudo actualizar la configuración de estado de lectura"
 msgid "Failed to update settings"
 msgstr "No se pudo actualizar la configuración"
 
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "Faster search, offline mode, and a new keyboard shortcut sheet"
+msgstr "Búsqueda más rápida, modo sin conexión y una nueva hoja de atajos de teclado"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "Five ideas worth stealing this week"
+msgstr "Cinco ideas que vale la pena robar esta semana"
+
 #: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
 msgid "Flagged"
 msgstr "Marcados"
@@ -1441,6 +1782,10 @@ msgstr "carpeta"
 msgid "Folders"
 msgstr "Carpetas"
 
+#: app/(app)/[emailAccountId]/onboarding/StepCustomRules.tsx
+msgid "For example:"
+msgstr "Por ejemplo:"
+
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 msgid "Forums"
@@ -1450,6 +1795,22 @@ msgstr "Foros"
 msgid "Forward"
 msgstr "Reenviar"
 
+#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
+msgid "Forward receipts and invoices to my accountant"
+msgstr "Reenvía recibos y facturas a mi contable"
+
+#: app/(app)/[emailAccountId]/onboarding/StepCustomRules.tsx
+msgid "Forward receipts to your accountant"
+msgstr "Reenvía recibos a tu contable"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/ChatIllustration.tsx
+msgid "Found 12 newsletters from last week. Archiving now."
+msgstr "Encontré 12 boletines de la semana pasada. Archivándolos ahora."
+
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Founder"
+msgstr "Fundador"
+
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Free trial"
 msgstr "Prueba gratuita"
@@ -1457,6 +1818,10 @@ msgstr "Prueba gratuita"
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Friday"
 msgstr "Viernes"
+
+#: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
+msgid "Friend or colleague"
+msgstr "Amigo o colega"
 
 #: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
@@ -1556,6 +1921,14 @@ msgstr "Ir a Correo"
 msgid "Go to Meeting Briefs"
 msgstr "Ir a Informes de reunión"
 
+#: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
+msgid "Google Calendar & Outlook"
+msgstr "Google Calendar y Outlook"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "Great to meet you! Happy to share the brand guidelines"
+msgstr "¡Encantada de conocerte! Con gusto te comparto la guía de marca"
+
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
 #: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
 msgid "greater than"
@@ -1575,6 +1948,14 @@ msgstr "Tiene la etiqueta"
 msgid "Has the words"
 msgstr "Contiene las palabras"
 
+#: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
+msgid "Hi John, I wanted to follow up on the project timeline. When would be a good time to discuss the next steps?"
+msgstr "Hola, John: quería hacer seguimiento del calendario del proyecto. ¿Cuándo te vendría bien hablar de los próximos pasos?"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
+msgid "Hi Sarah,"
+msgstr "Hola, Sarah:"
+
 #: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
 msgid "Hide"
 msgstr "Ocultar"
@@ -1587,9 +1968,25 @@ msgstr "Ocultar Cc y Cco"
 msgid "Hide recipients"
 msgstr "Ocultar destinatarios"
 
+#: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
+msgid "How did you hear about Inbox Zero?"
+msgstr "¿Cómo conociste Inbox Zero?"
+
 #: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
 msgid "How do you want to read email?"
 msgstr "¿Cómo quieres leer tu correo?"
+
+#: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+msgid "How do you want to use {BRAND_NAME}?"
+msgstr "¿Cómo quieres usar {BRAND_NAME}?"
+
+#: app/(app)/[emailAccountId]/onboarding/StepLabels.tsx
+msgid "How do you want your inbox organized?"
+msgstr "¿Cómo quieres organizar tu bandeja de entrada?"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "I put together a first pass at the roadmap and would love your eyes on it"
+msgstr "Preparé un primer borrador de la hoja de ruta y me encantaría que le echaras un vistazo"
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "I've already cancelled my subscription"
@@ -1615,8 +2012,10 @@ msgstr "En la lista de mensajes"
 #: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 #: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+#: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Inbox"
-msgstr "Recibidos"
+msgstr "Bandeja de entrada"
 
 #: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
 msgid "Inbox: {label}"
@@ -1633,6 +2032,10 @@ msgstr "Inclúyelo en el encabezado X-Webhook-Secret al configurar los endpoints
 #: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
 msgid "Included from the message you are forwarding"
 msgstr "Incluido del mensaje que estás reenviando"
+
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Individual"
+msgstr "Particular"
 
 #: app/(app)/[emailAccountId]/compose/useComposeAttachments.ts
 msgid "Inline image content does not match its file type."
@@ -1654,6 +2057,14 @@ msgstr "Instalar manualmente"
 msgid "Invalid API Key"
 msgstr "Clave de API no válida"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Investor"
+msgstr "Inversor"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "Invitation: Design sync"
+msgstr "Invitación: Reunión de diseño"
+
 #: app/(app)/settings/TeamSection.tsx
 msgid "Invite"
 msgstr "Invitar"
@@ -1661,6 +2072,10 @@ msgstr "Invitar"
 #: app/(app)/settings/TeamSection.tsx
 msgid "Invite members"
 msgstr "Invitar miembros"
+
+#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
+msgid "Invite your team"
+msgstr "Invita a tu equipo"
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Is starred"
@@ -1694,8 +2109,13 @@ msgstr "etiqueta"
 #: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 #: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+#: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "Label"
-msgstr "Etiqueta"
+msgstr "Etiquetar"
+
+#: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
+msgid "Label & archive"
+msgstr "Etiquetar y archivar"
 
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Label as…"
@@ -1709,10 +2129,23 @@ msgstr "Los colores de las etiquetas ya son los predeterminados."
 msgid "Label conversations"
 msgstr "Etiquetar conversaciones"
 
+#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
+#: app/(app)/[emailAccountId]/onboarding/StepCustomRules.tsx
+msgid "Label newsletters and archive them after a week"
+msgstr "Etiqueta los boletines y archívalos después de una semana"
+
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
 #: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
 msgid "Labels"
 msgstr "Etiquetas"
+
+#: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
+msgid "Labels and drafts are ready"
+msgstr "Las etiquetas y los borradores están listos"
+
+#: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
+msgid "Labels are ready"
+msgstr "Las etiquetas están listas"
 
 #: app/(app)/settings/LanguageSection.tsx
 msgid "Language"
@@ -1740,6 +2173,10 @@ msgstr "Último uso"
 msgid "Layout, tabs and bundles"
 msgstr "Diseño, pestañas y grupos"
 
+#: app/(app)/[emailAccountId]/onboarding/page.tsx
+msgid "Learn how {BRAND_NAME} works and get set up."
+msgstr "Descubre cómo funciona {BRAND_NAME} y configúralo."
+
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Leave blank to keep the current key"
 msgstr "Déjalo en blanco para conservar la clave actual"
@@ -1753,10 +2190,18 @@ msgstr "Déjalo en blanco para conservar la clave de API actual o introduce una 
 msgid "less than"
 msgstr "menor que"
 
+#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
+msgid "Let me know in Slack when an investor emails"
+msgstr "Avísame en Slack cuando escriba un inversor"
+
 #. placeholder {0}: existingWorkspace.teamName
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Link to {0}"
 msgstr "Vincular a {0}"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
+msgid "LinkedIn & web research"
+msgstr "Investigación en LinkedIn y la web"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Linking..."
@@ -1797,6 +2242,14 @@ msgstr "Cargando mensajes…"
 #: app/(app)/[emailAccountId]/mail/ThreadList.tsx
 msgid "Loading more"
 msgstr "Cargando más"
+
+#: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
+msgid "Loading recently organized emails"
+msgstr "Cargando correos organizados recientemente"
+
+#: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
+msgid "Loading senders"
+msgstr "Cargando remitentes"
 
 #: app/(app)/[emailAccountId]/mail/MailReaderPane.tsx
 msgid "Loading…"
@@ -1850,6 +2303,10 @@ msgstr "Marcar como spam"
 msgid "Mark as unread"
 msgstr "Marcar como no leído"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Marketing"
+msgstr "Marketing"
+
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Match all or any condition"
 msgstr "Cumplir todas o alguna de las condiciones"
@@ -1888,9 +2345,25 @@ msgstr "Apps MCP ({0})"
 msgid "me"
 msgstr "yo"
 
+#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
+msgid "Meet the Inbox Zero email app"
+msgstr "Conoce la app de correo de Inbox Zero"
+
+#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
+msgid "Meet your new email app"
+msgstr "Conoce tu nueva app de correo"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/page.tsx
+msgid "Meeting Briefs Setup"
+msgstr "Configuración de informes de reunión"
+
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Model"
 msgstr "Modelo"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "Mon"
+msgstr "lun."
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Monday"
@@ -1930,6 +2403,10 @@ msgstr "Subir {0}"
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Move conversations"
 msgstr "Mover conversaciones"
+
+#: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
+msgid "Move to folder"
+msgstr "Mover a carpeta"
 
 #: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
 #: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
@@ -1997,6 +2474,14 @@ msgstr "Nueva pestaña"
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "New split inbox"
 msgstr "Nueva pestaña de la bandeja de entrada"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
+msgid "Newsletter"
+msgstr "Newsletter"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
+msgid "Newsletters"
+msgstr "Newsletters"
 
 #: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
 msgid "Next"
@@ -2088,6 +2573,14 @@ msgstr "No se encontraron borradores antiguos."
 msgid "No tabs yet"
 msgstr "Aún no hay pestañas"
 
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "No upcoming meetings found"
+msgstr "No se encontraron próximas reuniones"
+
+#: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
+msgid "No, thanks"
+msgstr "No, gracias"
+
 #: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
 msgid "Not attached"
 msgstr "No adjunto"
@@ -2107,6 +2600,10 @@ msgstr "Nada seleccionado"
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "notifications I have not read"
 msgstr "notificaciones que no he leído"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
+msgid "Notify in Slack"
+msgstr "Avisar en Slack"
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "of these conditions"
@@ -2128,6 +2625,10 @@ msgstr "Anterior a {age}"
 msgid "on"
 msgstr "el"
 
+#: app/(app)/[emailAccountId]/onboarding/page.tsx
+msgid "Onboarding"
+msgstr "Configuración inicial"
+
 #: app/(app)/[emailAccountId]/compose/useComposeAttachments.ts
 msgid "One of the files could not be read."
 msgstr "No se pudo leer uno de los archivos."
@@ -2135,6 +2636,10 @@ msgstr "No se pudo leer uno de los archivos."
 #: app/(app)/[emailAccountId]/compose/useComposeAttachments.ts
 msgid "One of the inline images could not be inserted."
 msgstr "No se pudo insertar una de las imágenes en el texto."
+
+#: app/(app)/[emailAccountId]/onboarding/StepCompanySize.tsx
+msgid "Only me"
+msgstr "Solo yo"
 
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "Only removes drafts created by {BRAND_NAME} that have not been edited by you."
@@ -2182,8 +2687,14 @@ msgid "Original message"
 msgstr "Mensaje original"
 
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Other"
-msgstr "Otros"
+msgstr "Otro"
+
+#: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+msgid "Our email app with the AI assistant built in."
+msgstr "Nuestra app de correo con el asistente de IA integrado."
 
 #. placeholder {0}: env.NEXT_PUBLIC_SUPPORT_EMAIL
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
@@ -2208,6 +2719,10 @@ msgstr "Permisos actualizados"
 msgid "Personal"
 msgstr "Personal"
 
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "Pick an upcoming meeting and we'll send you a sample brief so you can see exactly what you'll receive."
+msgstr "Elige una próxima reunión y te enviaremos un informe de muestra para que veas exactamente lo que recibirás."
+
 #: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
 msgid "Pick another view, or head back to the inbox."
 msgstr "Elige otra vista o vuelve a la bandeja de entrada."
@@ -2216,9 +2731,17 @@ msgstr "Elige otra vista o vuelve a la bandeja de entrada."
 msgid "Please cancel your subscription before deleting your account."
 msgstr "Cancela tu suscripción antes de eliminar tu cuenta."
 
+#: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
+msgid "Please try again or contact support"
+msgstr "Vuelve a intentarlo o contacta con soporte"
+
 #: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
 msgid "Please try again or contact support."
 msgstr "Inténtalo de nuevo o contacta con soporte."
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "Plus a deep dive on pricing pages that convert"
+msgstr "Además, un análisis a fondo de las páginas de precios que convierten"
 
 #: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
 msgid "Pop out draft"
@@ -2241,6 +2764,14 @@ msgstr "Correo anterior del chat"
 msgid "Print"
 msgstr "Imprimir"
 
+#: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
+msgid "Project update"
+msgstr "Novedades del proyecto"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
+msgid "Promo Alert"
+msgstr "Alerta de promociones"
+
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 msgid "Promotions"
@@ -2262,6 +2793,18 @@ msgstr "No se investigan perfiles públicos de direcciones de correo personales.
 msgid "Public sources"
 msgstr "Fuentes públicas"
 
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "Q3 planning: can you review?"
+msgstr "Planificación del T3: ¿puedes revisarla?"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
+msgid "Quick introduction"
+msgstr "Una breve presentación"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "Re: Intro to the design team"
+msgstr "Re: Presentación al equipo de diseño"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Read aggregated inbox statistics for this inbox."
 msgstr "Lee las estadísticas agregadas de esta bandeja de entrada."
@@ -2269,6 +2812,10 @@ msgstr "Lee las estadísticas agregadas de esta bandeja de entrada."
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Read and search mail"
 msgstr "Leer y buscar correos"
+
+#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
+msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
+msgstr "Lee y envía correos en la web, el escritorio y el iPhone. Añade el asistente de IA cuando quieras."
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Read inbox settings for this inbox."
@@ -2290,6 +2837,14 @@ msgstr "Leer estadísticas"
 msgid "Read status"
 msgstr "Estado de lectura"
 
+#: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
+msgid "Ready to walk into every meeting prepared?"
+msgstr "¿Listo para llegar preparado a cada reunión?"
+
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Realtor"
+msgstr "Agente inmobiliario"
+
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "receipts from Stripe"
 msgstr "recibos de Stripe"
@@ -2297,6 +2852,10 @@ msgstr "recibos de Stripe"
 #: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
 msgid "Received"
 msgstr "Recibido"
+
+#: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
+msgid "Recently organized emails"
+msgstr "Correos organizados recientemente"
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Recipient"
@@ -2442,6 +3001,10 @@ msgstr "Reglas transferidas correctamente"
 msgid "Run mail setup again"
 msgstr "Volver a configurar el correo"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Sales"
+msgstr "Ventas"
+
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Saturday"
 msgstr "Sábado"
@@ -2481,8 +3044,9 @@ msgstr "Correos programados"
 
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
 #: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
+#: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
 msgid "Search"
-msgstr "Buscar"
+msgstr "Buscador"
 
 #: components/CommandK.tsx
 msgid "Search accounts..."
@@ -2525,10 +3089,22 @@ msgstr "Consulta cuándo los destinatarios abren los correos que envías desde e
 msgid "See when recipients open emails you send."
 msgstr "Consulta cuándo los destinatarios abren los correos que envías."
 
+#: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
+msgid "See which emails you never read. One-click unsubscribe and archive them in bulk."
+msgstr "Descubre qué correos nunca lees. Cancela la suscripción con un clic y archívalos en bloque."
+
 #. placeholder {0}: rule.name
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "Select {0}"
 msgstr "Seleccionar {0}"
+
+#: app/(app)/[emailAccountId]/onboarding/UnsubscribeSuggestionRow.tsx
+msgid "Select {senderName}"
+msgstr "Seleccionar {senderName}"
+
+#: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
+msgid "Select action"
+msgstr "Seleccionar acción"
 
 #: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
 msgid "Select all"
@@ -2563,8 +3139,13 @@ msgid "Selected rules are combined into one digest email."
 msgstr "Las reglas seleccionadas se combinan en un solo correo de resumen."
 
 #: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+#: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
 msgid "Send"
 msgstr "Enviar"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "Send a Test Brief"
+msgstr "Envía un informe de prueba"
 
 #: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
 msgid "Send anyway"
@@ -2586,6 +3167,10 @@ msgstr "Enviar correos"
 msgid "Send feedback"
 msgstr "Enviar comentarios"
 
+#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
+msgid "Send invites"
+msgstr "Enviar invitaciones"
+
 #: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
 msgid "Send later"
 msgstr "Enviar más tarde"
@@ -2593,6 +3178,10 @@ msgstr "Enviar más tarde"
 #: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
 msgid "Send later date and time"
 msgstr "Fecha y hora de envío"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "Send Test Brief"
+msgstr "Enviar informe de prueba"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Send the digest email"
@@ -2614,14 +3203,23 @@ msgstr "Remitente bloqueado"
 msgid "Sender profile"
 msgstr "Perfil del remitente"
 
+#: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
+msgid "Senders you rarely read"
+msgstr "Remitentes que casi nunca lees"
+
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
 msgid "Sending…"
 msgstr "Enviando…"
 
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 #: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Sent"
 msgstr "Enviados"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
+msgid "Sent 1-24 hours before (you choose)"
+msgstr "Se envía entre 1 y 24 horas antes (tú eliges)"
 
 #: app/(app)/[emailAccountId]/mail/mail-search-query.ts
 msgid "Sent Mail"
@@ -2646,6 +3244,10 @@ msgstr "Tema: sistema"
 #: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
 msgid "Set time"
 msgstr "Fijar hora"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/page.tsx
+msgid "Set up meeting briefs to receive personalized briefings before your meetings."
+msgstr "Configura los informes de reunión para recibir informes personalizados antes de tus reuniones."
 
 #: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
 msgid "Set up your inbox"
@@ -2676,6 +3278,10 @@ msgstr "¡Configuración actualizada! Comprueba que funciona en la página del A
 msgid "Share your plan by inviting teammates to your organization."
 msgstr "Comparte tu plan invitando a tus compañeros a tu organización."
 
+#: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
+msgid "Should we draft replies for you?"
+msgstr "¿Quieres que redactemos respuestas por ti?"
+
 #: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
 msgid "Show"
 msgstr "Mostrar"
@@ -2699,6 +3305,11 @@ msgstr "Mostrar original"
 #: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
 msgid "Show search options"
 msgstr "Mostrar opciones de búsqueda"
+
+#. placeholder {0}: previewSenders.length
+#: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
+msgid "Showing your top {0}. We'll keep spotting more as you use Inbox Zero."
+msgstr "Mostrando los {0} principales. Seguiremos detectando más mientras usas Inbox Zero."
 
 #. placeholder {0}: data.email
 #: app/(app)/settings/EmailOtpSection.tsx
@@ -2729,6 +3340,15 @@ msgstr "Comparación de tamaño"
 msgid "Size unit"
 msgstr "Unidad de tamaño"
 
+#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
+msgid "Skip"
+msgstr "Omitir"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+#: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
+msgid "Skip for now"
+msgstr "Omitir por ahora"
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Slack connected"
 msgstr "Slack conectado"
@@ -2753,6 +3373,10 @@ msgstr "Slack devolvió un código no válido o caducado. Intenta conectarte de 
 msgid "Slack session validation failed. Please try connecting again."
 msgstr "Falló la validación de la sesión de Slack. Intenta conectarte de nuevo."
 
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Small Business Owner"
+msgstr "Dueño de pequeña empresa"
+
 #: components/CommandK.tsx
 msgid "Snooze until"
 msgstr "Posponer hasta"
@@ -2767,9 +3391,17 @@ msgstr "Posponer hasta {0}"
 msgid "Social"
 msgstr "Social"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Software Engineer"
+msgstr "Ingeniero de software"
+
 #: app/(app)/[emailAccountId]/mail/MailShell.tsx
 msgid "Some inboxes couldn't be loaded. Try again shortly or check their connections."
 msgstr "No se pudieron cargar algunas bandejas de entrada. Inténtalo de nuevo en breve o revisa sus conexiones."
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "Something came up on my end. Would Friday morning work instead?"
+msgstr "Me ha surgido algo. ¿Te viene bien el viernes por la mañana?"
 
 #: app/(app)/[emailAccountId]/mail/MailShellSidebar.tsx
 msgid "Something went wrong. Try again."
@@ -2812,6 +3444,7 @@ msgstr "Destacar"
 #: app/(app)/[emailAccountId]/mail/mail-search-query.ts
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Starred"
 msgstr "Destacados"
 
@@ -2819,17 +3452,29 @@ msgstr "Destacados"
 msgid "Start assistant chat sessions for this inbox."
 msgstr "Inicia sesiones de chat con el asistente para esta bandeja de entrada."
 
+#: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
+msgid "Start Free Trial"
+msgstr "Iniciar prueba gratuita"
+
 #. placeholder {0}: stepIndex + 1
 #. placeholder {1}: steps.length
 #: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
 msgid "Step {0} of {1}"
 msgstr "Paso {0} de {1}"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "Student"
+msgstr "Estudiante"
+
 #: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
 #: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
 msgid "Subject"
 msgstr "Asunto"
+
+#: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
+msgid "SUGGESTED FOR YOU"
+msgstr "SUGERIDAS PARA TI"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Sunday"
@@ -2851,6 +3496,22 @@ msgstr "Sincronizando tu correo…"
 msgid "Team"
 msgstr "Equipo"
 
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "Test brief sent! Check your inbox."
+msgstr "¡Informe de prueba enviado! Revisa tu bandeja de entrada."
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
+msgid "Thanks for reaching out! I'd be happy to discuss the project timeline. How about tomorrow at 2pm?"
+msgstr "¡Gracias por escribir! Con gusto hablamos del calendario del proyecto. ¿Qué tal mañana a las 14:00?"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "Thanks for your payment of $49.00. Your receipt is attached"
+msgstr "Gracias por tu pago de $49.00. Adjuntamos tu recibo"
+
+#: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
+msgid "The drafts will appear in your inbox, written in your tone.<0/>Our AI learns from your previous conversations to draft the best reply."
+msgstr "Los borradores aparecerán en tu bandeja de entrada, escritos con tu estilo.<0/>Nuestra IA aprende de tus conversaciones anteriores para redactar la mejor respuesta."
+
 #: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
 msgid "The image could not be read."
 msgstr "No se pudo leer la imagen."
@@ -2863,10 +3524,19 @@ msgstr "Se descartará el borrador local. Puede que aún exista un borrador en e
 msgid "There was an error sending the email :("
 msgstr "Se produjo un error al enviar el correo :("
 
+#. placeholder {0}: result.serverError || ""
+#: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
+msgid "There was an error: {0}"
+msgstr "Se produjo un error: {0}"
+
 #. placeholder {0}: warning.placeholder
 #: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
 msgid "There's an unfilled placeholder: {0}"
 msgstr "Hay un marcador sin completar: {0}"
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "This brief is already being prepared"
+msgstr "Este informe ya se está preparando"
 
 #: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
 msgid "This draft is not ready to save yet."
@@ -2876,9 +3546,21 @@ msgstr "Este borrador aún no está listo para guardarse."
 msgid "This draft was sent, deleted, or changed elsewhere, so edits here are no longer saved to your mailbox."
 msgstr "Este borrador se envió, se eliminó o se cambió en otro lugar, así que los cambios aquí ya no se guardan en tu buzón."
 
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "This helps us set up your inbox the way you actually need it."
+msgstr "Esto nos ayuda a configurar tu bandeja de entrada como realmente la necesitas."
+
+#: app/(app)/[emailAccountId]/onboarding/StepCompanySize.tsx
+msgid "This helps us tailor the experience to your organization's needs."
+msgstr "Esto nos ayuda a adaptar la experiencia a las necesidades de tu organización."
+
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "This key will only work for the selected inbox account."
 msgstr "Esta clave solo funcionará con la cuenta de correo seleccionada."
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "This meeting has no external guests"
+msgstr "Esta reunión no tiene invitados externos"
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "This permanently deletes your Inbox Zero data and disconnects {connectedEmailList}. Your emails aren't affected."
@@ -2924,6 +3606,10 @@ msgstr "Solo se mostrará una vez. Cópiala. Tu clave secreta es:"
 msgid "Thursday"
 msgstr "Jueves"
 
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "Thursday 2:00 PM to 2:30 PM. Join with video link"
+msgstr "Jueves de 14:00 a 14:30. Únete con el enlace de videollamada"
+
 #: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
 #: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
@@ -2938,6 +3624,10 @@ msgstr "Para {recipient}"
 #: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
 msgid "to {summaryRecipients}"
 msgstr "para {summaryRecipients}"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
+msgid "To Reply"
+msgstr "To Reply"
 
 #. placeholder {0}: escapeHtml(to)
 #: app/(app)/[emailAccountId]/mail/print-messages.ts
@@ -3080,6 +3770,11 @@ msgstr "Quitar destacado"
 msgid "Unsubscribe"
 msgstr "Cancelar la suscripción"
 
+#. placeholder {0}: selectedSenders.length
+#: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
+msgid "Unsubscribe from {0}"
+msgstr "Cancelar suscripciones ({0})"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Unsubscribe from senders for this inbox."
 msgstr "Cancela la suscripción a remitentes de esta bandeja de entrada."
@@ -3102,12 +3797,17 @@ msgstr "Actualiza la configuración de esta bandeja de entrada."
 
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
 msgid "Updates"
-msgstr "Notificaciones"
+msgstr "Novedades"
 
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Upgrade"
 msgstr "Mejorar plan"
+
+#: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
+msgid "Upgrade on the next step to process new emails automatically"
+msgstr "Mejora tu plan en el siguiente paso para procesar los correos nuevos automáticamente"
 
 #: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
 msgid "Uploading…"
@@ -3146,6 +3846,10 @@ msgstr "Ver regla"
 msgid "View rules"
 msgstr "Ver reglas"
 
+#: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
+msgid "View test brief in Gmail"
+msgstr "Ver el informe de prueba en Gmail"
+
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "View usage"
 msgstr "Ver uso"
@@ -3159,13 +3863,68 @@ msgstr "Ver estadísticas de uso"
 msgid "Visit {0}"
 msgstr "Visitar {0}"
 
+#: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
+msgid "We categorized your last {count} emails and drafted replies. Nothing was archived."
+msgstr "Categorizamos tus últimos {count} correos y redactamos respuestas. No se archivó nada."
+
+#: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
+msgid "We categorized your last {count} emails. Nothing was archived."
+msgstr "Categorizamos tus últimos {count} correos. No se archivó nada."
+
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "We couldn't complete the Slack connection. Please try again."
 msgstr "No pudimos completar la conexión con Slack. Inténtalo de nuevo."
 
+#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+msgid "We couldn't find any upcoming meetings with external guests."
+msgstr "No encontramos próximas reuniones con invitados externos."
+
+#: app/(app)/[emailAccountId]/onboarding/StepCompanySize.tsx
+#: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "We couldn't save that answer, but you can keep going"
+msgstr "No pudimos guardar esa respuesta, pero puedes continuar"
+
+#: app/(app)/[emailAccountId]/onboarding/StepCompanySize.tsx
+#: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
+msgid "We couldn't save that answer, but you can keep going."
+msgstr "No pudimos guardar esa respuesta, pero puedes continuar."
+
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "We couldn't validate your API key. Please try again."
 msgstr "No pudimos validar tu clave de API. Inténtalo de nuevo."
+
+#: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
+msgid "We labeled your last {count} emails and drafted replies. Nothing was archived."
+msgstr "Etiquetamos tus últimos {count} correos y redactamos respuestas. No se archivó nada."
+
+#: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
+msgid "We labeled your last {count} emails. Nothing was archived."
+msgstr "Etiquetamos tus últimos {count} correos. No se archivó nada."
+
+#: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
+msgid "We'd love to know how you found us."
+msgstr "Nos encantaría saber cómo nos encontraste."
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepConnectCalendar.tsx
+msgid "We'll automatically detect your upcoming meetings with external guests and prepare personalized briefings."
+msgstr "Detectaremos automáticamente tus próximas reuniones con invitados externos y prepararemos informes personalizados."
+
+#: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
+msgid "We'll keep spotting more as you use Inbox Zero."
+msgstr "Seguiremos detectando más mientras usas Inbox Zero."
+
+#: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
+msgid "We'll unsubscribe and archive these for you. Uncheck any you want to keep."
+msgstr "Cancelaremos estas suscripciones y archivaremos sus correos por ti. Desmarca los que quieras conservar."
+
+#: app/(app)/[emailAccountId]/onboarding/StepLabels.tsx
+msgid "We'll use these labels to organize your inbox. You can add custom labels and change them later."
+msgstr "Usaremos estas etiquetas para organizar tu bandeja de entrada. Puedes añadir etiquetas personalizadas y cambiarlas más adelante."
+
+#: app/(app)/[emailAccountId]/onboarding/StepCustomRules.tsx
+msgid "We've set up the basics, but that's just the beginning. Your AI assistant can handle any email workflow you'd give to a human."
+msgstr "Ya configuramos lo básico, pero esto es solo el comienzo. Tu asistente de IA puede encargarse de cualquier tarea de correo que le darías a una persona."
 
 #: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
 msgid "Web search is not configured for this account."
@@ -3191,6 +3950,18 @@ msgstr "Miércoles"
 msgid "Week"
 msgstr "Semana"
 
+#: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
+msgid "Weekly digest"
+msgstr "Resumen semanal"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration.tsx
+msgid "Weekly Digest"
+msgstr "Resumen semanal"
+
+#: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
+msgid "What do you do?"
+msgstr "¿A qué te dedicas?"
+
 #: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
 msgid "What should All show?"
 msgstr "¿Qué debe mostrar Todos?"
@@ -3204,9 +3975,21 @@ msgstr "Qué hace la pestaña {0}"
 msgid "What to include in the digest email"
 msgstr "Qué incluir en el correo de resumen"
 
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "What we shipped in October"
+msgstr "Lo que lanzamos en octubre"
+
+#: app/(app)/[emailAccountId]/onboarding/StepCompanySize.tsx
+msgid "What's the size of your company?"
+msgstr "¿De qué tamaño es tu empresa?"
+
 #: components/CommandK.tsx
 msgid "When should it return? Try Friday at 3pm"
 msgstr "¿Cuándo debe volver? Prueba con el viernes a las 15:00"
+
+#: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
+msgid "Where did you hear about us?"
+msgstr "¿Dónde nos conociste?"
 
 #: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
 msgid "Which tab should open first?"
@@ -3224,6 +4007,12 @@ msgstr "Editar reglas"
 msgid "Write settings"
 msgstr "Editar configuración"
 
+#: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
+msgid "Yes, please"
+msgstr "Sí, por favor"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/EmailsSortedIllustration.tsx
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 #: utils/date.ts
 msgid "Yesterday"
 msgstr "Ayer"
@@ -3236,9 +4025,17 @@ msgstr "Puedes gestionar tu suscripción haciendo clic en \"Manage Subscription\
 msgid "You can manage your subscription from your iPhone or iPad subscription settings."
 msgstr "Puedes gestionar tu suscripción desde la configuración de suscripciones de tu iPhone o iPad."
 
+#: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
+msgid "You can set your own custom categories later"
+msgstr "Puedes crear tus propias categorías personalizadas más adelante"
+
 #: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
 msgid "You mention an attachment, but nothing is attached."
 msgstr "Mencionas un adjunto, pero no hay nada adjunto."
+
+#: app/(app)/[emailAccountId]/onboarding-brief/StepReady.tsx
+msgid "You'll get a brief like this before every external meeting, automatically."
+msgstr "Recibirás automáticamente un informe como este antes de cada reunión externa."
 
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "You're on grandfathered Stripe pricing. The current plan prices shown elsewhere in the app are for new subscriptions."
@@ -3248,9 +4045,17 @@ msgstr "Tienes un precio heredado de Stripe. Los precios de los planes que se mu
 msgid "You've reached inbox zero"
 msgstr "Has llegado a inbox zero"
 
+#: app/(app)/[emailAccountId]/onboarding/StepEmailsSorted.tsx
+msgid "Your inbox, automatically sorted"
+msgstr "Tu bandeja de entrada, ordenada automáticamente"
+
 #: app/(app)/[emailAccountId]/settings/AboutSectionForm.tsx
 msgid "Your profile has been updated!"
 msgstr "¡Tu perfil se ha actualizado!"
+
+#: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
+msgid "Your receipt #2041"
+msgstr "Tu recibo n.º 2041"
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Your splits"

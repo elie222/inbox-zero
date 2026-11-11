@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { InboxIcon, Layers, MailIcon, SparklesIcon } from "lucide-react";
 import { PageHeading } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
@@ -14,27 +17,26 @@ import type { SignupIntent } from "@/generated/prisma/enums";
 
 const options: {
   intent: SignupIntent;
-  title: string;
-  description: string;
+  title: MessageDescriptor;
+  description: MessageDescriptor;
   icon: React.ReactNode;
 }[] = [
   {
     intent: "AI_ASSISTANT",
-    title: "AI assistant",
-    description:
-      "AI labels emails and drafts replies. Keep using Gmail or Outlook.",
+    title: msg`AI assistant`,
+    description: msg`AI labels emails and drafts replies. Keep using Gmail or Outlook.`,
     icon: <SparklesIcon className="size-4" />,
   },
   {
     intent: "MAIL_CLIENT",
-    title: "Email app",
-    description: "A fast, free app for reading and sending your email.",
+    title: msg`Email app`,
+    description: msg`A fast, free app for reading and sending your email.`,
     icon: <InboxIcon className="size-4" />,
   },
   {
     intent: "BOTH",
-    title: "Both",
-    description: "Our email app with the AI assistant built in.",
+    title: msg`Both`,
+    description: msg`Our email app with the AI assistant built in.`,
     icon: <Layers className="size-4" />,
   },
 ];
@@ -44,6 +46,7 @@ export function StepIntent({
 }: {
   onIntentSaved: (intent: SignupIntent) => void;
 }) {
+  const { i18n } = useLingui();
   const [selected, setSelected] = useState<SignupIntent | null>(null);
 
   const { execute, isExecuting } = useAction(saveSignupIntentAction, {
@@ -61,7 +64,7 @@ export function StepIntent({
       </IconCircle>
 
       <PageHeading className="mt-4 text-balance text-center">
-        How do you want to use {BRAND_NAME}?
+        <Trans>How do you want to use {BRAND_NAME}?</Trans>
       </PageHeading>
 
       <div className="mx-auto mt-6 grid w-full max-w-md gap-3">
@@ -79,9 +82,9 @@ export function StepIntent({
           >
             <IconCircle size="sm">{option.icon}</IconCircle>
             <div>
-              <div className="font-medium">{option.title}</div>
+              <div className="font-medium">{i18n._(option.title)}</div>
               <div className="text-pretty text-sm text-muted-foreground">
-                {option.description}
+                {i18n._(option.description)}
               </div>
             </div>
           </button>
