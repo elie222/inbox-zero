@@ -1,5 +1,8 @@
 "use client";
 
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -67,6 +70,7 @@ export function ConnectedAppsSection({
 }: {
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
   const {
     data: channelsData,
     isLoading,
@@ -109,7 +113,7 @@ export function ConnectedAppsSection({
     linkSlackWorkspaceAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Slack connected" });
+        toastSuccess({ description: t`Slack connected` });
         setExistingWorkspace(null);
         setAuthUrl(null);
         mutateChannels();
@@ -118,12 +122,12 @@ export function ConnectedAppsSection({
         const msg = getActionErrorMessage(error.error);
         if (msg?.includes("Could not find your Slack account") && authUrl) {
           toastInfo({
-            title: "Email not found in Slack",
-            description: "Redirecting to Slack authorization...",
+            title: t`Email not found in Slack`,
+            description: t`Redirecting to Slack authorization...`,
           });
           redirectToSafeUrl(authUrl, { allowExternal: true });
         } else {
-          toastError({ description: msg ?? "Failed to link Slack" });
+          toastError({ description: msg ?? t`Failed to link Slack` });
         }
       },
     },
@@ -143,7 +147,7 @@ export function ConnectedAppsSection({
       onError: (error) => {
         toastError({
           description:
-            getActionErrorMessage(error.error) ?? "Failed to generate code",
+            getActionErrorMessage(error.error) ?? t`Failed to generate code`,
         });
       },
     },
@@ -186,7 +190,7 @@ export function ConnectedAppsSection({
       captureException(error, {
         extra: { context: "Slack OAuth initiation" },
       });
-      toastError({ description: "Failed to connect Slack" });
+      toastError({ description: t`Failed to connect Slack` });
       setConnectingSlack(false);
     }
   };
@@ -205,7 +209,9 @@ export function ConnectedAppsSection({
       <ItemSeparator />
       <Item size="sm">
         <ItemContent>
-          <ItemTitle>Connected Apps</ItemTitle>
+          <ItemTitle>
+            <Trans>Connected Apps</Trans>
+          </ItemTitle>
         </ItemContent>
         <ItemActions>
           <div className="flex items-center gap-2">
@@ -221,8 +227,8 @@ export function ConnectedAppsSection({
                   >
                     <MessagesSquareIcon className="mr-2 h-4 w-4" />
                     {linkStatus === "executing"
-                      ? "Linking..."
-                      : `Link to ${existingWorkspace.teamName}`}
+                      ? t`Linking...`
+                      : t`Link to ${existingWorkspace.teamName}`}
                   </Button>
                   <button
                     type="button"
@@ -233,7 +239,7 @@ export function ConnectedAppsSection({
                       }
                     }}
                   >
-                    Install manually
+                    <Trans>Install manually</Trans>
                   </button>
                 </div>
               ) : (
@@ -244,7 +250,7 @@ export function ConnectedAppsSection({
                   onClick={handleConnectSlack}
                 >
                   <MessagesSquareIcon className="mr-2 h-4 w-4" />
-                  {connectingSlack ? "Connecting..." : "Connect Slack"}
+                  {connectingSlack ? t`Connecting...` : t`Connect Slack`}
                 </Button>
               ))}
 
@@ -256,7 +262,7 @@ export function ConnectedAppsSection({
                 onClick={() => handleCreateLinkCode("TEAMS")}
               >
                 <MessageCircleIcon className="mr-2 h-4 w-4" />
-                Connect Teams
+                <Trans>Connect Teams</Trans>
               </Button>
             )}
 
@@ -268,7 +274,7 @@ export function ConnectedAppsSection({
                 onClick={() => handleCreateLinkCode("TELEGRAM")}
               >
                 <SendIcon className="mr-2 h-4 w-4" />
-                Connect Telegram
+                <Trans>Connect Telegram</Trans>
               </Button>
             )}
           </div>
@@ -322,6 +328,7 @@ function ConnectedChannelRow({
   emailAccountId: string;
   onUpdate: () => void;
 }) {
+  const { t } = useLingui();
   const config = PROVIDER_CONFIG[channel.provider];
   const Icon = config?.icon ?? MessageSquareIcon;
   const isSlackChannel = channel.provider === "SLACK";
@@ -330,15 +337,16 @@ function ConnectedChannelRow({
     disconnectChannelAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
+        const providerName = config?.name ?? channel.provider;
         toastSuccess({
-          description: `${config?.name ?? channel.provider} disconnected`,
+          description: t`${providerName} disconnected`,
         });
         onUpdate();
       },
       onError: (error) => {
         toastError({
           description:
-            getActionErrorMessage(error.error) ?? "Failed to disconnect",
+            getActionErrorMessage(error.error) ?? t`Failed to disconnect`,
         });
       },
     },
@@ -385,7 +393,9 @@ function ConnectedChannelRow({
               <XIcon className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Disconnect</TooltipContent>
+          <TooltipContent>
+            <Trans>Disconnect</Trans>
+          </TooltipContent>
         </Tooltip>
       </TooltipProvider>
     </div>
@@ -414,21 +424,28 @@ function MessagingConnectCodeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Connect {providerName}</DialogTitle>
+          <DialogTitle>
+            <Trans>Connect {providerName}</Trans>
+          </DialogTitle>
           <DialogDescription>
-            Send this command in a direct message with the Inbox Zero bot on{" "}
-            {providerName}. The code is one-time use and expires in 10 minutes.
+            <Trans>
+              Send this command in a direct message with the Inbox Zero bot on{" "}
+              {providerName}. The code is one-time use and expires in 10
+              minutes.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <div className="text-xs text-muted-foreground">Command</div>
+          <div className="text-xs text-muted-foreground">
+            <Trans>Command</Trans>
+          </div>
           <CopyInput value={command} />
         </div>
         {provider === "TELEGRAM" && botUrl && (
           <div className="pt-1">
             <Button asChild size="sm">
               <a href={botUrl} target="_blank" rel="noopener noreferrer">
-                Open Telegram bot
+                <Trans>Open Telegram bot</Trans>
               </a>
             </Button>
           </div>
@@ -450,6 +467,7 @@ export function useSlackNotifications({
   enabled: boolean;
   onSlackConnected?: (emailAccountId: string | null) => void;
 }) {
+  const { i18n, t } = useLingui();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -472,27 +490,29 @@ export function useSlackNotifications({
     if (message === "slack_connected") {
       onSlackConnected?.(searchParams.get("slack_email_account_id"));
       toastSuccess({
-        title: "Slack connected",
-        description: "Next, open Channels to choose where Slack messages go.",
+        title: t`Slack connected`,
+        description: t`Next, open Channels to choose where Slack messages go.`,
       });
     }
     if (message === "processing") {
       toastInfo({
-        title: "Slack connection in progress",
-        description:
-          "Slack is still finalizing your connection. Please refresh in a moment.",
+        title: t`Slack connection in progress`,
+        description: t`Slack is still finalizing your connection. Please refresh in a moment.`,
       });
     }
 
     if (error === "connection_failed" || errorDetail) {
       const description = appendSlackConnectionFailureDetails({
-        description: getSlackConnectionFailedDescription(resolvedReason),
+        description: i18n._(
+          getSlackConnectionFailedDescription(resolvedReason),
+        ),
         errorReason,
         errorDetail,
+        i18n,
       });
 
       toastError({
-        title: "Slack connection failed",
+        title: t`Slack connection failed`,
         description,
       });
     }
@@ -511,18 +531,16 @@ export function useSlackNotifications({
     }
     const qs = preserved.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname);
-  }, [enabled, onSlackConnected, pathname, router, searchParams]);
+  }, [enabled, onSlackConnected, pathname, router, searchParams, i18n, t]);
 }
 
-function getSlackConnectionFailedDescription(
-  resolvedReason: string | null,
-): string {
+function getSlackConnectionFailedDescription(resolvedReason: string | null) {
   if (resolvedReason === "oauth_invalid_team_for_non_distributed_app") {
-    return "This Slack app is not distributed to every workspace yet. Use the currently supported workspace or contact support.";
+    return msg`This Slack app is not distributed to every workspace yet. Use the currently supported workspace or contact support.`;
   }
 
   if (resolvedReason === "oauth_invalid_code") {
-    return "Slack returned an invalid or expired code. Please try connecting again.";
+    return msg`Slack returned an invalid or expired code. Please try connecting again.`;
   }
 
   if (
@@ -531,20 +549,22 @@ function getSlackConnectionFailedDescription(
     resolvedReason === "invalid_state" ||
     resolvedReason === "invalid_state_format"
   ) {
-    return "Slack session validation failed. Please try connecting again.";
+    return msg`Slack session validation failed. Please try connecting again.`;
   }
 
-  return "We couldn't complete the Slack connection. Please try again.";
+  return msg`We couldn't complete the Slack connection. Please try again.`;
 }
 
 function appendSlackConnectionFailureDetails({
   description,
   errorReason,
   errorDetail,
+  i18n,
 }: {
   description: string;
   errorReason: string | null;
   errorDetail: string | null;
+  i18n: I18n;
 }): string {
   const details = formatSlackConnectionFailureDetails(errorReason, errorDetail);
 
@@ -552,7 +572,7 @@ function appendSlackConnectionFailureDetails({
     return description;
   }
 
-  return `${description} Details: ${details}`;
+  return i18n._(msg`${description} Details: ${details}`);
 }
 
 function formatSlackConnectionFailureDetails(

@@ -1,5 +1,7 @@
 "use client";
 
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useAction } from "next-safe-action/hooks";
@@ -60,6 +62,7 @@ export function CopyRulesDialog({
   targetAccountEmail,
   sourceAccounts,
 }: CopyRulesDialogProps) {
+  const { t } = useLingui();
   const router = useRouter();
   const [selectedSourceId, setSelectedSourceId] = useState<string>("");
   const [selectedRuleIds, setSelectedRuleIds] = useState<Set<string>>(
@@ -82,10 +85,12 @@ export function CopyRulesDialog({
   const { execute, isExecuting } = useAction(copyRulesFromAccountAction, {
     onSuccess: (result) => {
       const { copiedCount, replacedCount } = result.data || {};
-      toast.success("Rules transferred successfully", {
-        description: `${copiedCount || 0} rules transferred, ${replacedCount || 0} rules updated.`,
+      const transferredCount = copiedCount || 0;
+      const updatedCount = replacedCount || 0;
+      toast.success(t`Rules transferred successfully`, {
+        description: t`${transferredCount} rules transferred, ${updatedCount} rules updated.`,
         action: {
-          label: "View rules",
+          label: t`View rules`,
           onClick: () => {
             router.push(prefixPath(targetAccountId, "/automation"));
           },
@@ -96,7 +101,7 @@ export function CopyRulesDialog({
     },
     onError: (error) => {
       toastError({
-        title: "Error transferring rules",
+        title: t`Error transferring rules`,
         description: getActionErrorMessage(error.error),
       });
     },
@@ -164,17 +169,21 @@ export function CopyRulesDialog({
       <DialogContent className="max-w-md">
         <DialogHeader className="pr-6">
           <DialogTitle className="break-words">
-            Transfer rules to {targetAccountEmail}
+            <Trans>Transfer rules to {targetAccountEmail}</Trans>
           </DialogTitle>
           <DialogDescription>
-            Select an account to transfer rules from. Rules with matching names
-            will be replaced.
+            <Trans>
+              Select an account to transfer rules from. Rules with matching
+              names will be replaced.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div>
-            <span className="text-sm font-medium">Transfer from</span>
+            <span className="text-sm font-medium">
+              <Trans>Transfer from</Trans>
+            </span>
             <Select
               value={selectedSourceId}
               onValueChange={(value) => {
@@ -183,7 +192,7 @@ export function CopyRulesDialog({
               }}
             >
               <SelectTrigger className="mt-1.5">
-                <SelectValue placeholder="Select source account" />
+                <SelectValue placeholder={t`Select source account`} />
               </SelectTrigger>
               <SelectContent>
                 {sourceAccounts.map((account) => (
@@ -214,11 +223,13 @@ export function CopyRulesDialog({
                                 allSelected || (someSelected && "indeterminate")
                               }
                               onCheckedChange={handleSelectAll}
-                              aria-label="Select all"
+                              aria-label={t`Select all`}
                             />
                           </div>
                         </TableHead>
-                        <TableHead>Rule</TableHead>
+                        <TableHead>
+                          <Trans>Rule</Trans>
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -231,7 +242,7 @@ export function CopyRulesDialog({
                                 onCheckedChange={(checked) =>
                                   handleToggleRule(rule.id, !!checked)
                                 }
-                                aria-label={`Select ${rule.name}`}
+                                aria-label={t`Select ${rule.name}`}
                               />
                             </div>
                           </TableCell>
@@ -243,12 +254,14 @@ export function CopyRulesDialog({
                     </TableBody>
                   </Table>
                   <div className="border-t bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-                    {selectedRuleIds.size} of {rules.length} selected
+                    <Trans>
+                      {selectedRuleIds.size} of {rules.length} selected
+                    </Trans>
                   </div>
                 </div>
               ) : (
                 <MutedText className="py-4 text-center">
-                  No rules found in {selectedSource?.email}
+                  <Trans>No rules found in {selectedSource?.email}</Trans>
                 </MutedText>
               )}
             </LoadingContent>
@@ -257,16 +270,19 @@ export function CopyRulesDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => handleOpenChange(false)}>
-            Cancel
+            <Trans>Cancel</Trans>
           </Button>
           <Button
             onClick={handleCopy}
             disabled={selectedRuleIds.size === 0}
             loading={isExecuting}
           >
-            Transfer{" "}
-            {selectedRuleIds.size > 0 ? `${selectedRuleIds.size} ` : ""}
-            rule{selectedRuleIds.size !== 1 ? "s" : ""}
+            {selectedRuleIds.size > 0
+              ? t`${plural(selectedRuleIds.size, {
+                  one: "Transfer # rule",
+                  other: "Transfer # rules",
+                })}`
+              : t`Transfer rules`}
           </Button>
         </DialogFooter>
       </DialogContent>

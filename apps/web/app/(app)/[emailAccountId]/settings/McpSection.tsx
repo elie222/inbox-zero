@@ -1,5 +1,7 @@
 "use client";
 
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useState, type ComponentProps } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { CopyInput } from "@/components/CopyInput";
@@ -34,6 +36,7 @@ import { getActionErrorMessage } from "@/utils/error";
 import { MCP_GUIDE_URL } from "@/utils/mcp/config";
 
 export function McpSection() {
+  const { t } = useLingui();
   const { data, isLoading, error, mutate } = useApiKeys();
   const mcpEnabled = data?.mcpServerEnabled ?? false;
   const mcpAvailable = data?.mcpServerAvailable ?? false;
@@ -47,14 +50,14 @@ export function McpSection() {
 
         toastSuccess({
           description: data.enabled
-            ? "MCP access enabled!"
-            : "MCP access disabled!",
+            ? t`MCP access enabled!`
+            : t`MCP access disabled!`,
         });
       },
       onError: (error) => {
         toastError({
           description: getActionErrorMessage(error.error, {
-            prefix: "Failed to update MCP access",
+            prefix: t`Failed to update MCP access`,
           }),
         });
       },
@@ -139,7 +142,7 @@ function McpAccessItem({
             size="sm"
             onClick={() => setConnectOpen(true)}
           >
-            Connect
+            <Trans>Connect</Trans>
           </Button>
         )}
         <Switch
@@ -155,10 +158,14 @@ function McpAccessItem({
       <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Connect MCP</DialogTitle>
+            <DialogTitle>
+              <Trans>Connect MCP</Trans>
+            </DialogTitle>
             <DialogDescription>
-              Add this URL in ChatGPT, Claude, or Cursor. You'll be asked to
-              allow access.
+              <Trans>
+                Add this URL in ChatGPT, Claude, or Cursor. You'll be asked to
+                allow access.
+              </Trans>
             </DialogDescription>
           </DialogHeader>
           <CopyInput value={mcpUrl} />
@@ -168,7 +175,7 @@ function McpAccessItem({
             rel="noopener noreferrer"
             className="text-sm text-muted-foreground underline underline-offset-4"
           >
-            Full setup guide
+            <Trans>Full setup guide</Trans>
           </a>
         </DialogContent>
       </Dialog>
@@ -187,10 +194,11 @@ function McpConnectionsDialog({
   error: ComponentProps<typeof LoadingContent>["error"];
   mutate: () => void;
 }) {
+  const { t } = useLingui();
   const { execute: executeReduce, isExecuting: isReducing } = useAction(
     reduceMcpConnectionScopesAction,
     {
-      onSuccess: () => toastSuccess({ description: "Permissions updated" }),
+      onSuccess: () => toastSuccess({ description: t`Permissions updated` }),
       onError: (error) =>
         toastError({ description: getActionErrorMessage(error.error) }),
       onSettled: () => mutate(),
@@ -200,12 +208,12 @@ function McpConnectionsDialog({
     revokeMcpConnectionAction,
     {
       onSuccess: () => {
-        toastSuccess({ description: "Disconnected" });
+        toastSuccess({ description: t`Disconnected` });
       },
       onError: (error) => {
         toastError({
           description: getActionErrorMessage(error.error, {
-            prefix: "Failed to disconnect",
+            prefix: t`Failed to disconnect`,
           }),
         });
       },
@@ -220,17 +228,21 @@ function McpConnectionsDialog({
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          MCP apps ({connections.length})
+          <Trans>MCP apps ({connections.length})</Trans>
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>MCP apps</DialogTitle>
+          <DialogTitle>
+            <Trans>MCP apps</Trans>
+          </DialogTitle>
         </DialogHeader>
         <DialogDescription>
-          Remove optional access below, or disconnect to remove all access. To
-          add permissions, reconnect from the application and approve the new
-          access.
+          <Trans>
+            Remove optional access below, or disconnect to remove all access. To
+            add permissions, reconnect from the application and approve the new
+            access.
+          </Trans>
         </DialogDescription>
         <LoadingContent loading={isLoading} error={error}>
           <ul className="space-y-3">
@@ -248,12 +260,12 @@ function McpConnectionsDialog({
                     variant="outline"
                     size="sm"
                     disabled={isExecuting}
-                    aria-label={`Disconnect ${connection.name}`}
+                    aria-label={t`Disconnect ${connection.name}`}
                     onClick={() =>
                       executeRevoke({ clientId: connection.clientId })
                     }
                   >
-                    Disconnect
+                    <Trans>Disconnect</Trans>
                   </Button>
                 </div>
                 <McpPermissionControls
@@ -281,39 +293,43 @@ function McpPermissionControls({
   disabled: boolean;
   onReduce: (scopes: (typeof MCP_PERMISSIONS)[number]["scope"][]) => void;
 }) {
+  const { i18n, t } = useLingui();
   const granted = MCP_PERMISSIONS.map((p) => p.scope).filter((scope) =>
     connection.scopes.includes(scope),
   );
   return (
     <div className="space-y-2">
-      {MCP_PERMISSIONS.map(({ scope, label }) => (
-        <div
-          key={scope}
-          className="flex items-center justify-between gap-3 text-sm"
-        >
-          <span>{label}</span>
-          <Switch
-            aria-label={`${label} for ${connection.name}`}
-            checked={granted.includes(scope)}
-            disabled={
-              disabled ||
-              scope === "mcp:read" ||
-              !granted.includes(scope) ||
-              granted.length === 1
-            }
-            onCheckedChange={() =>
-              onReduce(granted.filter((current) => current !== scope))
-            }
-          />
-        </div>
-      ))}
+      {MCP_PERMISSIONS.map(({ scope, label }) => {
+        const labelText = i18n._(label);
+        return (
+          <div
+            key={scope}
+            className="flex items-center justify-between gap-3 text-sm"
+          >
+            <span>{labelText}</span>
+            <Switch
+              aria-label={t`${labelText} for ${connection.name}`}
+              checked={granted.includes(scope)}
+              disabled={
+                disabled ||
+                scope === "mcp:read" ||
+                !granted.includes(scope) ||
+                granted.length === 1
+              }
+              onCheckedChange={() =>
+                onReduce(granted.filter((current) => current !== scope))
+              }
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
 
 const MCP_PERMISSIONS = [
-  { scope: "mcp:read", label: "Read and search mail" },
-  { scope: "mcp:write", label: "Drafts, organization, and rules" },
-  { scope: "mcp:send", label: "Send email" },
-  { scope: "offline_access", label: "Offline access" },
+  { scope: "mcp:read", label: msg`Read and search mail` },
+  { scope: "mcp:write", label: msg`Drafts, organization, and rules` },
+  { scope: "mcp:send", label: msg`Send email` },
+  { scope: "offline_access", label: msg`Offline access` },
 ] as const;

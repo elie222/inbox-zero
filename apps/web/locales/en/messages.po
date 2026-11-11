@@ -7,21 +7,139 @@ msgstr ""
 "X-Generator: @lingui/cli\n"
 "Language: en\n"
 
+#. placeholder {0}: result.skippedModified
+#: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
+msgid "{0, plural, one {# draft was kept because you edited it} other {# drafts were kept because you edited them}}"
+msgstr "{0, plural, one {# draft was kept because you edited it} other {# drafts were kept because you edited them}}"
+
+#. placeholder {0}: delivery.queuedItemCount
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "{0, plural, one {# email queued} other {# emails queued}}"
+msgstr "{0, plural, one {# email queued} other {# emails queued}}"
+
+#. placeholder {0}: data.updated
+#: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
+msgid "{0, plural, one {Reset # label to the default colors.} other {Reset # labels to the default colors.}}"
+msgstr "{0, plural, one {Reset # label to the default colors.} other {Reset # labels to the default colors.}}"
+
+#. placeholder {0}: selectedRuleIds.size
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "{0, plural, one {Transfer # rule} other {Transfer # rules}}"
+msgstr "{0, plural, one {Transfer # rule} other {Transfer # rules}}"
+
+#. placeholder {0}: selectedRuleIds.size
+#. placeholder {1}: rules.length
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "{0} of {1} selected"
+msgstr "{0} of {1} selected"
+
+#. placeholder {0}: getPremiumTierName(premium.tier)
+#. placeholder {0}: getPremiumTierName(tier)
+#: app/(app)/[emailAccountId]/settings/BillingSection.tsx
+msgid "{0} plan"
+msgstr "{0} plan"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "{description} Details: {details}"
+msgstr "{description} Details: {details}"
+
+#. placeholder {0}: connection.name
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "{labelText} for {0}"
+msgstr "{labelText} for {0}"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "{providerName} disconnected"
+msgstr "{providerName} disconnected"
+
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "{transferredCount} rules transferred, {updatedCount} rules updated."
+msgstr "{transferredCount} rules transferred, {updatedCount} rules updated."
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Account"
 msgstr "Account"
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Account deleted!"
+msgstr "Account deleted!"
 
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Add Account"
 msgstr "Add Account"
 
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "Add this URL in ChatGPT, Claude, or Cursor. You'll be asked to allow access."
+msgstr "Add this URL in ChatGPT, Claude, or Cursor. You'll be asked to allow access."
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "AI Model"
 msgstr "AI Model"
 
+#: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
+msgid "All rules disabled"
+msgstr "All rules disabled"
+
+#: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
+msgid "All stale drafts were edited by you, so none were removed."
+msgstr "All stale drafts were edited by you, so none were removed."
+
+#. placeholder {0}: data.organizationName
+#: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
+msgid "Allow organization admins from {0} to view your usage"
+msgstr "Allow organization admins from {0} to view your usage"
+
+#: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
+msgid "Allow organization admins to view your usage"
+msgstr "Allow organization admins to view your usage"
+
 #: app/(app)/settings/EmailOtpSection.tsx
 msgid "Allow sign-in with a one-time email code"
 msgstr "Allow sign-in with a one-time email code"
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Already cancelled your subscription? Click the button below to proceed."
+msgstr "Already cancelled your subscription? Click the button below to proceed."
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "An error occurred while saving your settings"
+msgstr "An error occurred while saving your settings"
+
+#: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
+msgid "Analytics reset! Visit the Unsubscriber or Analytics page and click the 'Load More' button to reload your data."
+msgstr "Analytics reset! Visit the Unsubscriber or Analytics page and click the 'Load More' button to reload your data."
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
+msgid "API Access"
+msgstr "API Access"
+
+#: app/(app)/[emailAccountId]/settings/ModelSection.tsx
+msgid "API Key"
+msgstr "API Key"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "API key created!"
+msgstr "API key created!"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "API key deactivated!"
+msgstr "API key deactivated!"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
+msgid "API Keys"
+msgstr "API Keys"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "at"
+msgstr "at"
+
+#: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
+msgid "Auto-delete AI Drafts"
+msgstr "Auto-delete AI Drafts"
+
+#: app/(app)/[emailAccountId]/settings/BillingSection.tsx
+msgid "Automatically send each Stripe invoice to the billing email."
+msgstr "Automatically send each Stripe invoice to the billing email."
 
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Beta Features"
@@ -31,17 +149,194 @@ msgstr "Beta Features"
 msgid "Billing"
 msgstr "Billing"
 
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+#: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
+msgid "Cancel"
+msgstr "Cancel"
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Cancel subscription first"
+msgstr "Cancel subscription first"
+
+#: app/(app)/[emailAccountId]/settings/BillingSection.tsx
+msgid "Change plan"
+msgstr "Change plan"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Chat delivery: <0>Configure in Channels</0>."
+msgstr "Chat delivery: <0>Configure in Channels</0>."
+
+#. placeholder {0}: res.data.deleted
+#: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
+msgid "Cleaned up {0, plural, one {# draft} other {# drafts}}."
+msgstr "Cleaned up {0, plural, one {# draft} other {# drafts}}."
+
+#: app/(app)/[emailAccountId]/settings/ModelSection.tsx
+msgid "Click Save to view available models for your API key."
+msgstr "Click Save to view available models for your API key."
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Command"
+msgstr "Command"
+
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "Connect"
+msgstr "Connect"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Connect {providerName}"
+msgstr "Connect {providerName}"
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Connect Apps"
 msgstr "Connect Apps"
+
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "Connect MCP"
+msgstr "Connect MCP"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Connect Slack"
+msgstr "Connect Slack"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Connect Teams"
+msgstr "Connect Teams"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Connect Telegram"
+msgstr "Connect Telegram"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Connected Apps"
+msgstr "Connected Apps"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Connecting..."
+msgstr "Connecting..."
+
+#: app/(app)/[emailAccountId]/settings/CopyRulesSection.tsx
+msgid "Copy Rules"
+msgstr "Copy Rules"
+
+#: app/(app)/[emailAccountId]/settings/CopyRulesSection.tsx
+msgid "Copy Rules From Another Account"
+msgstr "Copy Rules From Another Account"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "Create"
+msgstr "Create"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "Create key"
+msgstr "Create key"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "Create new secret key"
+msgstr "Create new secret key"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
+msgid "Created"
+msgstr "Created"
 
 #: app/(app)/settings/AppearanceSection.tsx
 msgid "Dark mode"
 msgstr "Dark mode"
 
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Day"
+msgstr "Day"
+
+#: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
+msgid "days"
+msgstr "days"
+
+#: app/(app)/[emailAccountId]/settings/ModelSection.tsx
+msgid "Default"
+msgstr "Default"
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Delete"
+msgstr "Delete"
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Delete account"
+msgstr "Delete account"
+
+#: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
+msgid "Delete Old AI Drafts"
+msgstr "Delete Old AI Drafts"
+
+#: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
+msgid "Delete old drafts"
+msgstr "Delete old drafts"
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Delete your Inbox Zero account?"
+msgstr "Delete your Inbox Zero account?"
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Deleting account..."
+msgstr "Deleting account..."
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Developer"
 msgstr "Developer"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Digest Items"
+msgstr "Digest Items"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Digest preview"
+msgstr "Digest preview"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Digest settings saved."
+msgstr "Digest settings saved."
+
+#: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
+msgid "Disable All"
+msgstr "Disable All"
+
+#: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
+msgid "Disable All Rules"
+msgstr "Disable All Rules"
+
+#: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
+msgid "Disable all rules?"
+msgstr "Disable all rules?"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "Disconnect"
+msgstr "Disconnect"
+
+#. placeholder {0}: connection.name
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "Disconnect {0}"
+msgstr "Disconnect {0}"
+
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "Disconnected"
+msgstr "Disconnected"
+
+#: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
+msgid "Draft cleanup age in days"
+msgstr "Draft cleanup age in days"
+
+#: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
+msgid "Draft cleanup settings updated."
+msgstr "Draft cleanup settings updated."
+
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "Drafts, organization, and rules"
+msgstr "Drafts, organization, and rules"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "Email account"
+msgstr "Email account"
 
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Email Accounts"
@@ -51,6 +346,148 @@ msgstr "Email Accounts"
 msgid "Email delivery unavailable."
 msgstr "Email delivery unavailable."
 
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Email not found in Slack"
+msgstr "Email not found in Slack"
+
+#: app/(app)/[emailAccountId]/settings/BillingSection.tsx
+msgid "Email paid invoices"
+msgstr "Email paid invoices"
+
+#: app/(app)/[emailAccountId]/settings/BillingSection.tsx
+msgid "Email paid Stripe invoices"
+msgstr "Email paid Stripe invoices"
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Error deleting account: {message}"
+msgstr "Error deleting account: {message}"
+
+#: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
+msgid "Error resetting analytics: {message}"
+msgstr "Error resetting analytics: {message}"
+
+#: app/(app)/[emailAccountId]/settings/ModelSection.tsx
+msgid "Error saving"
+msgstr "Error saving"
+
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "Error transferring rules"
+msgstr "Error transferring rules"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Error updating digest items"
+msgstr "Error updating digest items"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Error updating digest schedule"
+msgstr "Error updating digest schedule"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Error updating digest settings"
+msgstr "Error updating digest settings"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Every"
+msgstr "Every"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
+msgid "Expires"
+msgstr "Expires"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "Expiry"
+msgstr "Expiry"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Failed to connect Slack"
+msgstr "Failed to connect Slack"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "Failed to create API key"
+msgstr "Failed to create API key"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "Failed to deactivate API key"
+msgstr "Failed to deactivate API key"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "Failed to disconnect"
+msgstr "Failed to disconnect"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Failed to generate code"
+msgstr "Failed to generate code"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Failed to link Slack"
+msgstr "Failed to link Slack"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Failed to update"
+msgstr "Failed to update"
+
+#: app/(app)/[emailAccountId]/settings/BillingSection.tsx
+msgid "Failed to update invoice emails"
+msgstr "Failed to update invoice emails"
+
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "Failed to update MCP access"
+msgstr "Failed to update MCP access"
+
+#: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
+msgid "Failed to update read status setting"
+msgstr "Failed to update read status setting"
+
+#: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
+#: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
+msgid "Failed to update settings"
+msgstr "Failed to update settings"
+
+#: app/(app)/[emailAccountId]/settings/BillingSection.tsx
+msgid "Free trial"
+msgstr "Free trial"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Friday"
+msgstr "Friday"
+
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "Full setup guide"
+msgstr "Full setup guide"
+
+#: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
+msgid "Generate a new webhook secret to reveal it once for copying."
+msgstr "Generate a new webhook secret to reveal it once for copying."
+
+#: app/(app)/[emailAccountId]/settings/WebhookGenerate.tsx
+msgid "Generate secret"
+msgstr "Generate secret"
+
+#: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
+msgid "Generate Secret"
+msgstr "Generate Secret"
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "I've already cancelled my subscription"
+msgstr "I've already cancelled my subscription"
+
+#: app/(app)/[emailAccountId]/settings/SentWithSignatureSection.tsx
+msgid "Include 'Sent with {BRAND_NAME}'"
+msgstr "Include 'Sent with {BRAND_NAME}'"
+
+#: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
+msgid "Include this in the X-Webhook-Secret header when setting up webhook endpoints. Existing secrets are not shown again. When you generate a new secret, copy it before closing this dialog."
+msgstr "Include this in the X-Webhook-Secret header when setting up webhook endpoints. Existing secrets are not shown again. When you generate a new secret, copy it before closing this dialog."
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Install manually"
+msgstr "Install manually"
+
+#: app/(app)/[emailAccountId]/settings/ModelSection.tsx
+msgid "Invalid API Key"
+msgstr "Invalid API Key"
+
 #: app/(app)/settings/TeamSection.tsx
 msgid "Invite"
 msgstr "Invite"
@@ -59,18 +496,344 @@ msgstr "Invite"
 msgid "Invite members"
 msgstr "Invite members"
 
+#: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
+msgid "Keys created here are limited to the current inbox account."
+msgstr "Keys created here are limited to the current inbox account."
+
+#: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
+msgid "Label colors are already set to the defaults."
+msgstr "Label colors are already set to the defaults."
+
 #: app/(app)/settings/LanguageSection.tsx
 msgid "Language"
 msgstr "Language"
+
+#. placeholder {0}: formatDigestDeliveryTime( new Date(delivery.lastDelivery.occurredAt), delivery.timezone, )
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Last delivery failed {0}"
+msgstr "Last delivery failed {0}"
+
+#. placeholder {0}: formatDigestDeliveryTime( new Date(delivery.lastDelivery.occurredAt), delivery.timezone, )
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Last sent {0}"
+msgstr "Last sent {0}"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
+msgid "Last used"
+msgstr "Last used"
+
+#: app/(app)/[emailAccountId]/settings/ModelSection.tsx
+msgid "Leave blank to keep the current key"
+msgstr "Leave blank to keep the current key"
+
+#: app/(app)/[emailAccountId]/settings/ModelSection.tsx
+msgid "Leave this blank to keep the current API key, or enter a new key to replace it."
+msgstr "Leave this blank to keep the current API key, or enter a new key to replace it."
+
+#. placeholder {0}: existingWorkspace.teamName
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Link to {0}"
+msgstr "Link to {0}"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Linking..."
+msgstr "Linking..."
+
+#: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
+msgid "Manage Secret"
+msgstr "Manage Secret"
+
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "MCP access disabled!"
+msgstr "MCP access disabled!"
+
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "MCP access enabled!"
+msgstr "MCP access enabled!"
+
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "MCP apps"
+msgstr "MCP apps"
+
+#. placeholder {0}: connections.length
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "MCP apps ({0})"
+msgstr "MCP apps ({0})"
+
+#: app/(app)/[emailAccountId]/settings/ModelSection.tsx
+msgid "Model"
+msgstr "Model"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Monday"
+msgstr "Monday"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "My API key"
+msgstr "My API key"
+
+#: app/(app)/[emailAccountId]/settings/AboutSectionForm.tsx
+msgid "My name is Alex Smith. I'm the founder of Acme.\n"
+"\n"
+"- If I'm CC'd, it's not To Reply\n"
+"- Emails from jane@accounting.com aren't Notifications"
+msgstr "My name is Alex Smith. I'm the founder of Acme.\n"
+"\n"
+"- If I'm CC'd, it's not To Reply\n"
+"- Emails from jane@accounting.com aren't Notifications"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
+msgid "Name"
+msgstr "Name"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "Name (optional)"
+msgstr "Name (optional)"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
+msgid "Never"
+msgstr "Never"
+
+#. placeholder {0}: formatDigestDeliveryTime( new Date(digestStatus.delivery.estimatedNextDeliveryAt), digestStatus.delivery.timezone, )
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Next delivery around {0}."
+msgstr "Next delivery around {0}."
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Next, open Channels to choose where Slack messages go."
+msgstr "Next, open Channels to choose where Slack messages go."
+
+#: app/(app)/[emailAccountId]/settings/BillingSection.tsx
+msgid "No active plan"
+msgstr "No active plan"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
+msgid "No API keys yet."
+msgstr "No API keys yet."
+
+#. placeholder {0}: selectedSource?.email
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "No rules found in {0}"
+msgstr "No rules found in {0}"
+
+#: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
+msgid "No stale drafts found."
+msgstr "No stale drafts found."
+
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "Offline access"
+msgstr "Offline access"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "on"
+msgstr "on"
+
+#: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
+msgid "Only removes drafts created by {BRAND_NAME} that have not been edited by you."
+msgstr "Only removes drafts created by {BRAND_NAME} that have not been edited by you."
 
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Open"
 msgstr "Open"
 
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Open Telegram bot"
+msgstr "Open Telegram bot"
+
+#: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
+msgid "Organization Analytics"
+msgstr "Organization Analytics"
+
+#. placeholder {0}: env.NEXT_PUBLIC_SUPPORT_EMAIL
+#: app/(app)/[emailAccountId]/settings/BillingSection.tsx
+msgid "Paused. Contact <0>{0}</0> to resume it."
+msgstr "Paused. Contact <0>{0}</0> to resume it."
+
+#: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
+msgid "Permanently delete all analytics"
+msgstr "Permanently delete all analytics"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+#: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
+msgid "Permissions"
+msgstr "Permissions"
+
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "Permissions updated"
+msgstr "Permissions updated"
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Please cancel your subscription before deleting your account."
+msgstr "Please cancel your subscription before deleting your account."
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Preview"
+msgstr "Preview"
+
+#: app/(app)/[emailAccountId]/settings/ModelSection.tsx
+msgid "Provider"
+msgstr "Provider"
+
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "Read and search mail"
+msgstr "Read and search mail"
+
+#: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
+msgid "Read status"
+msgstr "Read status"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Redirecting to Slack authorization..."
+msgstr "Redirecting to Slack authorization..."
+
+#: app/(app)/[emailAccountId]/settings/WebhookGenerate.tsx
+msgid "Regenerate secret"
+msgstr "Regenerate secret"
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Remove just one account instead"
+msgstr "Remove just one account instead"
+
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "Remove optional access below, or disconnect to remove all access. To add permissions, reconnect from the application and approve the new access."
+msgstr "Remove optional access below, or disconnect to remove all access. To add permissions, reconnect from the application and approve the new access."
+
+#: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
+msgid "Remove unedited drafts created by {BRAND_NAME} that are older than {savedCleanupDays} days."
+msgstr "Remove unedited drafts created by {BRAND_NAME} that are older than {savedCleanupDays} days."
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Removes your Inbox Zero data. Your emails aren't affected."
+msgstr "Removes your Inbox Zero data. Your emails aren't affected."
+
+#: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
+#: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
+msgid "Reset"
+msgstr "Reset"
+
+#. placeholder {0}: data.updated
+#. placeholder {1}: data.failed
+#: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
+msgid "Reset {0, plural, one {# label} other {# labels}}, but {1, plural, one {# label} other {# labels}} couldn't be updated. Please try again."
+msgstr "Reset {0, plural, one {# label} other {# labels}}, but {1, plural, one {# label} other {# labels}} couldn't be updated. Please try again."
+
+#: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
+msgid "Reset Analytics"
+msgstr "Reset Analytics"
+
+#: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
+msgid "Reset Label Colors"
+msgstr "Reset Label Colors"
+
+#: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
+msgid "Resetting analytics..."
+msgstr "Resetting analytics..."
+
+#: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
+msgid "Restore the default colors for Inbox Zero labels like To Reply and Newsletter"
+msgstr "Restore the default colors for Inbox Zero labels like To Reply and Newsletter"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "Revoke"
+msgstr "Revoke"
+
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "Rule"
+msgstr "Rule"
+
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "Rules transferred successfully"
+msgstr "Rules transferred successfully"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Saturday"
+msgstr "Saturday"
+
+#: app/(app)/[emailAccountId]/settings/AboutSectionForm.tsx
+#: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+#: app/(app)/[emailAccountId]/settings/ModelSection.tsx
+msgid "Save"
+msgstr "Save"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Saved. Next digest expected around {deliveryTime}."
+msgstr "Saved. Next digest expected around {deliveryTime}."
+
+#: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
+msgid "See when recipients open emails you send from the mail client."
+msgstr "See when recipients open emails you send from the mail client."
+
+#: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
+msgid "See when recipients open emails you send."
+msgstr "See when recipients open emails you send."
+
+#. placeholder {0}: rule.name
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "Select {0}"
+msgstr "Select {0}"
+
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "Select all"
+msgstr "Select all"
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "Select an account"
+msgstr "Select an account"
+
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "Select an account to transfer rules from. Rules with matching names will be replaced."
+msgstr "Select an account to transfer rules from. Rules with matching names will be replaced."
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Select digest items to see a preview"
+msgstr "Select digest items to see a preview"
+
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "Select source account"
+msgstr "Select source account"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Select..."
+msgstr "Select..."
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Selected rules are combined into one digest email."
+msgstr "Selected rules are combined into one digest email."
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Send digest to email"
+msgstr "Send digest to email"
+
+#: app/(app)/[emailAccountId]/settings/McpSection.tsx
+msgid "Send email"
+msgstr "Send email"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Send the digest email"
+msgstr "Send the digest email"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Send this command in a direct message with the Inbox Zero bot on {providerName}. The code is one-time use and expires in 10 minutes."
+msgstr "Send this command in a direct message with the Inbox Zero bot on {providerName}. The code is one-time use and expires in 10 minutes."
+
 #: app/(app)/settings/page.tsx
 #: app/(app)/settings/SettingsDialog.tsx
 msgid "Settings"
 msgstr "Settings"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Settings saved"
+msgstr "Settings saved"
+
+#: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
+#: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
+msgid "Settings updated!"
+msgstr "Settings updated!"
+
+#: app/(app)/[emailAccountId]/settings/ModelSection.tsx
+msgid "Settings updated! Please check it works on the Assistant page."
+msgstr "Settings updated! Please check it works on the Assistant page."
 
 #: app/(app)/settings/TeamSection.tsx
 msgid "Share your plan by inviting teammates to your organization."
@@ -81,10 +844,179 @@ msgstr "Share your plan by inviting teammates to your organization."
 msgid "Sign in with {0}."
 msgstr "Sign in with {0}."
 
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Slack connected"
+msgstr "Slack connected"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Slack connection failed"
+msgstr "Slack connection failed"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Slack connection in progress"
+msgstr "Slack connection in progress"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Slack is still finalizing your connection. Please refresh in a moment."
+msgstr "Slack is still finalizing your connection. Please refresh in a moment."
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Slack returned an invalid or expired code. Please try connecting again."
+msgstr "Slack returned an invalid or expired code. Please try connecting again."
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "Slack session validation failed. Please try connecting again."
+msgstr "Slack session validation failed. Please try connecting again."
+
+#: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
+msgid "Specialized decision model"
+msgstr "Specialized decision model"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Sunday"
+msgstr "Sunday"
+
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Team"
 msgstr "Team"
 
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "This key will only work for the selected inbox account."
+msgstr "This key will only work for the selected inbox account."
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "This permanently deletes your Inbox Zero data and disconnects {connectedEmailList}. Your emails aren't affected."
+msgstr "This permanently deletes your Inbox Zero data and disconnects {connectedEmailList}. Your emails aren't affected."
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "This Slack app is not distributed to every workspace yet. Use the currently supported workspace or contact support."
+msgstr "This Slack app is not distributed to every workspace yet. Use the currently supported workspace or contact support."
+
+#: app/(app)/[emailAccountId]/settings/BillingSection.tsx
+msgid "This subscription is billed through Apple. Manage or cancel it from your iPhone or iPad subscription settings."
+msgstr "This subscription is billed through Apple. Manage or cancel it from your iPhone or iPad subscription settings."
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "This will create a new secret key for your account. You will need to use this secret key to authenticate your requests to the API."
+msgstr "This will create a new secret key for your account. You will need to use this secret key to authenticate your requests to the API."
+
+#: app/(app)/[emailAccountId]/settings/ToggleAllRulesSection.tsx
+msgid "This will disable all AI rules for this account. You can re-enable individual rules from the Rules page."
+msgstr "This will disable all AI rules for this account. You can re-enable individual rules from the Rules page."
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
+msgid "This will only be shown once. Please copy it. Your secret key is:"
+msgstr "This will only be shown once. Please copy it. Your secret key is:"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Thursday"
+msgstr "Thursday"
+
+#: app/(app)/[emailAccountId]/settings/SentWithSignatureSection.tsx
+msgid "Toggle 'Sent with {BRAND_NAME}'"
+msgstr "Toggle 'Sent with {BRAND_NAME}'"
+
+#: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
+msgid "Toggle automatic AI draft cleanup"
+msgstr "Toggle automatic AI draft cleanup"
+
 #: app/(app)/settings/AppearanceSection.tsx
 msgid "Toggle dark mode"
 msgstr "Toggle dark mode"
+
+#: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
+msgid "Toggle read status"
+msgstr "Toggle read status"
+
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "Transfer from"
+msgstr "Transfer from"
+
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "Transfer rules"
+msgstr "Transfer rules"
+
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "Transfer rules to {targetAccountEmail}"
+msgstr "Transfer rules to {targetAccountEmail}"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Tuesday"
+msgstr "Tuesday"
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+#: app/(app)/[emailAccountId]/settings/ResetAnalyticsSection.tsx
+msgid "Unknown error"
+msgstr "Unknown error"
+
+#: app/(app)/[emailAccountId]/settings/BillingSection.tsx
+msgid "Upgrade"
+msgstr "Upgrade"
+
+#: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
+msgid "Use an optional decision model for rule matching and other structured decisions. Falls back to your AI model if unavailable."
+msgstr "Use an optional decision model for rule matching and other structured decisions. Falls back to your AI model if unavailable."
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Usually sent within 5 minutes."
+msgstr "Usually sent within 5 minutes."
+
+#: app/(app)/[emailAccountId]/settings/ApiKeysSection.tsx
+msgid "View keys"
+msgstr "View keys"
+
+#: app/(app)/[emailAccountId]/settings/CopyRulesDialog.tsx
+msgid "View rules"
+msgstr "View rules"
+
+#: app/(app)/[emailAccountId]/settings/ModelSection.tsx
+msgid "View usage"
+msgstr "View usage"
+
+#: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
+msgid "We couldn't complete the Slack connection. Please try again."
+msgstr "We couldn't complete the Slack connection. Please try again."
+
+#: app/(app)/[emailAccountId]/settings/ModelSection.tsx
+msgid "We couldn't validate your API key. Please try again."
+msgstr "We couldn't validate your API key. Please try again."
+
+#: app/(app)/[emailAccountId]/settings/WebhookSection.tsx
+msgid "Webhook Secret"
+msgstr "Webhook Secret"
+
+#: app/(app)/[emailAccountId]/settings/WebhookGenerate.tsx
+msgid "Webhook secret generated. Copy it now, it will not be shown again."
+msgstr "Webhook secret generated. Copy it now, it will not be shown again."
+
+#: app/(app)/[emailAccountId]/settings/WebhookGenerate.tsx
+msgid "Webhook secret regenerated. Copy it now, it will not be shown again."
+msgstr "Webhook secret regenerated. Copy it now, it will not be shown again."
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Wednesday"
+msgstr "Wednesday"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "Week"
+msgstr "Week"
+
+#: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+msgid "What to include in the digest email"
+msgstr "What to include in the digest email"
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "You can manage your subscription by clicking \"Manage Subscription\" above or going to the <0>premium page</0> and clicking \"Manage subscription\"."
+msgstr "You can manage your subscription by clicking \"Manage Subscription\" above or going to the <0>premium page</0> and clicking \"Manage subscription\"."
+
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "You can manage your subscription from your iPhone or iPad subscription settings."
+msgstr "You can manage your subscription from your iPhone or iPad subscription settings."
+
+#: app/(app)/[emailAccountId]/settings/BillingSection.tsx
+msgid "You're on grandfathered Stripe pricing. The current plan prices shown elsewhere in the app are for new subscriptions."
+msgstr "You're on grandfathered Stripe pricing. The current plan prices shown elsewhere in the app are for new subscriptions."
+
+#: app/(app)/[emailAccountId]/settings/AboutSectionForm.tsx
+msgid "Your profile has been updated!"
+msgstr "Your profile has been updated!"

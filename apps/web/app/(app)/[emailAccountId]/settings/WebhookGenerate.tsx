@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { KeyIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { regenerateWebhookSecretAction } from "@/utils/actions/webhook";
@@ -16,14 +17,15 @@ export function RegenerateSecretButton({
   mutate: () => void;
   onGenerated: (secret: string) => void;
 }) {
+  const { t } = useLingui();
   const { execute, isExecuting } = useAction(regenerateWebhookSecretAction, {
     onSuccess: ({ data }) => {
       if (!data?.webhookSecret) return;
       onGenerated(data.webhookSecret);
       toastSuccess({
         description: hasSecret
-          ? "Webhook secret regenerated. Copy it now, it will not be shown again."
-          : "Webhook secret generated. Copy it now, it will not be shown again.",
+          ? t`Webhook secret regenerated. Copy it now, it will not be shown again.`
+          : t`Webhook secret generated. Copy it now, it will not be shown again.`,
       });
     },
     onError: (error) => {
@@ -44,7 +46,7 @@ export function RegenerateSecretButton({
       onClick={() => execute()}
     >
       <KeyIcon className="mr-2 size-4" />
-      {hasSecret ? "Regenerate secret" : "Generate secret"}
+      {hasSecret ? t`Regenerate secret` : t`Generate secret`}
     </Button>
   );
 }

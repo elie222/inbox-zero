@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { Switch } from "@/components/ui/switch";
@@ -22,6 +23,7 @@ export function SentMessageOpenTrackingSetting({
 }: {
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
   const { data, isLoading, error, mutate } =
     useEmailAccountFull(emailAccountId);
 
@@ -33,7 +35,7 @@ export function SentMessageOpenTrackingSetting({
       },
       onError: createSettingActionErrorHandler({
         mutate,
-        prefix: "Failed to update read status setting",
+        prefix: t`Failed to update read status setting`,
       }),
     },
   );
@@ -58,9 +60,13 @@ export function SentMessageOpenTrackingSetting({
           <ItemSeparator />
           <Item size="sm">
             <ItemContent>
-              <ItemTitle>Read status</ItemTitle>
+              <ItemTitle>
+                <Trans>Read status</Trans>
+              </ItemTitle>
               <ItemDescription>
-                See when recipients open emails you send from the mail client.
+                <Trans>
+                  See when recipients open emails you send from the mail client.
+                </Trans>
               </ItemDescription>
             </ItemContent>
             <ItemActions>
@@ -75,14 +81,16 @@ export function SentMessageOpenTrackingSetting({
           <ItemSeparator />
           <Item size="sm">
             <ItemContent>
-              <ItemTitle>Read status</ItemTitle>
+              <ItemTitle>
+                <Trans>Read status</Trans>
+              </ItemTitle>
               <ItemDescription>
-                See when recipients open emails you send.
+                <Trans>See when recipients open emails you send.</Trans>
               </ItemDescription>
             </ItemContent>
             <ItemActions>
               <Switch
-                aria-label="Toggle read status"
+                aria-label={t`Toggle read status`}
                 checked={data.sentMessageOpenTrackingEnabled}
                 disabled={isExecuting}
                 onCheckedChange={handleToggle}
