@@ -1,26 +1,32 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { usePathname } from "next/navigation";
 import { TabSelect } from "@/components/TabSelect";
 import { PageHeading, PageSubHeading } from "@/components/Typography";
 
 export function SharedTabs() {
+  const { t } = useLingui();
   const pathname = usePathname();
 
   return (
     <div>
       <div className="mb-4">
-        <PageHeading>Discussions</PageHeading>
+        <PageHeading>
+          <Trans>Discussions</Trans>
+        </PageHeading>
         <PageSubHeading className="mt-1">
-          Email threads your teammates share with you to discuss in private
-          comments.
+          <Trans>
+            Email threads your teammates share with you to discuss in private
+            comments.
+          </Trans>
         </PageSubHeading>
       </div>
       <div className="border-b border-neutral-200">
         <TabSelect
           options={[
-            { id: "conversations", label: "Conversations", href: "/shared" },
-            { id: "activity", label: "Activity", href: "/shared/activity" },
+            { id: "conversations", label: t`Conversations`, href: "/shared" },
+            { id: "activity", label: t`Activity`, href: "/shared/activity" },
           ]}
           selected={
             pathname.endsWith("/activity") ? "activity" : "conversations"
@@ -34,8 +40,10 @@ export function SharedTabs() {
 export function NoOrganization() {
   return (
     <p className="text-muted-foreground text-sm">
-      This account isn't in an organization. Switch to an account that is to see
-      conversations your teammates share with you.
+      <Trans>
+        This account isn't in an organization. Switch to an account that is to
+        see conversations your teammates share with you.
+      </Trans>
     </p>
   );
 }

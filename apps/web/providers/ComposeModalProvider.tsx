@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import {
   createContext,
   useCallback,
@@ -67,6 +68,7 @@ const ComposeModalContext = createContext<Context>({
 export const useComposeModal = () => useContext(ComposeModalContext);
 
 export function ComposeModalProvider(props: { children: React.ReactNode }) {
+  const { t } = useLingui();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { emailAccountId } = useAccount();
@@ -147,7 +149,7 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
             description:
               error instanceof Error
                 ? error.message
-                : "Failed to discard draft",
+                : t`Failed to discard draft`,
           });
           return false;
         }
@@ -155,7 +157,7 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
       closeCompose();
       return true;
     },
-    [reply, closeCompose],
+    [reply, closeCompose, t],
   );
   const contextValue = useMemo(
     () => ({
@@ -213,14 +215,16 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
                 isExpanded && "text-2xl font-medium",
               )}
             >
-              {reply ? reply.replyingToEmail.subject || "Reply" : "New Message"}
+              {reply
+                ? reply.replyingToEmail.subject || t`Reply`
+                : t`New Message`}
             </DialogTitle>
             <div className="flex items-center gap-0.5">
               <Button
-                aria-label={isExpanded ? "Restore compose" : "Expand compose"}
+                aria-label={isExpanded ? t`Restore compose` : t`Expand compose`}
                 onClick={() => setIsExpanded((expanded) => !expanded)}
                 size="iconSm"
-                title={isExpanded ? "Restore compose" : "Expand compose"}
+                title={isExpanded ? t`Restore compose` : t`Expand compose`}
                 variant="ghost"
               >
                 {isExpanded ? (
@@ -231,9 +235,9 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
               </Button>
               <DialogClose asChild>
                 <Button
-                  aria-label="Close compose"
+                  aria-label={t`Close compose`}
                   size="iconSm"
-                  title="Close compose"
+                  title={t`Close compose`}
                   variant="ghost"
                 >
                   <XIcon className="size-4" />
