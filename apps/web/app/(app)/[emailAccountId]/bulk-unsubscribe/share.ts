@@ -16,7 +16,7 @@ export function buildShareText({
   i18n,
 }: ShareParams): string {
   if (yearlyEmails != null) {
-    const yearly = yearlyEmails.toLocaleString("en-US");
+    const yearly = i18n.number(yearlyEmails);
     return i18n._(
       msg`I just unsubscribed from ${plural(senderCount, {
         one: "# email list",

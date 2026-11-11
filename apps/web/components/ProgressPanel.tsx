@@ -56,9 +56,7 @@ export function ProgressPanel({
             </span>
             <span>
               <Trans>
-                <Trans>
-                  {totalProcessed} of {totalItems} {itemLabel} processed
-                </Trans>
+                {totalProcessed} of {totalItems} {itemLabel} processed
               </Trans>
             </span>
           </div>

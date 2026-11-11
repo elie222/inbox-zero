@@ -187,8 +187,6 @@ function SummaryCard({
     percentChange: number;
   } | null;
 }) {
-  const percentChange = Math.abs(comparison?.percentChange ?? 0);
-
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -215,13 +213,7 @@ function SummaryCard({
             ) : comparison.percentChange > 0 ? (
               <TrendingUp className="h-3 w-3" />
             ) : null}
-            {comparison.percentChange === 0 ? (
-              <Trans>No change</Trans>
-            ) : comparison.percentChange < 0 ? (
-              <Trans>{percentChange}% faster</Trans>
-            ) : (
-              <Trans>{percentChange}% slower</Trans>
-            )}
+            <PercentChangeText change={comparison.percentChange} />
             <span className="text-muted-foreground ml-1">
               <Trans>vs previous</Trans>
             </span>
@@ -265,4 +257,11 @@ function formatTimeShort(minutes: number): string {
   }
   const days = Math.round(minutes / 1440);
   return `${days}d`;
+}
+
+function PercentChangeText({ change }: { change: number }) {
+  const percentChange = Math.abs(change);
+  if (change === 0) return <Trans>No change</Trans>;
+  if (change < 0) return <Trans>{percentChange}% faster</Trans>;
+  return <Trans>{percentChange}% slower</Trans>;
 }
