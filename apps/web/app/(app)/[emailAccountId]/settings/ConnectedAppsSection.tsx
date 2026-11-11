@@ -119,7 +119,7 @@ export function ConnectedAppsSection({
         mutateChannels();
       },
       onError: (error) => {
-        const msg = getActionErrorMessage(error.error);
+        const msg = getActionErrorMessage(error.error, t`Failed to link Slack`);
         if (msg?.includes("Could not find your Slack account") && authUrl) {
           toastInfo({
             title: t`Email not found in Slack`,
@@ -127,7 +127,7 @@ export function ConnectedAppsSection({
           });
           redirectToSafeUrl(authUrl, { allowExternal: true });
         } else {
-          toastError({ description: msg ?? t`Failed to link Slack` });
+          toastError({ description: msg });
         }
       },
     },
@@ -146,8 +146,10 @@ export function ConnectedAppsSection({
       },
       onError: (error) => {
         toastError({
-          description:
-            getActionErrorMessage(error.error) ?? t`Failed to generate code`,
+          description: getActionErrorMessage(
+            error.error,
+            t`Failed to generate code`,
+          ),
         });
       },
     },
@@ -345,8 +347,10 @@ function ConnectedChannelRow({
       },
       onError: (error) => {
         toastError({
-          description:
-            getActionErrorMessage(error.error) ?? t`Failed to disconnect`,
+          description: getActionErrorMessage(
+            error.error,
+            t`Failed to disconnect`,
+          ),
         });
       },
     },
