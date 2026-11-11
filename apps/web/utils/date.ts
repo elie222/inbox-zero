@@ -1,3 +1,5 @@
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { format } from "date-fns/format";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { isSameDay } from "date-fns/isSameDay";
@@ -54,14 +56,24 @@ export function formatShortDate(
  * - A date ahead of today keeps its own day, so a sender with a skewed clock
  *   is never filed under a section that has already passed.
  */
-export function formatDateGroupLabel(date: Date, now: Date = new Date()) {
-  if (isSameDay(date, now)) return "Today";
-  if (isSameDay(date, subDays(now, 1))) return "Yesterday";
-  if (date > now) return format(date, "MMMM do, yyyy");
-  if (date >= startOfDay(subDays(now, 6))) return "Last 7 days";
-  if (isSameMonth(date, now)) return "Earlier this month";
-  if (isSameYear(date, now)) return format(date, "MMMM");
-  return format(date, "MMMM yyyy");
+export function formatDateGroupLabel(
+  date: Date,
+  i18n: I18n,
+  now: Date = new Date(),
+) {
+  if (isSameDay(date, now)) return i18n._(msg`Today`);
+  if (isSameDay(date, subDays(now, 1))) return i18n._(msg`Yesterday`);
+  if (date > now)
+    return formatGroupDate(date, i18n, {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  if (date >= startOfDay(subDays(now, 6))) return i18n._(msg`Last 7 days`);
+  if (isSameMonth(date, now)) return i18n._(msg`Earlier this month`);
+  if (isSameYear(date, now))
+    return formatGroupDate(date, i18n, { month: "long" });
+  return formatGroupDate(date, i18n, { month: "long", year: "numeric" });
 }
 
 export function dateToSeconds(date: Date) {
@@ -288,4 +300,14 @@ function shortDateFormatter(kind: keyof typeof shortDateFormats) {
     shortDateFormatters.set(kind, formatter);
   }
   return formatter;
+}
+
+// Some locales write month names in lowercase, which reads oddly as a heading.
+function formatGroupDate(
+  date: Date,
+  i18n: I18n,
+  options: Intl.DateTimeFormatOptions,
+) {
+  const text = i18n.date(date, options);
+  return text.charAt(0).toLocaleUpperCase(i18n.locale) + text.slice(1);
 }

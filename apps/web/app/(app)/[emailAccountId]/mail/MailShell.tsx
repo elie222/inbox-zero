@@ -21,6 +21,8 @@ import { useChat } from "@/providers/ChatProvider";
 import { buildChatMailView } from "@/app/(app)/[emailAccountId]/mail/chat-mail-view";
 import type { MailScreenAction } from "@/utils/ai/assistant/mail-screen-action";
 import { parseAsString, useQueryState, useQueryStates } from "nuqs";
+import { Trans, useLingui } from "@lingui/react/macro";
+import type { I18n } from "@lingui/core";
 import { ChevronLeftIcon } from "lucide-react";
 import { toast } from "sonner";
 import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
@@ -170,6 +172,7 @@ const NO_LABELS = {};
  * referentially stable and only the parts whose inputs changed re-render.
  */
 export function MailShell() {
+  const { i18n, t } = useLingui();
   const { emailAccount, emailAccountId, userEmail, provider } = useAccount();
   const { data: accountsData } = useAccounts();
   const isGoogle = isGoogleProvider(provider);
@@ -296,11 +299,11 @@ export function MailShell() {
         },
       ).catch((error) => {
         toast.error(
-          error instanceof Error ? error.message : "Couldn't save that",
+          error instanceof Error ? error.message : t`Couldn't save that`,
         );
       });
     },
-    [emailAccountId, mutateSettings, settings],
+    [emailAccountId, mutateSettings, settings, t],
   );
 
   const toggleLayout = useCallback(
@@ -558,11 +561,11 @@ export function MailShell() {
     emptyListMessage = (
       <span className="inline-flex items-center gap-2">
         <LoadingMiniSpinner />
-        Syncing your mail…
+        <Trans>Syncing your mail…</Trans>
       </span>
     );
   } else if (searchQuery) {
-    emptyListMessage = "No emails found";
+    emptyListMessage = t`No emails found`;
   } else if (!scopeQuery) {
     emptyListMessage = (
       <InboxZeroCelebration
@@ -713,8 +716,9 @@ export function MailShell() {
       printMessages({
         subject: getConversationSubject(messages) ?? "",
         messages,
+        i18n,
       });
-  }, [openMessages]);
+  }, [i18n, openMessages]);
   const teamCommentsAvailable = useTeamCommentsAvailable(readerEmailAccountId);
   const openTeamComments = useMemo(
     () =>
@@ -1680,11 +1684,11 @@ export function MailShell() {
       });
       if (admission.status === "rejected") {
         toast.error(
-          admissionRejectionCopy(admission.code) ?? "Couldn't remove label",
+          admissionRejectionCopy(admission.code) ?? t`Couldn't remove label`,
         );
       }
     } catch {
-      toast.error("Couldn't remove label");
+      toast.error(t`Couldn't remove label`);
     }
   });
 
@@ -1733,6 +1737,7 @@ export function MailShell() {
           folders,
           isGoogle,
           isOutlook,
+          i18n,
         })
       : null;
   const chatMailView = useMemo(
@@ -2095,12 +2100,12 @@ export function MailShell() {
                 {scopeTitle ? (
                   <div className="flex items-center gap-1 px-1.5 py-1">
                     <Tooltip
-                      shortcuts={[{ id: "backToList", label: "Go to inbox" }]}
+                      shortcuts={[{ id: "backToList", label: t`Go to inbox` }]}
                     >
                       <button
                         type="button"
                         onClick={goToInbox}
-                        aria-label="Go to inbox"
+                        aria-label={t`Go to inbox`}
                         className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <ChevronLeftIcon className="size-4" />
@@ -2114,8 +2119,10 @@ export function MailShell() {
                 {isAllAccounts &&
                 combinedThreadState.failedAccountIds.length ? (
                   <div className="border-border border-b bg-amber-50 px-3 py-2 text-amber-900 text-xs dark:bg-amber-950/30 dark:text-amber-200">
-                    Some inboxes couldn&apos;t be loaded. Try again shortly or
-                    check their connections.
+                    <Trans>
+                      Some inboxes couldn&apos;t be loaded. Try again shortly or
+                      check their connections.
+                    </Trans>
                   </div>
                 ) : null}
                 <MailPanelErrorBoundary
@@ -2126,7 +2133,7 @@ export function MailShell() {
                     displayedActiveSplitId,
                     searchQuery,
                   ])}
-                  title="Unable to show your mail list"
+                  title={t`Unable to show your mail list`}
                 >
                   {isScheduledView ? (
                     <ScheduledEmailList />
@@ -2263,6 +2270,7 @@ function getScopeTitle({
   folders,
   isGoogle,
   isOutlook,
+  i18n,
 }: {
   scopeType: string | null;
   scopeLabelId: string | null;
@@ -2271,6 +2279,7 @@ function getScopeTitle({
   folders: OutlookFolder[];
   isGoogle: boolean;
   isOutlook: boolean;
+  i18n: I18n;
 }): string | null {
   if (scopeLabelId)
     return labels.find((label) => label.id === scopeLabelId)?.name ?? null;
@@ -2280,11 +2289,11 @@ function getScopeTitle({
         (folder) => folder.id === scopeFolderId,
       )?.displayName ?? null
     );
-  return (
-    [...MAILBOX_ITEMS, ...getMailCategories({ isGoogle, isOutlook })].find(
-      (item) => item.type === scopeType,
-    )?.name ?? null
-  );
+  const item = [
+    ...MAILBOX_ITEMS,
+    ...getMailCategories({ isGoogle, isOutlook }),
+  ].find((item) => item.type === scopeType);
+  return item ? i18n._(item.label) : null;
 }
 
 function getMailSearchVariant({

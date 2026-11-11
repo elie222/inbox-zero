@@ -13,6 +13,8 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { MailboxThreadList } from "@inboxzero/mail-ui/MailboxSurface";
 import { ThreadRow } from "@/app/(app)/[emailAccountId]/mail/ThreadRow";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -74,7 +76,7 @@ export type ThreadListProps = {
 
 export const ThreadList = memo(function ThreadList({
   threads,
-  emptyMessage = "No emails in this view",
+  emptyMessage = <Trans>No emails in this view</Trans>,
   layout,
   expandedPreview,
   userEmail,
@@ -97,6 +99,7 @@ export const ThreadList = memo(function ThreadList({
   rowBundles = NO_BUNDLES,
   onToggleBundle,
 }: ThreadListProps) {
+  const { i18n } = useLingui();
   const isMobile = useIsMobile();
   const { emailAccountId } = useAccount();
   // One subscription for the list: a reply shows as a draft from its first
@@ -149,10 +152,10 @@ export const ThreadList = memo(function ThreadList({
         bundleRow?.bundle.threads[0] ?? thread,
       );
       return timestamp
-        ? formatDateGroupLabel(new Date(timestamp), new Date(dayStart))
+        ? formatDateGroupLabel(new Date(timestamp), i18n, new Date(dayStart))
         : null;
     },
-    [dayStart, rowBundles],
+    [dayStart, i18n, rowBundles],
   );
 
   return (
@@ -160,6 +163,7 @@ export const ThreadList = memo(function ThreadList({
       emptyMessage={emptyMessage}
       focusedIndex={focusedIndex}
       getGroupLabel={getGroupLabel}
+      todayGroupLabel={i18n._(msg`Today`)}
       getKey={getListThreadKey}
       groupHeaderClassName={groupHeaderClassName}
       isLoadingMore={isLoadingMore}
@@ -168,13 +172,13 @@ export const ThreadList = memo(function ThreadList({
       listKey={listKey}
       loadMoreButton={
         <Button onClick={onLoadMore} size="sm" variant="outline">
-          Load more
+          <Trans>Load more</Trans>
         </Button>
       }
       loadingMoreIndicator={
         <div className="flex items-center gap-2 text-muted-foreground text-xs">
           <LoadingMiniSpinner />
-          Loading more
+          <Trans>Loading more</Trans>
         </div>
       }
       onLoadMore={onLoadMore}
