@@ -91,6 +91,16 @@ const SATURDAY = 6;
 export function getSnoozePresets(now: Date, i18n: I18n, query = "") {
   const candidates = [
     {
+      id: "in-1-hour",
+      label: t(i18n)`In 1 hour`,
+      until: new Date(now.getTime() + 60 * 60 * 1000),
+    },
+    {
+      id: "in-3-hours",
+      label: t(i18n)`In 3 hours`,
+      until: new Date(now.getTime() + 3 * 60 * 60 * 1000),
+    },
+    {
       id: "tomorrow",
       label: t(i18n)`Tomorrow`,
       until: atHour(now, 1, MORNING_HOUR),

@@ -7233,6 +7233,14 @@ msgstr "Improve Rules"
 msgid "In {typeName} list"
 msgstr "In {typeName} list"
 
+#: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
+msgid "In 1 hour"
+msgstr "In 1 hour"
+
+#: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
+msgid "In 3 hours"
+msgstr "In 3 hours"
+
 #: utils/mcp/tool-specs-messages.ts
 msgid "In a week"
 msgstr "In a week"
