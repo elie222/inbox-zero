@@ -4,6 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { CreditCardIcon } from "lucide-react";
 import { toast } from "sonner";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import useSWR, { useSWRConfig } from "swr";
 import {
   AlertDialog,
@@ -34,6 +37,7 @@ export function EndTrialButton({
   const [open, setOpen] = useState(false);
   const [endingTrial, setEndingTrial] = useState(false);
   const { mutate } = useSWRConfig();
+  const { t, i18n } = useLingui();
 
   // Revalidate on focus: a dialog left open in a background tab must not
   // charge an amount that no longer matches what is on screen.
@@ -58,9 +62,9 @@ export function EndTrialButton({
     setOpen(false);
 
     if (result?.data?.status === "active") {
-      toast.success("Your paid plan is active.");
+      toast.success(t`Your paid plan is active.`);
     } else {
-      toast.message("Your trial has ended.");
+      toast.message(t`Your trial has ended.`);
     }
 
     await Promise.all([
@@ -68,6 +72,17 @@ export function EndTrialButton({
       mutate("/api/user/ai-automation-status"),
     ]);
   };
+
+  const amount = preview
+    ? formatStripeAmount(preview.amountDue, preview.currency)
+    : null;
+  const planName = preview?.planName;
+  const cadence = preview?.interval
+    ? i18n._(billingCadence[preview.interval])
+    : null;
+  const trialEndDate = preview?.trialEnd
+    ? formatDateSimple(new Date(preview.trialEnd))
+    : null;
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
@@ -78,41 +93,55 @@ export function EndTrialButton({
           className={className}
           Icon={showIcon ? CreditCardIcon : undefined}
         >
-          Start paid plan now
+          <Trans>Start paid plan now</Trans>
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>End your free trial and pay now?</AlertDialogTitle>
+          <AlertDialogTitle>
+            <Trans>End your free trial and pay now?</Trans>
+          </AlertDialogTitle>
           <LoadingContent loading={isLoading} error={error}>
             {preview && (
               <AlertDialogDescription asChild>
                 <div className="space-y-2">
                   <p>
-                    We will charge your card{" "}
-                    <span className="font-semibold text-foreground">
-                      {formatStripeAmount(preview.amountDue, preview.currency)}
-                    </span>{" "}
-                    immediately for the {preview.planName} plan
-                    {preview.interval
-                      ? `, billed ${billingCadence[preview.interval]}`
-                      : ""}
-                    .
+                    {cadence ? (
+                      <Trans>
+                        We will charge your card{" "}
+                        <span className="font-semibold text-foreground">
+                          {amount}
+                        </span>{" "}
+                        immediately for the {planName} plan, billed {cadence}.
+                      </Trans>
+                    ) : (
+                      <Trans>
+                        We will charge your card{" "}
+                        <span className="font-semibold text-foreground">
+                          {amount}
+                        </span>{" "}
+                        immediately for the {planName} plan.
+                      </Trans>
+                    )}
                   </p>
-                  {preview.trialEnd && (
+                  {trialEndDate && (
                     <p>
-                      You do not need to do this to keep using Inbox Zero. Your
-                      trial already includes every paid feature and runs free
-                      until {formatDateSimple(new Date(preview.trialEnd))}, when
-                      the same charge happens automatically.
+                      <Trans>
+                        You do not need to do this to keep using Inbox Zero.
+                        Your trial already includes every paid feature and runs
+                        free until {trialEndDate}, when the same charge happens
+                        automatically.
+                      </Trans>
                     </p>
                   )}
                   <p>
-                    Want a different plan or to pay monthly?{" "}
-                    <Link href="/premium" className="underline">
-                      Change your plan first
-                    </Link>
-                    .
+                    <Trans>
+                      Want a different plan or to pay monthly?{" "}
+                      <Link href="/premium" className="underline">
+                        Change your plan first
+                      </Link>
+                      .
+                    </Trans>
                   </p>
                 </div>
               </AlertDialogDescription>
@@ -120,15 +149,15 @@ export function EndTrialButton({
           </LoadingContent>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Keep my free trial</AlertDialogCancel>
+          <AlertDialogCancel>
+            <Trans>Keep my free trial</Trans>
+          </AlertDialogCancel>
           <Button
             loading={endingTrial}
             disabled={!preview || isValidating}
             onClick={endTrial}
           >
-            {preview
-              ? `Pay ${formatStripeAmount(preview.amountDue, preview.currency)} now`
-              : "Pay now"}
+            {amount ? <Trans>Pay {amount} now</Trans> : <Trans>Pay now</Trans>}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -138,10 +167,10 @@ export function EndTrialButton({
 
 const billingCadence: Record<
   NonNullable<GetTrialPreviewResponse["interval"]>,
-  string
+  MessageDescriptor
 > = {
-  day: "daily",
-  week: "weekly",
-  month: "monthly",
-  year: "yearly",
+  day: msg`daily`,
+  week: msg`weekly`,
+  month: msg`monthly`,
+  year: msg`yearly`,
 };

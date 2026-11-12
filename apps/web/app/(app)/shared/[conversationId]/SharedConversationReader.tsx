@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -33,11 +34,13 @@ export function SharedConversationReader({
     return (
       <main className="mx-auto max-w-3xl p-6">
         <p>
-          Open this conversation from{" "}
-          <Link href="/shared" className="text-primary underline">
-            Discussions
-          </Link>
-          .
+          <Trans>
+            Open this conversation from{" "}
+            <Link href="/shared" className="text-primary underline">
+              Discussions
+            </Link>
+            .
+          </Trans>
         </p>
       </main>
     );
@@ -57,6 +60,7 @@ function AuthorizedReader({
   conversationId: string;
   memberId: string;
 }) {
+  const { t } = useLingui();
   const access = useConversationDiscussion(memberId, conversationId);
   const messages = useSWR<TeamMessagesResponse>(
     `/api/team-comments/conversations/${conversationId}/messages?memberId=${encodeURIComponent(memberId)}`,
@@ -73,17 +77,23 @@ function AuthorizedReader({
   if (access.revoked || accessDenied)
     return (
       <main className="mx-auto max-w-3xl p-6" role="alert">
-        Your access to this conversation has ended.
+        <Trans>Your access to this conversation has ended.</Trans>
       </main>
     );
   if (access.summary.error)
     return (
       <main className="mx-auto max-w-3xl p-6" role="alert">
-        Could not check conversation access. Retry or refresh this page.
+        <Trans>
+          Could not check conversation access. Retry or refresh this page.
+        </Trans>
       </main>
     );
   if (!access.summary.data)
-    return <main className="mx-auto max-w-3xl p-6">Checking access…</main>;
+    return (
+      <main className="mx-auto max-w-3xl p-6">
+        <Trans>Checking access…</Trans>
+      </main>
+    );
   const publisher = access.summary.data.participants.find(
     (participant) =>
       participant.memberId === access.summary.data?.publisherMemberId,
@@ -97,12 +107,12 @@ function AuthorizedReader({
         <Button asChild size="xs-2" variant="ghostMuted" className="-ml-2">
           <Link href={`/shared?memberId=${encodeURIComponent(memberId)}`}>
             <ArrowLeftIcon className="mr-1.5 size-3.5" />
-            Discussions
+            <Trans>Discussions</Trans>
           </Link>
         </Button>
-        <Tooltip content="Refresh email">
+        <Tooltip content={t`Refresh email`}>
           <Button
-            aria-label="Refresh email"
+            aria-label={t`Refresh email`}
             onClick={() => messages.mutate()}
             size="iconXs"
             variant="ghostMuted"
@@ -118,11 +128,11 @@ function AuthorizedReader({
       </div>
       <header className="space-y-1">
         <h1 className="font-semibold text-foreground text-xl">
-          {subject || "Shared conversation"}
+          {subject || t`Shared conversation`}
         </h1>
         {publisher && (
           <p className="text-muted-foreground text-sm">
-            Shared by {publisher.name}
+            <Trans>Shared by {publisher.name}</Trans>
           </p>
         )}
       </header>
@@ -132,15 +142,17 @@ function AuthorizedReader({
             className="rounded-lg border border-dashed px-4 py-3 text-muted-foreground text-sm"
             role="status"
           >
-            Email content is unavailable ({messages.data.reason}). Internal
-            comments remain available.
+            <Trans>
+              Email content is unavailable ({messages.data.reason}). Internal
+              comments remain available.
+            </Trans>
           </p>
         )}
         {available && (
           <div className="space-y-3">
             {!available.complete && (
               <p className="text-muted-foreground text-xs" role="status">
-                This email history is incomplete.
+                <Trans>This email history is incomplete.</Trans>
               </p>
             )}
             <div className="divide-y overflow-hidden rounded-xl border bg-card">
@@ -199,7 +211,7 @@ function SharedMessage({
         </span>
         {recipients && (
           <span className="hidden min-w-0 shrink-[999] truncate text-muted-foreground text-xs sm:block">
-            to {recipients}
+            <Trans>to {recipients}</Trans>
           </span>
         )}
         <time
