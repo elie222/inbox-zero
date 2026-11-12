@@ -3,6 +3,9 @@
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -60,6 +63,7 @@ type Member = OrganizationMembersResponse["members"][0];
 type PendingInvitation = OrganizationMembersResponse["pendingInvitations"][0];
 
 export function Members({ organizationId }: { organizationId: string }) {
+  const { t, i18n } = useLingui();
   const { data, isLoading, error, mutate } =
     useOrganizationMembers(organizationId);
   const { data: membership } = useOrganizationMembership();
@@ -124,11 +128,11 @@ export function Members({ organizationId }: { organizationId: string }) {
       handleAction(
         memberId,
         () => removeMemberAction({ memberId }),
-        "Error removing member",
-        "Member removed successfully",
-        "Failed to remove member",
+        t`Error removing member`,
+        t`Member removed successfully`,
+        t`Failed to remove member`,
       ),
-    [handleAction],
+    [handleAction, t],
   );
 
   const handleCancelInvitation = useCallback(
@@ -136,23 +140,25 @@ export function Members({ organizationId }: { organizationId: string }) {
       handleAction(
         null,
         () => cancelInvitationAction({ invitationId }),
-        "Error cancelling invitation",
-        "Invitation cancelled successfully",
-        "Failed to cancel invitation",
+        t`Error cancelling invitation`,
+        t`Invitation cancelled successfully`,
+        t`Failed to cancel invitation`,
       ),
-    [handleAction],
+    [handleAction, t],
   );
 
   const handleUpdateRole = useCallback(
-    (memberId: string, role: "admin" | "member") =>
-      handleAction(
+    (memberId: string, role: "admin" | "member") => {
+      const roleLabel = getRoleLabel(role, i18n);
+      return handleAction(
         memberId,
         () => updateMemberRoleAction({ memberId, role }),
-        "Error updating role",
-        `Role updated to ${capitalizeRole(role)}`,
-        "Failed to update role",
-      ),
-    [handleAction],
+        t`Error updating role`,
+        t`Role updated to ${roleLabel}`,
+        t`Failed to update role`,
+      );
+    },
+    [handleAction, t, i18n],
   );
 
   const handleTransferOwnership = useCallback(
@@ -160,18 +166,22 @@ export function Members({ organizationId }: { organizationId: string }) {
       handleAction(
         memberId,
         () => transferOwnershipAction({ organizationId, memberId }),
-        "Error transferring ownership",
-        "Ownership transferred successfully",
-        "Failed to transfer ownership",
+        t`Error transferring ownership`,
+        t`Ownership transferred successfully`,
+        t`Failed to transfer ownership`,
       ),
-    [handleAction, organizationId],
+    [handleAction, organizationId, t],
   );
+
+  const memberCount = data?.members.length || 0;
 
   return (
     <LoadingContent loading={isLoading} error={error}>
       <div>
         <div className="flex justify-between items-center">
-          <TypographyH3>Members ({data?.members.length || 0})</TypographyH3>
+          <TypographyH3>
+            <Trans>Members ({memberCount})</Trans>
+          </TypographyH3>
           {isAdmin && (
             <InviteMemberModal
               organizationId={organizationId}
@@ -210,7 +220,7 @@ export function Members({ organizationId }: { organizationId: string }) {
             data.pendingInvitations.length === 0) && (
             <div className="text-center py-12">
               <p className="text-muted-foreground">
-                No members found in your organization.
+                <Trans>No members found in your organization.</Trans>
               </p>
             </div>
           )}
@@ -218,7 +228,9 @@ export function Members({ organizationId }: { organizationId: string }) {
         {data?.pendingInvitations && data.pendingInvitations.length > 0 && (
           <div className="space-y-4 mt-8">
             <TypographyH3>
-              Pending Invitations ({data.pendingInvitations.length})
+              <Trans>
+                Pending Invitations ({data.pendingInvitations.length})
+              </Trans>
             </TypographyH3>
             <div className="space-y-2">
               {data.pendingInvitations.map((invitation) => (
@@ -277,7 +289,10 @@ function MemberCard({
   isOwner: boolean;
   isPending: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId } = useAccount();
+  const memberName = member.emailAccount.name || member.emailAccount.email;
+  const joinedAt = new Date(member.createdAt).toLocaleDateString();
   const canChangeRole = member.role !== "owner";
   const canTransferOwnership = isOwner && canChangeRole;
   const activityStatus = getMemberActivityStatus({
@@ -307,7 +322,7 @@ function MemberCard({
             </TooltipTrigger>
             <TooltipContent>
               <p>
-                Joined at: {new Date(member.createdAt).toLocaleDateString()}
+                <Trans>Joined at: {joinedAt}</Trans>
               </p>
             </TooltipContent>
           </Tooltip>
@@ -329,13 +344,13 @@ function MemberCard({
                   <DropdownMenuItem asChild>
                     <Link href={`/${member.emailAccount.id}/stats`}>
                       <BarChart3 className="mr-2 size-4" />
-                      Analytics
+                      <Trans>Analytics</Trans>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href={`/${member.emailAccount.id}/usage`}>
                       <BarChartIcon className="mr-2 size-4" />
-                      Usage
+                      <Trans>Usage</Trans>
                     </Link>
                   </DropdownMenuItem>
                 </>
@@ -344,7 +359,7 @@ function MemberCard({
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger disabled={isPending}>
                     <ShieldIcon className="mr-2 size-4" />
-                    Role
+                    <Trans>Role</Trans>
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
                     <DropdownMenuRadioGroup
@@ -358,10 +373,10 @@ function MemberCard({
                         value="member"
                         disabled={isPending}
                       >
-                        Member
+                        <Trans>Member</Trans>
                       </DropdownMenuRadioItem>
                       <DropdownMenuRadioItem value="admin" disabled={isPending}>
-                        Admin
+                        <Trans>Admin</Trans>
                       </DropdownMenuRadioItem>
                     </DropdownMenuRadioGroup>
                   </DropdownMenuSubContent>
@@ -378,12 +393,12 @@ function MemberCard({
                       disabled={isPending}
                     >
                       <CrownIcon className="mr-2 size-4" />
-                      Transfer ownership
+                      <Trans>Transfer ownership</Trans>
                     </DropdownMenuItem>
                   }
-                  title="Transfer ownership"
-                  description={`Transfer organization ownership to ${member.emailAccount.name || member.emailAccount.email}? You will become an admin.`}
-                  confirmText="Transfer"
+                  title={t`Transfer ownership`}
+                  description={t`Transfer organization ownership to ${memberName}? You will become an admin.`}
+                  confirmText={t`Transfer`}
                   onConfirm={() => onTransferOwnership(member.id)}
                 />
               )}
@@ -393,7 +408,7 @@ function MemberCard({
                 className="text-red-600 hover:!bg-red-50 hover:!text-red-600"
               >
                 <TrashIcon className="mr-2 size-4" />
-                Remove
+                <Trans>Remove</Trans>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -401,14 +416,14 @@ function MemberCard({
       }
     >
       <div className="flex flex-wrap items-center gap-2">
-        <p className="font-medium">{member.emailAccount.name || "No name"}</p>
+        <p className="font-medium">{member.emailAccount.name || t`No name`}</p>
         <Badge
           variant={
             hasOrganizationAdminRole(member.role) ? "default" : "secondary"
           }
           className="text-xs"
         >
-          {capitalizeRole(member.role)}
+          {getRoleLabel(member.role, i18n)}
         </Badge>
         {isAdmin && (
           <MemberActivityBadge
@@ -426,7 +441,11 @@ function MemberCard({
           <>
             <span className="text-xs text-muted-foreground">∣</span>
             <span className="text-xs text-muted-foreground">
-              {executedRulesCount.toLocaleString()} assistant processed emails
+              <Plural
+                value={executedRulesCount}
+                one="# assistant processed email"
+                other="# assistant processed emails"
+              />
             </span>
           </>
         )}
@@ -444,6 +463,7 @@ function MemberActivityBadge({
   lastProcessedEmailAt?: Date | string | null;
   status: MemberActivityStatus;
 }) {
+  const { i18n } = useLingui();
   const display = ACTIVITY_BADGE[status];
 
   return (
@@ -451,11 +471,13 @@ function MemberActivityBadge({
       <Tooltip>
         <TooltipTrigger asChild>
           <Badge variant={display.variant} className="text-xs">
-            {display.label}
+            {i18n._(display.label)}
           </Badge>
         </TooltipTrigger>
         <TooltipContent>
-          <p>{display.tooltip({ disconnectedAt, lastProcessedEmailAt })}</p>
+          <p>
+            {display.tooltip({ disconnectedAt, lastProcessedEmailAt }, i18n)}
+          </p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -469,6 +491,10 @@ function PendingInvitationCard({
   invitation: PendingInvitation;
   onCancel: (invitationId: string) => void;
 }) {
+  const { i18n } = useLingui();
+  const expiresAt = new Date(invitation.expiresAt).toLocaleDateString();
+  const inviterName = invitation.inviter.name || invitation.inviter.email;
+
   return (
     <CardWrapper
       avatar={
@@ -483,8 +509,7 @@ function PendingInvitationCard({
             </TooltipTrigger>
             <TooltipContent>
               <p>
-                Expires at:{" "}
-                {new Date(invitation.expiresAt).toLocaleDateString()}
+                <Trans>Expires at: {expiresAt}</Trans>
               </p>
             </TooltipContent>
           </Tooltip>
@@ -497,31 +522,39 @@ function PendingInvitationCard({
           onClick={() => onCancel(invitation.id)}
         >
           <XIcon className="size-4 mr-2" />
-          Cancel
+          <Trans>Cancel</Trans>
         </Button>
       }
     >
       <div className="flex items-center space-x-3">
         <p className="font-medium">{invitation.email}</p>
         <Badge variant="outline" className="text-xs">
-          Pending
+          <Trans>Pending</Trans>
         </Badge>
         {invitation.role && (
           <Badge variant="secondary" className="text-xs">
-            {capitalizeRole(invitation.role)}
+            {getRoleLabel(invitation.role, i18n)}
           </Badge>
         )}
       </div>
       <div className="flex items-center space-x-3 mt-1">
         <span className="text-xs text-muted-foreground">
-          Invited by {invitation.inviter.name || invitation.inviter.email}
+          <Trans>Invited by {inviterName}</Trans>
         </span>
       </div>
     </CardWrapper>
   );
 }
 
-function capitalizeRole(role: string) {
+const ROLE_LABELS: Record<string, MessageDescriptor> = {
+  owner: msg`Owner`,
+  admin: msg`Admin`,
+  member: msg`Member`,
+};
+
+function getRoleLabel(role: string, i18n: I18n) {
+  const label = ROLE_LABELS[role];
+  if (label) return i18n._(label);
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
@@ -532,48 +565,65 @@ function getInitials(name: string | null | undefined, email: string) {
 const ACTIVITY_BADGE: Record<
   MemberActivityStatus,
   {
-    label: string;
+    label: MessageDescriptor;
     variant: "green" | "red" | "outline" | "secondary";
-    tooltip: (dates: {
-      disconnectedAt?: Date | string | null;
-      lastProcessedEmailAt?: Date | string | null;
-    }) => string;
+    tooltip: (
+      dates: {
+        disconnectedAt?: Date | string | null;
+        lastProcessedEmailAt?: Date | string | null;
+      },
+      i18n: I18n,
+    ) => string;
   }
 > = {
   active: {
-    label: "Active",
+    label: msg`Active`,
     variant: "green",
-    tooltip: ({ lastProcessedEmailAt }) =>
-      `Last processed email ${formatRelativeDate(lastProcessedEmailAt)}.`,
+    tooltip: ({ lastProcessedEmailAt }, i18n) =>
+      formatLastProcessed(lastProcessedEmailAt, i18n),
   },
   disconnected: {
-    label: "Disconnected",
+    label: msg`Disconnected`,
     variant: "red",
-    tooltip: ({ disconnectedAt }) =>
-      disconnectedAt
-        ? `Email account disconnected ${formatRelativeDate(disconnectedAt)}.`
-        : "Email account is disconnected.",
+    tooltip: ({ disconnectedAt }, i18n) => {
+      if (!disconnectedAt) return i18n._(msg`Email account is disconnected.`);
+      const relativeDate = formatRelativeDate(disconnectedAt, i18n);
+      return i18n._(msg`Email account disconnected ${relativeDate}.`);
+    },
   },
   hidden: {
-    label: "Activity hidden",
+    label: msg`Activity hidden`,
     variant: "outline",
-    tooltip: () => "This member has not allowed org admin analytics.",
+    tooltip: (_dates, i18n) =>
+      i18n._(msg`This member has not allowed org admin analytics.`),
   },
   inactive: {
-    label: `No activity in ${RECENT_ACTIVITY_HOURS}h`,
+    label: msg`No activity in ${RECENT_ACTIVITY_HOURS}h`,
     variant: "secondary",
-    tooltip: ({ lastProcessedEmailAt }) =>
-      `Last processed email ${formatRelativeDate(lastProcessedEmailAt)}.`,
+    tooltip: ({ lastProcessedEmailAt }, i18n) =>
+      formatLastProcessed(lastProcessedEmailAt, i18n),
   },
   none: {
-    label: "No activity yet",
+    label: msg`No activity yet`,
     variant: "secondary",
-    tooltip: () => "No assistant-processed email found for this account.",
+    tooltip: (_dates, i18n) =>
+      i18n._(msg`No assistant-processed email found for this account.`),
   },
 };
 
-function formatRelativeDate(date: Date | string | null | undefined) {
-  if (!date) return "unknown";
+function formatLastProcessed(
+  date: Date | string | null | undefined,
+  i18n: I18n,
+) {
+  const relativeDate = formatRelativeDate(date, i18n);
+  return i18n._(msg`Last processed email ${relativeDate}.`);
+}
+
+function formatRelativeDate(
+  date: Date | string | null | undefined,
+  i18n: I18n,
+) {
+  if (!date) return i18n._(msg`unknown`);
 
   return formatDistanceToNow(new Date(date), { addSuffix: true });
 }

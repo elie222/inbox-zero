@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { CalendarIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { ListCard } from "@/components/ListCard";
@@ -34,6 +35,7 @@ export function UpcomingMeetingsToggleList({
   emailAccountId: string;
   onOpenMeeting: (meetingId: string) => void;
 }) {
+  const { t } = useLingui();
   const analytics = useProductAnalytics();
   const { data, isLoading, error, mutate } =
     useMeetingRecorderUpcoming(emailAccountId);
@@ -45,7 +47,7 @@ export function UpcomingMeetingsToggleList({
       onError: ({ error }) => {
         toastError({
           description: getActionErrorMessage(error, {
-            prefix: "Failed to update this meeting",
+            prefix: t`Failed to update this meeting`,
           }),
         });
       },
@@ -69,7 +71,9 @@ export function UpcomingMeetingsToggleList({
 
   return (
     <div>
-      <TypographyH3>Up next</TypographyH3>
+      <TypographyH3>
+        <Trans>Up next</Trans>
+      </TypographyH3>
 
       <LoadingContent
         loading={isLoading}
@@ -78,10 +82,16 @@ export function UpcomingMeetingsToggleList({
       >
         {isLocked && (
           <Alert className="mt-4">
-            <AlertTitle>Meeting recording requires the Plus plan</AlertTitle>
+            <AlertTitle>
+              <Trans>Meeting recording requires the Plus plan</Trans>
+            </AlertTitle>
             <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
-              Upgrade to have meetings recorded and summarized automatically.
-              <UpgradeToPlusButton tooltip="Upgrade to the Plus plan to record and summarize your meetings." />
+              <Trans>
+                Upgrade to have meetings recorded and summarized automatically.
+              </Trans>
+              <UpgradeToPlusButton
+                tooltip={t`Upgrade to the Plus plan to record and summarize your meetings.`}
+              />
             </AlertDescription>
           </Alert>
         )}
@@ -92,7 +102,9 @@ export function UpcomingMeetingsToggleList({
               <EmptyMedia variant="icon">
                 <CalendarIcon />
               </EmptyMedia>
-              <EmptyTitle>No upcoming calls with a video link</EmptyTitle>
+              <EmptyTitle>
+                <Trans>No upcoming calls with a video link</Trans>
+              </EmptyTitle>
             </EmptyHeader>
           </Empty>
         ) : (
@@ -123,7 +135,7 @@ export function UpcomingMeetingsToggleList({
                   {!detailMeetingId && (
                     <Toggle
                       name={`join-${event.id}`}
-                      ariaLabel={`Record ${event.title}`}
+                      ariaLabel={t`Record ${event.title}`}
                       enabled={joining}
                       // A downgraded user must still be able to cancel a booked
                       // meeting; only creating a new booking is gated.

@@ -1,3 +1,6 @@
+import type { I18n } from "@lingui/core";
+import { msg, t } from "@lingui/core/macro";
+
 export type AvailabilityWindowInput = {
   weekday: number;
   startMinutes: number;
@@ -8,13 +11,13 @@ export type Range = { start: string; end: string };
 export type DayState = { enabled: boolean; ranges: Range[] };
 
 export const DAY_LABELS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
+  msg`Sunday`,
+  msg`Monday`,
+  msg`Tuesday`,
+  msg`Wednesday`,
+  msg`Thursday`,
+  msg`Friday`,
+  msg`Saturday`,
 ];
 
 // Monday to Friday, 9:00 to 17:00. Mirrors the default schedule created
@@ -47,6 +50,7 @@ export function buildDayState(windows: AvailabilityWindowInput[]): DayState[] {
 
 export function collectWindows(
   days: DayState[],
+  i18n: I18n,
 ):
   | { windows: AvailabilityWindowInput[]; error: null }
   | { windows: null; error: string } {
@@ -54,6 +58,7 @@ export function collectWindows(
   for (let weekday = 0; weekday < 7; weekday++) {
     const day = days[weekday];
     if (!day.enabled) continue;
+    const dayLabel = i18n._(DAY_LABELS[weekday]);
     const dayWindows: AvailabilityWindowInput[] = [];
     for (const range of day.ranges) {
       const start = parseTime(range.start);
@@ -61,7 +66,7 @@ export function collectWindows(
       if (start === null || end === null || end <= start) {
         return {
           windows: null,
-          error: `${DAY_LABELS[weekday]}: end time must be after start time.`,
+          error: t(i18n)`${dayLabel}: end time must be after start time.`,
         };
       }
       dayWindows.push({ weekday, startMinutes: start, endMinutes: end });
@@ -71,7 +76,7 @@ export function collectWindows(
       if (dayWindows[i].startMinutes < dayWindows[i - 1].endMinutes) {
         return {
           windows: null,
-          error: `${DAY_LABELS[weekday]}: time ranges overlap.`,
+          error: t(i18n)`${dayLabel}: time ranges overlap.`,
         };
       }
     }
@@ -79,7 +84,10 @@ export function collectWindows(
   }
 
   if (windows.length === 0) {
-    return { windows: null, error: "Add at least one available time range." };
+    return {
+      windows: null,
+      error: t(i18n)`Add at least one available time range.`,
+    };
   }
 
   return { windows, error: null };

@@ -2,6 +2,7 @@
 
 import { useState, type ChangeEvent } from "react";
 import { Trash2 } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAction } from "next-safe-action/hooks";
 import { Input, Label } from "@/components/Input";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ export function ConfigureBookingLinkDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useLingui();
   const [tab, setTab] = useState<ConfigureBookingLinkTab>("general");
 
   const publicUrl =
@@ -68,7 +70,7 @@ export function ConfigureBookingLinkDialog({
 
   return (
     <BookingLinkDialog
-      title="Configure booking link"
+      title={t`Configure booking link`}
       description={publicUrl}
       onClose={onClose}
       navigation={
@@ -78,13 +80,13 @@ export function ConfigureBookingLinkDialog({
               active={tab === "general"}
               onClick={() => setTab("general")}
             >
-              General
+              <Trans>General</Trans>
             </TabButton>
             <TabButton
               active={tab === "advanced"}
               onClick={() => setTab("advanced")}
             >
-              Advanced
+              <Trans>Advanced</Trans>
             </TabButton>
           </div>
         </div>
@@ -128,6 +130,7 @@ function GeneralTab({
   link: BookingLink;
   onSaved: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId } = useAccount();
   const { data } = useBookingLinks();
 
@@ -157,16 +160,17 @@ function GeneralTab({
   );
   const videoLabel = getVideoLocationLabel(videoLocationType);
   const canAddVideo = Boolean(videoLocationType);
-  const calendarOptions = getCalendarOptions(data);
+  const calendarOptions = getCalendarOptions(data, i18n);
 
   const { executeAsync: updateLink, isExecuting: isSaving } = useAction(
     updateBookingLinkAction.bind(null, emailAccountId),
     {
       onError: (error) => {
         toastError({
-          description:
-            getActionErrorMessage(error.error) ??
-            "Failed to update booking link",
+          description: getActionErrorMessage(
+            error.error,
+            t`Failed to update booking link`,
+          ),
         });
       },
     },
@@ -181,7 +185,7 @@ function GeneralTab({
     const minimumNoticeMinutes = parseMinimumNoticeHours(minimumNoticeHours);
     if (minimumNoticeMinutes === null) {
       toastError({
-        description: "Minimum notice must be 0 hours or more.",
+        description: t`Minimum notice must be 0 hours or more.`,
       });
       return;
     }
@@ -210,14 +214,14 @@ function GeneralTab({
       });
       if (hasActionResultError(result)) return;
 
-      toastSuccess({ description: "Booking link updated" });
+      toastSuccess({ description: t`Booking link updated` });
       onSaved();
     } catch (error) {
       toastError({
         description:
           error instanceof Error
             ? error.message
-            : "Failed to update booking link",
+            : t`Failed to update booking link`,
       });
     }
   };
@@ -228,8 +232,8 @@ function GeneralTab({
         <Input
           type="text"
           name="title"
-          label="What guests see"
-          placeholder="15 min intro"
+          label={t`What guests see`}
+          placeholder={t`15 min intro`}
           registerProps={{
             value: title,
             onChange: (event: ChangeEvent<HTMLInputElement>) =>
@@ -240,7 +244,7 @@ function GeneralTab({
         <Input
           type="text"
           name="slug"
-          label="Link URL"
+          label={t`Link URL`}
           leftText={publicUrlPrefix}
           placeholder="elie"
           registerProps={{
@@ -251,7 +255,7 @@ function GeneralTab({
         />
 
         <div>
-          <Label name="duration" label="Duration" />
+          <Label name="duration" label={t`Duration`} />
           <div className="mt-1 grid grid-cols-4 gap-2">
             {DURATION_OPTIONS.map((option) => {
               const active = option === duration;
@@ -266,7 +270,7 @@ function GeneralTab({
                     active && "border-primary ring-1 ring-primary",
                   )}
                 >
-                  {option} min
+                  {t`${option} min`}
                 </Button>
               );
             })}
@@ -275,9 +279,11 @@ function GeneralTab({
 
         <Item variant="outline">
           <ItemContent>
-            <ItemTitle>Minimum notice</ItemTitle>
+            <ItemTitle>
+              <Trans>Minimum notice</Trans>
+            </ItemTitle>
             <ItemDescription>
-              Block new bookings this many hours into the future.
+              <Trans>Block new bookings this many hours into the future.</Trans>
             </ItemDescription>
           </ItemContent>
           <ItemActions>
@@ -287,7 +293,7 @@ function GeneralTab({
               min={0}
               max={365 * 24}
               step={0.25}
-              rightText="hours"
+              rightText={t`hours`}
               className="w-24 tabular-nums"
               registerProps={{
                 value: minimumNoticeHours,
@@ -299,7 +305,7 @@ function GeneralTab({
         </Item>
 
         <div>
-          <Label name="destinationCalendarId" label="Add events to" />
+          <Label name="destinationCalendarId" label={t`Add events to`} />
           <Select
             name="destinationCalendarId"
             value={destinationCalendarId}
@@ -330,8 +336,8 @@ function GeneralTab({
           autosizeTextarea
           rows={3}
           name="description"
-          label="Description (optional)"
-          placeholder="Tell guests what to expect."
+          label={t`Description (optional)`}
+          placeholder={t`Tell guests what to expect.`}
           registerProps={{
             value: description,
             onChange: (event: ChangeEvent<HTMLTextAreaElement>) =>
@@ -352,15 +358,17 @@ function AdvancedTab({
   link: BookingLink;
   onSaved: () => void;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { executeAsync: deleteLink, isExecuting: isDeleting } = useAction(
     deleteBookingLinkAction.bind(null, emailAccountId),
     {
       onError: (error) => {
         toastError({
-          description:
-            getActionErrorMessage(error.error) ??
-            "Failed to delete booking link",
+          description: getActionErrorMessage(
+            error.error,
+            t`Failed to delete booking link`,
+          ),
         });
       },
     },
@@ -368,7 +376,7 @@ function AdvancedTab({
 
   const handleDelete = async () => {
     const confirmed = window.confirm(
-      "Delete this booking link permanently? This cannot be undone.",
+      t`Delete this booking link permanently? This cannot be undone.`,
     );
     if (!confirmed) return;
 
@@ -376,14 +384,14 @@ function AdvancedTab({
       const result = await deleteLink({ id: link.id });
       if (hasActionResultError(result)) return;
 
-      toastSuccess({ description: "Booking link deleted" });
+      toastSuccess({ description: t`Booking link deleted` });
       onSaved();
     } catch (error) {
       toastError({
         description:
           error instanceof Error
             ? error.message
-            : "Failed to delete booking link",
+            : t`Failed to delete booking link`,
       });
     }
   };
@@ -393,9 +401,13 @@ function AdvancedTab({
       <div className="space-y-4 overflow-y-auto px-6 py-5">
         <Item variant="outline">
           <ItemContent>
-            <ItemTitle>Delete booking link</ItemTitle>
+            <ItemTitle>
+              <Trans>Delete booking link</Trans>
+            </ItemTitle>
             <ItemDescription>
-              Permanently remove this booking link and its booking history.
+              <Trans>
+                Permanently remove this booking link and its booking history.
+              </Trans>
             </ItemDescription>
           </ItemContent>
           <ItemActions>
@@ -405,7 +417,7 @@ function AdvancedTab({
               loading={isDeleting}
               Icon={Trash2}
             >
-              Delete
+              <Trans>Delete</Trans>
             </Button>
           </ItemActions>
         </Item>
@@ -413,7 +425,7 @@ function AdvancedTab({
 
       <BookingLinkDialogFooter>
         <Button variant="outline" onClick={onSaved}>
-          Close
+          <Trans>Close</Trans>
         </Button>
       </BookingLinkDialogFooter>
     </>
@@ -431,10 +443,10 @@ function DialogFooter({
   return (
     <BookingLinkDialogFooter>
       <Button variant="outline" onClick={onSaved}>
-        Cancel
+        <Trans>Cancel</Trans>
       </Button>
       <Button onClick={onSave} loading={loading}>
-        Save
+        <Trans>Save</Trans>
       </Button>
     </BookingLinkDialogFooter>
   );

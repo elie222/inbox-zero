@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { MicIcon } from "lucide-react";
 import { ListCard } from "@/components/ListCard";
@@ -26,7 +27,9 @@ export function MeetingsList({
 
   return (
     <div>
-      <TypographyH3>Recorded</TypographyH3>
+      <TypographyH3>
+        <Trans>Recorded</Trans>
+      </TypographyH3>
 
       <LoadingContent
         loading={isLoading}
@@ -39,7 +42,9 @@ export function MeetingsList({
               <EmptyMedia variant="icon">
                 <MicIcon />
               </EmptyMedia>
-              <EmptyTitle>No meetings recorded yet</EmptyTitle>
+              <EmptyTitle>
+                <Trans>No meetings recorded yet</Trans>
+              </EmptyTitle>
             </EmptyHeader>
           </Empty>
         ) : (
@@ -55,7 +60,9 @@ export function MeetingsList({
                 onClick={() => onOpenMeeting(meeting.id)}
               >
                 {meeting.followUpDraftId && (
-                  <Badge variant="secondary">Draft ready</Badge>
+                  <Badge variant="secondary">
+                    <Trans>Draft ready</Trans>
+                  </Badge>
                 )}
               </MeetingListItem>
             ))}

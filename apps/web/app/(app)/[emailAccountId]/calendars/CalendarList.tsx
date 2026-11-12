@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { Toggle } from "@/components/Toggle";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,7 +33,7 @@ export function CalendarList({
                   {calendar.primary && (
                     <Badge variant="outline" className="text-xs flex-shrink-0">
                       <Star className="h-3 w-3 mr-1" />
-                      Primary
+                      <Trans>Primary</Trans>
                     </Badge>
                   )}
                 </div>

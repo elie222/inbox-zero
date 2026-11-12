@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { isAdmin } from "@/utils/admin";
@@ -10,8 +12,10 @@ import {
 import { getConfiguredRolePrimaryModelEntry } from "@/utils/llms/model";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
+import { initLingui } from "@/utils/i18n/server";
 
 export default async function AdminConfigPage() {
+  const i18n = await initLingui();
   const session = await auth();
 
   const isUserAdmin = await isAdmin({ email: session?.user.email });
@@ -19,6 +23,12 @@ export default async function AdminConfigPage() {
   const version = getVersion();
   const defaultLlm = getConfiguredRolePrimaryModelEntry("default");
   const economyLlm = getConfiguredRolePrimaryModelEntry("economy");
+
+  const notConfigured = t(i18n)`not configured`;
+  const enabled = t(i18n)`Enabled`;
+  const disabled = t(i18n)`Disabled`;
+  const configured = t(i18n)`Configured`;
+  const notConfiguredLabel = t(i18n)`Not configured`;
 
   const info = {
     version,
@@ -40,10 +50,10 @@ export default async function AdminConfigPage() {
         env.MICROSOFT_TENANT_ID !== "common",
     },
     llm: {
-      defaultProvider: defaultLlm?.provider ?? "not configured",
-      defaultModel: defaultLlm?.modelName ?? "not configured",
-      economyProvider: economyLlm?.provider ?? "not configured",
-      economyModel: economyLlm?.modelName ?? "not configured",
+      defaultProvider: defaultLlm?.provider ?? notConfigured,
+      defaultModel: defaultLlm?.modelName ?? notConfigured,
+      economyProvider: economyLlm?.provider ?? notConfigured,
+      economyModel: economyLlm?.modelName ?? notConfigured,
     },
     integrations: {
       redis: !!env.REDIS_HTTP_URL || !!env.REDIS_URL,
@@ -58,113 +68,123 @@ export default async function AdminConfigPage() {
 
   return (
     <PageWrapper className="max-w-2xl mx-auto">
-      <PageHeader title="App Configuration" />
+      <PageHeader title={t(i18n)`App Configuration`} />
 
       <div className="space-y-4 mt-4">
-        <Section title="Application">
-          <Row label="Version" value={info.version} />
-          <Row label="Environment" value={info.environment} />
-          <Row label="Base URL" value={info.baseUrl} />
+        <Section title={t(i18n)`Application`}>
+          <Row label={t(i18n)`Version`} value={info.version} />
+          <Row label={t(i18n)`Environment`} value={info.environment} />
+          <Row label={t(i18n)`Base URL`} value={info.baseUrl} />
         </Section>
 
-        <Section title="Features">
+        <Section title={t(i18n)`Features`}>
           <Row
-            label="Email Send"
-            value={info.features.emailSendEnabled ? "Enabled" : "Disabled"}
+            label={t(i18n)`Email Send`}
+            value={info.features.emailSendEnabled ? enabled : disabled}
           />
           <Row
-            label="Contacts"
-            value={info.features.contactsEnabled ? "Enabled" : "Disabled"}
+            label={t(i18n)`Contacts`}
+            value={info.features.contactsEnabled ? enabled : disabled}
           />
           <Row
-            label="Gmail Other Contacts"
+            label={t(i18n)`Gmail Other Contacts`}
+            value={info.features.gmailOtherContactsEnabled ? enabled : disabled}
+          />
+          <Row
+            label={t(i18n)`AI Model Settings`}
+            value={info.features.aiModelSettingsDisabled ? disabled : enabled}
+          />
+          <Row
+            label={t(i18n)`Bypass Premium`}
             value={
-              info.features.gmailOtherContactsEnabled ? "Enabled" : "Disabled"
+              info.features.bypassPremiumChecks ? t(i18n)`Yes` : t(i18n)`No`
             }
-          />
-          <Row
-            label="AI Model Settings"
-            value={
-              info.features.aiModelSettingsDisabled ? "Disabled" : "Enabled"
-            }
-          />
-          <Row
-            label="Bypass Premium"
-            value={info.features.bypassPremiumChecks ? "Yes" : "No"}
           />
         </Section>
 
-        <Section title="Auth Providers">
+        <Section title={t(i18n)`Auth Providers`}>
           <Row
             label="Google"
-            value={info.providers.google ? "Configured" : "Not configured"}
+            value={info.providers.google ? configured : notConfiguredLabel}
           />
           <Row
             label="Microsoft"
-            value={info.providers.microsoft ? "Configured" : "Not configured"}
+            value={info.providers.microsoft ? configured : notConfiguredLabel}
           />
           <Row
-            label="Microsoft Tenant"
+            label={t(i18n)`Microsoft Tenant`}
             value={
               info.providers.microsoftTenantConfigured
-                ? "Single tenant"
-                : "Multitenant (common)"
+                ? t(i18n)`Single tenant`
+                : t(i18n)`Multitenant (common)`
             }
           />
         </Section>
 
         {isUserAdmin && (
           <>
-            <Section title="LLM Configuration">
-              <Row label="Default Provider" value={info.llm.defaultProvider} />
-              <Row label="Default Model" value={info.llm.defaultModel} />
-              <Row label="Economy Provider" value={info.llm.economyProvider} />
-              <Row label="Economy Model" value={info.llm.economyModel} />
+            <Section title={t(i18n)`LLM Configuration`}>
+              <Row
+                label={t(i18n)`Default Provider`}
+                value={info.llm.defaultProvider}
+              />
+              <Row
+                label={t(i18n)`Default Model`}
+                value={info.llm.defaultModel}
+              />
+              <Row
+                label={t(i18n)`Economy Provider`}
+                value={info.llm.economyProvider}
+              />
+              <Row
+                label={t(i18n)`Economy Model`}
+                value={info.llm.economyModel}
+              />
             </Section>
 
-            <Section title="Integrations">
+            <Section title={t(i18n)`Integrations`}>
               <Row
                 label="Redis"
                 value={
-                  info.integrations.redis ? "Configured" : "Not configured"
+                  info.integrations.redis ? configured : notConfiguredLabel
                 }
               />
               <Row
                 label="QStash"
                 value={
-                  info.integrations.qstash ? "Configured" : "Not configured"
+                  info.integrations.qstash ? configured : notConfiguredLabel
                 }
               />
               <Row
                 label="Tinybird"
                 value={
-                  info.integrations.tinybird ? "Configured" : "Not configured"
+                  info.integrations.tinybird ? configured : notConfiguredLabel
                 }
               />
               <Row
                 label="Sentry"
                 value={
-                  info.integrations.sentry ? "Configured" : "Not configured"
+                  info.integrations.sentry ? configured : notConfiguredLabel
                 }
               />
               <Row
                 label="PostHog"
                 value={
-                  info.integrations.posthog ? "Configured" : "Not configured"
+                  info.integrations.posthog ? configured : notConfiguredLabel
                 }
               />
               <Row
                 label="Stripe"
                 value={
-                  info.integrations.stripe ? "Configured" : "Not configured"
+                  info.integrations.stripe ? configured : notConfiguredLabel
                 }
               />
               <Row
                 label="Lemon Squeezy"
                 value={
                   info.integrations.lemonSqueezy
-                    ? "Configured"
-                    : "Not configured"
+                    ? configured
+                    : notConfiguredLabel
                 }
               />
             </Section>
@@ -194,7 +214,15 @@ function Section({
 
 function Row({ label, value }: { label: string; value: string | boolean }) {
   const displayValue =
-    typeof value === "boolean" ? (value ? "Yes" : "No") : value;
+    typeof value === "boolean" ? (
+      value ? (
+        <Trans>Yes</Trans>
+      ) : (
+        <Trans>No</Trans>
+      )
+    ) : (
+      value
+    );
 
   return (
     <div className="flex justify-between px-4 py-2">

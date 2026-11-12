@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { useAction } from "next-safe-action/hooks";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { DeliveryChannelsSetting as SharedDeliveryChannelsSetting } from "@/components/messaging/DeliveryChannelsSetting";
@@ -11,6 +12,7 @@ import { getActionErrorMessage } from "@/utils/error";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 export function DeliveryChannelsSetting() {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const analytics = useProductAnalytics("meeting_briefs");
   const {
@@ -24,12 +26,12 @@ export function DeliveryChannelsSetting() {
     {
       onSuccess: () => {
         analytics.captureAction("meeting_briefs_email_delivery_saved");
-        toastSuccess({ description: "Settings saved" });
+        toastSuccess({ description: t`Settings saved` });
         mutateBriefSettings();
       },
       onError: (error) => {
         toastError({
-          description: getActionErrorMessage(error.error) ?? "Failed to update",
+          description: getActionErrorMessage(error.error, t`Failed to update`),
         });
       },
     },
@@ -37,10 +39,10 @@ export function DeliveryChannelsSetting() {
 
   return (
     <SharedDeliveryChannelsSetting
-      title="Delivery Channels"
-      description="Choose where to receive meeting briefings"
+      title={t`Delivery Channels`}
+      description={t`Choose where to receive meeting briefings`}
       purpose={MessagingRoutePurpose.MEETING_BRIEFS}
-      featureLabel="meeting briefs"
+      featureLabel={t`meeting briefs`}
       email={{
         enabled: briefSettings?.meetingBriefsSendEmail ?? true,
         isLoading: isLoadingBriefSettings,
@@ -51,7 +53,7 @@ export function DeliveryChannelsSetting() {
           executeEmailDelivery({ sendEmail });
         },
       }}
-      connectSlackCta="Want to receive briefs in Slack?"
+      connectSlackCta={t`Want to receive briefs in Slack?`}
     />
   );
 }
