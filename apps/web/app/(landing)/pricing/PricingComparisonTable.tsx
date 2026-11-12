@@ -1,3 +1,6 @@
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { CheckIcon, MinusIcon } from "lucide-react";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
 import {
@@ -7,106 +10,106 @@ import {
 import { SectionHeading } from "@/components/new-landing/common/Typography";
 import { tiers } from "@/app/(app)/premium/config";
 
-type FeatureValue = boolean | string;
+type FeatureValue = boolean | MessageDescriptor;
 
 const features: {
-  name: string;
+  name: MessageDescriptor;
   starter: FeatureValue;
   plus: FeatureValue;
   professional: FeatureValue;
 }[] = [
   {
-    name: "Sorts & labels emails",
+    name: msg`Sorts & labels emails`,
     starter: true,
     plus: true,
     professional: true,
   },
   {
-    name: "Drafts replies in your voice",
+    name: msg`Drafts replies in your voice`,
     starter: true,
     plus: true,
     professional: true,
   },
   {
-    name: "Blocks cold emails",
+    name: msg`Blocks cold emails`,
     starter: true,
     plus: true,
     professional: true,
   },
   {
-    name: "Bulk unsubscribe",
+    name: msg`Bulk unsubscribe`,
     starter: true,
     plus: true,
     professional: true,
   },
   {
-    name: "Bulk archive",
+    name: msg`Bulk archive`,
     starter: true,
     plus: true,
     professional: true,
   },
   {
-    name: "Email analytics",
+    name: msg`Email analytics`,
     starter: true,
     plus: true,
     professional: true,
   },
   {
-    name: "Pre-meeting briefings",
+    name: msg`Pre-meeting briefings`,
     starter: true,
     plus: true,
     professional: true,
   },
   {
-    name: "AI meeting notetaker",
+    name: msg`AI meeting notetaker`,
     starter: false,
     plus: true,
     professional: true,
   },
   {
-    name: "Email digests",
+    name: msg`Email digests`,
     starter: false,
     plus: true,
     professional: true,
   },
   {
-    name: "Slack integration",
+    name: msg`Slack integration`,
     starter: false,
     plus: true,
     professional: true,
   },
   {
-    name: "App integrations (Notion, Stripe, and more)",
+    name: msg`App integrations (Notion, Stripe, and more)`,
     starter: false,
     plus: true,
     professional: true,
   },
   {
-    name: "Auto-file attachments",
+    name: msg`Auto-file attachments`,
     starter: false,
     plus: true,
     professional: true,
   },
   {
-    name: "Knowledge base",
-    starter: "Limited",
-    plus: "Unlimited",
-    professional: "Unlimited",
+    name: msg`Knowledge base`,
+    starter: msg`Limited`,
+    plus: msg`Unlimited`,
+    professional: msg`Unlimited`,
   },
   {
-    name: "Team-wide analytics",
-    starter: false,
-    plus: false,
-    professional: true,
-  },
-  {
-    name: "Priority support",
+    name: msg`Team-wide analytics`,
     starter: false,
     plus: false,
     professional: true,
   },
   {
-    name: "Dedicated onboarding manager",
+    name: msg`Priority support`,
+    starter: false,
+    plus: false,
+    professional: true,
+  },
+  {
+    name: msg`Dedicated onboarding manager`,
     starter: false,
     plus: false,
     professional: true,
@@ -119,8 +122,9 @@ const tierHeaders = tiers.map((tier) => ({
 }));
 
 function FeatureCell({ value }: { value: FeatureValue }) {
-  if (typeof value === "string") {
-    return <span className="text-sm text-gray-700">{value}</span>;
+  const { i18n } = useLingui();
+  if (typeof value === "object") {
+    return <span className="text-sm text-gray-700">{i18n._(value)}</span>;
   }
   if (value) {
     return <CheckIcon className="h-5 w-5 text-blue-500 mx-auto" />;
@@ -129,9 +133,13 @@ function FeatureCell({ value }: { value: FeatureValue }) {
 }
 
 export function PricingComparisonTable() {
+  const { i18n } = useLingui();
+
   return (
     <Section>
-      <SectionHeading>Compare plans</SectionHeading>
+      <SectionHeading>
+        <Trans>Compare plans</Trans>
+      </SectionHeading>
       <SectionContent>
         <CardWrapper>
           <div className="overflow-x-auto rounded-[20px] border border-[#E7E7E780] bg-white">
@@ -139,18 +147,18 @@ export function PricingComparisonTable() {
               <thead>
                 <tr className="border-b border-[#E7E7E780]">
                   <th className="py-4 px-6 text-sm font-medium text-gray-500">
-                    Feature
+                    <Trans>Feature</Trans>
                   </th>
-                  {tierHeaders.map((tier) => (
+                  {tierHeaders.map(({ name, price }) => (
                     <th
-                      key={tier.name}
+                      key={name}
                       className="py-4 px-6 text-center min-w-[140px]"
                     >
                       <div className="text-sm font-semibold text-gray-900">
-                        {tier.name}
+                        {name}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
-                        {tier.price}/mo
+                        <Trans>{price}/mo</Trans>
                       </div>
                     </th>
                   ))}
@@ -159,7 +167,7 @@ export function PricingComparisonTable() {
               <tbody>
                 {features.map((feature, index) => (
                   <tr
-                    key={feature.name}
+                    key={feature.name.id}
                     className={
                       index < features.length - 1
                         ? "border-b border-[#E7E7E780]"
@@ -167,7 +175,7 @@ export function PricingComparisonTable() {
                     }
                   >
                     <td className="py-3.5 px-6 text-sm text-gray-700">
-                      {feature.name}
+                      {i18n._(feature.name)}
                     </td>
                     <td className="py-3.5 px-6 text-center">
                       <FeatureCell value={feature.starter} />

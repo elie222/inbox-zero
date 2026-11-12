@@ -1,128 +1,141 @@
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { ComponentProps } from "react";
 import Link from "next/link";
+import { LandingLink } from "@/components/new-landing/LandingLink";
 import { env } from "@/env";
 import { EXTENSION_URL } from "@/utils/config";
 import { BRAND_NAME, HAS_BRAND_KIT } from "@/utils/branding";
 import { CookieSettingsButton } from "@/components/CookieConsent";
 
+type FooterLink = { name: MessageDescriptor; href: string; target?: string };
+
 export const footerNavigation = {
   main: [
     {
-      name: `${BRAND_NAME} Tabs (Chrome Extension)`,
+      name: msg`${BRAND_NAME} Tabs (Chrome Extension)`,
       href: EXTENSION_URL,
       target: "_blank",
     },
-    { name: "AI Email Assistant", href: "/ai-email-assistant" },
-    { name: "Email App", href: "/email-client" },
-    { name: "Mobile App", href: "/mobile-app" },
-    { name: "Download", href: "/download" },
-    { name: "AI Chat for Slack & Telegram", href: "/ai-assistant-chat" },
-    { name: "Slack AI Assistant", href: "/slack-integration" },
-    { name: "Telegram AI Assistant", href: "/telegram-integration" },
-    { name: "Teams AI Assistant", href: "/teams-integration" },
-    { name: "Brief My Meeting", href: "/brief-my-meeting" },
-    { name: "AI Meeting Notetaker", href: "/ai-meeting-notetaker" },
-    { name: "Reply Zero", href: "/reply-zero-ai" },
-    { name: "Bulk Email Unsubscriber", href: "/bulk-email-unsubscriber" },
-    { name: "Clean your inbox", href: "/clean-inbox" },
-    { name: "Cold Email Blocker", href: "/block-cold-emails" },
-    { name: "Email Analytics", href: "/email-analytics" },
-    { name: "Auto Forward Emails", href: "/auto-forward-emails" },
-    { name: "Auto-File Attachments", href: "/auto-file-email-attachments" },
-    { name: "Open Source", href: "/github", target: "_blank" },
+    { name: msg`AI Email Assistant`, href: "/ai-email-assistant" },
+    { name: msg`Email App`, href: "/email-client" },
+    { name: msg`Mobile App`, href: "/mobile-app" },
+    { name: msg`Download`, href: "/download" },
+    { name: msg`AI Chat for Slack & Telegram`, href: "/ai-assistant-chat" },
+    { name: msg`Slack AI Assistant`, href: "/slack-integration" },
+    { name: msg`Telegram AI Assistant`, href: "/telegram-integration" },
+    { name: msg`Teams AI Assistant`, href: "/teams-integration" },
+    { name: msg`Brief My Meeting`, href: "/brief-my-meeting" },
+    { name: msg`AI Meeting Notetaker`, href: "/ai-meeting-notetaker" },
+    { name: msg`Reply Zero`, href: "/reply-zero-ai" },
+    { name: msg`Bulk Email Unsubscriber`, href: "/bulk-email-unsubscriber" },
+    { name: msg`Clean your inbox`, href: "/clean-inbox" },
+    { name: msg`Cold Email Blocker`, href: "/block-cold-emails" },
+    { name: msg`Email Analytics`, href: "/email-analytics" },
+    { name: msg`Auto Forward Emails`, href: "/auto-forward-emails" },
+    { name: msg`Auto-File Attachments`, href: "/auto-file-email-attachments" },
+    { name: msg`Open Source`, href: "/github", target: "_blank" },
   ],
   useCases: [
-    { name: "Founder", href: "/founders" },
-    { name: "Small Business", href: "/small-business" },
-    { name: "Content Creator", href: "/creator" },
-    { name: "Realtor", href: "/real-estate" },
-    { name: "Customer Support", href: "/customer-support" },
-    { name: "E-commerce", href: "/ecommerce" },
+    { name: msg`Founder`, href: "/founders" },
+    { name: msg`Small Business`, href: "/small-business" },
+    { name: msg`Content Creator`, href: "/creator" },
+    { name: msg`Realtor`, href: "/real-estate" },
+    { name: msg`Customer Support`, href: "/customer-support" },
+    { name: msg`E-commerce`, href: "/ecommerce" },
   ],
   industries: [
-    { name: "MSPs", href: "/msp" },
-    { name: "Property Management", href: "/property-management" },
-    { name: "Law Firms", href: "/law-firms" },
-    { name: "Accounting Firms", href: "/accounting-firms" },
+    { name: msg`MSPs`, href: "/msp" },
+    { name: msg`Property Management`, href: "/property-management" },
+    { name: msg`Law Firms`, href: "/law-firms" },
+    { name: msg`Accounting Firms`, href: "/accounting-firms" },
   ],
   compare: [
     {
-      name: "Best AI Email Assistants",
+      name: msg`Best AI Email Assistants`,
       href: "/blog/post/best-ai-email-assistants",
     },
     {
-      name: "AI Email Assistant Directory",
+      name: msg`AI Email Assistant Directory`,
       href: "https://aiemailassistants.com",
       target: "_blank",
     },
-    { name: "vs Fyxer.ai", href: "/best-fyxer-alternative" },
-    { name: "vs Superhuman", href: "/best-superhuman-alternative" },
-    { name: "vs Shortwave", href: "/best-shortwave-alternative" },
+    { name: msg`vs Fyxer.ai`, href: "/best-fyxer-alternative" },
+    { name: msg`vs Superhuman`, href: "/best-superhuman-alternative" },
+    { name: msg`vs Shortwave`, href: "/best-shortwave-alternative" },
     {
-      name: "vs Perplexity Email Assistant",
+      name: msg`vs Perplexity Email Assistant`,
       href: "/best-perplexity-email-assistant-alternative",
     },
   ],
   tools: [
-    { name: "All Free Email Tools", href: "/tools" },
+    { name: msg`All Free Email Tools`, href: "/tools" },
     {
-      name: "Email Deliverability Checker",
+      name: msg`Email Deliverability Checker`,
       href: "/tools/email-deliverability-checker",
     },
-    { name: "Gmail Personality Quiz", href: "/tools/gmail-quiz" },
-    { name: "Subject Line Analyzer", href: "/tools/subject-line-analyzer" },
+    { name: msg`Gmail Personality Quiz`, href: "/tools/gmail-quiz" },
+    { name: msg`Subject Line Analyzer`, href: "/tools/subject-line-analyzer" },
     {
-      name: "Email Signature Generator",
+      name: msg`Email Signature Generator`,
       href: "/tools/email-signature-generator",
     },
-    { name: "Meeting Cost Calculator", href: "/tools/meeting-cost-calculator" },
     {
-      name: "Team Email Cost Calculator",
+      name: msg`Meeting Cost Calculator`,
+      href: "/tools/meeting-cost-calculator",
+    },
+    {
+      name: msg`Team Email Cost Calculator`,
       href: "/tools/email-cost-calculator",
     },
   ],
   support: [
-    { name: "Pricing", href: "/pricing" },
-    { name: "Support", href: "/support" },
-    { name: "Contact us", href: `mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}` },
+    { name: msg`Pricing`, href: "/pricing" },
+    { name: msg`Support`, href: "/support" },
+    { name: msg`Contact us`, href: `mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}` },
     {
-      name: "Documentation",
+      name: msg`Documentation`,
       href: "https://docs.getinboxzero.com",
       target: "_blank",
     },
-    { name: "Feature Requests", href: "/feature-requests", target: "_blank" },
-    { name: "Changelog", href: "/changelog", target: "_blank" },
     {
-      name: "Status",
+      name: msg`Feature Requests`,
+      href: "/feature-requests",
+      target: "_blank",
+    },
+    { name: msg`Changelog`, href: "/changelog", target: "_blank" },
+    {
+      name: msg`Status`,
       href: "https://inbox-zero.openstatus.dev/",
       target: "_blank",
     },
-    { name: "CLI", href: "/cli" },
-    { name: "OpenClaw Skill", href: "/openclaw" },
+    { name: msg`CLI`, href: "/cli" },
+    { name: msg`OpenClaw Skill`, href: "/openclaw" },
   ],
   company: [
-    { name: "About", href: "/about" },
-    { name: "Affiliates", href: "/affiliates", target: "_blank" },
-    { name: "Blog", href: "/blog" },
-    { name: "Case Studies", href: "/case-studies" },
-    { name: "Twitter", href: "/twitter", target: "_blank" },
-    { name: "GitHub", href: "/github", target: "_blank" },
-    { name: "Discord", href: "/discord", target: "_blank" },
-    { name: "OSS Friends", href: "/oss-friends" },
-    ...(HAS_BRAND_KIT ? [{ name: "Brand Kit", href: "/brand" }] : []),
-    { name: "Email Blaster", href: "/game" },
+    { name: msg`About`, href: "/about" },
+    { name: msg`Affiliates`, href: "/affiliates", target: "_blank" },
+    { name: msg`Blog`, href: "/blog" },
+    { name: msg`Case Studies`, href: "/case-studies" },
+    { name: msg`Twitter`, href: "/twitter", target: "_blank" },
+    { name: msg`GitHub`, href: "/github", target: "_blank" },
+    { name: msg`Discord`, href: "/discord", target: "_blank" },
+    { name: msg`OSS Friends`, href: "/oss-friends" },
+    ...(HAS_BRAND_KIT ? [{ name: msg`Brand Kit`, href: "/brand" }] : []),
+    { name: msg`Email Blaster`, href: "/game" },
     {
-      name: "Bot Directory",
+      name: msg`Bot Directory`,
       href: "https://botdirectory.ai",
       target: "_blank",
     },
-    { name: "Rakazo", href: "https://rakazo.com", target: "_blank" },
+    { name: msg`Rakazo`, href: "https://rakazo.com", target: "_blank" },
   ],
   legal: [
-    { name: "Terms", href: "/terms" },
-    { name: "Privacy", href: "/privacy" },
+    { name: msg`Terms`, href: "/terms" },
+    { name: msg`Privacy`, href: "/privacy" },
     {
-      name: "SOC2 Compliant",
+      name: msg`SOC2 Compliant`,
       href: "https://security.getinboxzero.com",
       target: "_blank",
     },
@@ -172,21 +185,23 @@ export const footerNavigation = {
 const selfHostedFooter = {
   resources: [
     {
-      name: "Documentation",
+      name: msg`Documentation`,
       href: "https://docs.getinboxzero.com",
       target: "_blank",
     },
-    { name: "Contact us", href: `mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}` },
-    { name: "GitHub", href: "/github", target: "_blank" },
-    { name: "Discord", href: "/discord", target: "_blank" },
+    { name: msg`Contact us`, href: `mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}` },
+    { name: msg`GitHub`, href: "/github", target: "_blank" },
+    { name: msg`Discord`, href: "/discord", target: "_blank" },
   ],
   legal: [
-    { name: "Terms", href: "/terms" },
-    { name: "Privacy", href: "/privacy" },
+    { name: msg`Terms`, href: "/terms" },
+    { name: msg`Privacy`, href: "/privacy" },
   ],
 };
 
 export function Footer() {
+  const { t, i18n } = useLingui();
+  const year = new Date().getFullYear();
   const copyrightName =
     BRAND_NAME === "Inbox Zero" ? "Inbox Zero Inc." : BRAND_NAME;
 
@@ -196,8 +211,8 @@ export function Footer() {
         <div className="mx-auto max-w-7xl overflow-hidden px-6 py-12 lg:px-8">
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
             {selfHostedFooter.resources.map((item) => (
-              <Link
-                key={item.name}
+              <LandingLink
+                key={item.href}
                 href={item.href}
                 target={item.target}
                 rel={
@@ -205,31 +220,33 @@ export function Footer() {
                 }
                 className="text-sm leading-6 text-gray-600 hover:text-gray-900"
               >
-                {item.name}
-              </Link>
+                {i18n._(item.name)}
+              </LandingLink>
             ))}
             <span className="text-gray-300">|</span>
             {selfHostedFooter.legal.map((item) => (
-              <Link
-                key={item.name}
+              <LandingLink
+                key={item.href}
                 href={item.href}
                 className="text-sm leading-6 text-gray-600 hover:text-gray-900"
               >
-                {item.name}
-              </Link>
+                {i18n._(item.name)}
+              </LandingLink>
             ))}
             <CookieSettingsButton className="text-sm leading-6 text-gray-600 hover:text-gray-900" />
           </div>
           <p className="mt-6 text-center text-xs leading-5 text-gray-500">
-            Powered by{" "}
-            <Link
-              href="https://getinboxzero.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-gray-900"
-            >
-              Inbox Zero
-            </Link>
+            <Trans>
+              Powered by{" "}
+              <Link
+                href="https://getinboxzero.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-gray-900"
+              >
+                Inbox Zero
+              </Link>
+            </Trans>
           </p>
         </div>
       </footer>
@@ -242,34 +259,43 @@ export function Footer() {
         <nav aria-label="Footer">
           <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-5 xl:col-span-2 xl:mt-0">
             <div>
-              <FooterList title="Product" items={footerNavigation.main} />
+              <FooterList title={t`Product`} items={footerNavigation.main} />
             </div>
             <div>
-              <FooterList title="Use Cases" items={footerNavigation.useCases} />
+              <FooterList
+                title={t`Use Cases`}
+                items={footerNavigation.useCases}
+              />
 
               <div className="mt-6">
                 <FooterList
-                  title="Industries"
+                  title={t`Industries`}
                   items={footerNavigation.industries}
                 />
               </div>
 
               <div className="mt-6">
-                <FooterList title="Compare" items={footerNavigation.compare} />
+                <FooterList
+                  title={t`Compare`}
+                  items={footerNavigation.compare}
+                />
               </div>
             </div>
             <div>
-              <FooterList title="Support" items={footerNavigation.support} />
+              <FooterList title={t`Support`} items={footerNavigation.support} />
 
               <div className="mt-6">
-                <FooterList title="Free Tools" items={footerNavigation.tools} />
+                <FooterList
+                  title={t`Free Tools`}
+                  items={footerNavigation.tools}
+                />
               </div>
             </div>
             <div>
-              <FooterList title="Company" items={footerNavigation.company} />
+              <FooterList title={t`Company`} items={footerNavigation.company} />
             </div>
             <div>
-              <FooterList title="Legal" items={footerNavigation.legal} />
+              <FooterList title={t`Legal`} items={footerNavigation.legal} />
               <CookieSettingsButton className="mt-4 text-sm leading-6 text-gray-600 hover:text-gray-900" />
             </div>
           </div>
@@ -288,18 +314,18 @@ export function Footer() {
           ))}
         </div>
         <p className="mt-10 text-center text-xs leading-5 text-gray-500">
-          &copy; {new Date().getFullYear()} {copyrightName}. All rights
-          reserved.
+          <Trans>
+            &copy; {year} {copyrightName}. All rights reserved.
+          </Trans>
         </p>
       </div>
     </footer>
   );
 }
 
-function FooterList(props: {
-  title: string;
-  items: { name: string; href: string; target?: string }[];
-}) {
+function FooterList(props: { title: string; items: FooterLink[] }) {
+  const { i18n } = useLingui();
+
   return (
     <>
       <h3 className="text-sm font-semibold leading-6 text-gray-900">
@@ -307,15 +333,15 @@ function FooterList(props: {
       </h3>
       <ul className="mt-6 space-y-4">
         {props.items.map((item) => (
-          <li key={item.name}>
-            <Link
+          <li key={item.href}>
+            <LandingLink
               href={item.href}
               target={item.target}
               prefetch={false}
               className="text-sm leading-6 text-gray-600 hover:text-gray-900"
             >
-              {item.name}
-            </Link>
+              {i18n._(item.name)}
+            </LandingLink>
           </li>
         ))}
       </ul>

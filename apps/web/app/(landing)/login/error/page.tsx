@@ -9,7 +9,7 @@ import {
   getRequiresReconsentDescription,
 } from "@/app/(landing)/login/messages";
 import { Button } from "@/components/ui/button";
-import { BasicLayout } from "@/components/layouts/BasicLayout";
+import { ClientBasicLayout } from "@/components/layouts/ClientBasicLayout";
 import { ErrorPage } from "@/components/ErrorPage";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -126,7 +126,7 @@ function LoginErrorContent() {
 
 export default function LogInErrorPage() {
   return (
-    <BasicLayout>
+    <ClientBasicLayout>
       <Suspense fallback={<Loading />}>
         <LoginErrorContent />
       </Suspense>
@@ -134,7 +134,7 @@ export default function LogInErrorPage() {
       <Suspense>
         <CrispChatLoggedOutVisible />
       </Suspense>
-    </BasicLayout>
+    </ClientBasicLayout>
   );
 }
 

@@ -1,0 +1,1208 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-12 13:26+0200\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: fr\n"
+
+#: app/(landing)/home/home-metadata.ts
+msgid "{BRAND_NAME} | Automate and clean your inbox"
+msgstr "{BRAND_NAME} | Automatise et nettoie ta boîte de réception"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "{BRAND_NAME} for self-hosted teams"
+msgstr "{BRAND_NAME} pour les équipes auto-hébergées"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "{BRAND_NAME} organizes your inbox and calendar, drafts replies in your voice, and helps you reach inbox zero fast. Never miss an important email again."
+msgstr "{BRAND_NAME} organise ta boîte de réception et ton agenda, rédige des réponses avec ton style et t’aide à atteindre l’inbox zero en un rien de temps. Ne rate plus jamais un e-mail important."
+
+#: app/(landing)/home/Footer.tsx
+msgid "{BRAND_NAME} Tabs (Chrome Extension)"
+msgstr "{BRAND_NAME} Tabs (extension Chrome)"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "{INCLUDED_EMAIL_ACCOUNTS_PER_PERSON, plural, one {# email account included, then {extraAccountPrice}/mo each, billed annually} other {# email accounts included, then {extraAccountPrice}/mo each, billed annually}}"
+msgstr "{INCLUDED_EMAIL_ACCOUNTS_PER_PERSON, plural, one {# compte e-mail inclus, puis {extraAccountPrice}/mois par compte supplémentaire, facturation annuelle} other {# comptes e-mail inclus, puis {extraAccountPrice}/mois par compte supplémentaire, facturation annuelle}}"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "{INCLUDED_EMAIL_ACCOUNTS_PER_PERSON, plural, one {# email account included, then {extraAccountPrice}/mo each} other {# email accounts included, then {extraAccountPrice}/mo each}}"
+msgstr "{INCLUDED_EMAIL_ACCOUNTS_PER_PERSON, plural, one {# compte e-mail inclus, puis {extraAccountPrice}/mois par compte supplémentaire} other {# comptes e-mail inclus, puis {extraAccountPrice}/mois par compte supplémentaire}}"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "{price}/mo"
+msgstr "{price}/mois"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "/user /month"
+msgstr "/utilisateur /mois"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "#1 GitHub Trending"
+msgstr "N° 1 des tendances GitHub"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "#1 Product Hunt"
+msgstr "N° 1 sur Product Hunt"
+
+#: app/(landing)/home/Footer.tsx
+msgid "© {year} {copyrightName}. All rights reserved."
+msgstr "© {year} {copyrightName}. Tous droits réservés."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "<0>Contact our sales team</0> for custom pricing, SSO, SCIM, on-premise deployment, and dedicated support."
+msgstr "<0>Contacte notre équipe commerciale</0> pour une tarification sur mesure, le SSO, le SCIM, un déploiement sur site et un support dédié."
+
+#: components/new-landing/sections/Awards.tsx
+msgid "12k+ GitHub Stars"
+msgstr "Plus de 12k étoiles sur GitHub"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "A fast email app for Gmail and Outlook. Free on web, desktop, and iPhone."
+msgstr "Une app e-mail rapide pour Gmail et Outlook. Gratuite sur le web, sur ordinateur et sur iPhone."
+
+#: app/(app)/premium/config-messages.ts
+msgid "A notetaker joins your video calls and turns them into transcripts, summaries, recap emails, and follow-up drafts."
+msgstr "Un assistant de prise de notes rejoint tes appels vidéo et les transforme en transcriptions, résumés, e-mails récapitulatifs et brouillons de relance."
+
+#: app/(landing)/home/Footer.tsx
+msgid "About"
+msgstr "À propos"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Accounting Firms"
+msgstr "Cabinets comptables"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Advanced security & SLA"
+msgstr "Sécurité avancée et SLA"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Affiliates"
+msgstr "Affiliation"
+
+#: app/(landing)/home/Footer.tsx
+msgid "AI Chat for Slack & Telegram"
+msgstr "Chat IA pour Slack et Telegram"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "AI drafts and a sorted inbox from ${starterPrice}/month, less than Superhuman charges."
+msgstr "Des brouillons IA et une boîte de réception triée dès ${starterPrice}/mois, moins cher que Superhuman."
+
+#: app/(landing)/home/Footer.tsx
+msgid "AI Email Assistant"
+msgstr "Assistant e-mail IA"
+
+#: app/(landing)/home/Footer.tsx
+msgid "AI Email Assistant Directory"
+msgstr "Annuaire des assistants e-mail IA"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "AI email management for real estate professionals"
+msgstr "La gestion des e-mails par IA pour les professionnels de l’immobilier"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "AI meeting notetaker"
+msgstr "Prise de notes de réunion par IA"
+
+#: app/(landing)/home/Footer.tsx
+msgid "AI Meeting Notetaker"
+msgstr "Prise de notes de réunion par IA"
+
+#: app/(landing)/home/Footer.tsx
+msgid "All Free Email Tools"
+msgstr "Tous les outils e-mail gratuits"
+
+#: app/(landing)/home/Hero.tsx
+#: components/new-landing/sections/OrganizedInbox.tsx
+msgid "an organized inbox"
+msgstr "une boîte de réception organisée"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Annually"
+msgstr "Annuellement"
+
+#: app/(app)/premium/config-messages.ts
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "App integrations"
+msgstr "Intégrations d’apps"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "App integrations (Notion, Stripe, and more)"
+msgstr "Intégrations d’apps (Notion, Stripe et plus)"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Auto Forward Emails"
+msgstr "Transfert automatique d’e-mails"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Auto-file attachments"
+msgstr "Classer automatiquement les pièces jointes"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Auto-File Attachments"
+msgstr "Classement automatique des pièces jointes"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Automate order updates and customer communications"
+msgstr "Automatise les mises à jour de commande et la communication client"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Automatically organize and file email attachments to your preferred storage."
+msgstr "Organise et classe automatiquement les pièces jointes dans le stockage de ton choix."
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Automatically organized.<0/>Never miss an important email again."
+msgstr "Organisée automatiquement.<0/>Ne rate plus jamais un e-mail important."
+
+#: app/(landing)/home/Footer.tsx
+msgid "Best AI Email Assistants"
+msgstr "Meilleurs assistants e-mail IA"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Blocks cold emails"
+msgstr "Bloque les e-mails de prospection"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Blog"
+msgstr "Blog"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Bot Directory"
+msgstr "Annuaire des bots"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Brand Kit"
+msgstr "Brand Kit"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Brief My Meeting"
+msgstr "Brief My Meeting"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Built to fit your workflow. Customize in plain English"
+msgstr "Conçu pour s’adapter à ta façon de travailler. Personnalise-le en langage courant"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Bulk archive"
+msgstr "Archivage groupé"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Bulk Email Unsubscriber"
+msgstr "Outil de désabonnement groupé"
+
+#: components/new-landing/sections/BulkUnsubscribe.tsx
+msgid "bulk unsubscribe"
+msgstr "désabonnement groupé"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Bulk unsubscribe"
+msgstr "Désabonnement groupé"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Bulk unsubscribe and archive emails"
+msgstr "Désabonnement et archivage groupés d’e-mails"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Calendar"
+msgstr "Calendar"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Can I switch between plans?"
+msgstr "Puis-je changer de forfait ?"
+
+#: app/(landing)/home/FAQs.tsx
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Can I try {BRAND_NAME} for free?"
+msgstr "Puis-je essayer {BRAND_NAME} gratuitement ?"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/HeaderLinks.tsx
+msgid "Case Studies"
+msgstr "Études de cas"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Changelog"
+msgstr "Journal des modifications"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Clean your inbox"
+msgstr "Nettoie ta boîte de réception"
+
+#: app/(landing)/home/Footer.tsx
+msgid "CLI"
+msgstr "CLI"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Cold Email"
+msgstr "Cold Email"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Cold Email Blocker"
+msgstr "Bloqueur d’e-mails de prospection"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Company"
+msgstr "Entreprise"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Compare"
+msgstr "Comparer"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Compare plans"
+msgstr "Comparer les forfaits"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Connect Notion, Stripe, Monday.com, and more so the AI can use data from your tools when drafting replies and meeting briefs."
+msgstr "Connecte Notion, Stripe, Monday.com et d’autres pour que l’IA puisse utiliser les données de tes outils lorsqu’elle rédige des réponses et des briefings de réunion."
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Connect your Google or Microsoft email"
+msgstr "Connecte ton e-mail Google ou Microsoft"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Connects to your calendar and CRM to draft emails based on your actual schedule and customer data."
+msgstr "Se connecte à ton agenda et à ton CRM pour rédiger des e-mails basés sur ton vrai planning et tes données clients."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Contact our sales team for custom pricing, SSO, SCIM, on-premise deployment, and dedicated support."
+msgstr "Contacte notre équipe commerciale pour une tarification sur mesure, le SSO, le SCIM, un déploiement sur site et un support dédié."
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+#: components/new-landing/sections/Pricing.tsx
+msgid "Contact us"
+msgstr "Nous contacter"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Content Creator"
+msgstr "Créateur de contenu"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Content Creators"
+msgstr "Créateurs de contenu"
+
+#: components/new-landing/common/Logo.tsx
+msgid "Copy Logo as SVG"
+msgstr "Copier le logo en SVG"
+
+#: components/new-landing/common/Logo.tsx
+msgid "Couldn't copy the logo"
+msgstr "Impossible de copier le logo"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/HeaderLinks.tsx
+msgid "Customer Support"
+msgstr "Service client"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Customize"
+msgstr "Personnaliser"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Dedicated account manager & training"
+msgstr "Gestionnaire de compte dédié et formation"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Dedicated onboarding manager"
+msgstr "Responsable d’intégration dédié"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Deliver faster support with AI-powered responses"
+msgstr "Offre un support plus rapide grâce aux réponses générées par l’IA"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Deploy {BRAND_NAME} on your own infrastructure and automate your inbox with full data control."
+msgstr "Déploie {BRAND_NAME} sur ta propre infrastructure et automatise ta boîte de réception en gardant le contrôle total de tes données."
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Designed around how you actually work"
+msgstr "Pensé pour ta vraie façon de travailler"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Discord"
+msgstr "Discord"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Do you offer annual discounts?"
+msgstr "Proposez-vous des réductions annuelles ?"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Do you offer discounts for students, nonprofits, or open-source projects?"
+msgstr "Proposez-vous des réductions pour les étudiants, les associations ou les projets open source ?"
+
+#: app/(landing)/home/FAQs.tsx
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Do you offer refunds?"
+msgstr "Proposez-vous des remboursements ?"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Documentation"
+msgstr "Documentation"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Download"
+msgstr "Télécharger"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "Download for Mac"
+msgstr "Télécharger pour Mac"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "Download for Windows"
+msgstr "Télécharger pour Windows"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "Download on the App Store"
+msgstr "Télécharger dans l’App Store"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Drafts replies in your voice"
+msgstr "Rédige des réponses avec ton style"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Drafts that know your schedule and availability"
+msgstr "Des brouillons qui connaissent ton planning et tes disponibilités"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Drowning in emails? Don't waste energy trying to prioritize your emails. Our AI assistant will label everything automatically."
+msgstr "Submergé par les e-mails ? Ne t’épuise plus à les prioriser. Notre assistant IA les libelle tous automatiquement."
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/HeaderLinks.tsx
+msgid "E-commerce"
+msgstr "E-commerce"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Email analytics"
+msgstr "Statistiques des e-mails"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Email Analytics"
+msgstr "Statistiques des e-mails"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Email analytics. What gets measured, gets managed"
+msgstr "Statistiques e-mail. Ce qui se mesure se maîtrise"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Email app"
+msgstr "App d’e-mail"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Email App"
+msgstr "App e-mail"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Email Blaster"
+msgstr "Email Blaster"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Email Deliverability Checker"
+msgstr "Vérificateur de délivrabilité des e-mails"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Email digests"
+msgstr "Récapitulatifs par e-mail"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Email Signature Generator"
+msgstr "Générateur de signature e-mail"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Email us or post an issue on <0>GitHub</0>. We're happy to hear how we can improve your email experience."
+msgstr "Écris-nous par e-mail ou ouvre une issue sur <0>GitHub</0>. On adore savoir comment améliorer ton expérience e-mail."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Email us or post an issue on GitHub. We're happy to hear how we can improve your email experience."
+msgstr "Écris-nous par e-mail ou ouvre une issue sur GitHub. On adore savoir comment améliorer ton expérience e-mail."
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Enterprise"
+msgstr "Enterprise"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Enterprise-grade security. SOC 2 Type 2 certified"
+msgstr "Sécurité de niveau entreprise. Certifié SOC 2 Type 2"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Every email you get needing a reply will have a pre-written draft."
+msgstr "Chaque e-mail qui attend une réponse aura un brouillon déjà rédigé."
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Every Gmail and Outlook account in one inbox, on the web, Mac, Windows, and iPhone. Like Superhuman, but free."
+msgstr "Tous tes comptes Gmail et Outlook dans une seule boîte de réception, sur le web, Mac, Windows et iPhone. Comme Superhuman, mais gratuit."
+
+#: app/(app)/premium/config-messages.ts
+msgid "Everything in Plus, plus:"
+msgstr "Tout ce qu’offre Plus, et en plus :"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Everything in Starter, plus:"
+msgstr "Tout ce qu’offre Starter, et en plus :"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Everything in Team, plus:"
+msgstr "Tout ce qu’offre Team, et en plus :"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Feature"
+msgstr "Fonctionnalité"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Feature Requests"
+msgstr "Demandes de fonctionnalités"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Finally an \"unsubscribe app\" that let's you *actually* unsubscribe and filter using Gmail filters (instead of always relying on the 3rd party app to filter those emails). Big plus for me, so I have all filters in one place (inside the Gmail filters, that is). Awesome work! Already a fan :)"
+msgstr "Enfin une « app de désabonnement » qui te permet de te désabonner *vraiment* et de filtrer avec les filtres Gmail (au lieu de toujours dépendre de l’app tierce pour filtrer ces e-mails). Gros plus pour moi : j’ai tous mes filtres au même endroit (dans les filtres Gmail, donc). Super boulot ! Déjà fan :)"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Flexible enough to fit any workflow. Simple enough to set up in minutes."
+msgstr "Assez flexible pour s’adapter à n’importe quel workflow. Assez simple pour être configuré en quelques minutes."
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Fly through email on desktop and mobile"
+msgstr "Traite tes e-mails à toute vitesse, sur ordinateur comme sur mobile"
+
+#: app/(app)/premium/config-messages.ts
+msgid "For individuals, entrepreneurs, and executives looking to buy back their time."
+msgstr "Pour les particuliers, entrepreneurs et dirigeants qui veulent récupérer leur temps."
+
+#: app/(app)/premium/config-messages.ts
+msgid "For organizations with enterprise-grade security and compliance requirements."
+msgstr "Pour les organisations ayant des exigences de sécurité et de conformité de niveau entreprise."
+
+#: app/(app)/premium/config-messages.ts
+msgid "For power users who need integrations and deeper knowledge base support."
+msgstr "Pour les utilisateurs avancés qui ont besoin d’intégrations et d’une base de connaissances plus poussée."
+
+#: app/(app)/premium/config-messages.ts
+msgid "For teams and growing businesses handling high email volumes."
+msgstr "Pour les équipes et les entreprises en croissance qui gèrent de gros volumes d’e-mails."
+
+#: app/(app)/premium/config-messages.ts
+msgid "Forward important emails and notifications to your Slack channels automatically."
+msgstr "Transfère automatiquement les e-mails et notifications importants vers tes canaux Slack."
+
+#: app/(landing)/home/Footer.tsx
+msgid "Founder"
+msgstr "Fondateur"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Founders"
+msgstr "Fondateurs"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Free to use"
+msgstr "Gratuit"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Free Tools"
+msgstr "Outils gratuits"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Frequently asked questions"
+msgstr "Questions fréquentes"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Get AI briefings before every meeting with research on attendees and context from your inbox."
+msgstr "Reçois des briefings IA avant chaque réunion, avec des recherches sur les participants et du contexte tiré de ta boîte de réception."
+
+#: app/(landing)/home/FinalCTA.tsx
+msgid "Get back an hour a day.<0/>Start using {BRAND_NAME}."
+msgstr "Gagne une heure par jour.<0/>Commence à utiliser {BRAND_NAME}."
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "Get it on Google Play"
+msgstr "Disponible sur Google Play"
+
+#: components/new-landing/CallToAction.tsx
+msgid "Get started"
+msgstr "Commencer"
+
+#: app/(landing)/home/FinalCTA.tsx
+msgid "Get started for free"
+msgstr "Commencer gratuitement"
+
+#: components/new-landing/sections/Header.tsx
+#: components/new-landing/sections/Pricing.tsx
+msgid "Get started free"
+msgstr "Commencer gratuitement"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Get started in minutes"
+msgstr "Opérationnel en quelques minutes"
+
+#: components/new-landing/sections/BulkUnsubscribe.tsx
+msgid "Get to Inbox Zero fast.<0/>Bulk unsubscribe from emails you never read."
+msgstr "Atteins l’Inbox Zero rapidement.<0/>Désabonne-toi en masse des e-mails que tu ne lis jamais."
+
+#: app/(landing)/home/Footer.tsx
+msgid "GitHub"
+msgstr "GitHub"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Gmail Personality Quiz"
+msgstr "Quiz de personnalité Gmail"
+
+#: components/new-landing/common/Logo.tsx
+msgid "Go to Brand Kit"
+msgstr "Aller au kit de marque"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Group emails from selected rules into a scheduled summary instead of reading each message individually."
+msgstr "Regroupe les e-mails des règles sélectionnées dans un récapitulatif programmé au lieu de lire chaque message séparément."
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Grow your business with automated email management"
+msgstr "Développe ton activité grâce à la gestion automatisée des e-mails"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "hey bro, your tool is legit what I been looking for for ages haha. its a god send"
+msgstr "franchement, ton outil c’est exactement ce que je cherchais depuis des lustres haha. une vraie bénédiction"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "How can I request a feature?"
+msgstr "Comment demander une fonctionnalité ?"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "I came across Inbox Zero while actively looking to hire a VA to manage my emails but after trying the tool, it turned out to be a complete game changer."
+msgstr "J’ai découvert Inbox Zero alors que je cherchais activement un assistant virtuel pour gérer mes e-mails, mais après avoir essayé l’outil, ça a complètement changé la donne."
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "I love the flexibility and customization options, and it's the first thing in forever that's gotten my inbox under control. Thank you!"
+msgstr "J’adore la flexibilité et les options de personnalisation, et c’est la première chose depuis une éternité qui a remis de l’ordre dans ma boîte de réception. Merci !"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "I was mostly hoping to turn my email inbox into less of the mess that it is. I've been losing tasks that I should do as the emails get buried. So far it's really helped."
+msgstr "J’espérais surtout que ma boîte de réception soit un peu moins le bazar qu’elle est. Je perdais des tâches à faire parce que les e-mails se retrouvaient noyés. Jusqu’ici, ça m’aide vraiment."
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "I'm an executive who was drowning in hundreds of daily emails and heavily dependent on my EA for email management. What I love most about Inbox Zero is how it seamlessly replaced that entire function—the smart automation, prioritization, and organization features work like having a dedicated email assistant built right into my workflow."
+msgstr "Je suis dirigeant, je croulais sous des centaines d’e-mails par jour et je dépendais énormément de mon assistante de direction pour les gérer. Ce que j’aime le plus avec Inbox Zero, c’est qu’il a remplacé toute cette fonction sans accroc : l’automatisation intelligente, la priorisation et l’organisation, c’est comme avoir un assistant e-mail dédié intégré directement à mon workflow."
+
+#: app/(landing)/home/HeroVideoDialog.tsx
+msgid "Inbox Zero product video"
+msgstr "Vidéo de présentation d’Inbox Zero"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Industries"
+msgstr "Secteurs"
+
+#: components/new-landing/sections/ManageFromAnywhere.tsx
+msgid "iOS & Android"
+msgstr "iOS et Android"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Is the code open-source?"
+msgstr "Le code est-il open source ?"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Is there a mobile app?"
+msgstr "Y a-t-il une app mobile ?"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "It doesn't have to. {BRAND_NAME} works inside Gmail and Outlook, so you can keep using them as normal while the assistant works in the background. {BRAND_NAME} also has its own <0>email app</0> for the web, desktop, and iPhone if you'd like to use it."
+msgstr "Pas forcément. {BRAND_NAME} fonctionne dans Gmail et Outlook, tu peux donc continuer à les utiliser normalement pendant que l’assistant travaille en arrière-plan. {BRAND_NAME} a aussi sa propre <0>app e-mail</0> pour le web, l’ordinateur et l’iPhone si tu veux l’utiliser."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "It doesn't have to. {BRAND_NAME} works inside Gmail and Outlook, so you can keep using them as normal while the assistant works in the background. {BRAND_NAME} also has its own email app for the web, desktop, and iPhone if you'd like to use it."
+msgstr "Pas forcément. {BRAND_NAME} fonctionne dans Gmail et Outlook, tu peux donc continuer à les utiliser normalement pendant que l’assistant travaille en arrière-plan. {BRAND_NAME} a aussi sa propre app e-mail pour le web, l’ordinateur et l’iPhone si tu veux l’utiliser."
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "It's the first tool I've tried of many that have actually captured my voice in the responses that it drafts."
+msgstr "De tous les outils que j’ai essayés, c’est le premier qui a vraiment capté mon style dans les réponses qu’il rédige."
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Join {userCount} others who spend less time on emails"
+msgstr "Rejoins {userCount} personnes qui passent moins de temps sur leurs e-mails"
+
+#: components/new-landing/BrandScroller.tsx
+msgid "Join {userCount} professionals, including people at:"
+msgstr "Rejoins {userCount} professionnels, dont des personnes chez :"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Knowledge base"
+msgstr "Base de connaissances"
+
+#: components/new-landing/LanguageSwitcher.tsx
+msgid "Language"
+msgstr "Langue"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Law Firms"
+msgstr "Cabinets d’avocats"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Legal"
+msgstr "Mentions légales"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Less than Superhuman"
+msgstr "Moins cher que Superhuman"
+
+#: app/(landing)/home/FinalCTA.tsx
+msgid "Less time in your inbox. More time for what actually matters."
+msgstr "Moins de temps dans ta boîte de réception. Plus de temps pour ce qui compte vraiment."
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Limited"
+msgstr "Limité"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Link your Gmail or Outlook in two clicks to get started."
+msgstr "Connecte ton Gmail ou Outlook en deux clics pour commencer."
+
+#: components/new-landing/sections/Header.tsx
+msgid "Log in"
+msgstr "Se connecter"
+
+#: components/new-landing/common/Logo.tsx
+msgid "Logo copied as SVG"
+msgstr "Logo copié en SVG"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Love this new open-source app by @elie2222: getinboxzero.com"
+msgstr "J’adore cette nouvelle app open source de @elie2222 : getinboxzero.com"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Loving it so far! Cleaned up my top cluttering newsletter and promotional email subscriptions in just a few minutes."
+msgstr "J’adore pour l’instant ! J’ai fait le ménage dans les newsletters et e-mails promo qui encombraient le plus ma boîte en quelques minutes seulement."
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Marketing"
+msgstr "Marketing"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Meet the Inbox Zero email app"
+msgstr "Découvre l'app de messagerie Inbox Zero"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Meet your AI email assistant that *actually* works"
+msgstr "Découvre ton assistant e-mail IA qui fonctionne *vraiment*"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Meeting Cost Calculator"
+msgstr "Calculateur du coût des réunions"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "metrics"
+msgstr "statistiques"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Mobile App"
+msgstr "App mobile"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Monthly"
+msgstr "Mensuel"
+
+#: app/(landing)/home/Footer.tsx
+msgid "MSPs"
+msgstr "Infogérants (MSP)"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Need a custom plan for your enterprise?"
+msgstr "Besoin d’un forfait sur mesure pour ton entreprise ?"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Need SSO, SCIM, on-premise deployment, or a dedicated account manager?"
+msgstr "Besoin du SSO, du SCIM, d’un déploiement sur site ou d’un gestionnaire de compte dédié ?"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "New"
+msgstr "Nouveau"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "New: Inbox Zero Mail app →"
+msgstr "Nouveau : l’app Inbox Zero Mail →"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Newsletter"
+msgstr "Newsletter"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "No hidden fees. Cancel anytime."
+msgstr "Pas de frais cachés. Annule quand tu veux."
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "No need to switch"
+msgstr "Pas besoin de changer d’app"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Notification"
+msgstr "Notification"
+
+#: app/(app)/premium/config-messages.ts
+msgid "On-premise deployment (optional)"
+msgstr "Déploiement sur site (facultatif)"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "One-click setup. Start organizing and drafting replies in minutes."
+msgstr "Configuration en un clic. Commence à organiser et à rédiger des réponses en quelques minutes."
+
+#: components/new-landing/common/Logo.tsx
+msgid "Open Link in New Tab"
+msgstr "Ouvrir le lien dans un nouvel onglet"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Open Source"
+msgstr "Open source"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Open-source. See exactly what the code does"
+msgstr "Open source. Vois exactement ce que fait le code"
+
+#: app/(landing)/home/Footer.tsx
+msgid "OpenClaw Skill"
+msgstr "OpenClaw Skill"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Organizes your inbox exactly how you want it"
+msgstr "Organise ta boîte de réception exactement comme tu le veux"
+
+#: app/(landing)/home/Footer.tsx
+msgid "OSS Friends"
+msgstr "OSS Friends"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "Other platforms"
+msgstr "Autres plateformes"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Our customers love saving time with {BRAND_NAME}."
+msgstr "Nos clients adorent gagner du temps avec {BRAND_NAME}."
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Payment frequency"
+msgstr "Fréquence de paiement"
+
+#: app/(landing)/home/HeroVideoDialog.tsx
+msgid "Play product demo video"
+msgstr "Lire la vidéo de démo du produit"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Popular"
+msgstr "Populaire"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Powered by <0>Inbox Zero</0>"
+msgstr "Propulsé par <0>Inbox Zero</0>"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Pre-drafted replies"
+msgstr "Réponses pré-rédigées"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Pre-drafted replies based on your email history and calendar"
+msgstr "Des réponses pré-rédigées à partir de ton historique d’e-mails et de ton agenda"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Pre-meeting briefings"
+msgstr "Briefings avant les réunions"
+
+#: components/new-landing/sections/PreWrittenDrafts.tsx
+msgid "pre-written drafts"
+msgstr "brouillons déjà rédigés"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Pre-written drafts waiting in your inbox"
+msgstr "Des brouillons déjà rédigés qui t’attendent dans ta boîte de réception"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Prefer Gmail or Outlook? The AI works there too."
+msgstr "Tu préfères Gmail ou Outlook ? L’IA fonctionne aussi là-bas."
+
+#: app/(landing)/home/Footer.tsx
+#: app/(landing)/pricing/pricing-metadata.ts
+#: components/new-landing/HeaderLinks.tsx
+msgid "Pricing"
+msgstr "Tarifs"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Pricing FAQ"
+msgstr "FAQ sur les tarifs"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Priority support"
+msgstr "Support prioritaire"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Privacy"
+msgstr "Confidentialité"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Privacy first and open source"
+msgstr "Confidentialité avant tout et open source"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Product"
+msgstr "Produit"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Product of the Day on Product Hunt"
+msgstr "Produit du jour sur Product Hunt"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Property Management"
+msgstr "Gestion immobilière"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Rakazo"
+msgstr "Rakazo"
+
+#: components/new-landing/sections/ManageFromAnywhere.tsx
+msgid "Read emails, draft replies, and manage your inbox from Slack, Telegram, Microsoft Teams, mobile, or the web, without switching apps."
+msgstr "Lis tes e-mails, rédige des réponses et gère ta boîte de réception depuis Slack, Telegram, Microsoft Teams, ton mobile ou le web, sans changer d’app."
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Real Estate"
+msgstr "Immobilier"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Realtor"
+msgstr "Agent immobilier"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Reply Zero"
+msgstr "Reply Zero"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Save {percent}%"
+msgstr "Économise {percent} %"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Scale your startup while AI handles your inbox"
+msgstr "Fais grandir ta startup pendant que l’IA gère ta boîte de réception"
+
+#: app/(app)/premium/config-messages.ts
+msgid "SCIM user provisioning"
+msgstr "Provisionnement des utilisateurs SCIM"
+
+#: components/new-landing/sections/BulkUnsubscribe.tsx
+msgid "See which emails you never read, and one-click unsubscribe and archive them."
+msgstr "Repère les e-mails que tu ne lis jamais, puis désabonne-toi et archive-les en un clic."
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "See who emails you most and what's clogging your inbox. Get clear insights, then take action."
+msgstr "Vois qui t’écrit le plus et ce qui encombre ta boîte de réception. Obtiens des informations claires, puis passe à l’action."
+
+#: app/(landing)/pricing/pricing-metadata.ts
+msgid "Simple, transparent pricing. No hidden fees. Cancel anytime."
+msgstr "Des tarifs simples et transparents. Aucuns frais cachés. Annulable à tout moment."
+
+#: app/(landing)/home/Footer.tsx
+msgid "Slack AI Assistant"
+msgstr "Assistant IA pour Slack"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Slack integration"
+msgstr "Intégration Slack"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/HeaderLinks.tsx
+msgid "Small Business"
+msgstr "Petites entreprises"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Smart categories set up automatically. Use our categories or create your own."
+msgstr "Des catégories intelligentes configurées automatiquement. Utilise les nôtres ou crée les tiennes."
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Awards.tsx
+msgid "SOC2 Compliant"
+msgstr "Conforme SOC2"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Solutions"
+msgstr "Solutions"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Sorts & labels emails"
+msgstr "Trie et libelle les e-mails"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Sorts and labels every email"
+msgstr "Trie et libelle chaque e-mail"
+
+#: app/(app)/premium/config-messages.ts
+#: components/new-landing/sections/Pricing.tsx
+msgid "Speak to sales"
+msgstr "Parler à l'équipe commerciale"
+
+#: app/(app)/premium/config-messages.ts
+msgid "SSO login"
+msgstr "Connexion SSO"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Status"
+msgstr "Statut"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "STEP 1"
+msgstr "ÉTAPE 1"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "STEP 2"
+msgstr "ÉTAPE 2"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "STEP 3"
+msgstr "ÉTAPE 3"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Streamline brand partnerships and collaborations"
+msgstr "Simplifie tes partenariats et collaborations avec les marques"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Subject Line Analyzer"
+msgstr "Analyseur d’objet d’e-mail"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "SUPER excited for this one! Well done, going to get use out of it for sure—have been waiting for a tool like this, it just makes so much sense to have as a layer atop email."
+msgstr "SUPER impatient pour celui-ci ! Bravo, je vais clairement m’en servir — j’attendais un outil comme ça, c’est tellement logique de l’avoir comme couche au-dessus de l’e-mail."
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Support"
+msgstr "Support"
+
+#: components/new-landing/CallToAction.tsx
+msgid "Talk to sales"
+msgstr "Parler à l’équipe commerciale"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Team"
+msgstr "Équipe"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Team Email Cost Calculator"
+msgstr "Calculateur du coût des e-mails d’équipe"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Team-wide analytics"
+msgstr "Statistiques à l'échelle de l'équipe"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Teams AI Assistant"
+msgstr "Assistant IA pour Teams"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Telegram AI Assistant"
+msgstr "Assistant IA pour Telegram"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Terms"
+msgstr "Conditions"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "The app is free. Add the AI only if you want it."
+msgstr "L’app est gratuite. Ajoute l’IA seulement si tu en as envie."
+
+#: app/(app)/premium/config-messages.ts
+msgid "The knowledge base is used to help draft responses. Store unlimited content in your knowledge base."
+msgstr "La base de connaissances sert à aider à rédiger les réponses. Stocke un contenu illimité dans ta base de connaissances."
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "this is something I've been searching for a long time – thanks for building it."
+msgstr "c’est un truc que je cherchais depuis longtemps – merci de l’avoir créé."
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "To Reply"
+msgstr "To Reply"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Trusted and loved by developers worldwide"
+msgstr "Adopté et adoré par les développeurs du monde entier"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Try for free, affordable paid plans"
+msgstr "Essai gratuit, forfaits payants abordables"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Try free for 7 days"
+msgstr "Essaie gratuitement pendant 7 jours"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Try the email app free"
+msgstr "Essaie l’app e-mail gratuitement"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Twitter"
+msgstr "Twitter"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Unlimited"
+msgstr "Illimité"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Unlimited knowledge base"
+msgstr "Base de connaissances illimitée"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Urgent"
+msgstr "Urgent"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Use Cases"
+msgstr "Cas d’usage"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "View desktop releases"
+msgstr "Voir les versions pour ordinateur"
+
+#: app/(landing)/home/Footer.tsx
+msgid "vs Fyxer.ai"
+msgstr "vs Fyxer.ai"
+
+#: app/(landing)/home/Footer.tsx
+msgid "vs Perplexity Email Assistant"
+msgstr "vs Perplexity Email Assistant"
+
+#: app/(landing)/home/Footer.tsx
+msgid "vs Shortwave"
+msgstr "vs Shortwave"
+
+#: app/(landing)/home/Footer.tsx
+msgid "vs Superhuman"
+msgstr "vs Superhuman"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "We accept all major credit cards through Stripe."
+msgstr "Nous acceptons toutes les principales cartes bancaires via Stripe."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "We support Gmail, Google Workspace, and Microsoft Outlook email accounts."
+msgstr "Nous prenons en charge les comptes e-mail Gmail, Google Workspace et Microsoft Outlook."
+
+#: app/(app)/premium/config-messages.ts
+msgid "We'll help you get set up on an onboarding call. Book as many free calls as needed."
+msgstr "Nous t'aiderons à tout configurer lors d'un appel d'accompagnement. Réserve autant d'appels gratuits que nécessaire."
+
+#: components/new-landing/sections/ManageFromAnywhere.tsx
+msgid "Web"
+msgstr "Web"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "What happens if I cancel?"
+msgstr "Que se passe-t-il si j’annule ?"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "What payment methods do you accept?"
+msgstr "Quels moyens de paiement acceptez-vous ?"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "When you check your inbox, every email needing a response will have a pre-drafted reply in your tone, ready for you to send."
+msgstr "Quand tu consultes ta boîte de réception, chaque e-mail qui attend une réponse a déjà un brouillon rédigé avec ton ton, prêt à être envoyé."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Which email providers does {BRAND_NAME} support?"
+msgstr "Quels fournisseurs d’e-mail {BRAND_NAME} prend-il en charge ?"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Will {BRAND_NAME} replace my current email app?"
+msgstr "{BRAND_NAME} va-t-il remplacer mon app e-mail actuelle ?"
+
+#: app/(landing)/home/Hero.tsx
+msgid "Works with"
+msgstr "Compatible avec"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Wow. Onboarded and started unsubscribing from the worst spammers in just 3 minutes... Thank you 🙏🏼"
+msgstr "Waouh. Inscrit et en train de me désabonner des pires spammeurs en seulement 3 minutes… Merci 🙏🏼"
+
+#: app/(landing)/home/FAQs.tsx
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes, if you don't think we provided you with value send us an <0>email</0> within 14 days of upgrading and we'll refund you."
+msgstr "Oui, si tu estimes qu’on ne t’a pas apporté de valeur, envoie-nous un <0>e-mail</0> dans les 14 jours suivant ton passage à un forfait supérieur et on te rembourse."
+
+#: app/(landing)/home/FAQs.tsx
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes, if you don't think we provided you with value send us an email within 14 days of upgrading and we'll refund you."
+msgstr "Oui, si tu estimes qu’on ne t’a pas apporté de valeur, envoie-nous un e-mail dans les 14 jours suivant ton passage à un forfait supérieur et on te rembourse."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes, you can upgrade or downgrade at any time. Changes take effect immediately and billing is prorated."
+msgstr "Oui, tu peux passer à un forfait supérieur ou inférieur à tout moment. Les changements s’appliquent immédiatement et la facturation est calculée au prorata."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes! Save up to 20% by choosing annual billing on any plan."
+msgstr "Oui ! Économise jusqu’à 20 % en choisissant la facturation annuelle sur n’importe quel forfait."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes! Send us an <0>email</0> and we'll set up a discounted plan for you."
+msgstr "Oui ! Envoie-nous un <0>e-mail</0> et on te mettra en place un forfait à prix réduit."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes! Send us an email and we'll set up a discounted plan for you."
+msgstr "Oui ! Envoie-nous un e-mail et on te mettra en place un forfait à prix réduit."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Yes! The AI assistant, the web app, and the desktop email app are open source in our <0>GitHub repo</0>. The iPhone app isn't open source yet, but we plan to open it."
+msgstr "Oui ! L’assistant IA, l’app web et l’app e-mail pour ordinateur sont open source dans notre <0>dépôt GitHub</0>. L’app iPhone n’est pas encore open source, mais on prévoit de l’ouvrir."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Yes! The AI assistant, the web app, and the desktop email app are open source in our GitHub repo. The iPhone app isn't open source yet, but we plan to open it."
+msgstr "Oui ! L’assistant IA, l’app web et l’app e-mail pour ordinateur sont open source dans notre dépôt GitHub. L’app iPhone n’est pas encore open source, mais on prévoit de l’ouvrir."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Yes. Our native iPhone app lets you triage your inbox and manage your assistant on the go. We also have an Android app, which is due for an update. Learn more on the <0>mobile app</0> page."
+msgstr "Oui. Notre app iPhone native te permet de trier ta boîte de réception et de gérer ton assistant où que tu sois. On a aussi une app Android, qui doit être mise à jour. Plus d’infos sur la page <0>app mobile</0>."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Yes. Our native iPhone app lets you triage your inbox and manage your assistant on the go. We also have an Android app, which is due for an update. Learn more on the mobile app page."
+msgstr "Oui. Notre app iPhone native te permet de trier ta boîte de réception et de gérer ton assistant où que tu sois. On a aussi une app Android, qui doit être mise à jour. Plus d’infos sur la page app mobile."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Yes. The email app is free to use. The AI assistant plans include a 7-day free trial. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged."
+msgstr "Oui. L’app e-mail est gratuite. Les forfaits de l’assistant IA incluent un essai gratuit de 7 jours. Une carte bancaire est nécessaire pour démarrer l’essai, mais tu ne seras pas débité avant la fin de l’essai. Annule à tout moment pendant l’essai pour ne pas être débité."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes. The email app is free to use. The AI plans include a 7-day free trial."
+msgstr "Oui. L’app e-mail est gratuite. Les forfaits IA incluent un essai gratuit de 7 jours."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "You can cancel anytime. Your subscription will remain active until the end of the billing period."
+msgstr "Tu peux annuler à tout moment. Ton abonnement reste actif jusqu’à la fin de la période de facturation."
+
+#: app/(landing)/home/home-metadata.ts
+msgid "Your AI executive assistant to reach inbox zero fast. Automate emails, bulk unsubscribe, block cold emails, and analytics. Open-source"
+msgstr "Ton assistant exécutif IA pour atteindre l’inbox zero rapidement. Automatise tes e-mails, désabonne-toi en masse, bloque les e-mails de prospection et consulte tes statistiques. Open source"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Your data stays private — no AI training, no funny business. We’re fully certified for top-tier security, and you can even self-host Inbox Zero if you want total control."
+msgstr "Tes données restent privées : pas d’entraînement d’IA, pas d’entourloupe. Nous disposons des certifications de sécurité les plus exigeantes, et tu peux même auto-héberger Inbox Zero si tu veux un contrôle total."
+
+#: components/new-landing/sections/ManageFromAnywhere.tsx
+msgid "Your inbox, wherever you work"
+msgstr "Ta boîte de réception, où que tu travailles"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Your inbox, your rules. Configure everything in plain English. Make it work the way you actually work."
+msgstr "Ta boîte de réception, tes règles. Configure tout en langage courant. Fais-la fonctionner comme toi tu travailles."

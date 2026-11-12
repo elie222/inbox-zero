@@ -1068,10 +1068,6 @@ msgstr "A fast, free app for reading and sending your email."
 msgid "a month"
 msgstr "a month"
 
-#: app/(app)/premium/config-messages.ts
-msgid "A notetaker joins your video calls and turns them into transcripts, summaries, recap emails, and follow-up drafts."
-msgstr "A notetaker joins your video calls and turns them into transcripts, summaries, recap emails, and follow-up drafts."
-
 #: app/(app)/[emailAccountId]/meetings/MeetingRecorderOnboarding.tsx
 msgid "A summary of every call"
 msgstr "A summary of every call"
@@ -1453,10 +1449,6 @@ msgstr "Advanced"
 msgid "Advanced options"
 msgstr "Advanced options"
 
-#: app/(app)/premium/config-messages.ts
-msgid "Advanced security & SLA"
-msgstr "Advanced security & SLA"
-
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 #: app/(app)/organization/[organizationId]/rules/OrgActionSteps.tsx
 msgid "after"
@@ -1489,10 +1481,6 @@ msgstr "AI files into these folders and can create subfolders inside them. When 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
 msgid "AI labels emails and drafts replies. Keep using Gmail or Outlook."
 msgstr "AI labels emails and drafts replies. Keep using Gmail or Outlook."
-
-#: app/(app)/premium/config-messages.ts
-msgid "AI meeting notetaker"
-msgstr "AI meeting notetaker"
 
 #: app/(app)/settings/SettingsContent.tsx
 msgid "AI Model"
@@ -1796,10 +1784,6 @@ msgstr "API token connections are not supported yet"
 #: app/(app)/config/page.tsx
 msgid "App Configuration"
 msgstr "App Configuration"
-
-#: app/(app)/premium/config-messages.ts
-msgid "App integrations"
-msgstr "App integrations"
 
 #: components/AppSidebarHeader.tsx
 msgid "App sections"
@@ -2215,7 +2199,6 @@ msgid "Auto-delete AI Drafts"
 msgstr "Auto-delete AI Drafts"
 
 #: app/(app)/[emailAccountId]/drive/page.tsx
-#: app/(app)/premium/config-messages.ts
 msgid "Auto-file attachments"
 msgstr "Auto-file attachments"
 
@@ -2254,10 +2237,6 @@ msgstr "Automatically categorize who emails you for better inbox management and 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Automatically draft replies written in your tone to emails needing a reply."
 msgstr "Automatically draft replies written in your tone to emails needing a reply."
-
-#: app/(app)/premium/config-messages.ts
-msgid "Automatically organize and file email attachments to your preferred storage."
-msgstr "Automatically organize and file email attachments to your preferred storage."
 
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Automatically send each Stripe invoice to the billing email."
@@ -2395,10 +2374,6 @@ msgstr "Block sender"
 msgid "Blocking {count, plural, one {# sender} other {# senders}}..."
 msgstr "Blocking {count, plural, one {# sender} other {# senders}}..."
 
-#: app/(app)/premium/config-messages.ts
-msgid "Blocks cold emails"
-msgstr "Blocks cold emails"
-
 #: app/(app)/[emailAccountId]/assistant/LearnedPatternExclusionHint.tsx
 msgid "body"
 msgstr "body"
@@ -2511,10 +2486,6 @@ msgstr "Bulk Unsubscribe"
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
 msgid "Bulk unsubscribe and archive"
 msgstr "Bulk unsubscribe and archive"
-
-#: app/(app)/premium/config-messages.ts
-msgid "Bulk unsubscribe and archive emails"
-msgstr "Bulk unsubscribe and archive emails"
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
 msgid "Bulk Unsubscriber"
@@ -3576,10 +3547,6 @@ msgstr "Connect Google Drive"
 msgid "Connect MCP"
 msgstr "Connect MCP"
 
-#: app/(app)/premium/config-messages.ts
-msgid "Connect Notion, Stripe, Monday.com, and more so the AI can use data from your tools when drafting replies and meeting briefs."
-msgstr "Connect Notion, Stripe, Monday.com, and more so the AI can use data from your tools when drafting replies and meeting briefs."
-
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Connect Slack"
 msgstr "Connect Slack"
@@ -4325,14 +4292,6 @@ msgstr "days"
 msgid "Decisions"
 msgstr "Decisions"
 
-#: app/(app)/premium/config-messages.ts
-msgid "Dedicated account manager & training"
-msgstr "Dedicated account manager & training"
-
-#: app/(app)/premium/config-messages.ts
-msgid "Dedicated onboarding manager"
-msgstr "Dedicated onboarding manager"
-
 #: components/SideNav.tsx
 msgid "Deep Clean"
 msgstr "Deep Clean"
@@ -4942,10 +4901,6 @@ msgstr "Drafts also go to chat — configured in actions above."
 msgid "Drafts ready to send"
 msgstr "Drafts ready to send"
 
-#: app/(app)/premium/config-messages.ts
-msgid "Drafts replies in your voice"
-msgstr "Drafts replies in your voice"
-
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Drafts, organization, and rules"
 msgstr "Drafts, organization, and rules"
@@ -5173,10 +5128,6 @@ msgstr "Email address"
 msgid "Email addresses"
 msgstr "Email addresses"
 
-#: app/(app)/premium/config-messages.ts
-msgid "Email analytics"
-msgstr "Email analytics"
-
 #: app/(app)/[emailAccountId]/stats/Stats.tsx
 msgid "Email Analytics"
 msgstr "Email Analytics"
@@ -5209,10 +5160,6 @@ msgstr "Email copied to clipboard"
 #: app/(app)/settings/EmailOtpSection.tsx
 msgid "Email delivery unavailable."
 msgstr "Email delivery unavailable."
-
-#: app/(app)/premium/config-messages.ts
-msgid "Email digests"
-msgstr "Email digests"
 
 #: components/WebhookDocumentation.tsx
 msgid "Email Fields"
@@ -5718,18 +5665,6 @@ msgstr "Every email needing a reply gets a draft, written in your tone."
 #: app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx
 msgid "Everything here works without the mouse."
 msgstr "Everything here works without the mouse."
-
-#: app/(app)/premium/config-messages.ts
-msgid "Everything in Plus, plus:"
-msgstr "Everything in Plus, plus:"
-
-#: app/(app)/premium/config-messages.ts
-msgid "Everything in Starter, plus:"
-msgstr "Everything in Starter, plus:"
-
-#: app/(app)/premium/config-messages.ts
-msgid "Everything in Team, plus:"
-msgstr "Everything in Team, plus:"
 
 #: app/(app)/[emailAccountId]/clean/CleanInstructionsStep.tsx
 msgid "Example:\n"
@@ -6375,22 +6310,6 @@ msgstr "For developers: trigger external integrations by sending email data to a
 msgid "For example:"
 msgstr "For example:"
 
-#: app/(app)/premium/config-messages.ts
-msgid "For individuals, entrepreneurs, and executives looking to buy back their time."
-msgstr "For individuals, entrepreneurs, and executives looking to buy back their time."
-
-#: app/(app)/premium/config-messages.ts
-msgid "For organizations with enterprise-grade security and compliance requirements."
-msgstr "For organizations with enterprise-grade security and compliance requirements."
-
-#: app/(app)/premium/config-messages.ts
-msgid "For power users who need integrations and deeper knowledge base support."
-msgstr "For power users who need integrations and deeper knowledge base support."
-
-#: app/(app)/premium/config-messages.ts
-msgid "For teams and growing businesses handling high email volumes."
-msgstr "For teams and growing businesses handling high email volumes."
-
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 #: components/SideNav.tsx
@@ -6409,10 +6328,6 @@ msgstr "Forward"
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Forward emails about industry research reports to research@vc.com"
 msgstr "Forward emails about industry research reports to research@vc.com"
-
-#: app/(app)/premium/config-messages.ts
-msgid "Forward important emails and notifications to your Slack channels automatically."
-msgstr "Forward important emails and notifications to your Slack channels automatically."
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Forward pitch decks to analyst@vc.com that asks them to review it and categorize them @[Pitch Deck]"
@@ -6625,10 +6540,6 @@ msgstr "Get a summary before your meetings."
 msgid "Get a summary of emails matched by the rules you pick, on your schedule."
 msgstr "Get a summary of emails matched by the rules you pick, on your schedule."
 
-#: app/(app)/premium/config-messages.ts
-msgid "Get AI briefings before every meeting with research on attendees and context from your inbox."
-msgstr "Get AI briefings before every meeting with research on attendees and context from your inbox."
-
 #: app/(app)/[emailAccountId]/drive/DriveOnboarding.tsx
 msgid "Get an email when files are sorted—reply to correct"
 msgstr "Get an email when files are sorted—reply to correct"
@@ -6816,10 +6727,6 @@ msgstr "Group by week"
 #: app/(app)/[emailAccountId]/stats/Stats.tsx
 msgid "Group by year"
 msgstr "Group by year"
-
-#: app/(app)/premium/config-messages.ts
-msgid "Group emails from selected rules into a scheduled summary instead of reading each message individually."
-msgstr "Group emails from selected rules into a scheduled summary instead of reading each message individually."
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 msgid "Group emails together and receive them as a daily summary"
@@ -9819,10 +9726,6 @@ msgstr "Older than 3 months"
 msgid "on"
 msgstr "on"
 
-#: app/(app)/premium/config-messages.ts
-msgid "On-premise deployment (optional)"
-msgstr "On-premise deployment (optional)"
-
 #: app/(app)/[emailAccountId]/onboarding/page.tsx
 msgid "Onboarding"
 msgstr "Onboarding"
@@ -10317,10 +10220,6 @@ msgstr "Post comment"
 msgid "Powering AI scheduling and meeting briefs."
 msgstr "Powering AI scheduling and meeting briefs."
 
-#: app/(app)/premium/config-messages.ts
-msgid "Pre-meeting briefings"
-msgstr "Pre-meeting briefings"
-
 #: app/(app)/[emailAccountId]/drive/page.tsx
 msgid "Preferences saved"
 msgstr "Preferences saved"
@@ -10424,10 +10323,6 @@ msgstr "Primary"
 #: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
 msgid "Print"
 msgstr "Print"
-
-#: app/(app)/premium/config-messages.ts
-msgid "Priority support"
-msgstr "Priority support"
 
 #: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
 msgid "Probably Safe"
@@ -11480,10 +11375,6 @@ msgstr "Scheduling"
 msgid "Scheduling for {sendAt}…"
 msgstr "Scheduling for {sendAt}…"
 
-#: app/(app)/premium/config-messages.ts
-msgid "SCIM user provisioning"
-msgstr "SCIM user provisioning"
-
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
 #: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
@@ -12379,10 +12270,6 @@ msgstr "Slack connection failed"
 msgid "Slack connection in progress"
 msgstr "Slack connection in progress"
 
-#: app/(app)/premium/config-messages.ts
-msgid "Slack integration"
-msgstr "Slack integration"
-
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Slack is still finalizing your connection. Please refresh in a moment."
 msgstr "Slack is still finalizing your connection. Please refresh in a moment."
@@ -12467,18 +12354,10 @@ msgstr "Something went wrong. Try again."
 msgid "Sorted automatically"
 msgstr "Sorted automatically"
 
-#: app/(app)/premium/config-messages.ts
-msgid "Sorts and labels every email"
-msgstr "Sorts and labels every email"
-
 #: app/(app)/[emailAccountId]/mail/mail-search-query.ts
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 msgid "Spam"
 msgstr "Spam"
-
-#: app/(app)/premium/config-messages.ts
-msgid "Speak to sales"
-msgstr "Speak to sales"
 
 #: app/(app)/premium/PremiumModal.tsx
 msgid "Speak to Sales"
@@ -12507,10 +12386,6 @@ msgstr "Split view"
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Splits you build yourself land here."
 msgstr "Splits you build yourself land here."
-
-#: app/(app)/premium/config-messages.ts
-msgid "SSO login"
-msgstr "SSO login"
 
 #: app/(app)/premium/PremiumModal.tsx
 msgid "SSO, SCIM, on-premise deployment, and dedicated support for large teams."
@@ -12792,10 +12667,6 @@ msgstr "Teach me how to handle your incoming emails for you"
 msgid "Team"
 msgstr "Team"
 
-#: app/(app)/premium/config-messages.ts
-msgid "Team-wide analytics"
-msgstr "Team-wide analytics"
-
 #: components/team-comments/ShareConversationDialog.tsx
 msgid "Teammates can read this conversation, including future replies, and leave internal comments. They can't send email from your account."
 msgstr "Teammates can read this conversation, including future replies, and leave internal comments. They can't send email from your account."
@@ -12937,10 +12808,6 @@ msgstr "The integration action could not run because a required field was empty.
 #: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
 msgid "The integration isn't connected. Connect it on the Integrations page."
 msgstr "The integration isn't connected. Connect it on the Integrations page."
-
-#: app/(app)/premium/config-messages.ts
-msgid "The knowledge base is used to help draft responses. Store unlimited content in your knowledge base."
-msgstr "The knowledge base is used to help draft responses. Store unlimited content in your knowledge base."
 
 #: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
 msgid "The local draft will be discarded. A mailbox draft may still exist; check Drafts in Gmail or Outlook."
@@ -13600,10 +13467,6 @@ msgstr "Try again, or select another folder or conversation. If the problem cont
 msgid "Try for free, affordable paid plans"
 msgstr "Try for free, affordable paid plans"
 
-#: app/(app)/premium/config-messages.ts
-msgid "Try free for 7 days"
-msgstr "Try free for 7 days"
-
 #: app/(app)/[emailAccountId]/calendars/availability-schedule.ts
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Tuesday"
@@ -13761,10 +13624,6 @@ msgstr "Unknown error"
 #: app/(app)/[emailAccountId]/usage/usage.tsx
 msgid "Unlimited"
 msgstr "Unlimited"
-
-#: app/(app)/premium/config-messages.ts
-msgid "Unlimited knowledge base"
-msgstr "Unlimited knowledge base"
 
 #: components/team-comments/ConversationDiscussion.tsx
 msgid "Unmute"
@@ -14395,10 +14254,6 @@ msgstr "We'll automatically detect your upcoming meetings with external guests a
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 msgid "We'll file attachments from your emails into your {driveName}.<0/>Just tell us where and how."
 msgstr "We'll file attachments from your emails into your {driveName}.<0/>Just tell us where and how."
-
-#: app/(app)/premium/config-messages.ts
-msgid "We'll help you get set up on an onboarding call. Book as many free calls as needed."
-msgstr "We'll help you get set up on an onboarding call. Book as many free calls as needed."
 
 #: app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe.tsx
 msgid "We'll keep spotting more as you use Inbox Zero."
