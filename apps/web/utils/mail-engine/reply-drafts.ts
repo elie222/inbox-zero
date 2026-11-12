@@ -489,38 +489,8 @@ export function createReplyDraftWriter(
             "This draft changed in another tab. Reopen the composer to load that version.",
           );
         }
-        let nextContent = content;
-        if (
-          content &&
-          previous?.content &&
-          previous.content.requestId === content.requestId
-        ) {
-          nextContent = {
-            ...content,
-            ...(previous.content.providerDraftId && {
-              providerDraftId: previous.content.providerDraftId,
-            }),
-            ...(previous.content.providerDraftCreationUnconfirmed !==
-              undefined && {
-              providerDraftCreationUnconfirmed:
-                previous.content.providerDraftCreationUnconfirmed,
-            }),
-          };
-        }
-        // The composer doesn't track the mailbox copies of its draft; they
-        // belong to the mailbox draft, whichever composer session saves.
-        const providerDraftId =
-          nextContent?.providerDraftId ?? previous?.content?.providerDraftId;
-        if (
-          nextContent &&
-          providerDraftId &&
-          previous?.content?.providerDraftId === providerDraftId &&
-          previous.content.providerDraftMessageIds
-        )
-          nextContent = {
-            ...nextContent,
-            providerDraftMessageIds: previous.content.providerDraftMessageIds,
-          };
+        const nextContent =
+          content && withProviderReferences(content, previous?.content);
         drafts.set(draftKey(identity), {
           ...identity,
           content: nextContent,
@@ -964,6 +934,11 @@ function keepUnsavedReplyDrafts() {
       continue;
     const kept: KeptReplyDraft = {
       ...unsaved,
+      // The edit may not have reached the writer, which would add these.
+      content: withProviderReferences(
+        unsaved.content,
+        drafts.get(key)?.content,
+      ),
       engineRevision: engineRevisions.get(key) ?? null,
     };
     try {
@@ -1098,4 +1073,40 @@ function forgetUnsavedReplyDrafts(emailAccountId?: string) {
         localStorage.removeItem(key);
     }
   } catch {}
+}
+
+/**
+ * A composer saves only what the user wrote; the mailbox draft it was saved
+ * as carries over from the draft's previous content.
+ */
+function withProviderReferences(
+  content: ReplyDraftContent,
+  previous: ReplyDraftContent | null | undefined,
+): ReplyDraftContent {
+  let next = content;
+  if (previous && previous.requestId === content.requestId) {
+    next = {
+      ...content,
+      ...(previous.providerDraftId && {
+        providerDraftId: previous.providerDraftId,
+      }),
+      ...(previous.providerDraftCreationUnconfirmed !== undefined && {
+        providerDraftCreationUnconfirmed:
+          previous.providerDraftCreationUnconfirmed,
+      }),
+    };
+  }
+  // The composer doesn't track the mailbox copies of its draft; they belong
+  // to the mailbox draft, whichever composer session saves.
+  const providerDraftId = next.providerDraftId ?? previous?.providerDraftId;
+  if (
+    providerDraftId &&
+    previous?.providerDraftId === providerDraftId &&
+    previous.providerDraftMessageIds
+  )
+    next = {
+      ...next,
+      providerDraftMessageIds: previous.providerDraftMessageIds,
+    };
+  return next;
 }

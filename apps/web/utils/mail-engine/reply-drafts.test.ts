@@ -1083,6 +1083,7 @@ describe("drafts still saving when the page is left", () => {
       saveDraft: () => new Promise(() => {}),
       readDraft: async () => ({ status: "missing" }),
     });
+    const clock = vi.spyOn(Date, "now").mockReturnValue(1000);
     leaving.drafts
       .createReplyDraftWriter(replyIdentity)
       .save({ ...content, composeMode: "reply" })
@@ -1091,11 +1092,13 @@ describe("drafts still saving when the page is left", () => {
 
     vi.resetModules();
     const otherTab = await loadPage(engine);
+    clock.mockReturnValue(2000);
     await otherTab.drafts.createReplyDraftWriter(replyIdentity).save({
       ...content,
       composeMode: "reply",
       draft: { ...content.draft, editableHtml: "<p>Newer</p>" },
     });
+    clock.mockRestore();
 
     vi.resetModules();
     const reloaded = await loadPage(engine);
@@ -1164,6 +1167,46 @@ describe("drafts still saving when the page is left", () => {
 
     expect(await reloaded.drafts.getReplyDraft(replyIdentity)).toMatchObject({
       content: { draft: { editableHtml: "<p>Last edit</p>" } },
+    });
+  });
+
+  it("keeps the mailbox draft a recovered reply was saved as", async () => {
+    const engine = createRevisionCheckingClient();
+    const leaving = await loadPage(engine);
+    const writer = leaving.drafts.createReplyDraftWriter(replyIdentity);
+    const edit = {
+      ...content,
+      composeMode: "reply" as const,
+      requestId: "compose-1",
+    };
+    await writer.save(edit);
+    await leaving.drafts.updateReplyDraftProviderState(
+      replyIdentity,
+      "compose-1",
+      "provider-1",
+    );
+    leaving.activeClient.setActiveMailClient({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    } as never);
+    writer.save(edit).catch(() => {});
+    // Queued behind the save above, so the writer hasn't added the reference.
+    writer
+      .save({
+        ...edit,
+        draft: { ...content.draft, editableHtml: "<p>Last edit</p>" },
+      })
+      .catch(() => {});
+    window.dispatchEvent(new Event("pagehide"));
+
+    vi.resetModules();
+    const reloaded = await loadPage(engine);
+
+    expect(await reloaded.drafts.getReplyDraft(replyIdentity)).toMatchObject({
+      content: {
+        providerDraftId: "provider-1",
+        draft: { editableHtml: "<p>Last edit</p>" },
+      },
     });
   });
 
