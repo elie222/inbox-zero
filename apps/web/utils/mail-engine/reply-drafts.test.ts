@@ -1145,9 +1145,9 @@ describe("drafts still saving when the page is left", () => {
       },
     });
     const writer = leaving.drafts.createReplyDraftWriter(replyIdentity);
+    // Both saves in one millisecond, so their edit times can't order them.
     const clock = vi.spyOn(Date, "now").mockReturnValue(1000);
     writer.save({ ...content, composeMode: "reply" }).catch(() => {});
-    clock.mockReturnValue(2000);
     writer
       .save({
         ...content,

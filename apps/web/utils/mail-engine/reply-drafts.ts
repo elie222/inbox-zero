@@ -975,8 +975,8 @@ function keepUnsavedReplyDrafts() {
 /**
  * Saves a draft kept from a previous page onto the engine revision it was
  * made on. If the engine has moved on, the kept edit still wins over an older
- * one, such as this tab's earlier save that landed after all, but never over a
- * newer edit or a discard.
+ * or equally recent one, such as this tab's earlier save that landed after
+ * all, but never over a newer edit or a discard.
  */
 async function recoverKeptReplyDraft(kept: KeptReplyDraft) {
   const client = getActiveMailClient();
@@ -1002,7 +1002,9 @@ async function recoverKeptReplyDraft(kept: KeptReplyDraft) {
       const current = await client.readDraft(key);
       if (current.status !== "found") break;
       const state = parseReplyDraftState(current.content);
-      if (!state || state.updatedAt >= kept.updatedAt) break;
+      // An edit made in the same millisecond is no newer, and the kept one
+      // came last from its page.
+      if (!state || state.updatedAt > kept.updatedAt) break;
       expectedRevision = current.draftRevision;
     }
   } catch {
