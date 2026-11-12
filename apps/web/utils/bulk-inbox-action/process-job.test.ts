@@ -147,6 +147,26 @@ describe("processBulkInboxActionJobChunk", () => {
     expect(job).toMatchObject({ status: "CANCELLED", actedCount: 0 });
   });
 
+  it("stops writing within a batch soon after the user presses Stop", async () => {
+    mailbox = createMailbox(25);
+    let archived = 0;
+    useMailbox(mailbox, {
+      archiveThread: async (threadId) => {
+        mailbox.archive(threadId);
+        archived++;
+        if (archived === 2) job.status = "CANCELLED";
+      },
+    });
+
+    const outcome = await runChunk();
+
+    expect(outcome.status).toBe("stopped");
+    // Writes already in flight finish, but the rest of the batch never starts.
+    expect(archived).toBeLessThanOrEqual(5);
+    expect(mailbox.inboxThreadIds().length).toBeGreaterThanOrEqual(20);
+    expect(job.actedCount).toBe(archived);
+  });
+
   it("keeps a stop that lands after the last page instead of marking it completed", async () => {
     mailbox = createMailbox(5);
     const search = mailbox.search;

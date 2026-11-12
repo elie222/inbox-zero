@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { aiFilterEmailsForBulkAction } from "@/utils/ai/bulk-inbox-action/filter-emails";
-import { runWithBoundedConcurrency } from "@/utils/async";
+import {
+  type BoundedConcurrencyResult,
+  runWithBoundedConcurrency,
+} from "@/utils/async";
 import {
   BULK_INBOX_ACTION_MAX_THREADS,
   type BulkInboxActionType,
@@ -22,6 +25,7 @@ import { getEmailAccountWithAi } from "@/utils/user/get";
 const SEARCH_PAGE_SIZE = 50;
 const FILTER_BATCH_SIZE = 25;
 const ACTION_CONCURRENCY = 3;
+const WRITE_GROUP_SIZE = 5;
 const DEFAULT_RATE_LIMIT_DELAY_MS = 30_000;
 // Longer than the route's maxDuration, so a live chunk never loses its lease.
 const LEASE_MS = 330_000;
@@ -328,27 +332,38 @@ async function processThreads({
   }
 
   let rateLimitError: unknown;
-  const results = await runWithBoundedConcurrency({
-    items: toAct,
-    concurrency: ACTION_CONCURRENCY,
-    run: async (message) => {
-      // Once the provider rate limits, leave the rest for after the wait.
-      if (rateLimitError) throw rateLimitError;
-      try {
-        await applyAction({
-          action,
-          threadId: message.threadId,
-          ownerEmail: emailAccount.email,
-          labelId,
-          labelName,
-          emailProvider,
-        });
-      } catch (error) {
-        if (isRateLimitError(error, provider)) rateLimitError ??= error;
-        throw error;
-      }
-    },
-  });
+  let cancelled = false;
+  const results: BoundedConcurrencyResult<ParsedMessage, void>[] = [];
+  // Small write groups, so a Stop pressed mid-batch takes effect quickly.
+  for (let index = 0; index < toAct.length; index += WRITE_GROUP_SIZE) {
+    if (index > 0 && !(await isJobRunning(jobId))) {
+      cancelled = true;
+      break;
+    }
+    const groupResults = await runWithBoundedConcurrency({
+      items: toAct.slice(index, index + WRITE_GROUP_SIZE),
+      concurrency: ACTION_CONCURRENCY,
+      run: async (message) => {
+        // Once the provider rate limits, leave the rest for after the wait.
+        if (rateLimitError) throw rateLimitError;
+        try {
+          await applyAction({
+            action,
+            threadId: message.threadId,
+            ownerEmail: emailAccount.email,
+            labelId,
+            labelName,
+            emailProvider,
+          });
+        } catch (error) {
+          if (isRateLimitError(error, provider)) rateLimitError ??= error;
+          throw error;
+        }
+      },
+    });
+    results.push(...groupResults);
+    if (rateLimitError) break;
+  }
 
   for (const { item: message, result } of results) {
     if (
@@ -372,7 +387,7 @@ async function processThreads({
     }
   }
 
-  return { totals, handledThreadIds, rateLimitError, cancelled: false };
+  return { totals, handledThreadIds, rateLimitError, cancelled };
 }
 
 async function applyAction({
