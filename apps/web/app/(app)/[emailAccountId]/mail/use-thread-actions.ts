@@ -19,7 +19,7 @@ import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider"
 import type { MetadataChange } from "@inboxzero/mail-core/commands";
 import { submitConversationChanges } from "@/utils/mail-engine/submit-conversations";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
-import { formatSnoozeTime } from "@/app/(app)/[emailAccountId]/mail/snooze-command-palette";
+import { formatDayAtTime } from "@/utils/date";
 
 /** Engine changes queued in order; an action is undoable when every step has a compensation. */
 type UndoableAction = {
@@ -430,7 +430,7 @@ export function useThreadActions({
       const total = threadKeys.length;
       const failedCount = total - snapshots.length;
       if (snapshots.length) {
-        const snoozedUntilLabel = formatSnoozeTime(snoozedUntil, i18n);
+        const snoozedUntilLabel = formatDayAtTime(snoozedUntil, i18n);
         toast.success(
           t(i18n)`${plural(snapshots.length, {
             one: `Snoozed until ${snoozedUntilLabel}`,

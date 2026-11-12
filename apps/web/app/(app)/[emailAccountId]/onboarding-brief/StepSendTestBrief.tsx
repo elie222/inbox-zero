@@ -1,6 +1,6 @@
 "use client";
 
-import type { I18n, MessageDescriptor } from "@lingui/core";
+import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useState } from "react";
@@ -17,6 +17,7 @@ import { sendBriefAction } from "@/utils/actions/meeting-briefs";
 import { cn } from "@/utils";
 import { extractDomainFromEmail } from "@/utils/email";
 import { sleep } from "@/utils/sleep";
+import { formatDayAtTime } from "@/utils/date";
 
 export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
   const { t, i18n } = useLingui();
@@ -142,7 +143,7 @@ export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
                         </p>
                         <p className="truncate text-sm text-muted-foreground">
                           {companyDomain && `${companyDomain} · `}
-                          {formatEventStart(new Date(event.startTime), i18n)}
+                          {formatDayAtTime(new Date(event.startTime), i18n)}
                         </p>
                       </div>
                     </div>
@@ -198,13 +199,3 @@ const BRIEF_SKIPPED_MESSAGES: Record<string, MessageDescriptor> = {
   "Already being processed": msg`This brief is already being prepared`,
   "No external guests found": msg`This meeting has no external guests`,
 };
-
-function formatEventStart(date: Date, i18n: I18n) {
-  const day = i18n.date(date, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-  const time = i18n.date(date, { hour: "numeric", minute: "2-digit" });
-  return i18n._(msg`${day} at ${time}`);
-}

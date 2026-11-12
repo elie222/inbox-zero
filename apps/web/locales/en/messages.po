@@ -182,8 +182,7 @@ msgstr "{countLabel} in this view"
 msgid "{created, plural, one {# created} other {# created}}"
 msgstr "{created, plural, one {# created} other {# created}}"
 
-#: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
-#: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
+#: utils/date.ts
 msgid "{day} at {time}"
 msgstr "{day} at {time}"
 
@@ -7388,7 +7387,7 @@ msgstr "Snooze"
 msgid "Snooze until"
 msgstr "Snooze until"
 
-#. placeholder {0}: formatSnoozeTime(naturalLanguageDate, i18n)
+#. placeholder {0}: formatDayAtTime(naturalLanguageDate, i18n)
 #: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
 msgid "Snooze until {0}"
 msgstr "Snooze until {0}"

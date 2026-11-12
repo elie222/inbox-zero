@@ -29,7 +29,7 @@ export type MailHtmlFrameCallbacks = {
   onFocusMessage?: () => void;
 };
 
-export type MailHtmlFrameStrings = Partial<{
+type MailHtmlFrameStrings = Partial<{
   preview: string;
   preparingPreview: string;
 }>;

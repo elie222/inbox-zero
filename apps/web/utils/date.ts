@@ -79,6 +79,16 @@ export function formatDateGroupLabel(
   return formatGroupDate(date, i18n, { month: "long", year: "numeric" });
 }
 
+export function formatDayAtTime(date: Date, i18n: I18n) {
+  const day = i18n.date(date, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  const time = i18n.date(date, { hour: "numeric", minute: "2-digit" });
+  return i18n._(msg`${day} at ${time}`);
+}
+
 export function dateToSeconds(date: Date) {
   return Math.floor(date.getTime() / 1000);
 }

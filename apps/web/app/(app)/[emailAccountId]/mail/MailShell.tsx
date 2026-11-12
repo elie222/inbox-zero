@@ -107,6 +107,7 @@ import {
   MailSplitFilterKind,
 } from "@/generated/prisma/enums";
 import { MailSetupPanel } from "@/app/(app)/[emailAccountId]/mail/MailSetupPanel";
+import { isDefaultAllMailSplit } from "@/utils/split-inbox/initial-splits";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { mailPreviewAtom, mailScreenMountedAtom } from "@/store/mail-preview";
@@ -142,6 +143,7 @@ import { submitConversationChange } from "@/utils/mail-engine/submit-conversatio
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 import {
   getPortableLabelSplits,
+  type MailSplit,
   OTHER_SPLIT_ID,
   splitToThreadsQuery,
   mailTypeToThreadsQuery,
@@ -393,8 +395,9 @@ export function MailShell() {
   const splits = useMemo(() => {
     // Stored names stay as the user saved them; only the tabs the app adds
     // itself are translated.
-    const getDisplayName = ({ id, name }: { id: string; name: string }) => {
-      if (id === "all") return t`All`;
+    const getDisplayName = (split: MailSplit) => {
+      if (isDefaultAllMailSplit(split)) return t`All`;
+      const { name } = split;
       if (isGoogle && name.trim().toLowerCase() === "other")
         return t`${name} (custom)`;
       return name;
