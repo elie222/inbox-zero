@@ -24,7 +24,10 @@ import { getAccountScopedKey } from "@/utils/swr";
 import type { ReplyingToEmail } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailForm";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getActiveMailClient } from "@/utils/mail-engine/active-client";
-import { discardMailboxDraft } from "@/utils/mail-engine/discard-mailbox-draft";
+import {
+  DISCARD_DRAFT_FAILED_MESSAGE,
+  discardMailboxDraft,
+} from "@/utils/mail-engine/discard-mailbox-draft";
 import {
   getDraftSessionMessageIds,
   type ReplyDraftMode,
@@ -145,12 +148,18 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
             draftId,
           });
         } catch (error) {
-          toastError({
-            description:
-              error instanceof Error
-                ? error.message
-                : t`Failed to discard draft`,
-          });
+          // The helper's own messages are English; show a translated title and
+          // keep a provider rejection reason, if any, as detail.
+          const detail =
+            error instanceof Error &&
+            error.message !== DISCARD_DRAFT_FAILED_MESSAGE
+              ? error.message
+              : undefined;
+          toastError(
+            detail
+              ? { title: t`Failed to discard draft`, description: detail }
+              : { description: t`Failed to discard draft` },
+          );
           return false;
         }
       }
