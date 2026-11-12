@@ -172,7 +172,7 @@ for (const accountScope of ["single", "all"] as const) {
       await page.goto(`/${emailAccountId}/mail?accountScope=all`);
     const searchInput = page.getByPlaceholder("Search mail");
     await expect(searchInput).toBeVisible();
-    await page.getByRole("listbox", { name: "Conversations" }).click();
+    await page.getByRole("listbox", { name: "Conversations" }).focus();
 
     await page.keyboard.press("Slash");
 
