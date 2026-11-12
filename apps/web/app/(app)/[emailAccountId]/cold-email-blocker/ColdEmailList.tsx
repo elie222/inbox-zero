@@ -4,6 +4,7 @@ import { useAction } from "next-safe-action/hooks";
 import { useCallback } from "react";
 import useSWR from "swr";
 import { CircleXIcon } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { ColdEmailsResponse } from "@/app/api/user/cold-email/route";
 import {
@@ -33,6 +34,7 @@ import { isColdEmailBlockerEnabled } from "@/utils/cold-email/cold-email-blocker
 import { SystemType } from "@/generated/prisma/enums";
 
 export function ColdEmailList() {
+  const { t } = useLingui();
   const searchParams = useSearchParams();
   const page = searchParams.get("page") || "1";
   const { data, isLoading, error, mutate } = useSWR<ColdEmailsResponse>(
@@ -47,10 +49,10 @@ export function ColdEmailList() {
     markNotColdEmailAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Marked not cold email!" });
+        toastSuccess({ description: t`Marked not cold email!` });
       },
       onError: () => {
-        toastError({ description: "Error marking not cold email!" });
+        toastError({ description: t`Error marking not cold email!` });
       },
     },
   );
@@ -77,7 +79,7 @@ export function ColdEmailList() {
                   onClick={markNotColdEmailSelected}
                   loading={isExecuting}
                 >
-                  Mark Not Cold Email
+                  <Trans>Mark Not Cold Email</Trans>
                 </Button>
               </div>
             </div>
@@ -90,18 +92,26 @@ export function ColdEmailList() {
                   <Checkbox
                     label={
                       isAllSelected
-                        ? "Deselect all cold emails"
-                        : "Select all cold emails"
+                        ? t`Deselect all cold emails`
+                        : t`Select all cold emails`
                     }
                     checked={isAllSelected}
                     onChange={onToggleSelectAll}
                   />
                 </TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>AI Reason</TableHead>
-                <TableHead>Date</TableHead>
                 <TableHead>
-                  <span className="sr-only">Actions</span>
+                  <Trans>Email</Trans>
+                </TableHead>
+                <TableHead>
+                  <Trans>AI Reason</Trans>
+                </TableHead>
+                <TableHead>
+                  <Trans>Date</Trans>
+                </TableHead>
+                <TableHead>
+                  <span className="sr-only">
+                    <Trans>Actions</Trans>
+                  </span>
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -147,11 +157,14 @@ function Row({
   markNotColdEmail: (input: { sender: string }) => Promise<unknown>;
   isExecuting: boolean;
 }) {
+  const { t } = useLingui();
+  const fromEmail = row.fromEmail;
+
   return (
     <TableRow key={row.id}>
       <TableCell className="text-center">
         <Checkbox
-          label={`Select ${row.fromEmail}`}
+          label={t`Select ${fromEmail}`}
           checked={selected.get(row.id) || false}
           onChange={() => onToggleSelect(row.id)}
         />
@@ -184,7 +197,7 @@ function Row({
             }}
             loading={isExecuting}
           >
-            Not cold email
+            <Trans>Not cold email</Trans>
           </Button>
         </div>
       </TableCell>
@@ -193,6 +206,7 @@ function Row({
 }
 
 function NoColdEmails() {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { data: rules, mutate: mutateRules } = useRules();
 
@@ -200,11 +214,11 @@ function NoColdEmails() {
     toggleRuleAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Cold email blocker enabled!" });
+        toastSuccess({ description: t`Cold email blocker enabled!` });
         mutateRules();
       },
       onError: () => {
-        toastError({ description: "Error enabling cold email blocker" });
+        toastError({ description: t`Error enabling cold email blocker` });
       },
     },
   );
@@ -213,11 +227,11 @@ function NoColdEmails() {
     return (
       <div className="mb-10">
         <EnableFeatureCard
-          title="Cold Email Blocker"
-          description="Our AI identifies cold outreach from senders you've never communicated with before. You can customize the prompt after enabling."
+          title={t`Cold Email Blocker`}
+          description={t`Our AI identifies cold outreach from senders you've never communicated with before. You can customize the prompt after enabling.`}
           imageSrc="/images/illustrations/calling-help.svg"
-          imageAlt="Cold email blocker"
-          buttonText="Enable"
+          imageAlt={t`Cold email blocker`}
+          buttonText={t`Enable`}
           onEnable={async () => {
             await enableColdEmailBlocker({
               systemType: SystemType.COLD_EMAIL,
@@ -233,8 +247,8 @@ function NoColdEmails() {
   return (
     <div className="p-2">
       <AlertBasic
-        title="No cold emails!"
-        description={`We haven't marked any of your emails as cold emails yet!`}
+        title={t`No cold emails!`}
+        description={t`We haven't marked any of your emails as cold emails yet!`}
       />
     </div>
   );

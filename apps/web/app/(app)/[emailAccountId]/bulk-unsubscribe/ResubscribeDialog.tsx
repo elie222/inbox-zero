@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Trans } from "@lingui/react/macro";
 import { CheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
@@ -73,9 +74,13 @@ export function ResubscribeDialog({
     <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Resubscribe to "{senderName}"</DialogTitle>
+          <DialogTitle>
+            <Trans>Resubscribe to "{senderName}"</Trans>
+          </DialogTitle>
           <DialogDescription className="pt-2">
-            Follow the steps below to receive emails from this sender again.
+            <Trans>
+              Follow the steps below to receive emails from this sender again.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
 
@@ -91,15 +96,19 @@ export function ResubscribeDialog({
             </div>
             <div className="flex flex-1 items-center justify-between gap-4">
               <div>
-                <div className="font-medium">Unblock Sender</div>
+                <div className="font-medium">
+                  <Trans>Unblock Sender</Trans>
+                </div>
                 <p className="text-sm text-muted-foreground">
-                  We're currently auto-archiving this sender. Click "Unblock" to
-                  allow emails from them.
+                  <Trans>
+                    We're currently auto-archiving this sender. Click "Unblock"
+                    to allow emails from them.
+                  </Trans>
                 </p>
               </div>
               {unblockComplete ? (
                 <p className="shrink-0 text-sm font-medium text-green-600">
-                  Unblocked
+                  <Trans>Unblocked</Trans>
                 </p>
               ) : (
                 <Button
@@ -110,7 +119,7 @@ export function ResubscribeDialog({
                   disabled={unblockLoading}
                 >
                   {unblockLoading && <ButtonLoader />}
-                  Unblock
+                  <Trans>Unblock</Trans>
                 </Button>
               )}
             </div>
@@ -129,9 +138,13 @@ export function ResubscribeDialog({
               )}
             </div>
             <div>
-              <div className="font-medium">Manually Resubscribe</div>
+              <div className="font-medium">
+                <Trans>Manually Resubscribe</Trans>
+              </div>
               <p className="text-sm text-muted-foreground">
-                Visit the sender's website and manually resubscribe.
+                <Trans>
+                  Visit the sender's website and manually resubscribe.
+                </Trans>
               </p>
             </div>
           </div>
@@ -143,14 +156,14 @@ export function ResubscribeDialog({
             onClick={() => handleDialogClose(false)}
             disabled={doneLoading}
           >
-            Cancel
+            <Trans>Cancel</Trans>
           </Button>
           <Button
             onClick={handleDone}
             disabled={!unblockComplete || doneLoading}
           >
             {doneLoading && <ButtonLoader />}
-            Done
+            <Trans>Done</Trans>
           </Button>
         </DialogFooter>
       </DialogContent>

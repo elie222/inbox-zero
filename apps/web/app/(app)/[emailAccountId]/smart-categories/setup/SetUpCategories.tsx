@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import uniqBy from "lodash/uniqBy";
 import { useRouter } from "next/navigation";
 import { useQueryState } from "nuqs";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { PenIcon, PlusIcon, TagsIcon, TrashIcon } from "lucide-react";
 import {
   Card,
@@ -47,6 +48,7 @@ export function SetUpCategories({
 }: {
   existingCategories: CardCategory[];
 }) {
+  const { t } = useLingui();
   const [isCreating, setIsCreating] = useState(false);
   const router = useRouter();
   const [selectedCategoryName, setSelectedCategoryName] =
@@ -115,15 +117,21 @@ export function SetUpCategories({
     <>
       <Card className="m-4">
         <CardHeader>
-          <CardTitle>Set up sender categories</CardTitle>
+          <CardTitle>
+            <Trans>Set up sender categories</Trans>
+          </CardTitle>
           <CardDescription className="max-w-sm">
-            Automatically categorize senders for bulk archiving and AI
-            assistant.
+            <Trans>
+              Automatically categorize senders for bulk archiving and AI
+              assistant.
+            </Trans>
           </CardDescription>
         </CardHeader>
 
         <CardContent>
-          <TypographyH4>Choose categories</TypographyH4>
+          <TypographyH4>
+            <Trans>Choose categories</Trans>
+          </TypographyH4>
 
           <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6">
             {combinedCategories.map((category) => (
@@ -158,7 +166,7 @@ export function SetUpCategories({
                 children: (
                   <>
                     <PenIcon className="mr-2 size-4" />
-                    Add your own
+                    <Trans>Add your own</Trans>
                   </>
                 ),
               }}
@@ -183,7 +191,7 @@ export function SetUpCategories({
 
                 if (result?.serverError) {
                   toastError({
-                    description: `There was an error saving the categories. ${result.serverError}`,
+                    description: t`There was an error saving the categories. ${result.serverError}`,
                   });
                   return;
                 }
@@ -192,7 +200,11 @@ export function SetUpCategories({
               }}
             >
               <TagsIcon className="mr-2 h-4 w-4" />
-              {existingCategories.length > 0 ? "Save" : "Create categories"}
+              {existingCategories.length > 0 ? (
+                <Trans>Save</Trans>
+              ) : (
+                <Trans>Create categories</Trans>
+              )}
             </Button>
           </div>
         </CardContent>
@@ -243,17 +255,23 @@ function CategoryCard({
         <div className="flex gap-1">
           <Button size="iconSm" variant="ghost" onClick={onEdit}>
             <PenIcon className="size-4" />
-            <span className="sr-only">Edit</span>
+            <span className="sr-only">
+              <Trans>Edit</Trans>
+            </span>
           </Button>
           <Button size="iconSm" variant="ghost" onClick={onRemove}>
             <TrashIcon className="size-4" />
-            <span className="sr-only">Remove</span>
+            <span className="sr-only">
+              <Trans>Remove</Trans>
+            </span>
           </Button>
         </div>
       ) : (
         <Button size="iconSm" variant="outline" onClick={onAdd}>
           <PlusIcon className="size-4" />
-          <span className="sr-only">Add</span>
+          <span className="sr-only">
+            <Trans>Add</Trans>
+          </span>
         </Button>
       )}
     </Card>

@@ -2,6 +2,9 @@
 
 import type * as React from "react";
 import { format } from "date-fns/format";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { CalendarIcon, ChevronDown } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/utils";
@@ -26,6 +29,18 @@ function getRelativeDateLabel(days: number) {
   return "All";
 }
 
+// Option labels stay English because callers store and report them; these are
+// their display translations.
+const dateLabelMessages: Record<string, MessageDescriptor> = {
+  "Last day": msg`Last day`,
+  "Last week": msg`Last week`,
+  "Last month": msg`Last month`,
+  "Last 3 months": msg`Last 3 months`,
+  "Last year": msg`Last year`,
+  All: msg`All`,
+  "All time": msg`All time`,
+};
+
 interface DatePickerWithRangeProps
   extends React.HTMLAttributes<HTMLDivElement> {
   dateDropdown: string;
@@ -43,13 +58,18 @@ export function DatePickerWithRange({
   onSetDateDropdown,
   className,
 }: DatePickerWithRangeProps) {
+  const { i18n } = useLingui();
   const now = useMemo(() => new Date(), []);
   const isMobile = useIsMobile();
   const days =
     dateRange?.from && dateRange?.to
       ? differenceInDays(dateRange.to, dateRange.from)
       : 0;
-  const relativeDateLabel = getRelativeDateLabel(days);
+  const getDisplayLabel = (label: string) => {
+    const message = dateLabelMessages[label];
+    return message ? i18n._(message) : label;
+  };
+  const relativeDateLabel = getDisplayLabel(getRelativeDateLabel(days));
 
   return (
     <Popover modal={true}>
@@ -76,7 +96,9 @@ export function DatePickerWithRange({
                   format(dateRange.from, "LLL dd, y")
                 )
               ) : (
-                <span>Pick a date</span>
+                <span>
+                  <Trans>Pick a date</Trans>
+                </span>
               ))}
           </div>
           <ChevronDown className="ml-2 h-4 w-4 text-gray-400" />
@@ -96,10 +118,17 @@ export function DatePickerWithRange({
                 selectOptions.find((option) => option.label === dateDropdown)
                   ?.value
               }
-              items={selectOptions}
+              items={selectOptions.map((option) => ({
+                value: option.value,
+                label: getDisplayLabel(option.label),
+              }))}
               className="min-w-32"
-              onSelect={({ label, value }) => {
-                onSetDateDropdown({ label, value });
+              onSelect={({ value }) => {
+                const option = selectOptions.find(
+                  (selectOption) => selectOption.value === value,
+                );
+                if (!option) return;
+                onSetDateDropdown(option);
                 // When "All" is selected (value "0"), pass undefined to skip date filtering
                 if (value === "0") {
                   onSetDateRange(undefined);

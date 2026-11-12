@@ -4,6 +4,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQueryState } from "nuqs";
 import groupBy from "lodash/groupBy";
+import type { I18n } from "@lingui/core";
+import { plural, t as coreT } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { CheckIcon, ChevronDownIcon, MailIcon, PencilIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,6 +66,7 @@ export function BulkArchiveCards({
   bulkAction: BulkActionType;
   onCategoryChange?: () => Promise<unknown>;
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId, userEmail } = useAccount();
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
   const [expandedCategory, setExpandedCategory] = useQueryState("expanded");
@@ -215,7 +219,7 @@ export function BulkArchiveCards({
     }
   };
 
-  const actionLabels = getActionLabels(bulkAction);
+  const actionLabels = getActionLabels(bulkAction, i18n);
 
   const handleCategoryAction = async (
     categoryName: string,
@@ -231,7 +235,10 @@ export function BulkArchiveCards({
       bulkAction === "delete" &&
       selectedToProcess.length > 0 &&
       !window.confirm(
-        `Delete emails from ${selectedToProcess.length} sender${selectedToProcess.length === 1 ? "" : "s"}? This action cannot be undone.`,
+        t`${plural(selectedToProcess.length, {
+          one: "Delete emails from # sender? This action cannot be undone.",
+          other: "Delete emails from # senders? This action cannot be undone.",
+        })}`,
       )
     ) {
       return;
@@ -274,7 +281,7 @@ export function BulkArchiveCards({
       }
     } catch {
       toastError({
-        description: `Failed to ${getBulkActionVerb(bulkAction)} some senders. Please try again.`,
+        description: getBulkActionFailedMessage(bulkAction, i18n),
       });
     } finally {
       setLoadingCategories((prev) => ({ ...prev, [categoryName]: false }));
@@ -344,12 +351,23 @@ export function BulkArchiveCards({
                         isArchived && "text-muted-foreground line-through",
                       )}
                     >
-                      {categoryName}
+                      {categoryName === "Uncategorized"
+                        ? t`Uncategorized`
+                        : categoryName}
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      {senders.length} senders
-                      {isArchived &&
-                        ` ${actionLabels.completedLabel.toLowerCase()}`}
+                      {isArchived ? (
+                        <CompletedSenderCount
+                          count={senders.length}
+                          bulkAction={bulkAction}
+                        />
+                      ) : (
+                        <Plural
+                          value={senders.length}
+                          one="# sender"
+                          other="# senders"
+                        />
+                      )}
                     </p>
                   </div>
                 </div>
@@ -396,14 +414,14 @@ export function BulkArchiveCards({
                 <div className="divide-y">
                   {senders.length === 0 ? (
                     <div className="p-4 text-center text-sm text-muted-foreground">
-                      No senders in this category
+                      <Trans>No senders in this category</Trans>
                     </div>
                   ) : (
                     <>
                       {/* Select all row */}
                       <div className="flex items-center gap-3 bg-muted/30 px-4 py-3">
                         <ButtonCheckbox
-                          label={`Select all senders in ${categoryName}`}
+                          label={t`Select all senders in ${categoryName}`}
                           checked={areAllSelectedInCategory(categoryName)}
                           indeterminate={areSomeSelectedInCategory(
                             categoryName,
@@ -413,7 +431,9 @@ export function BulkArchiveCards({
                           }
                         />
                         <span className="text-sm text-muted-foreground">
-                          {selectedCount} of {senders.length} selected
+                          <Trans>
+                            {selectedCount} of {senders.length} selected
+                          </Trans>
                         </span>
                       </div>
                       {senders.map((sender) => (
@@ -474,7 +494,9 @@ function SenderRow({
     sender.address,
   );
   const deleteStatus = useDeleteSenderStatus(emailAccountId, sender.address);
+  const { t } = useLingui();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const senderName = sender.name || sender.address;
 
   return (
     <div>
@@ -492,7 +514,7 @@ function SenderRow({
         tabIndex={0}
       >
         <ButtonCheckbox
-          label={`Select ${sender.name || sender.address}`}
+          label={t`Select ${senderName}`}
           checked={isSelected}
           onChange={() => onToggleSelection()}
         />
@@ -521,7 +543,9 @@ function SenderRow({
           }}
         >
           <PencilIcon className="size-4" />
-          <span className="sr-only">Edit category</span>
+          <span className="sr-only">
+            <Trans>Edit category</Trans>
+          </span>
         </Button>
         <ChevronDownIcon
           className={cn(
@@ -564,6 +588,7 @@ function EditCategoryDialog({
   emailAccountId: string;
   onCategoryChange?: () => Promise<unknown>;
 }) {
+  const { t } = useLingui();
   const [selectedCategoryId, setSelectedCategoryId] = useState(
     sender.category?.id || "",
   );
@@ -582,7 +607,7 @@ function EditCategoryDialog({
       toastError({ description: result.serverError });
       setIsLoading(false);
     } else {
-      toastSuccess({ description: "Category updated" });
+      toastSuccess({ description: t`Category updated` });
       await onCategoryChange?.();
       setIsLoading(false);
       onOpenChange(false);
@@ -598,9 +623,11 @@ function EditCategoryDialog({
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-8">
             <div className="space-y-1">
-              <p className="font-medium">Category</p>
+              <p className="font-medium">
+                <Trans>Category</Trans>
+              </p>
               <p className="text-sm text-muted-foreground">
-                Choose which category this sender belongs to
+                <Trans>Choose which category this sender belongs to</Trans>
               </p>
             </div>
             <Select
@@ -608,7 +635,7 @@ function EditCategoryDialog({
               onValueChange={setSelectedCategoryId}
             >
               <SelectTrigger className="w-[180px] shrink-0">
-                <SelectValue placeholder="Select category" />
+                <SelectValue placeholder={t`Select category`} />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((category) => (
@@ -625,10 +652,10 @@ function EditCategoryDialog({
               onClick={() => onOpenChange(false)}
               disabled={isLoading}
             >
-              Cancel
+              <Trans>Cancel</Trans>
             </Button>
             <Button onClick={handleSave} disabled={isLoading}>
-              {isLoading ? "Saving..." : "Save"}
+              {isLoading ? <Trans>Saving...</Trans> : <Trans>Save</Trans>}
             </Button>
           </div>
         </div>
@@ -682,25 +709,41 @@ function ArchiveSenderStatus({
 }) {
   switch (status?.status) {
     case "pending":
-      return <span className="text-sm text-muted-foreground">Queued</span>;
+      return (
+        <span className="text-sm text-muted-foreground">
+          <Trans>Queued</Trans>
+        </span>
+      );
     case "processing":
       return (
         <span className="text-sm text-blue-600">
-          {status.threadsTotal
-            ? `${status.threadsTotal - status.threadIds.length} / ${status.threadsTotal}`
-            : "Archiving..."}
+          {status.threadsTotal ? (
+            `${status.threadsTotal - status.threadIds.length} / ${status.threadsTotal}`
+          ) : (
+            <Trans>Archiving...</Trans>
+          )}
         </span>
       );
     case "completed":
       return (
         <span className="text-sm text-green-600">
-          {status.threadsTotal
-            ? `Archived ${status.threadsTotal}!`
-            : "Archived"}
+          {status.threadsTotal ? (
+            <Plural
+              value={status.threadsTotal}
+              one="Archived #!"
+              other="Archived #!"
+            />
+          ) : (
+            <Trans>Archived</Trans>
+          )}
         </span>
       );
     case "failed":
-      return <span className="text-sm text-red-600">Failed</span>;
+      return (
+        <span className="text-sm text-red-600">
+          <Trans>Failed</Trans>
+        </span>
+      );
     default:
       return null;
   }
@@ -715,9 +758,15 @@ function MarkReadSenderStatus({
     case "completed":
       return (
         <span className="text-sm text-green-600">
-          {status.threadsTotal
-            ? `Marked ${status.threadsTotal} read!`
-            : "Marked read"}
+          {status.threadsTotal ? (
+            <Plural
+              value={status.threadsTotal}
+              one="Marked # read!"
+              other="Marked # read!"
+            />
+          ) : (
+            <Trans>Marked read</Trans>
+          )}
         </span>
       );
     case "processing":
@@ -728,9 +777,17 @@ function MarkReadSenderStatus({
         </span>
       );
     case "pending":
-      return <span className="text-sm text-muted-foreground">Pending...</span>;
+      return (
+        <span className="text-sm text-muted-foreground">
+          <Trans>Pending...</Trans>
+        </span>
+      );
     case "failed":
-      return <span className="text-sm text-red-600">Failed</span>;
+      return (
+        <span className="text-sm text-red-600">
+          <Trans>Failed</Trans>
+        </span>
+      );
     default:
       return null;
   }
@@ -745,7 +802,15 @@ function DeleteSenderStatus({
     case "completed":
       return (
         <span className="text-sm text-green-600">
-          {status.threadsTotal ? `Deleted ${status.threadsTotal}!` : "Deleted"}
+          {status.threadsTotal ? (
+            <Plural
+              value={status.threadsTotal}
+              one="Deleted #!"
+              other="Deleted #!"
+            />
+          ) : (
+            <Trans>Deleted</Trans>
+          )}
         </span>
       );
     case "processing":
@@ -756,18 +821,54 @@ function DeleteSenderStatus({
         </span>
       );
     case "pending":
-      return <span className="text-sm text-muted-foreground">Pending...</span>;
+      return (
+        <span className="text-sm text-muted-foreground">
+          <Trans>Pending...</Trans>
+        </span>
+      );
     case "failed":
-      return <span className="text-sm text-red-600">Failed</span>;
+      return (
+        <span className="text-sm text-red-600">
+          <Trans>Failed</Trans>
+        </span>
+      );
     default:
       return null;
   }
 }
 
-function getBulkActionVerb(action: BulkActionType) {
-  if (action === "markRead") return "mark as read";
-  if (action === "delete") return "delete";
-  return "archive";
+function CompletedSenderCount({
+  count,
+  bulkAction,
+}: {
+  count: number;
+  bulkAction: BulkActionType;
+}) {
+  if (bulkAction === "delete") {
+    return (
+      <Plural value={count} one="# sender deleted" other="# senders deleted" />
+    );
+  }
+  if (bulkAction === "markRead") {
+    return (
+      <Plural
+        value={count}
+        one="# sender marked as read"
+        other="# senders marked as read"
+      />
+    );
+  }
+  return (
+    <Plural value={count} one="# sender archived" other="# senders archived" />
+  );
+}
+
+function getBulkActionFailedMessage(action: BulkActionType, i18n: I18n) {
+  if (action === "markRead")
+    return coreT(i18n)`Failed to mark as read some senders. Please try again.`;
+  if (action === "delete")
+    return coreT(i18n)`Failed to delete some senders. Please try again.`;
+  return coreT(i18n)`Failed to archive some senders. Please try again.`;
 }
 
 function ExpandedEmails({
@@ -796,7 +897,7 @@ function ExpandedEmails({
   if (error) {
     return (
       <div className="border-t bg-muted/30 p-4 text-sm text-muted-foreground">
-        Error loading emails
+        <Trans>Error loading emails</Trans>
       </div>
     );
   }
@@ -804,7 +905,7 @@ function ExpandedEmails({
   if (!data?.threads.length) {
     return (
       <div className="border-t bg-muted/30 p-4 text-sm text-muted-foreground">
-        No emails found
+        <Trans>No emails found</Trans>
       </div>
     );
   }

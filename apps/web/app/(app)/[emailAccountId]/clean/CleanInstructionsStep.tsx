@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryState, parseAsString } from "nuqs";
 import { type SubmitHandler, useForm } from "react-hook-form";
@@ -17,6 +18,7 @@ const schema = z.object({ instructions: z.string().optional() });
 type Inputs = z.infer<typeof schema>;
 
 export function CleanInstructionsStep() {
+  const { t } = useLingui();
   const { onNext } = useStep();
   const {
     register,
@@ -38,32 +40,34 @@ export function CleanInstructionsStep() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="text-center">
-      <TypographyH3>Which emails should stay in your inbox?</TypographyH3>
+      <TypographyH3>
+        <Trans>Which emails should stay in your inbox?</Trans>
+      </TypographyH3>
 
       <div className="mt-4 grid gap-4">
         <Toggle
           name="reply"
           enabled={skipStates.skipReply}
           onChange={(value) => setSkipStates({ skipReply: value })}
-          labelRight="Emails needing replies"
+          labelRight={t`Emails needing replies`}
         />
         <Toggle
           name="starred"
           enabled={skipStates.skipStarred}
           onChange={(value) => setSkipStates({ skipStarred: value })}
-          labelRight="Starred emails"
+          labelRight={t`Starred emails`}
         />
         <Toggle
           name="calendar"
           enabled={skipStates.skipCalendar}
           onChange={(value) => setSkipStates({ skipCalendar: value })}
-          labelRight="Future events"
+          labelRight={t`Future events`}
         />
         <Toggle
           name="receipt"
           enabled={skipStates.skipReceipt}
           onChange={(value) => setSkipStates({ skipReceipt: value })}
-          labelRight="Payment receipts"
+          labelRight={t`Payment receipts`}
         />
         {/* <Toggle
           name="attachment"
@@ -75,14 +79,14 @@ export function CleanInstructionsStep() {
           name="conversation"
           enabled={skipStates.skipConversation}
           onChange={(value) => setSkipStates({ skipConversation: value })}
-          labelRight="Conversations"
-          tooltipText="Email threads where you sent a reply"
+          labelRight={t`Conversations`}
+          tooltipText={t`Email threads where you sent a reply`}
         />
         <Toggle
           name="custom"
           enabled={showCustom}
           onChange={(value) => setShowCustom(value)}
-          labelRight="Custom"
+          labelRight={t`Custom`}
         />
       </div>
 
@@ -94,7 +98,7 @@ export function CleanInstructionsStep() {
             rows={3}
             name="instructions"
             registerProps={register("instructions")}
-            placeholder={`Example:
+            placeholder={t`Example:
 
 I work as a freelance designer. Don't archive emails from clients.
 I'm in the middle of a building project, keep those emails too.`}
@@ -104,7 +108,9 @@ I'm in the middle of a building project, keep those emails too.`}
       )}
 
       <div className="mt-6 flex justify-center">
-        <Button type="submit">Continue</Button>
+        <Button type="submit">
+          <Trans>Continue</Trans>
+        </Button>
       </div>
     </form>
   );
