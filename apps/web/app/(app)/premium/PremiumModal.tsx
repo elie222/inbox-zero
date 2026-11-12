@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
+import { Trans } from "@lingui/react/macro";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import Pricing from "@/app/(app)/premium/Pricing";
@@ -10,7 +11,9 @@ const modalTiers = tiers.filter((tier) => tier.name !== "Enterprise");
 function PricingDialogHeader() {
   return (
     <div className="mb-4 text-center">
-      <h2 className="font-title text-2xl text-gray-900">Upgrade to Premium</h2>
+      <h2 className="font-title text-2xl text-gray-900">
+        <Trans>Upgrade to Premium</Trans>
+      </h2>
     </div>
   );
 }
@@ -21,12 +24,16 @@ function EnterpriseFooter() {
       <div>
         <h3 className="font-semibold text-gray-900">Enterprise</h3>
         <p className="text-sm text-gray-600">
-          SSO, SCIM, on-premise deployment, and dedicated support for large
-          teams.
+          <Trans>
+            SSO, SCIM, on-premise deployment, and dedicated support for large
+            teams.
+          </Trans>
         </p>
       </div>
       <Button variant="outline" asChild>
-        <Link href="https://www.getinboxzero.com/sales">Speak to Sales</Link>
+        <Link href="https://www.getinboxzero.com/sales">
+          <Trans>Speak to Sales</Trans>
+        </Link>
       </Button>
     </div>
   );

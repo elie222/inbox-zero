@@ -4,6 +4,7 @@ import { createGenerateText, createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
+import type { ChatActionTotals } from "@/utils/ai/assistant/chat-action-totals";
 import {
   getUserConversationMessages,
   validateUserMemoryEvidence,
@@ -62,10 +63,12 @@ export function shouldCompact(messages: ModelMessage[]): boolean {
 
 export async function compactMessages({
   messages,
+  actionTotals,
   user,
   logger,
 }: {
   messages: ModelMessage[];
+  actionTotals?: ChatActionTotals;
   user: EmailAccountWithAI;
   logger: Logger;
 }): Promise<{
@@ -133,11 +136,14 @@ ${serialized}
     summaryLength: result.text.length,
   });
 
-  const summaryMessage = buildCompactionSummaryMessage(result.text);
+  // The summarizer can drop or misadd counts spread over many tool results, so
+  // the stored totals are attached verbatim.
+  const summary = appendActionTotals(result.text, actionTotals);
+  const summaryMessage = buildCompactionSummaryMessage(summary);
 
   return {
     compactedMessages: [...systemMessages, summaryMessage, ...recentMessages],
-    summary: result.text,
+    summary,
     compactedCount: messagesToCompact.length,
     recentUserMessageCount: recentMessages.filter(
       (message) => message.role === "user",
@@ -206,6 +212,17 @@ function findRecentHistoryStart(messages: ModelMessage[]): number {
     if (messages[index].role === "user") return index;
   }
   return -1;
+}
+
+function appendActionTotals(
+  summary: string,
+  actionTotals: ChatActionTotals | undefined,
+): string {
+  if (!summary.trim() || !actionTotals || !Object.keys(actionTotals).length) {
+    return summary;
+  }
+
+  return `${summary}\n\nExact inbox action totals in this chat as of this summary: ${JSON.stringify(actionTotals)}`;
 }
 
 function buildMemoryExtractionPrompt(messages: ModelMessage[]): string {

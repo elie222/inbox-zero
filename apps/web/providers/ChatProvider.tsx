@@ -1,6 +1,9 @@
 "use client";
 
 import { useChat as useAiChat } from "@ai-sdk/react";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { DefaultChatTransport } from "ai";
 import { parseAsString, useQueryState } from "nuqs";
 import {
@@ -45,10 +48,8 @@ import {
 
 const logger = createClientLogger("assistant-chat");
 
-const CHAT_SEND_FAILED_MESSAGE =
-  "We couldn't send your message. Please try again.";
-const CHAT_ACCOUNT_MISMATCH_MESSAGE =
-  "That chat belongs to another email account, so we started a new one. Send your message again.";
+const CHAT_SEND_FAILED_MESSAGE = msg`We couldn't send your message. Please try again.`;
+const CHAT_ACCOUNT_MISMATCH_MESSAGE = msg`That chat belongs to another email account, so we started a new one. Send your message again.`;
 
 export type Attachment = {
   id: string;
@@ -106,6 +107,7 @@ type ChatContextType = {
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
+  const { i18n } = useLingui();
   const { emailAccountId } = useAccount();
   const { mutate } = useSWRConfig();
 
@@ -125,6 +127,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const mailScreenActionHandlerRef = useRef<
     ((action: MailScreenAction) => void) | null
   >(null);
+  // A resumed run replays its tool results; each split is shown only once.
+  const shownSplitCallIdsRef = useRef(new Set<string>());
   const pendingRequestRef = useRef<PendingChatRequest | null>(null);
   const pendingRequestContextRef = useRef<MessageContext | null>(null);
   const previousChatIdRef = useRef(chatId);
@@ -208,16 +212,29 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       if ("error" in action) return;
       mailScreenActionHandlerRef.current?.(action);
     },
-    onFinish: async ({ isAbort }) => {
+    onFinish: async ({ message, isAbort }) => {
       pendingInlineActionsRef.current = null;
       pendingRequestRef.current = null;
       pendingRequestContextRef.current = null;
+      const splitChange = getSplitInboxChange(message);
       // An abort is a stop or a reattach, which refetch once the server has
       // saved the reply; refetching now would drop the partial one shown.
       await Promise.all([
         mutate("/api/user/rules"),
+        splitChange ? mutate("/api/mail/settings") : Promise.resolve(),
         chatId && !isAbort ? mutate(`/api/chats/${chatId}`) : Promise.resolve(),
       ]);
+      // Showing the split is the preview: the user sees what it catches and
+      // can ask for a change or a delete.
+      const shown = splitChange?.shown;
+      if (shown && !shownSplitCallIdsRef.current.has(shown.toolCallId)) {
+        shownSplitCallIdsRef.current.add(shown.toolCallId);
+        mailScreenActionHandlerRef.current?.({
+          action: "show_split",
+          splitId: shown.splitId,
+          emailAccountId,
+        });
+      }
     },
     onError: (error) => {
       if (resumingRef.current) {
@@ -278,7 +295,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setChatId(newChatId);
         showSendError({
           chatId: newChatId,
-          message: CHAT_ACCOUNT_MISMATCH_MESSAGE,
+          message: i18n._(CHAT_ACCOUNT_MISMATCH_MESSAGE),
           offerNewChat: false,
         });
         return;
@@ -292,7 +309,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       });
       showSendError({
         chatId: pendingRequest?.chatId ?? chatId ?? chat.id,
-        message: getChatSendErrorMessage(error),
+        message: getChatSendErrorMessage(error, i18n),
         offerNewChat: true,
       });
     },
@@ -465,7 +482,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           textLength,
         });
         logger.flush().catch(() => undefined);
-        toastError({ description: ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE });
+        toastError({ description: getMaxTextLengthMessage(i18n) });
         throw new ChatInputValidationError();
       }
 
@@ -515,6 +532,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       context,
       ambientContext,
       emailAccountId,
+      i18n,
       setChatId,
     ],
   );
@@ -608,7 +626,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         });
         showSendError({
           chatId: chatId ?? chat.id,
-          message: CHAT_SEND_FAILED_MESSAGE,
+          message: i18n._(CHAT_SEND_FAILED_MESSAGE),
           offerNewChat: true,
         });
       }
@@ -630,6 +648,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     chat.id,
     chatId,
     emailAccountId,
+    i18n,
     input,
     sendMessageParts,
     showSendError,
@@ -752,7 +771,7 @@ function isChatAccountMismatchError(error: unknown) {
   );
 }
 
-function getChatSendErrorMessage(error: unknown) {
+function getChatSendErrorMessage(error: unknown, i18n: I18n) {
   const statusCode = getErrorStatusCode(error);
   const serverMessage = getChatRequestErrorBody(error)?.error;
   // 4xx responses explain what the user can do; 5xx bodies are not for users.
@@ -762,9 +781,11 @@ function getChatSendErrorMessage(error: unknown) {
     typeof serverMessage === "string" &&
     serverMessage.trim()
   ) {
+    if (serverMessage === ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE)
+      return getMaxTextLengthMessage(i18n);
     return serverMessage;
   }
-  return CHAT_SEND_FAILED_MESSAGE;
+  return i18n._(CHAT_SEND_FAILED_MESSAGE);
 }
 
 function getChatRequestErrorBody(
@@ -782,4 +803,29 @@ function getChatRequestErrorBody(
   } catch {
     return null;
   }
+}
+
+/**
+ * Whether the assistant changed splits in this reply, and the last split it
+ * created or edited, which a later delete of another split doesn't hide.
+ */
+function getSplitInboxChange(
+  message: ChatMessage,
+): { shown?: { toolCallId: string; splitId: string } } | null {
+  let changed = false;
+  let shown: { toolCallId: string; splitId: string } | undefined;
+  for (const part of message.parts) {
+    if (part.type !== "tool-manageSplitInbox") continue;
+    if (part.state !== "output-available" || !part.output.success) continue;
+    if (!("action" in part.output)) continue;
+    changed = true;
+    const splitId = "split" in part.output ? part.output.split?.id : undefined;
+    if (splitId) shown = { toolCallId: part.toolCallId, splitId };
+  }
+  return changed ? { shown } : null;
+}
+
+function getMaxTextLengthMessage(i18n: I18n) {
+  const maxLength = i18n.number(ASSISTANT_CHAT_MAX_TEXT_LENGTH);
+  return i18n._(msg`Messages can be up to ${maxLength} characters.`);
 }

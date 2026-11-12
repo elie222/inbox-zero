@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   createReplyDraftWriter,
+  flushReplyDraftBeforeLeaving,
   type ReplyDraftContent,
   type ReplyDraftIdentity,
 } from "@/utils/mail-engine/reply-drafts";
@@ -132,14 +133,11 @@ export function useReplyDraftPersistence({
   useLayoutEffect(() => () => readPendingContent(), [readPendingContent]);
 
   useEffect(() => {
-    const flushWhenHidden = () => {
-      if (document.visibilityState === "hidden") flush().catch(() => {});
-    };
-    window.addEventListener("pagehide", flush);
-    document.addEventListener("visibilitychange", flushWhenHidden);
+    const stopFlushingBeforeLeaving = flushReplyDraftBeforeLeaving(() => {
+      flush().catch(() => {});
+    });
     return () => {
-      window.removeEventListener("pagehide", flush);
-      document.removeEventListener("visibilitychange", flushWhenHidden);
+      stopFlushingBeforeLeaving();
       // A reload must wait for the final local write after the form unmounts.
       flush()
         .catch(() => {})

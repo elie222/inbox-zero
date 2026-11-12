@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { format } from "date-fns";
+import { useLingui } from "@lingui/react/macro";
 import { ChevronRightIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -32,6 +32,7 @@ export function MeetingListItem({
   onClick?: () => void;
   children?: ReactNode;
 }) {
+  const { i18n } = useLingui();
   const badge = getRecordingStatusBadge({ status, startTime, endTime });
   const start = new Date(startTime);
 
@@ -43,9 +44,15 @@ export function MeetingListItem({
       )}
     >
       <div className="w-20 shrink-0">
-        <div className="text-sm font-medium">{format(start, "h:mm a")}</div>
+        <div className="text-sm font-medium">
+          {i18n.date(start, { hour: "numeric", minute: "2-digit" })}
+        </div>
         <div className="text-xs text-muted-foreground">
-          {format(start, "EEE, MMM d")}
+          {i18n.date(start, {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+          })}
         </div>
       </div>
 
@@ -69,7 +76,7 @@ export function MeetingListItem({
       </ItemContent>
 
       <ItemActions className="gap-3">
-        {badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
+        {badge && <Badge variant={badge.variant}>{i18n._(badge.label)}</Badge>}
         {children}
         {onClick && (
           <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />

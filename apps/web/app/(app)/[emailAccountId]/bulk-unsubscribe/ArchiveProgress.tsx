@@ -1,5 +1,7 @@
 "use client";
 
+import { plural } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { memo, useEffect } from "react";
 import {
   clearArchiveSenderStatuses,
@@ -8,7 +10,12 @@ import {
 import { ProgressPanel } from "@/components/ProgressPanel";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
-export const ArchiveProgress = memo(() => {
+// A named function rather than an inline arrow: the Lingui macro resolves a
+// nested plural() inside memo(() => ...) to the global i18n instance.
+export const ArchiveProgress = memo(ArchiveProgressPanel);
+
+function ArchiveProgressPanel() {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const bulkArchiveProgress = useArchiveQueueProgress(emailAccountId);
   const totalItems = bulkArchiveProgress?.totalItems ?? 0;
@@ -27,17 +34,29 @@ export const ArchiveProgress = memo(() => {
 
   if (!totalItems) return null;
 
+  const inProgressText = failedItems
+    ? t`Archiving senders... ${plural(failedItems, {
+        one: "# failed.",
+        other: "# failed.",
+      })}`
+    : t`Archiving senders...`;
+  const completedText = failedItems
+    ? t`Archiving finished: ${plural(completedItems, {
+        one: "# succeeded",
+        other: "# succeeded",
+      })}, ${plural(failedItems, {
+        one: "# failed.",
+        other: "# failed.",
+      })}`
+    : t`Archiving complete!`;
+
   return (
     <ProgressPanel
       totalItems={totalItems}
       remainingItems={activeItems}
-      inProgressText={`Archiving senders...${failedItems ? ` ${failedItems} failed.` : ""}`}
-      completedText={
-        failedItems
-          ? `Archiving finished: ${completedItems} succeeded, ${failedItems} failed.`
-          : "Archiving complete!"
-      }
-      itemLabel="senders"
+      inProgressText={inProgressText}
+      completedText={completedText}
+      itemLabel={t`senders`}
     />
   );
-});
+}

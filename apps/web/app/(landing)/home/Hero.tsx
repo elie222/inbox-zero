@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import Image from "next/image";
 import { Gmail } from "@/components/new-landing/icons/Gmail";
 import { Outlook } from "@/components/new-landing/icons/Outlook";
@@ -60,7 +61,7 @@ export function Hero({
           <HeroReveal delay={0.125 * 8}>
             <div className="mb-12 flex items-center justify-center gap-2">
               <Paragraph color="light" size="sm">
-                Works with
+                <Trans>Works with</Trans>
               </Paragraph>
               <Outlook />
               <Gmail />
@@ -74,6 +75,7 @@ export function Hero({
 }
 
 export function HeroVideoPlayer({ video }: { video?: HeroVideo }) {
+  const { t } = useLingui();
   const thumbnail = getThumbnail(video);
 
   return (
@@ -86,7 +88,7 @@ export function HeroVideoPlayer({ video }: { video?: HeroVideo }) {
         />
         <Image
           src={thumbnail.src}
-          alt={video?.title ?? "an organized inbox"}
+          alt={video?.title ?? t`an organized inbox`}
           width={thumbnail.width}
           height={thumbnail.height}
           sizes="(min-width: 1280px) 1152px, (min-width: 1024px) calc(100vw - 64px), calc(100vw - 48px)"

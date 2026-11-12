@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/Combobox";
 import { toastSuccess } from "@/components/Toast";
@@ -16,6 +17,7 @@ import { isValidTimeZone } from "@inboxzero/scheduling";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 export function CalendarSettings() {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const analytics = useProductAnalytics("calendars");
   const { data, isLoading, error, mutate } = useCalendars();
@@ -51,7 +53,7 @@ export function CalendarSettings() {
         analytics.captureAction("calendar_timezone_saved", {
           had_existing_timezone: Boolean(timezone),
         });
-        toastSuccess({ description: "Timezone updated!" });
+        toastSuccess({ description: t`Timezone updated!` });
         try {
           await mutate();
         } finally {
@@ -69,8 +71,8 @@ export function CalendarSettings() {
 
   return (
     <SettingCard
-      title="Timezone"
-      description="Used for meeting briefs, AI scheduling, and your availability hours."
+      title={t`Timezone`}
+      description={t`Used for meeting briefs, AI scheduling, and your availability hours.`}
       collapseOnMobile
       right={
         <LoadingContent
@@ -82,8 +84,8 @@ export function CalendarSettings() {
             <div className="w-full sm:w-64">
               <Combobox
                 options={timezoneOptions}
-                placeholder="Select timezone"
-                emptyText="No timezone found."
+                placeholder={t`Select timezone`}
+                emptyText={t`No timezone found.`}
                 value={timezoneValue}
                 onChangeValue={(value) => {
                   if (value) setSelectedTimezone(value);
@@ -97,7 +99,7 @@ export function CalendarSettings() {
               className="w-full sm:w-auto"
               onClick={handleSaveTimezone}
             >
-              Save
+              <Trans>Save</Trans>
             </Button>
           </div>
         </LoadingContent>

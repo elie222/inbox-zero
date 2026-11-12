@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import Link from "next/link";
 import { EarlyAccessFeatures } from "@/app/(app)/early-access/EarlyAccessFeatures";
 import { Button } from "@/components/ui/button";
@@ -23,20 +24,24 @@ export default function RequestAccessPage() {
         <EarlyAccessFeatures />
         <Card>
           <CardHeader>
-            <CardTitle>Mail</CardTitle>
+            <CardTitle>
+              <Trans>Mail</Trans>
+            </CardTitle>
             <CardDescription>
-              Open your inbox in the Inbox Zero mail client.
+              <Trans>Open your inbox in the Inbox Zero mail client.</Trans>
             </CardDescription>
           </CardHeader>
           <CardContent>
             {emailAccountId ? (
               <Button asChild>
                 <Link href={prefixPath(emailAccountId, "/mail")}>
-                  Open Mail
+                  <Trans>Open Mail</Trans>
                 </Link>
               </Button>
             ) : (
-              <Button disabled>Open Mail</Button>
+              <Button disabled>
+                <Trans>Open Mail</Trans>
+              </Button>
             )}
           </CardContent>
         </Card>
@@ -44,16 +49,22 @@ export default function RequestAccessPage() {
           <>
             <Card>
               <CardHeader>
-                <CardTitle>Sender categories</CardTitle>
+                <CardTitle>
+                  <Trans>Sender categories</Trans>
+                </CardTitle>
                 <CardDescription>
-                  Sender Categories is a feature that allows you to categorize
-                  emails by sender, and take bulk actions or apply rules to
-                  them.
+                  <Trans>
+                    Sender Categories is a feature that allows you to categorize
+                    emails by sender, and take bulk actions or apply rules to
+                    them.
+                  </Trans>
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Button asChild>
-                  <Link href="/smart-categories">Sender Categories</Link>
+                  <Link href="/smart-categories">
+                    <Trans>Sender Categories</Trans>
+                  </Link>
                 </Button>
               </CardContent>
             </Card>
@@ -89,15 +100,17 @@ export default function RequestAccessPage() {
         )}
         <Card>
           <CardHeader>
-            <CardTitle>Early access</CardTitle>
+            <CardTitle>
+              <Trans>Early access</Trans>
+            </CardTitle>
             <CardDescription>
-              Give us feedback on what features you want to see.
+              <Trans>Give us feedback on what features you want to see.</Trans>
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild>
               <Link href="/waitlist" target="_blank">
-                Feedback Form
+                <Trans>Feedback Form</Trans>
               </Link>
             </Button>
           </CardContent>

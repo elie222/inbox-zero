@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ import type { GetSnippetsResponse } from "@/app/api/user/snippets/route";
 type SnippetItem = GetSnippetsResponse["snippets"][number];
 
 export function SnippetsManager() {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { data, error, isLoading, mutate } = useSnippets();
   const [isOpen, setIsOpen] = useState(false);
@@ -61,16 +63,16 @@ export function SnippetsManager() {
         <DialogTrigger asChild>
           <Button size="sm">
             <Plus className="mr-2 h-4 w-4" />
-            Add
+            <Trans>Add</Trans>
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {editingItem ? "Edit snippet" : "Add snippet"}
+              {editingItem ? t`Edit snippet` : t`Add snippet`}
             </DialogTitle>
             <DialogDescription className="sr-only">
-              {editingItem ? "Edit this snippet." : "Add a reusable snippet."}
+              {editingItem ? t`Edit this snippet.` : t`Add a reusable snippet.`}
             </DialogDescription>
           </DialogHeader>
           <SnippetForm
@@ -88,8 +90,12 @@ export function SnippetsManager() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Shortcut</TableHead>
-                <TableHead>Content</TableHead>
+                <TableHead>
+                  <Trans>Shortcut</Trans>
+                </TableHead>
+                <TableHead>
+                  <Trans>Content</Trans>
+                </TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -99,10 +105,14 @@ export function SnippetsManager() {
                   <TableCell colSpan={3}>
                     <Empty className="border-0">
                       <EmptyHeader>
-                        <EmptyTitle>No snippets yet</EmptyTitle>
+                        <EmptyTitle>
+                          <Trans>No snippets yet</Trans>
+                        </EmptyTitle>
                         <EmptyDescription>
-                          Save replies you reuse often, then type / in a draft
-                          to insert them.
+                          <Trans>
+                            Save replies you reuse often, then type / in a draft
+                            to insert them.
+                          </Trans>
                         </EmptyDescription>
                       </EmptyHeader>
                     </Empty>
@@ -140,6 +150,7 @@ function SnippetTableRow({
   onDelete: () => void;
   onEdit: () => void;
 }) {
+  const { t } = useLingui();
   const [isDeleting, setIsDeleting] = useState(false);
 
   return (
@@ -151,11 +162,11 @@ function SnippetTableRow({
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-2">
           <Button onClick={onEdit} size="sm" variant="outline">
-            Edit
+            <Trans>Edit</Trans>
           </Button>
           <ConfirmDialog
-            confirmText="Delete"
-            description={`Delete /${item.shortcut}? This cannot be undone.`}
+            confirmText={t`Delete`}
+            description={t`Delete /${item.shortcut}? This cannot be undone.`}
             onConfirm={async () => {
               try {
                 setIsDeleting(true);
@@ -164,21 +175,21 @@ function SnippetTableRow({
                 });
                 if (result?.serverError) {
                   toastError({
-                    title: "Error deleting snippet",
+                    title: t`Error deleting snippet`,
                     description: result.serverError,
                   });
                   return;
                 }
-                toastSuccess({ description: "Snippet deleted" });
+                toastSuccess({ description: t`Snippet deleted` });
                 onDelete();
               } finally {
                 setIsDeleting(false);
               }
             }}
-            title="Delete snippet"
+            title={t`Delete snippet`}
             trigger={
               <Button
-                aria-label={`Delete /${item.shortcut}`}
+                aria-label={t`Delete /${item.shortcut}`}
                 loading={isDeleting}
                 size="sm"
                 variant="outline"

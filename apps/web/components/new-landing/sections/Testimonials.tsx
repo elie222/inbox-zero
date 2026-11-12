@@ -1,6 +1,9 @@
 "use client";
 
 import clsx from "clsx";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Image from "next/image";
 import {
   Section,
@@ -16,7 +19,7 @@ import { userCount } from "@/utils/config";
 import { BRAND_NAME } from "@/utils/branding";
 
 type Testimonial = {
-  body: string;
+  body: MessageDescriptor;
   author: {
     name: string;
     handle: string;
@@ -24,8 +27,8 @@ type Testimonial = {
   };
 };
 
-const featuredTestimonial = {
-  body: "Loving it so far! Cleaned up my top cluttering newsletter and promotional email subscriptions in just a few minutes.",
+const featuredTestimonial: Testimonial = {
+  body: msg`Loving it so far! Cleaned up my top cluttering newsletter and promotional email subscriptions in just a few minutes.`,
   author: {
     name: "Jonni Lundy",
     handle: "Resend",
@@ -34,7 +37,7 @@ const featuredTestimonial = {
 };
 
 const stevenTestimonial: Testimonial = {
-  body: "Love this new open-source app by @elie2222: getinboxzero.com",
+  body: msg`Love this new open-source app by @elie2222: getinboxzero.com`,
   author: {
     name: "Steven Tey",
     handle: "Dub",
@@ -43,7 +46,7 @@ const stevenTestimonial: Testimonial = {
 };
 
 const vinayTestimonial: Testimonial = {
-  body: "this is something I've been searching for a long time – thanks for building it.",
+  body: msg`this is something I've been searching for a long time – thanks for building it.`,
   author: {
     name: "Vinay Katiyar",
     handle: "@ktyr",
@@ -53,7 +56,7 @@ const vinayTestimonial: Testimonial = {
 };
 
 const yoniTestimonial: Testimonial = {
-  body: "Wow. Onboarded and started unsubscribing from the worst spammers in just 3 minutes... Thank you 🙏🏼",
+  body: msg`Wow. Onboarded and started unsubscribing from the worst spammers in just 3 minutes... Thank you 🙏🏼`,
   author: {
     name: "Yoni Belson",
     handle: "LeadTrap",
@@ -62,7 +65,7 @@ const yoniTestimonial: Testimonial = {
 };
 
 const slimTestimonial: Testimonial = {
-  body: "I came across Inbox Zero while actively looking to hire a VA to manage my emails but after trying the tool, it turned out to be a complete game changer.",
+  body: msg`I came across Inbox Zero while actively looking to hire a VA to manage my emails but after trying the tool, it turned out to be a complete game changer.`,
   author: {
     name: "Slim Labassi",
     handle: "Boomgen",
@@ -71,7 +74,7 @@ const slimTestimonial: Testimonial = {
 };
 
 const willTestimonial: Testimonial = {
-  body: "I love the flexibility and customization options, and it's the first thing in forever that's gotten my inbox under control. Thank you!",
+  body: msg`I love the flexibility and customization options, and it's the first thing in forever that's gotten my inbox under control. Thank you!`,
   author: {
     name: "Will Brierly",
     handle: "DreamKey",
@@ -80,7 +83,7 @@ const willTestimonial: Testimonial = {
 };
 
 const valentineTestimonial: Testimonial = {
-  body: "I'm an executive who was drowning in hundreds of daily emails and heavily dependent on my EA for email management. What I love most about Inbox Zero is how it seamlessly replaced that entire function—the smart automation, prioritization, and organization features work like having a dedicated email assistant built right into my workflow.",
+  body: msg`I'm an executive who was drowning in hundreds of daily emails and heavily dependent on my EA for email management. What I love most about Inbox Zero is how it seamlessly replaced that entire function—the smart automation, prioritization, and organization features work like having a dedicated email assistant built right into my workflow.`,
   author: {
     name: "Valentine Nwachukwu",
     handle: "Zaden Technologies",
@@ -89,7 +92,7 @@ const valentineTestimonial: Testimonial = {
 };
 
 const joelTestimonial: Testimonial = {
-  body: "It's the first tool I've tried of many that have actually captured my voice in the responses that it drafts.",
+  body: msg`It's the first tool I've tried of many that have actually captured my voice in the responses that it drafts.`,
   author: {
     name: "Joel Neuenhaus",
     handle: "Outbound Legal",
@@ -98,7 +101,7 @@ const joelTestimonial: Testimonial = {
 };
 
 const alexTestimonial: Testimonial = {
-  body: "SUPER excited for this one! Well done, going to get use out of it for sure—have been waiting for a tool like this, it just makes so much sense to have as a layer atop email.",
+  body: msg`SUPER excited for this one! Well done, going to get use out of it for sure—have been waiting for a tool like this, it just makes so much sense to have as a layer atop email.`,
   author: {
     name: "Alex Bass",
     handle: "Efficient App",
@@ -108,7 +111,7 @@ const alexTestimonial: Testimonial = {
 };
 
 const jamesTestimonial: Testimonial = {
-  body: "hey bro, your tool is legit what I been looking for for ages haha. its a god send",
+  body: msg`hey bro, your tool is legit what I been looking for for ages haha. its a god send`,
   author: {
     name: "James",
     handle: "@james",
@@ -117,7 +120,7 @@ const jamesTestimonial: Testimonial = {
 };
 
 const steveTestimonial: Testimonial = {
-  body: "I was mostly hoping to turn my email inbox into less of the mess that it is. I've been losing tasks that I should do as the emails get buried. So far it's really helped.",
+  body: msg`I was mostly hoping to turn my email inbox into less of the mess that it is. I've been losing tasks that I should do as the emails get buried. So far it's really helped.`,
   author: {
     name: "Steve Radabaugh",
     handle: "@stevenpaulr",
@@ -126,7 +129,7 @@ const steveTestimonial: Testimonial = {
 };
 
 const wilcoTestimonial: Testimonial = {
-  body: `Finally an "unsubscribe app" that let's you *actually* unsubscribe and filter using Gmail filters (instead of always relying on the 3rd party app to filter those emails). Big plus for me, so I have all filters in one place (inside the Gmail filters, that is). Awesome work! Already a fan :)`,
+  body: msg`Finally an "unsubscribe app" that let's you *actually* unsubscribe and filter using Gmail filters (instead of always relying on the 3rd party app to filter those emails). Big plus for me, so I have all filters in one place (inside the Gmail filters, that is). Awesome work! Already a fan :)`,
   author: {
     name: "Wilco de Kreij",
     handle: "@emarky",
@@ -160,10 +163,10 @@ export function Testimonials() {
   return (
     <Section>
       <SectionHeading wrap>
-        Join {userCount} others who spend less time on emails
+        <Trans>Join {userCount} others who spend less time on emails</Trans>
       </SectionHeading>
       <SectionSubtitle>
-        {`Our customers love saving time with ${BRAND_NAME}.`}
+        <Trans>Our customers love saving time with {BRAND_NAME}.</Trans>
       </SectionSubtitle>
       <SectionContent>
         {/* Mobile */}
@@ -225,6 +228,9 @@ function TestimonialCard({
   className?: string;
   variant?: "default" | "featured";
 }) {
+  const { i18n } = useLingui();
+  const body = i18n._(testimonial.body);
+
   return (
     <Card key={testimonial.author.handle} className={className}>
       <CardContent>
@@ -234,11 +240,11 @@ function TestimonialCard({
             size="lg"
             className="font-semibold leading-7 tracking-tight"
           >
-            {testimonial.body}
+            {body}
           </Paragraph>
         ) : (
           <Paragraph size="md" color="gray-500">
-            {testimonial.body}
+            {body}
           </Paragraph>
         )}
       </CardContent>

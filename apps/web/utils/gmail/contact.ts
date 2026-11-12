@@ -183,66 +183,44 @@ function isContactSourceDenied(error: unknown) {
 }
 
 async function searchSavedContacts(client: people_v1.People, query: string) {
-  const res = await searchWithCacheWarmup(
-    (searchQuery) =>
-      client.people.searchContacts({
-        query: searchQuery,
-        readMask: CONTACT_READ_MASK,
-        pageSize: MAX_CONTACT_RESULTS,
-      }),
-    query,
+  // Google requires an empty-query warmup before searching its contact cache.
+  if (query) {
+    await client.people.searchContacts({
+      query: "",
+      readMask: CONTACT_READ_MASK,
+      pageSize: MAX_CONTACT_RESULTS,
+    });
+  }
+
+  const res = await withContactCacheRetry(() =>
+    client.people.searchContacts({
+      query,
+      readMask: CONTACT_READ_MASK,
+      pageSize: MAX_CONTACT_RESULTS,
+    }),
   );
 
   return mapSearchResults(res.data.results);
 }
 
 async function searchOtherContacts(client: people_v1.People, query: string) {
-  const res = await searchWithCacheWarmup(
-    (searchQuery) =>
-      client.otherContacts.search({
-        query: searchQuery,
-        readMask: CONTACT_READ_MASK,
-        pageSize: MAX_CONTACT_RESULTS,
-      }),
-    query,
+  if (query) {
+    await client.otherContacts.search({
+      query: "",
+      readMask: CONTACT_READ_MASK,
+      pageSize: MAX_CONTACT_RESULTS,
+    });
+  }
+
+  const res = await withContactCacheRetry(() =>
+    client.otherContacts.search({
+      query,
+      readMask: CONTACT_READ_MASK,
+      pageSize: MAX_CONTACT_RESULTS,
+    }),
   );
 
   return mapSearchResults(res.data.results);
-}
-
-async function searchWithCacheWarmup<T>(
-  search: (query: string) => Promise<T>,
-  query: string,
-): Promise<T> {
-  try {
-    return await search(query);
-  } catch (error) {
-    if (!isColdSearchCacheError(error)) throw error;
-  }
-
-  // People search caches update asynchronously after an empty-query warmup.
-  // https://developers.google.com/people/v1/contacts#search_the_users_contacts
-  try {
-    await search("");
-  } catch (error) {
-    // Warmup may report a cold cache while its asynchronous rebuild starts.
-    if (!isColdSearchCacheError(error)) throw error;
-  }
-  await sleep(2000);
-  return search(query);
-}
-
-function isColdSearchCacheError(error: unknown) {
-  const { googleErrorStatus, googleErrorMessage, code, reason, errorMessage } =
-    extractErrorInfo(error);
-  return (
-    (googleErrorStatus === "FAILED_PRECONDITION" ||
-      code === "FAILED_PRECONDITION" ||
-      reason === "failedPrecondition") &&
-    [errorMessage, googleErrorMessage].some(
-      (message) => typeof message === "string" && /cold cache/i.test(message),
-    )
-  );
 }
 
 function mapSearchResults(
@@ -290,4 +268,26 @@ async function listPeoplePages(
 // Google fills in a generated letter tile when a person has no photo.
 function getPhotoUrl(person: people_v1.Schema$Person) {
   return person.photos?.find((photo) => !photo.default)?.url ?? undefined;
+}
+
+async function withContactCacheRetry<T>(search: () => Promise<T>): Promise<T> {
+  try {
+    return await search();
+  } catch (error) {
+    const { status, googleErrorStatus, errorMessage, googleErrorMessage } =
+      extractErrorInfo(error);
+    if (
+      (status !== 400 && googleErrorStatus !== "FAILED_PRECONDITION") ||
+      ![errorMessage, googleErrorMessage].some(
+        (message) =>
+          typeof message === "string" && message.includes("cold cache data"),
+      )
+    ) {
+      throw error;
+    }
+
+    // Google's lazy cache can still be rebuilding after the warmup returns.
+    await sleep(5000);
+    return search();
+  }
 }

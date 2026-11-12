@@ -3,37 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { NEXT_ACTION_NOT_FOUND_HEADER } from "next/dist/client/components/app-router-headers";
 import { toast } from "sonner";
 import { registerOpenComposer, runPendingReloads } from "./safe-reload";
-import {
-  claimStaleDeploymentReload,
-  installStaleDeploymentReload,
-} from "./stale-deployment";
-
-describe("claimStaleDeploymentReload", () => {
-  it("reloads once and not again while the reloaded page is still stale", () => {
-    const storage = createStorage();
-    const deployNoticedAt = 1_000_000;
-
-    expect(claimStaleDeploymentReload(storage, deployNoticedAt)).toBe(true);
-    expect(claimStaleDeploymentReload(storage, deployNoticedAt + 2000)).toBe(
-      false,
-    );
-    expect(
-      claimStaleDeploymentReload(storage, deployNoticedAt + 4 * 60 * 1000),
-    ).toBe(false);
-  });
-
-  it("reloads again for a later deploy once the cooldown has passed", () => {
-    const storage = createStorage();
-    const firstDeployAt = 1_000_000;
-
-    claimStaleDeploymentReload(storage, firstDeployAt);
-
-    expect(
-      claimStaleDeploymentReload(storage, firstDeployAt + 24 * 60 * 60 * 1000),
-    ).toBe(true);
-  });
-});
-
+import { installStaleDeploymentReload } from "./stale-deployment";
 vi.mock("sonner", () => ({ toast: { info: vi.fn(), error: vi.fn() } }));
 
 afterEach(() => {

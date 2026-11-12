@@ -475,6 +475,58 @@ describe("EmailThread outgoing replies", () => {
     }
   });
 
+  // The revealed reply takes its composer's place, so the list may not resize.
+  it("marks a sent reply as selected as soon as it is revealed", async () => {
+    vi.useFakeTimers();
+    htmlBodyReady.current = false;
+    try {
+      const parent = createReaderMessage("parent", "1000");
+      const view = render(
+        <EmailThread
+          enableMessageNavigation
+          messages={[parent]}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+      fireEvent.click(screen.getByRole("button", { name: "Queue send" }));
+      view.rerender(
+        <EmailThread
+          enableMessageNavigation
+          messages={[parent]}
+          outgoing={[
+            {
+              operationId: "send-1",
+              status: "verifying",
+              message: {
+                ...createSentMessage("outgoing:send-1", "3000"),
+                textHtml: "<p>Reply</p>",
+              },
+            },
+          ]}
+          refetch={vi.fn()}
+          showReplyButton
+        />,
+      );
+      await act(async () => vi.advanceTimersByTimeAsync(100));
+      const bar = screen.getByTestId("thread-selection-bar");
+      expect(bar.classList.contains("hidden")).toBe(true);
+
+      const sentBody = view.container.querySelector(
+        '[data-send-operation-id="send-1"] [data-email-ready]',
+      );
+      expect(sentBody).toBeTruthy();
+      sentBody?.setAttribute("data-email-ready", "true");
+      await act(async () => vi.advanceTimersByTimeAsync(20));
+
+      expect(bar.classList.contains("hidden")).toBe(false);
+    } finally {
+      htmlBodyReady.current = true;
+      vi.useRealTimers();
+    }
+  });
+
   // The thread publishes a send's message before the composer hears it was queued.
   it("hides a sent reply that reaches the thread before its send is confirmed queued", async () => {
     vi.useFakeTimers();

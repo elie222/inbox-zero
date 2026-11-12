@@ -1,5 +1,4 @@
 import type { z } from "zod";
-import type { mobileAuthProviderSchema } from "@/utils/mobile-auth/providers";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
@@ -7,6 +6,8 @@ import {
   createMobileAuthState,
   storeMobileAuthState,
 } from "@/utils/mobile-auth/oauth-code";
+import type { mobileAuthProviderSchema } from "@/utils/mobile-auth/providers";
+import { MobileSocialAuthRateLimitError } from "@/utils/mobile-auth/rate-limit-error";
 import {
   getOAuthStateCookieValue,
   getSetCookieValues,
@@ -62,20 +63,27 @@ export async function startMobileSocialAuth(input: {
       method: "POST",
     }),
   );
+  if (signInResponse.status === 429) {
+    logger.warn("Mobile social sign-in rate limited", {
+      provider: input.provider,
+      status: signInResponse.status,
+    });
+    throw new MobileSocialAuthRateLimitError(
+      signInResponse.headers.get("Retry-After") ??
+        signInResponse.headers.get("X-Retry-After"),
+    );
+  }
+
   const signInBody = (await signInResponse.json().catch(() => null)) as {
     url?: string;
-    code?: string;
-    message?: string;
   } | null;
   const oauthState = getOAuthStateCookieValue(signInResponse.headers);
 
   if (!signInResponse.ok || !signInBody?.url || !oauthState) {
-    // The app only sees a generic 500, so record which part of the sign-in start failed.
+    // Record response structure without logging upstream body contents.
     logger.error("Failed to start mobile social sign-in", {
       provider: input.provider,
       status: signInResponse.status,
-      code: signInBody?.code,
-      message: signInBody?.message,
       hasUrl: Boolean(signInBody?.url),
       hasOAuthState: Boolean(oauthState),
     });

@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import { MessageText, TypographyH3 } from "@/components/Typography";
 import { ExamplesDialog } from "./examples-dialog";
@@ -15,16 +16,18 @@ export const Overview = ({
       </p>
 
       <TypographyH3 className="mt-8">
-        Hey, I'm your email assistant!
+        <Trans>Hey, I'm your email assistant!</Trans>
       </TypographyH3>
 
       <MessageText className="mt-4 text-base">
-        Teach me how to handle your incoming emails for you
+        <Trans>Teach me how to handle your incoming emails for you</Trans>
       </MessageText>
 
       <div className="pt-8">
         <ExamplesDialog setInput={setInput}>
-          <Button>Choose from examples</Button>
+          <Button>
+            <Trans>Choose from examples</Trans>
+          </Button>
         </ExamplesDialog>
       </div>
     </div>

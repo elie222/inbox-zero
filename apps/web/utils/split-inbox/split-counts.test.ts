@@ -43,6 +43,7 @@ describe("splitCountTargets", () => {
           item.id === OTHER_SPLIT_ID
             ? otherMailSplitQuery(splits)
             : mailSplitToThreadsQuery(item, NOW),
+          NOW,
         ),
       })),
     );

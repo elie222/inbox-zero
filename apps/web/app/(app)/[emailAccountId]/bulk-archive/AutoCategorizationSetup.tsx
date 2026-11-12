@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { msg, plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { ArchiveIcon, RotateCcwIcon, TagsIcon } from "lucide-react";
 import { SetupDialog } from "@/components/SetupCard";
@@ -12,20 +14,18 @@ import { useCategorizeProgress } from "@/app/(app)/[emailAccountId]/smart-catego
 const features = [
   {
     icon: <TagsIcon className="size-4 text-blue-500" />,
-    title: "Sorted automatically",
-    description:
-      "We group senders into categories like Newsletters, Receipts, and Marketing",
+    title: msg`Sorted automatically`,
+    description: msg`We group senders into categories like Newsletters, Receipts, and Marketing`,
   },
   {
     icon: <ArchiveIcon className="size-4 text-blue-500" />,
-    title: "Archive by category",
-    description:
-      "Clean up an entire category at once instead of one email at a time",
+    title: msg`Archive by category`,
+    description: msg`Clean up an entire category at once instead of one email at a time`,
   },
   {
     icon: <RotateCcwIcon className="size-4 text-blue-500" />,
-    title: "Always reversible",
-    description: "Emails are archived, not deleted — you can find them anytime",
+    title: msg`Always reversible`,
+    description: msg`Emails are archived, not deleted — you can find them anytime`,
   },
 ];
 
@@ -36,6 +36,7 @@ export function AutoCategorizationSetup({
   open: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId } = useAccount();
   const { setIsBulkCategorizing } = useCategorizeProgress();
 
@@ -54,24 +55,29 @@ export function AutoCategorizationSetup({
 
       if (!result?.data) {
         toastSuccess({
-          description: "Categorization started.",
+          description: t`Categorization started.`,
         });
         onOpenChange?.(false);
       } else if (result.data.totalUncategorizedSenders) {
         toastSuccess({
-          description: `Categorizing ${result.data.totalUncategorizedSenders} senders... This may take a few minutes.`,
+          description: t`${plural(result.data.totalUncategorizedSenders, {
+            one: "Categorizing # sender... This may take a few minutes.",
+            other: "Categorizing # senders... This may take a few minutes.",
+          })}`,
         });
         onOpenChange?.(false);
       } else {
         toastSuccess({
-          description: "No more senders to categorize right now.",
+          description: t`No more senders to categorize right now.`,
         });
         setIsBulkCategorizing(false);
         onOpenChange?.(false);
       }
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : t`Unknown error`;
       toastError({
-        description: `Failed to enable feature: ${error instanceof Error ? error.message : "Unknown error"}`,
+        description: t`Failed to enable feature: ${errorMessage}`,
       });
       setIsBulkCategorizing(false);
 
@@ -81,7 +87,7 @@ export function AutoCategorizationSetup({
     } finally {
       setIsEnabling(false);
     }
-  }, [emailAccountId, onOpenChange, setIsBulkCategorizing]);
+  }, [emailAccountId, onOpenChange, setIsBulkCategorizing, t]);
 
   return (
     <SetupDialog
@@ -93,13 +99,17 @@ export function AutoCategorizationSetup({
         onEscapeKeyDown: (event) => event.preventDefault(),
       }}
       imageSrc="/images/illustrations/working-vacation.svg"
-      imageAlt="Bulk Archive"
-      title="Bulk Archive"
-      description="Archive thousands of emails in a few clicks."
-      features={features}
+      imageAlt={t`Bulk Archive`}
+      title={t`Bulk Archive`}
+      description={t`Archive thousands of emails in a few clicks.`}
+      features={features.map((feature) => ({
+        ...feature,
+        title: i18n._(feature.title),
+        description: i18n._(feature.description),
+      }))}
     >
       <Button onClick={enableFeature} loading={isEnabling}>
-        Get Started
+        <Trans>Get Started</Trans>
       </Button>
     </SetupDialog>
   );

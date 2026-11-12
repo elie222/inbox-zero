@@ -21,7 +21,10 @@ export const controlMailScreenTool = ({
       const action = parseMailScreenAction(input);
       if ("error" in action) return action;
 
-      logger.info("Tracking tool call", { tool: "control_mail_screen", email });
+      logger.trace("Tracking tool call", {
+        tool: "control_mail_screen",
+        email,
+      });
       posthogCaptureEvent(email, "AI Assistant Chat Tool Call", {
         tool: "control_mail_screen",
         action: action.action,

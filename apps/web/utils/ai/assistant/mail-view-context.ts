@@ -111,6 +111,8 @@ function formatSplitFilter(filter: {
       return `category ${value}`;
     case MailSplitFilterKind.FROM:
       return `from ${value}`;
+    case MailSplitFilterKind.TO:
+      return `to ${value}`;
     case MailSplitFilterKind.OLDER_THAN: {
       const age = OLDER_THAN_OPTIONS.find(
         (option) => option.value === filter.value,

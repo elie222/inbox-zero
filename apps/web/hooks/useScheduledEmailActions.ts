@@ -35,9 +35,10 @@ export function useScheduledEmailActions(emailAccountId: string) {
       request: { method: "POST" | "DELETE"; path: string },
     ) {
       // A second click while the first is out would be refused by the server
-      // and report an error for a change that succeeded. Different actions on
-      // one row, like cancelling its reminder and then its send, still run.
-      const requestKey = `${emailAccountId}:${id}:${kind}`;
+      // and report an error for a change that succeeded. Cancel and retry both
+      // decide the send, so they share a slot; cancelling the reminder doesn't.
+      const slot = kind === "cancelReminder" ? kind : "send";
+      const requestKey = `${emailAccountId}:${id}:${slot}`;
       if (inFlight.has(requestKey)) return;
       inFlight.add(requestKey);
       const before = new Map<object, ScheduledEmailList>();

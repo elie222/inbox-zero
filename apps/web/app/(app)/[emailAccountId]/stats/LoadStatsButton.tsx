@@ -1,6 +1,7 @@
 "use client";
 
 import { RefreshCcw } from "lucide-react";
+import { Trans } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
@@ -20,7 +21,7 @@ export function LoadStatsButton() {
         ) : (
           <RefreshCcw className="mr-2 hidden h-4 w-4 sm:block" />
         )}
-        {isLoading ? "Loading more..." : "Load more"}
+        {isLoading ? <Trans>Loading more...</Trans> : <Trans>Load more</Trans>}
       </Button>
     </div>
   );

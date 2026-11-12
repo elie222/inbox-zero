@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { XIcon } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import type { Attachment } from "@/providers/ChatProvider";
 
@@ -16,6 +17,7 @@ export function PreviewAttachment({
   onRemove?: () => void;
   isUploading?: boolean;
 }) {
+  const { t } = useLingui();
   const { name, url, contentType } = attachment;
 
   return (
@@ -31,7 +33,7 @@ export function PreviewAttachment({
         />
       ) : (
         <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
-          File
+          <Trans>File</Trans>
         </div>
       )}
 
@@ -45,7 +47,7 @@ export function PreviewAttachment({
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Remove attachment"
+          aria-label={t`Remove attachment`}
           className="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/60 p-0 text-white opacity-0 hover:bg-black/80 group-hover:opacity-100 focus-visible:opacity-100"
           onClick={onRemove}
         >

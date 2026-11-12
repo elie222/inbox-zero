@@ -1,3 +1,4 @@
+import { setupI18n } from "@lingui/core";
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import {
   formatDateGroupLabel,
@@ -260,6 +261,8 @@ describe("business day elapsed helpers", () => {
   });
 });
 
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
+
 describe("formatDateGroupLabel", () => {
   const now = new Date("2025-09-05T12:00:00");
 
@@ -290,16 +293,17 @@ describe("formatDateGroupLabel", () => {
     {
       name: "a day ahead of today",
       date: "2025-09-20T08:00:00",
-      expected: "September 20th, 2025",
+      expected: "September 20, 2025",
     },
   ])("labels $name", ({ date, expected }) => {
-    expect(formatDateGroupLabel(new Date(date), now)).toBe(expected);
+    expect(formatDateGroupLabel(new Date(date), i18n, now)).toBe(expected);
   });
 
   it("labels yesterday even when it falls in the previous month", () => {
     expect(
       formatDateGroupLabel(
         new Date("2025-08-31T22:00:00"),
+        i18n,
         new Date("2025-09-01T09:00:00"),
       ),
     ).toBe("Yesterday");
@@ -309,6 +313,7 @@ describe("formatDateGroupLabel", () => {
     expect(
       formatDateGroupLabel(
         new Date("2025-09-05T08:00:00"),
+        i18n,
         new Date("2025-09-20T09:00:00"),
       ),
     ).toBe("Earlier this month");
@@ -334,5 +339,13 @@ describe("formatShortDate", () => {
     const formatted = formatShortDate(new Date("2026-10-15T09:00:00"));
     expect(formatted).not.toContain("2026");
     expect(formatted).toContain("15");
+  });
+
+  it("formats month names in the given locale", () => {
+    const formatted = formatShortDate(new Date("2026-01-15T09:00:00"), {
+      lowercase: true,
+      locale: "es",
+    });
+    expect(formatted).toContain("ene");
   });
 });

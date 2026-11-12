@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { MailIcon, SparklesIcon } from "lucide-react";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   Tooltip,
@@ -14,10 +16,10 @@ import { prefixPath } from "@/utils/path";
 type AppSection = "mail" | "assistant";
 
 const SECTIONS = [
-  { id: "mail", name: "Mail", path: "/mail", icon: MailIcon },
+  { id: "mail", name: msg`Mail`, path: "/mail", icon: MailIcon },
   {
     id: "assistant",
-    name: "Assistant",
+    name: msg`Assistant`,
     path: "/automation",
     icon: SparklesIcon,
   },
@@ -83,9 +85,11 @@ function AppSectionSwitcher({
   emailAccountId: string;
   collapsed: boolean;
 }) {
+  const { t, i18n } = useLingui();
+
   if (collapsed) {
     return (
-      <nav aria-label="App sections" className="flex flex-col gap-1 pb-2">
+      <nav aria-label={t`App sections`} className="flex flex-col gap-1 pb-2">
         {SECTIONS.map((section) => {
           const isActive = section.id === active;
           return (
@@ -101,10 +105,12 @@ function AppSectionSwitcher({
                   )}
                 >
                   <section.icon className="size-4" />
-                  <span className="sr-only">{section.name}</span>
+                  <span className="sr-only">{i18n._(section.name)}</span>
                 </Link>
               </TooltipTrigger>
-              <TooltipContent side="right">{section.name}</TooltipContent>
+              <TooltipContent side="right">
+                {i18n._(section.name)}
+              </TooltipContent>
             </Tooltip>
           );
         })}
@@ -114,7 +120,7 @@ function AppSectionSwitcher({
 
   return (
     <nav
-      aria-label="App sections"
+      aria-label={t`App sections`}
       className="grid flex-1 grid-cols-2 gap-0.5 rounded-lg bg-sidebar-accent p-0.5"
     >
       {SECTIONS.map((section) => {
@@ -131,7 +137,7 @@ function AppSectionSwitcher({
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {section.name}
+            {i18n._(section.name)}
           </Link>
         );
       })}

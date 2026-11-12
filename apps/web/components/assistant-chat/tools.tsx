@@ -1,6 +1,9 @@
 import type { ChangeEvent } from "react";
 import { useState } from "react";
 import { useQueryState } from "nuqs";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg, plural } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import type { AddToKnowledgeBaseTool } from "@/utils/ai/assistant/tools/rules/add-to-knowledge-base-tool";
 import type { CreateRuleTool } from "@/utils/ai/assistant/tools/rules/create-rule-tool";
 import type { UpdatePersonalInstructionsTool } from "@/utils/ai/assistant/tools/rules/update-personal-instructions-tool";
@@ -44,6 +47,8 @@ import {
   confirmAssistantSaveMemory,
 } from "@/utils/actions/assistant-chat";
 import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
+import { deleteMailSplitAction } from "@/utils/actions/mail-split";
+import { useMailSettings } from "@/hooks/useMailSettings";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useChat } from "@/providers/ChatProvider";
@@ -194,8 +199,10 @@ function CollapsibleToolCard({
 }
 
 export function SearchInboxResult({ outputs }: { outputs: unknown[] }) {
+  const { t } = useLingui();
+  const outputCount = outputs.length;
   const title =
-    outputs.length > 1 ? `Search Inbox ×${outputs.length}` : "Search Inbox";
+    outputCount > 1 ? t`Search Inbox ×${outputCount}` : t`Search Inbox`;
 
   return (
     <SubtleToolCollapsible title={title}>
@@ -212,6 +219,7 @@ export function SearchInboxResult({ outputs }: { outputs: unknown[] }) {
 }
 
 function SearchInboxResultDetails({ output }: { output: unknown }) {
+  const { t } = useLingui();
   const error = getOutputField<string | null>(output, "error");
   const queryUsed = getOutputField<string | null>(output, "queryUsed");
   const messages = getOutputField<
@@ -231,13 +239,15 @@ function SearchInboxResultDetails({ output }: { output: unknown }) {
     <>
       {queryUsed && (
         <ToolDetailRow
-          label="Query"
+          label={t`Query`}
           value={<span className="font-mono text-xs">{queryUsed}</span>}
         />
       )}
       {error && (
         <div className="space-y-1 text-sm text-muted-foreground">
-          <p>Search results were unavailable for that request.</p>
+          <p>
+            <Trans>Search results were unavailable for that request.</Trans>
+          </p>
           <p className="text-xs">{error}</p>
         </div>
       )}
@@ -259,7 +269,9 @@ export function ManageInboxResult({
   threadLookup: ThreadLookup;
   isInProgress?: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const { provider, userEmail } = useAccount();
+  const providerName = provider === "microsoft" ? "Outlook" : "Gmail";
   const outputAction = getOutputField<string>(output, "action");
   const action = parseManageInboxAction(input?.action || outputAction);
   const successCount = getOutputField<number>(output, "successCount");
@@ -275,29 +287,34 @@ export function ManageInboxResult({
     input?.action === "archive_threads"
       ? Boolean(input.label)
       : Boolean(getOutputField<string>(output, "labelId"));
-  const actionLabel = getManageInboxActionLabel({
-    action,
-    read,
-    labelApplied,
-    inProgress: isInProgress,
-  });
+  const actionLabel = i18n._(
+    getManageInboxActionLabel({
+      action,
+      read,
+      labelApplied,
+      inProgress: isInProgress,
+    }),
+  );
   const archivedMessagesCount = getOutputField<number>(
     output,
     "archivedMessagesCount",
   );
   const isSenderAction =
     action === "bulk_archive_senders" || action === "unsubscribe_senders";
-  let completedCount = successCount ?? requestedCount;
-  let countLabel = "item";
+  const itemCount = successCount ?? requestedCount;
+  const senderCount = sendersCount ?? senders?.length;
+  let countText: string | undefined;
   if (
     action === "bulk_archive_senders" &&
     typeof archivedMessagesCount === "number"
   ) {
-    completedCount = archivedMessagesCount;
-    countLabel = "message";
+    countText = t`${plural(archivedMessagesCount, { one: "# message", other: "# messages" })}`;
   } else if (isSenderAction) {
-    completedCount = sendersCount ?? senders?.length;
-    countLabel = "sender";
+    if (typeof senderCount === "number") {
+      countText = t`${plural(senderCount, { one: "# sender", other: "# senders" })}`;
+    }
+  } else if (typeof itemCount === "number") {
+    countText = t`${plural(itemCount, { one: "# item", other: "# items" })}`;
   }
 
   const resolvedThreads = threadIds
@@ -314,13 +331,12 @@ export function ManageInboxResult({
     <CollapsibleToolCard
       title={actionLabel}
       badge={
-        typeof completedCount === "number" ? (
+        countText ? (
           <Badge
             color={failedCount ? "yellow" : isInProgress ? "blue" : "green"}
             className="text-[10px]"
           >
-            {completedCount} {countLabel}
-            {completedCount === 1 ? "" : "s"}
+            {countText}
           </Badge>
         ) : undefined
       }
@@ -328,15 +344,28 @@ export function ManageInboxResult({
     >
       {isInProgress && (
         <ToolPanel className="border-blue-200 bg-blue-50/60 text-blue-700 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-200">
-          <div className="text-sm">Processing senders now.</div>
+          <div className="text-sm">
+            <Trans>Processing senders now.</Trans>
+          </div>
         </ToolPanel>
       )}
 
       {typeof failedCount === "number" && failedCount > 0 && (
         <ToolPanel className="border-red-200 bg-red-50/60 text-red-700 dark:border-red-900 dark:bg-red-950/20 dark:text-red-200">
           <div className="text-sm">
-            Failed on {failedCount} {isSenderAction ? "sender" : "item"}
-            {failedCount === 1 ? "" : "s"}.
+            {isSenderAction ? (
+              <Plural
+                value={failedCount}
+                one="Failed on # sender."
+                other="Failed on # senders."
+              />
+            ) : (
+              <Plural
+                value={failedCount}
+                one="Failed on # item."
+                other="Failed on # items."
+              />
+            )}
           </div>
         </ToolPanel>
       )}
@@ -348,7 +377,7 @@ export function ManageInboxResult({
       )}
 
       {senders && senders.length > 0 && (
-        <ToolSection label="Senders">
+        <ToolSection label={t`Senders`}>
           <div className="space-y-2">
             {senders.map((sender) => (
               <ToolPanel
@@ -363,9 +392,7 @@ export function ManageInboxResult({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="shrink-0 text-muted-foreground hover:text-foreground"
-                  aria-label={`View ${sender} in ${
-                    provider === "microsoft" ? "Outlook" : "Gmail"
-                  }`}
+                  aria-label={t`View ${sender} in ${providerName}`}
                 >
                   <ExternalLinkIcon className="size-3.5" />
                 </a>
@@ -379,7 +406,9 @@ export function ManageInboxResult({
 }
 
 export function ManageSenderCategoryResult({ output }: { output: unknown }) {
+  const { t } = useLingui();
   const { provider, userEmail } = useAccount();
+  const providerName = provider === "microsoft" ? "Outlook" : "Gmail";
   const category = getOutputField<{ id: string | null; name: string }>(
     output,
     "category",
@@ -390,11 +419,11 @@ export function ManageSenderCategoryResult({ output }: { output: unknown }) {
     "archivedMessagesCount",
   );
   const senders = getOutputField<string[]>(output, "senders") ?? [];
-  const categoryName = category?.name?.trim() || "Category";
+  const categoryName = category?.name?.trim() || t`Category`;
 
   if (senders.length === 0) {
     return (
-      <BasicToolInfo text={`No senders to archive in "${categoryName}"`} />
+      <BasicToolInfo text={t`No senders to archive in "${categoryName}"`} />
     );
   }
 
@@ -404,8 +433,8 @@ export function ManageSenderCategoryResult({ output }: { output: unknown }) {
     <CollapsibleToolCard
       title={
         archivedMessagesCount === 0
-          ? `No messages archived in "${categoryName}"`
-          : `Archived "${categoryName}" category`
+          ? t`No messages archived in "${categoryName}"`
+          : t`Archived "${categoryName}" category`
       }
       badge={
         typeof archivedMessagesCount === "number" ? (
@@ -413,17 +442,20 @@ export function ManageSenderCategoryResult({ output }: { output: unknown }) {
             color={archivedMessagesCount > 0 ? "green" : "gray"}
             className="text-[10px]"
           >
-            {archivedMessagesCount} message
-            {archivedMessagesCount === 1 ? "" : "s"}
+            <Plural
+              value={archivedMessagesCount}
+              one="# message"
+              other="# messages"
+            />
           </Badge>
         ) : (
           <Badge color="green" className="text-[10px]">
-            {sendersCount} sender{sendersCount === 1 ? "" : "s"}
+            <Plural value={sendersCount} one="# sender" other="# senders" />
           </Badge>
         )
       }
     >
-      <ToolSection label="Senders">
+      <ToolSection label={t`Senders`}>
         <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
           {senders.map((sender) => (
             <ToolPanel
@@ -438,9 +470,7 @@ export function ManageSenderCategoryResult({ output }: { output: unknown }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="shrink-0 text-muted-foreground hover:text-foreground"
-                aria-label={`View ${sender} in ${
-                  provider === "microsoft" ? "Outlook" : "Gmail"
-                }`}
+                aria-label={t`View ${sender} in ${providerName}`}
               >
                 <ExternalLinkIcon className="size-3.5" />
               </a>
@@ -449,7 +479,11 @@ export function ManageSenderCategoryResult({ output }: { output: unknown }) {
         </div>
         {hiddenCount > 0 && (
           <div className="text-xs text-muted-foreground">
-            + {hiddenCount} more sender{hiddenCount === 1 ? "" : "s"} not shown
+            <Plural
+              value={hiddenCount}
+              one="+ # more sender not shown"
+              other="+ # more senders not shown"
+            />
           </div>
         )}
       </ToolSection>
@@ -469,7 +503,9 @@ type EmailConfirmationResult = {
 };
 
 export function ReadEmailResult({ output }: { output: unknown }) {
+  const { t, i18n } = useLingui();
   const { provider, userEmail } = useAccount();
+  const providerName = provider === "microsoft" ? "Outlook" : "Gmail";
   const subject = getOutputField<string>(output, "subject");
   const from = getOutputField<string>(output, "from");
   const to = getOutputField<string>(output, "to");
@@ -486,11 +522,11 @@ export function ReadEmailResult({ output }: { output: unknown }) {
     provider,
   });
   const formattedDate = date
-    ? formatShortDate(new Date(date), { lowercase: true })
+    ? formatShortDate(new Date(date), { lowercase: true, locale: i18n.locale })
     : null;
 
   return (
-    <SubtleToolCollapsible title="Read Email">
+    <SubtleToolCollapsible title={t`Read Email`}>
       <div className="space-y-3 text-sm">
         {(subject || from || to || formattedDate) && (
           <div className="space-y-1">
@@ -500,10 +536,10 @@ export function ReadEmailResult({ output }: { output: unknown }) {
               </div>
             )}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              {from && <InlineMetadataItem label="From" value={from} />}
-              {to && <InlineMetadataItem label="To" value={to} />}
+              {from && <InlineMetadataItem label={t`From`} value={from} />}
+              {to && <InlineMetadataItem label={t`To`} value={to} />}
               {formattedDate && (
-                <InlineMetadataItem label="Date" value={formattedDate} />
+                <InlineMetadataItem label={t`Date`} value={formattedDate} />
               )}
             </div>
           </div>
@@ -515,7 +551,7 @@ export function ReadEmailResult({ output }: { output: unknown }) {
         )}
         {externalUrl && (
           <ToolExternalLink href={externalUrl}>
-            Open in {provider === "microsoft" ? "Outlook" : "Gmail"}
+            <Trans>Open in {providerName}</Trans>
           </ToolExternalLink>
         )}
       </div>
@@ -602,6 +638,7 @@ function EmailActionResult({
   toolCallId: string;
   disableConfirm: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId, provider, userEmail } = useAccount();
   const { chatId, persistedMessageIds } = useChat();
   const [isConfirming, setIsConfirming] = useState(false);
@@ -671,7 +708,6 @@ function EmailActionResult({
     provider,
   });
 
-  const actionLabel = getEmailActionLabel(actionType);
   const recipientInitial = recipient ? recipient.charAt(0).toUpperCase() : "?";
   const providerName = provider === "microsoft" ? "Outlook" : "Gmail";
 
@@ -685,7 +721,7 @@ function EmailActionResult({
     setIsConfirming(true);
     try {
       if (!chatId) {
-        toastError({ description: "Could not confirm this email action." });
+        toastError({ description: t`Could not confirm this email action.` });
         return;
       }
 
@@ -706,24 +742,27 @@ function EmailActionResult({
 
       const parsed = parseConfirmationResult(result?.data?.confirmationResult);
       if (!parsed) {
-        toastError({ description: "Could not confirm this email action." });
+        toastError({ description: t`Could not confirm this email action.` });
         return;
       }
 
       setConfirmationResultOverride(parsed);
       toastSuccess({
-        description: getAssistantEmailSuccessMessage(actionType),
+        description: i18n._(getAssistantEmailSuccessMessage(actionType)),
       });
     } catch {
-      toastError({ description: "Could not confirm this email action." });
+      toastError({ description: t`Could not confirm this email action.` });
     } finally {
       setIsConfirming(false);
     }
   };
 
-  const sentLabel = isConfirmed
-    ? getEmailActionSentLabel(actionType)
-    : actionLabel;
+  const heading = getEmailActionHeading({
+    actionType,
+    isConfirmed,
+    recipient,
+    i18n,
+  });
 
   return (
     <Card>
@@ -732,23 +771,22 @@ function EmailActionResult({
           <AvatarFallbackColor content={recipientInitial} className="text-xs" />
         </Avatar>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold leading-tight">
-            {sentLabel ? `${sentLabel} ` : ""}
-            {recipient}
-          </div>
+          <div className="text-sm font-semibold leading-tight">{heading}</div>
           {cc && (
-            <div className="mt-0.5 text-xs text-muted-foreground">CC: {cc}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              <Trans>CC: {cc}</Trans>
+            </div>
           )}
           {bcc && (
             <div className="mt-0.5 text-xs text-muted-foreground">
-              BCC: {bcc}
+              <Trans>BCC: {bcc}</Trans>
             </div>
           )}
         </div>
         {isConfirmed && (
           <div className="flex items-center gap-1 text-xs font-medium text-green-600">
             <CheckIcon className="size-3.5" />
-            Sent
+            <Trans>Sent</Trans>
           </div>
         )}
       </CardHeader>
@@ -756,7 +794,9 @@ function EmailActionResult({
       <CardContent className="p-0">
         {displaySubject && (
           <div className="flex items-center gap-2 border-b px-4 py-2.5">
-            <FieldLabel>Subject</FieldLabel>
+            <FieldLabel>
+              <Trans>Subject</Trans>
+            </FieldLabel>
             <span className="truncate text-sm font-medium text-foreground">
               {getPendingEmailSubjectPrefix(actionType)}
               {displaySubject}
@@ -783,10 +823,10 @@ function EmailActionResult({
                     setIsEditing(false);
                   }}
                 >
-                  Cancel
+                  <Trans>Cancel</Trans>
                 </Button>
                 <Button size="sm" onClick={() => setIsEditing(false)}>
-                  Save changes
+                  <Trans>Save changes</Trans>
                 </Button>
               </div>
             </div>
@@ -809,7 +849,9 @@ function EmailActionResult({
                 onClick={() => setIsEditing(true)}
               >
                 <PencilIcon className="size-3.5" />
-                <span className="hidden sm:inline">Edit</span>
+                <span className="hidden sm:inline">
+                  <Trans>Edit</Trans>
+                </span>
               </Button>
             )}
             <Button
@@ -826,7 +868,7 @@ function EmailActionResult({
                 <CopyIcon className="size-3.5" />
               )}
               <span className="hidden sm:inline">
-                {copied ? "Copied" : "Copy"}
+                {copied ? t`Copied` : t`Copy`}
               </span>
             </Button>
             {externalUrl && (
@@ -839,7 +881,7 @@ function EmailActionResult({
                 <a href={externalUrl} target="_blank" rel="noopener noreferrer">
                   <ExternalLinkIcon className="size-3.5" />
                   <span className="hidden sm:inline">
-                    Open in {providerName}
+                    <Trans>Open in {providerName}</Trans>
                   </span>
                 </a>
               </Button>
@@ -854,18 +896,18 @@ function EmailActionResult({
               className="gap-2"
             >
               {isProcessing ? (
-                "Sending..."
+                t`Sending...`
               ) : isConfirming ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Sending...
+                  <Trans>Sending...</Trans>
                 </>
               ) : !isPersistedMessage ? (
-                "Saving..."
+                t`Saving...`
               ) : (
                 <>
                   <SendIcon className="hidden size-3.5 sm:inline" />
-                  Send
+                  <Trans>Send</Trans>
                 </>
               )}
             </Button>
@@ -887,7 +929,8 @@ export function CreatedRuleToolCard({
   preview?: boolean;
   status?: "created" | "pending";
 }) {
-  const conditionText = buildConditionText(args.condition);
+  const { t, i18n } = useLingui();
+  const conditionText = buildConditionText(args.condition, i18n);
   const isCreated = status ? status === "created" : Boolean(ruleId);
 
   return (
@@ -895,7 +938,7 @@ export function CreatedRuleToolCard({
       title={args.name}
       status={
         <RuleStatusBadge
-          label={isCreated ? "Created" : "Pending"}
+          label={isCreated ? t`Created` : t`Pending`}
           color={isCreated ? "green" : "yellow"}
         />
       }
@@ -907,11 +950,11 @@ export function CreatedRuleToolCard({
         ) : null
       }
     >
-      <RuleSummaryRow label="When">
+      <RuleSummaryRow label={t`When`}>
         <RuleSummaryText>{conditionText}</RuleSummaryText>
       </RuleSummaryRow>
 
-      <RuleSummaryRow label="Then">
+      <RuleSummaryRow label={t`Then`}>
         <ActionBadgeList actions={args.actions} />
       </RuleSummaryRow>
     </RuleSummaryCard>
@@ -931,6 +974,7 @@ export function PendingCreateRuleToolCard({
   toolCallId: string;
   disableConfirm: boolean;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { chatId } = useChat();
   const [isConfirming, setIsConfirming] = useState(false);
@@ -948,7 +992,7 @@ export function PendingCreateRuleToolCard({
     setIsConfirming(true);
     try {
       if (!chatId) {
-        toastError({ description: "Could not create this rule." });
+        toastError({ description: t`Could not create this rule.` });
         return;
       }
 
@@ -962,14 +1006,14 @@ export function PendingCreateRuleToolCard({
 
       const createdId = result?.data?.ruleId;
       if (!createdId) {
-        toastError({ description: "Could not create this rule." });
+        toastError({ description: t`Could not create this rule.` });
         return;
       }
 
       setRuleIdOverride(createdId);
-      toastSuccess({ description: "Rule created and enabled." });
+      toastSuccess({ description: t`Rule created and enabled.` });
     } catch {
-      toastError({ description: "Could not create this rule." });
+      toastError({ description: t`Could not create this rule.` });
     } finally {
       setIsConfirming(false);
     }
@@ -1018,6 +1062,7 @@ export function PendingSaveMemoryToolCard({
   toolCallId: string;
   disableConfirm: boolean;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { chatId } = useChat();
   const [isConfirming, setIsConfirming] = useState(false);
@@ -1055,7 +1100,7 @@ export function PendingSaveMemoryToolCard({
     setIsConfirming(true);
     try {
       if (!chatId) {
-        toastError({ description: "Could not save this memory." });
+        toastError({ description: t`Could not save this memory.` });
         return;
       }
 
@@ -1069,7 +1114,7 @@ export function PendingSaveMemoryToolCard({
 
       const confirmationResult = result?.data?.confirmationResult;
       if (!confirmationResult?.confirmedAt) {
-        toastError({ description: "Could not save this memory." });
+        toastError({ description: t`Could not save this memory.` });
         return;
       }
 
@@ -1077,11 +1122,11 @@ export function PendingSaveMemoryToolCard({
       setDeduplicatedOverride(Boolean(confirmationResult.deduplicated));
       toastSuccess({
         description: confirmationResult.deduplicated
-          ? "Memory was already saved."
-          : "Memory saved.",
+          ? t`Memory was already saved.`
+          : t`Memory saved.`,
       });
     } catch {
-      toastError({ description: "Could not save this memory." });
+      toastError({ description: t`Could not save this memory.` });
     } finally {
       setIsConfirming(false);
     }
@@ -1092,18 +1137,20 @@ export function PendingSaveMemoryToolCard({
       <CardHeader className="px-4 py-3.5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-medium">Save memory</h3>
+            <h3 className="text-sm font-medium">
+              <Trans>Save memory</Trans>
+            </h3>
             <p className="mt-1 text-xs text-muted-foreground">
               {isConfirmed
                 ? deduplicated
-                  ? "Already saved in memory"
-                  : "Saved for future conversations"
-                : "Pending confirmation"}
+                  ? t`Already saved in memory`
+                  : t`Saved for future conversations`
+                : t`Pending confirmation`}
             </p>
           </div>
           {confirmedAt && (
             <Badge color={deduplicated ? "gray" : "green"} className="text-xs">
-              {deduplicated ? "Already saved" : "Saved"}
+              {deduplicated ? t`Already saved` : t`Saved`}
             </Badge>
           )}
         </div>
@@ -1127,14 +1174,14 @@ export function PendingSaveMemoryToolCard({
             className="gap-2"
           >
             {isProcessing ? (
-              "Saving..."
+              t`Saving...`
             ) : isConfirming ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Saving...
+                <Trans>Saving...</Trans>
               </>
             ) : (
-              "Confirm save"
+              t`Confirm save`
             )}
           </Button>
         </CardFooter>
@@ -1160,6 +1207,8 @@ function PendingCreateRuleCardContent({
   riskMessages: string[];
   ruleId?: string;
 }) {
+  const { t } = useLingui();
+
   if (ruleId) {
     return <CreatedRuleToolCard args={args} ruleId={ruleId} />;
   }
@@ -1168,10 +1217,14 @@ function PendingCreateRuleCardContent({
     <div className="space-y-3">
       <Alert variant="default" className="border-amber-500/40 bg-amber-500/5">
         <AlertTriangleIcon className="size-4 text-amber-600" />
-        <AlertTitle>Review before enabling</AlertTitle>
+        <AlertTitle>
+          <Trans>Review before enabling</Trans>
+        </AlertTitle>
         <AlertDescription className="space-y-2 text-sm">
           <p>
-            This rule can send email automatically. Review it before enabling.
+            <Trans>
+              This rule can send email automatically. Review it before enabling.
+            </Trans>
           </p>
           {riskMessages.length === 1 ? (
             <p className="text-muted-foreground">{riskMessages[0]}</p>
@@ -1195,14 +1248,14 @@ function PendingCreateRuleCardContent({
           className="gap-2"
         >
           {isProcessing ? (
-            "Creating..."
+            t`Creating...`
           ) : isConfirming ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Creating...
+              <Trans>Creating...</Trans>
             </>
           ) : (
-            "Create & enable rule"
+            t`Create & enable rule`
           )}
         </Button>
       </div>
@@ -1229,14 +1282,15 @@ export function UpdatedRuleConditions({
     originalConditions &&
     updatedConditions &&
     originalConditions.aiInstructions !== updatedConditions.aiInstructions;
+  const { t, i18n } = useLingui();
 
-  const conditionText = buildConditionText(args.condition);
+  const conditionText = buildConditionText(args.condition, i18n);
 
   return (
     <Card>
       <RuleSummaryCardHeader
         title={args.ruleName}
-        status={<RuleStatusBadge label="Updated" color="blue" />}
+        status={<RuleStatusBadge label={t`Updated`} color="blue" />}
         actions={
           preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />
         }
@@ -1244,13 +1298,17 @@ export function UpdatedRuleConditions({
 
       <CardContent className="space-y-3 px-4 py-3.5">
         <div className="flex gap-4 text-sm">
-          <FieldLabel className="pt-0.5">When</FieldLabel>
+          <FieldLabel className="pt-0.5">
+            <Trans>When</Trans>
+          </FieldLabel>
           <RuleSummaryText>{conditionText}</RuleSummaryText>
         </div>
 
         {actions && actions.length > 0 && (
           <div className="flex gap-4 text-sm">
-            <FieldLabel className="pt-0.5">Then</FieldLabel>
+            <FieldLabel className="pt-0.5">
+              <Trans>Then</Trans>
+            </FieldLabel>
             <ActionBadgeList actions={actions} />
           </div>
         )}
@@ -1258,7 +1316,7 @@ export function UpdatedRuleConditions({
         {hasChanges && (
           <ViewChangesCollapsible>
             <CollapsibleDiffContent
-              title="Instructions:"
+              title={t`Instructions:`}
               originalText={originalConditions?.aiInstructions || undefined}
               updatedText={updatedConditions?.aiInstructions || undefined}
             />
@@ -1299,14 +1357,15 @@ export function UpdatedRuleActions({
     originalActions &&
     updatedActions &&
     JSON.stringify(originalActions) !== JSON.stringify(updatedActions);
+  const { t, i18n } = useLingui();
 
-  const conditionText = condition ? buildConditionText(condition) : null;
+  const conditionText = condition ? buildConditionText(condition, i18n) : null;
 
   return (
     <Card>
       <RuleSummaryCardHeader
         title={args.ruleName}
-        status={<RuleStatusBadge label="Updated" color="blue" />}
+        status={<RuleStatusBadge label={t`Updated`} color="blue" />}
         actions={
           preview ? <RuleActionsPreview /> : <RuleActions ruleId={ruleId} />
         }
@@ -1315,22 +1374,26 @@ export function UpdatedRuleActions({
       <CardContent className="space-y-3 px-4 py-3.5">
         {conditionText && (
           <div className="flex gap-4 text-sm">
-            <FieldLabel className="pt-0.5">When</FieldLabel>
+            <FieldLabel className="pt-0.5">
+              <Trans>When</Trans>
+            </FieldLabel>
             <RuleSummaryText>{conditionText}</RuleSummaryText>
           </div>
         )}
 
         <div className="flex gap-4 text-sm">
-          <FieldLabel className="pt-0.5">Then</FieldLabel>
+          <FieldLabel className="pt-0.5">
+            <Trans>Then</Trans>
+          </FieldLabel>
           <ActionBadgeList actions={args.actions} />
         </div>
 
         {hasChanges && (
           <ViewChangesCollapsible>
             <CollapsibleDiffContent
-              title="Actions:"
-              originalText={formatActionsForDiff(originalActions || [])}
-              updatedText={formatActionsForDiff(updatedActions || [])}
+              title={t`Actions:`}
+              originalText={formatActionsForDiff(originalActions || [], i18n)}
+              updatedText={formatActionsForDiff(updatedActions || [], i18n)}
             />
           </ViewChangesCollapsible>
         )}
@@ -1348,6 +1411,7 @@ export function UpdatedRule({
   output: UpdateRuleOutput;
   preview?: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const ruleId = output.ruleId;
   const title = output.updatedName || args.updates.name || args.ruleName;
   const conditionText = output.updatedConditions
@@ -1357,6 +1421,7 @@ export function UpdatedRule({
             originalConditions: output.originalConditions,
             updatedConditions: output.updatedConditions,
           }),
+        i18n,
       )
     : null;
   const actions = output.updatedActions;
@@ -1383,7 +1448,9 @@ export function UpdatedRule({
     <Card>
       <RuleSummaryCardHeader
         title={title}
-        status={<RuleStatusBadge label={status.label} color={status.color} />}
+        status={
+          <RuleStatusBadge label={i18n._(status.label)} color={status.color} />
+        }
         actions={
           preview ? (
             <RuleActionsPreview />
@@ -1396,28 +1463,36 @@ export function UpdatedRule({
       <CardContent className="space-y-3 px-4 py-3.5">
         {nameChanged && output.updatedName && (
           <div className="flex gap-4 text-sm">
-            <FieldLabel className="pt-0.5">Name</FieldLabel>
+            <FieldLabel className="pt-0.5">
+              <Trans>Name</Trans>
+            </FieldLabel>
             <p>{output.updatedName}</p>
           </div>
         )}
 
         {conditionText && (
           <div className="flex gap-4 text-sm">
-            <FieldLabel className="pt-0.5">When</FieldLabel>
+            <FieldLabel className="pt-0.5">
+              <Trans>When</Trans>
+            </FieldLabel>
             <RuleSummaryText>{conditionText}</RuleSummaryText>
           </div>
         )}
 
         {enabledChanged && output.updatedEnabled !== undefined && (
           <div className="flex gap-4 text-sm">
-            <FieldLabel className="pt-0.5">Status</FieldLabel>
-            <p>{output.updatedEnabled ? "Enabled" : "Disabled"}</p>
+            <FieldLabel className="pt-0.5">
+              <Trans>Status</Trans>
+            </FieldLabel>
+            <p>{output.updatedEnabled ? t`Enabled` : t`Disabled`}</p>
           </div>
         )}
 
         {actions && (
           <div className="flex gap-4 text-sm">
-            <FieldLabel className="pt-0.5">Then</FieldLabel>
+            <FieldLabel className="pt-0.5">
+              <Trans>Then</Trans>
+            </FieldLabel>
             <ActionBadgeList actions={actions} />
           </div>
         )}
@@ -1425,7 +1500,7 @@ export function UpdatedRule({
         {nameChanged && output.originalName && output.updatedName && (
           <ViewChangesCollapsible>
             <CollapsibleDiffContent
-              title="Name:"
+              title={t`Name:`}
               originalText={output.originalName}
               updatedText={output.updatedName}
             />
@@ -1445,8 +1520,9 @@ export function UpdatedLearnedPatterns({
   ruleId: string;
   preview?: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const actions = preview ? (
-    <Tooltip content="Edit rule">
+    <Tooltip content={t`Edit rule`}>
       <Button variant="ghostMuted" size="iconSm">
         <PencilIcon className="size-4" />
       </Button>
@@ -1459,24 +1535,24 @@ export function UpdatedLearnedPatterns({
     <Card>
       <RuleSummaryCardHeader
         title={args.ruleName}
-        status={<RuleStatusBadge label="Patterns updated" color="blue" />}
+        status={<RuleStatusBadge label={t`Patterns updated`} color="blue" />}
         actions={actions}
       />
 
       <CardContent className="space-y-3 px-4 py-3.5">
         {args.learnedPatterns.map((pattern, i) => {
           if (!pattern) return null;
-          const includeParts = formatPatternParts(pattern.include);
-          const excludeParts = formatPatternParts(pattern.exclude);
+          const includeParts = formatPatternParts(pattern.include, i18n);
+          const excludeParts = formatPatternParts(pattern.exclude, i18n);
           if (!includeParts && !excludeParts) return null;
 
           return (
             <ToolPanel key={i} className="space-y-2">
               {includeParts && (
-                <ToolDetailRow label="Include" value={includeParts} />
+                <ToolDetailRow label={t`Include`} value={includeParts} />
               )}
               {excludeParts && (
-                <ToolDetailRow label="Exclude" value={excludeParts} />
+                <ToolDetailRow label={t`Exclude`} value={excludeParts} />
               )}
             </ToolPanel>
           );
@@ -1495,10 +1571,11 @@ export function UpdatedRuleState({
   output: LegacyRuleStateOutput;
   preview?: boolean;
 }) {
+  const { t } = useLingui();
   const ruleId = output.ruleId;
   const ruleName = output.ruleName || args.ruleName;
   const enabled = output.enabled ?? args.operation === "enable";
-  const label = enabled ? "Enabled" : "Disabled";
+  const label = enabled ? t`Enabled` : t`Disabled`;
 
   return (
     <Card>
@@ -1517,7 +1594,9 @@ export function UpdatedRuleState({
       />
       <CardContent className="space-y-3 px-4 py-3.5">
         <div className="flex items-center gap-2 text-sm">
-          <FieldLabel>Status</FieldLabel>
+          <FieldLabel>
+            <Trans>Status</Trans>
+          </FieldLabel>
           <Badge color={enabled ? "green" : "gray"}>{label}</Badge>
         </div>
       </CardContent>
@@ -1534,6 +1613,7 @@ export function PendingDeleteRuleToolCard({
   output: DeleteRuleOutput;
   disableConfirm: boolean;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleted, setDeleted] = useState(
@@ -1544,7 +1624,7 @@ export function PendingDeleteRuleToolCard({
 
   const handleDelete = async () => {
     if (!ruleId) {
-      toastError({ description: "Could not delete this rule." });
+      toastError({ description: t`Could not delete this rule.` });
       return;
     }
 
@@ -1557,9 +1637,9 @@ export function PendingDeleteRuleToolCard({
       }
 
       setDeleted(true);
-      toastSuccess({ description: "The rule has been deleted." });
+      toastSuccess({ description: t`The rule has been deleted.` });
     } catch {
-      toastError({ description: "Failed to delete rule." });
+      toastError({ description: t`Failed to delete rule.` });
     } finally {
       setIsDeleting(false);
     }
@@ -1572,12 +1652,12 @@ export function PendingDeleteRuleToolCard({
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-semibold">{ruleName}</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            {deleted ? "Deleted rule" : "Pending deletion"}
+            {deleted ? t`Deleted rule` : t`Pending deletion`}
           </p>
         </div>
         {deleted && (
           <Badge color="green" className="shrink-0">
-            Deleted
+            <Trans>Deleted</Trans>
           </Badge>
         )}
       </CardHeader>
@@ -1589,9 +1669,13 @@ export function PendingDeleteRuleToolCard({
             className="border-amber-500/40 bg-amber-500/5"
           >
             <AlertTriangleIcon className="size-4 text-amber-600" />
-            <AlertTitle>Confirm rule deletion</AlertTitle>
+            <AlertTitle>
+              <Trans>Confirm rule deletion</Trans>
+            </AlertTitle>
             <AlertDescription className="text-sm text-muted-foreground">
-              This will permanently delete the rule and its actions.
+              <Trans>
+                This will permanently delete the rule and its actions.
+              </Trans>
             </AlertDescription>
           </Alert>
 
@@ -1606,10 +1690,10 @@ export function PendingDeleteRuleToolCard({
               {isDeleting ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Deleting...
+                  <Trans>Deleting...</Trans>
                 </>
               ) : (
-                "Delete rule"
+                t`Delete rule`
               )}
             </Button>
           </div>
@@ -1626,6 +1710,7 @@ export function PendingDeleteRulePreviewCard({
   args: DeleteRuleTool["input"];
   output: DeleteRuleOutput;
 }) {
+  const { t } = useLingui();
   const deleted = output.confirmationState === "confirmed";
   const ruleName = output.ruleName || args.ruleName;
 
@@ -1636,12 +1721,12 @@ export function PendingDeleteRulePreviewCard({
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-semibold">{ruleName}</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            {deleted ? "Deleted rule" : "Pending deletion"}
+            {deleted ? t`Deleted rule` : t`Pending deletion`}
           </p>
         </div>
         {deleted && (
           <Badge color="green" className="shrink-0">
-            Deleted
+            <Trans>Deleted</Trans>
           </Badge>
         )}
       </CardHeader>
@@ -1653,15 +1738,19 @@ export function PendingDeleteRulePreviewCard({
             className="border-amber-500/40 bg-amber-500/5"
           >
             <AlertTriangleIcon className="size-4 text-amber-600" />
-            <AlertTitle>Confirm rule deletion</AlertTitle>
+            <AlertTitle>
+              <Trans>Confirm rule deletion</Trans>
+            </AlertTitle>
             <AlertDescription className="text-sm text-muted-foreground">
-              This will permanently delete the rule and its actions.
+              <Trans>
+                This will permanently delete the rule and its actions.
+              </Trans>
             </AlertDescription>
           </Alert>
 
           <div className="flex justify-end">
             <Button variant="destructive" size="sm" disabled>
-              Delete rule
+              <Trans>Delete rule</Trans>
             </Button>
           </div>
         </CardContent>
@@ -1675,8 +1764,10 @@ export function UpdatePersonalInstructions({
 }: {
   args: UpdatePersonalInstructionsTool["input"];
 }) {
+  const { t } = useLingui();
+
   return (
-    <ExpandedToolCard title="Updated Personal Instructions">
+    <ExpandedToolCard title={t`Updated Personal Instructions`}>
       <ToolPanel className="text-sm leading-relaxed">
         {args.personalInstructions}
       </ToolPanel>
@@ -1689,11 +1780,12 @@ export function AddToKnowledgeBase({
 }: {
   args: AddToKnowledgeBaseTool["input"];
 }) {
+  const { t } = useLingui();
   const [_, setTab] = useQueryState("tab");
 
   return (
     <ExpandedToolCard
-      title="Added to Knowledge Base"
+      title={t`Added to Knowledge Base`}
       actions={
         <div className="self-center">
           <Button
@@ -1702,13 +1794,13 @@ export function AddToKnowledgeBase({
             className="h-8 px-2"
             onClick={() => setTab("rules")}
           >
-            View Knowledge Base
+            <Trans>View Knowledge Base</Trans>
           </Button>
         </div>
       }
     >
-      <ToolDetailRow label="Title" value={args.title} />
-      <ToolSection label="Content">
+      <ToolDetailRow label={t`Title`} value={args.title} />
+      <ToolSection label={t`Content`}>
         <ToolPanel className="text-sm leading-relaxed">
           <ExpandableText text={args.content} />
         </ToolPanel>
@@ -1724,17 +1816,18 @@ function RuleActions({
   ruleId: string;
   initialEnabled?: boolean;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
 
   return (
     <div className="flex items-center gap-1.5">
       <RuleEditToggleActions ruleId={ruleId} initialEnabled={initialEnabled} />
-      <Tooltip content="Delete rule">
+      <Tooltip content={t`Delete rule`}>
         <Button
           variant="ghostMuted"
           size="iconSm"
           onClick={async () => {
-            const yes = confirm("Are you sure you want to delete this rule?");
+            const yes = confirm(t`Are you sure you want to delete this rule?`);
             if (yes) {
               try {
                 const result = await deleteRuleAction(emailAccountId, {
@@ -1744,11 +1837,11 @@ function RuleActions({
                   toastError({ description: result.serverError });
                 } else {
                   toastSuccess({
-                    description: "The rule has been deleted.",
+                    description: t`The rule has been deleted.`,
                   });
                 }
               } catch {
-                toastError({ description: "Failed to delete rule." });
+                toastError({ description: t`Failed to delete rule.` });
               }
             }
           }}
@@ -1767,6 +1860,7 @@ function RuleEditToggleActions({
   ruleId: string;
   initialEnabled?: boolean;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const ruleDialog = useDialogState<{ ruleId: string }>();
   const [enabled, setEnabled] = useState(initialEnabled);
@@ -1776,7 +1870,7 @@ function RuleEditToggleActions({
 
   return (
     <>
-      <Tooltip content="Edit rule">
+      <Tooltip content={t`Edit rule`}>
         <Button
           variant="ghostMuted"
           size="iconSm"
@@ -1794,13 +1888,17 @@ function RuleEditToggleActions({
             if (result?.serverError) {
               setEnabled(!checked);
               toastError({
-                description: `Failed to ${checked ? "enable" : "disable"} rule.`,
+                description: checked
+                  ? t`Failed to enable rule.`
+                  : t`Failed to disable rule.`,
               });
             }
           } catch {
             setEnabled(!checked);
             toastError({
-              description: `Failed to ${checked ? "enable" : "disable"} rule.`,
+              description: checked
+                ? t`Failed to enable rule.`
+                : t`Failed to disable rule.`,
             });
           }
         }}
@@ -1817,10 +1915,11 @@ function RuleEditToggleActions({
 }
 
 function RuleActionsPreview({ enabled = true }: { enabled?: boolean }) {
+  const { t } = useLingui();
   return (
     <div className="flex items-center gap-1.5">
       <RuleEditToggleActionsPreview enabled={enabled} />
-      <Tooltip content="Delete rule">
+      <Tooltip content={t`Delete rule`}>
         <Button variant="ghostMuted" size="iconSm">
           <TrashIcon className="size-4" />
         </Button>
@@ -1834,9 +1933,11 @@ function RuleEditToggleActionsPreview({
 }: {
   enabled?: boolean;
 }) {
+  const { t } = useLingui();
+
   return (
     <>
-      <Tooltip content="Edit rule">
+      <Tooltip content={t`Edit rule`}>
         <Button variant="ghostMuted" size="iconSm">
           <PencilIcon className="size-4" />
         </Button>
@@ -1847,11 +1948,12 @@ function RuleEditToggleActionsPreview({
 }
 
 function LearnedPatternsActions({ ruleId }: { ruleId: string }) {
+  const { t } = useLingui();
   const ruleDialog = useDialogState<{ ruleId: string }>();
 
   return (
     <>
-      <Tooltip content="Edit rule">
+      <Tooltip content={t`Edit rule`}>
         <Button
           variant="ghostMuted"
           size="iconSm"
@@ -1887,15 +1989,15 @@ function getRuleUpdateStatus({
   alreadyApplied: boolean | undefined;
   onlyEnabledChanged: boolean;
   updatedEnabled: boolean | undefined;
-}): { label: string; color: Color } {
-  if (alreadyApplied) return { label: "Already applied", color: "gray" };
+}): { label: MessageDescriptor; color: Color } {
+  if (alreadyApplied) return { label: msg`Already applied`, color: "gray" };
 
   if (onlyEnabledChanged) {
     return updatedEnabled
-      ? { label: "Enabled", color: "green" }
-      : { label: "Disabled", color: "gray" };
+      ? { label: msg`Enabled`, color: "green" }
+      : { label: msg`Disabled`, color: "gray" };
   }
-  return { label: "Updated", color: "blue" };
+  return { label: msg`Updated`, color: "blue" };
 }
 
 function ExpandedToolCard({
@@ -1939,7 +2041,7 @@ function ViewChangesCollapsible({ children }: { children: React.ReactNode }) {
     <Collapsible>
       <CollapsibleTrigger className="flex items-center gap-1.5 text-sm text-muted-foreground">
         <ChevronRightIcon className="size-4 transition-transform [[data-state=open]>&]:rotate-90" />
-        View changes
+        <Trans>View changes</Trans>
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-2">{children}</CollapsibleContent>
     </Collapsible>
@@ -1993,39 +2095,45 @@ export function getManageInboxActionLabel({
   read?: boolean;
   labelApplied: boolean;
   inProgress?: boolean;
-}) {
+}): MessageDescriptor {
   if (action === "bulk_archive_senders") {
-    return inProgress ? "Bulk archiving senders" : "Bulk archived senders";
+    return inProgress
+      ? msg`Bulk archiving senders`
+      : msg`Bulk archived senders`;
   }
   if (action === "unsubscribe_senders") {
-    return inProgress ? "Unsubscribing senders" : "Unsubscribed senders";
+    return inProgress ? msg`Unsubscribing senders` : msg`Unsubscribed senders`;
   }
   if (action === "archive_threads") {
     if (inProgress) {
       return labelApplied
-        ? "Archiving and labeling emails"
-        : "Archiving emails";
+        ? msg`Archiving and labeling emails`
+        : msg`Archiving emails`;
     }
-    return labelApplied ? "Archived and labeled emails" : "Archived emails";
+    return labelApplied
+      ? msg`Archived and labeled emails`
+      : msg`Archived emails`;
   }
   if (action === "trash_threads") {
-    return inProgress ? "Trashing emails" : "Trashed emails";
+    return inProgress ? msg`Trashing emails` : msg`Trashed emails`;
   }
   if (action === "label_threads") {
-    return inProgress ? "Labeling emails" : "Labeled emails";
+    return inProgress ? msg`Labeling emails` : msg`Labeled emails`;
   }
   if (action === "remove_label_threads") {
-    return inProgress ? "Removing labels" : "Removed labels";
+    return inProgress ? msg`Removing labels` : msg`Removed labels`;
   }
   if (action === "mark_read_threads") {
     if (inProgress) {
       return read === false
-        ? "Marking emails as unread"
-        : "Marking emails as read";
+        ? msg`Marking emails as unread`
+        : msg`Marking emails as read`;
     }
-    return read === false ? "Marked emails as unread" : "Marked emails as read";
+    return read === false
+      ? msg`Marked emails as unread`
+      : msg`Marked emails as read`;
   }
-  return "Updated emails";
+  return msg`Updated emails`;
 }
 
 function ToolSection({
@@ -2168,22 +2276,36 @@ function getActionBodyText({
   return decodeHtmlEntities(getPendingString(pendingAction, "content"));
 }
 
-function getEmailActionLabel(actionType: PendingEmailActionType) {
-  if (actionType === "reply_email") return "Reply to";
-  if (actionType === "forward_email") return "Forward to";
-  return "";
+function getEmailActionHeading({
+  actionType,
+  isConfirmed,
+  recipient = "",
+  i18n,
+}: {
+  actionType: PendingEmailActionType;
+  isConfirmed: boolean;
+  recipient?: string;
+  i18n: I18n;
+}): string {
+  if (isConfirmed) {
+    if (actionType === "send_email")
+      return i18n._(msg`Sent email to ${recipient}`);
+    if (actionType === "reply_email")
+      return i18n._(msg`Replied to ${recipient}`);
+    return i18n._(msg`Forwarded to ${recipient}`);
+  }
+  if (actionType === "reply_email") return i18n._(msg`Reply to ${recipient}`);
+  if (actionType === "forward_email")
+    return i18n._(msg`Forward to ${recipient}`);
+  return recipient;
 }
 
-function getEmailActionSentLabel(actionType: PendingEmailActionType) {
-  if (actionType === "send_email") return "Sent email to";
-  if (actionType === "reply_email") return "Replied to";
-  return "Forwarded to";
-}
-
-function getAssistantEmailSuccessMessage(actionType: PendingEmailActionType) {
-  if (actionType === "send_email") return "Email sent.";
-  if (actionType === "reply_email") return "Reply sent.";
-  return "Email forwarded.";
+function getAssistantEmailSuccessMessage(
+  actionType: PendingEmailActionType,
+): MessageDescriptor {
+  if (actionType === "send_email") return msg`Email sent.`;
+  if (actionType === "reply_email") return msg`Reply sent.`;
+  return msg`Email forwarded.`;
 }
 
 function getExternalMessageUrl({
@@ -2288,11 +2410,13 @@ function ActionBadgeList({
 
 function formatPatternParts(
   pattern: { from?: string | null; subject?: string | null } | null | undefined,
+  i18n: I18n,
 ): string | null {
   if (!pattern) return null;
+  const { from, subject } = pattern;
   const parts = [
-    pattern.from && `From: ${pattern.from}`,
-    pattern.subject && `Subject: ${pattern.subject}`,
+    from && i18n._(msg`From: ${from}`),
+    subject && i18n._(msg`Subject: ${subject}`),
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(", ") : null;
 }
@@ -2362,15 +2486,15 @@ type ConditionTextInput = {
   conditionalOperator?: string | null;
 };
 
-function buildConditionText(condition: ConditionTextInput): string {
+function buildConditionText(condition: ConditionTextInput, i18n: I18n): string {
   const parts: string[] = [];
   if (condition.aiInstructions) parts.push(condition.aiInstructions);
   if (condition.static) {
-    const s = condition.static;
+    const { from, to, subject } = condition.static;
     const staticParts = [
-      s.from && `From: ${s.from}`,
-      s.to && `To: ${s.to}`,
-      s.subject && `Subject: ${s.subject}`,
+      from && i18n._(msg`From: ${from}`),
+      to && i18n._(msg`To: ${to}`),
+      subject && i18n._(msg`Subject: ${subject}`),
     ].filter(Boolean);
     if (staticParts.length > 0) parts.push(staticParts.join(", "));
   }
@@ -2417,16 +2541,16 @@ function mergeUpdatedConditionsForDisplay({
 
 function formatActionsForDiff(
   actions: Array<{ type: string; fields: Record<string, string | null> }>,
+  i18n: I18n,
 ): string {
   return actions
     .map((action) => {
       const parts = [action.type];
-      if (action.fields?.label) parts.push(`Label: ${action.fields.label}`);
-      if (action.fields?.to) parts.push(`To: ${action.fields.to}`);
-      if (action.fields?.content)
-        parts.push(`Content: ${action.fields.content}`);
-      if (action.fields?.webhookUrl)
-        parts.push(`Webhook: ${action.fields.webhookUrl}`);
+      const { label, to, content, webhookUrl } = action.fields ?? {};
+      if (label) parts.push(i18n._(msg`Label: ${label}`));
+      if (to) parts.push(i18n._(msg`To: ${to}`));
+      if (content) parts.push(i18n._(msg`Content: ${content}`));
+      if (webhookUrl) parts.push(i18n._(msg`Webhook: ${webhookUrl}`));
       return parts.join(", ");
     })
     .join("\n");
@@ -2440,4 +2564,84 @@ function FieldLabel({
   className?: string;
 }) {
   return <RuleSummaryLabel className={className}>{children}</RuleSummaryLabel>;
+}
+
+export function PendingDeleteSplitCard({
+  split,
+  disableConfirm,
+}: {
+  split: { id: string; name: string };
+  disableConfirm: boolean;
+}) {
+  const { t } = useLingui();
+  const { emailAccountId } = useAccount();
+  const { data: settings, mutate } = useMailSettings();
+  const [activeSplitId, setActiveSplitId] = useQueryState("split");
+  const [isDeleting, setIsDeleting] = useState(false);
+  // Read from the account's splits, so the card stays right after a reload.
+  const deleted =
+    !!settings && !settings.splits.some(({ id }) => id === split.id);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const result = await deleteMailSplitAction(emailAccountId, {
+        id: split.id,
+      });
+      if (result?.serverError) {
+        toastError({ description: result.serverError });
+        return;
+      }
+      if (activeSplitId === split.id) setActiveSplitId(null);
+      await mutate();
+      toastSuccess({ description: t`The split has been deleted.` });
+    } catch {
+      toastError({ description: t`Failed to delete split.` });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0 border-b px-4 py-3.5">
+        <TrashIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-base font-semibold">{split.name}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {deleted ? t`Deleted split` : t`Pending deletion`}
+          </p>
+        </div>
+        {deleted && (
+          <Badge color="green" className="shrink-0">
+            <Trans>Deleted</Trans>
+          </Badge>
+        )}
+      </CardHeader>
+
+      {!deleted && (
+        <CardContent className="flex items-center justify-between gap-3 px-4 py-3.5">
+          <p className="text-sm text-muted-foreground">
+            <Trans>Removes this tab. Your mail isn't changed.</Trans>
+          </p>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleDelete}
+            disabled={disableConfirm || isDeleting || !settings}
+            className="shrink-0 gap-2"
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                <Trans>Deleting...</Trans>
+              </>
+            ) : (
+              t`Delete split`
+            )}
+          </Button>
+        </CardContent>
+      )}
+    </Card>
+  );
 }

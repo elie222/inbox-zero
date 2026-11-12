@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   CheckIcon,
   ListChecksIcon,
@@ -26,18 +28,18 @@ import { JOIN_RULE_OPTIONS } from "@/app/(app)/[emailAccountId]/meetings/join-ru
 const features = [
   {
     icon: <MicIcon className="size-4 text-blue-500" />,
-    title: "Notes and transcript",
-    description: "A summary of every call",
+    title: msg`Notes and transcript`,
+    description: msg`A summary of every call`,
   },
   {
     icon: <ListChecksIcon className="size-4 text-blue-500" />,
-    title: "Action items with owners",
-    description: "What was decided, and who owns what",
+    title: msg`Action items with owners`,
+    description: msg`What was decided, and who owns what`,
   },
   {
     icon: <MailPlusIcon className="size-4 text-blue-500" />,
-    title: "Follow-up drafted for you",
-    description: "Waiting in your drafts, never sent",
+    title: msg`Follow-up drafted for you`,
+    description: msg`Waiting in your drafts, never sent`,
   },
 ];
 
@@ -52,6 +54,7 @@ export function MeetingRecorderOnboarding({
   onEnable: (joinRule: MeetingJoinRule) => void;
   isEnabling: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const [joinRule, setJoinRule] = useState<MeetingJoinRule | null>(null);
 
   // Nothing is written until the second step, so leaving the flow part way
@@ -71,18 +74,24 @@ export function MeetingRecorderOnboarding({
   return (
     <SetupCard
       imageSrc="/images/illustrations/calling-help.svg"
-      imageAlt="Meeting notetaker"
-      title="Never write meeting notes again"
-      description="Inbox Zero joins your calls, takes the notes, and drafts the follow-up email."
-      features={features}
+      imageAlt={t`Meeting notetaker`}
+      title={t`Never write meeting notes again`}
+      description={t`Inbox Zero joins your calls, takes the notes, and drafts the follow-up email.`}
+      features={features.map((feature) => ({
+        ...feature,
+        title: i18n._(feature.title),
+        description: i18n._(feature.description),
+      }))}
     >
       {hasCalendarConnected ? (
         <Button onClick={() => setJoinRule(MeetingJoinRule.ALL)}>
-          Get started
+          <Trans>Get started</Trans>
         </Button>
       ) : (
         <>
-          <MessageText>Connect your calendar to get started:</MessageText>
+          <MessageText>
+            <Trans>Connect your calendar to get started:</Trans>
+          </MessageText>
           <ConnectCalendar
             analyticsPage="meetings"
             onboardingReturnPath={`/${emailAccountId}/meetings`}
@@ -106,6 +115,7 @@ function ChooseJoinRule({
   onConfirm: () => void;
   isEnabling: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccount, userEmail } = useAccount();
   const botName = getMeetingBotDisplayName({
     ownerName: emailAccount?.name ?? null,
@@ -115,31 +125,38 @@ function ChooseJoinRule({
   return (
     <div className="mx-4 mt-16 flex max-w-lg flex-col gap-6 md:mx-auto">
       <div className="flex flex-col gap-3">
-        <PageHeading>Which meetings should we join?</PageHeading>
+        <PageHeading>
+          <Trans>Which meetings should we join?</Trans>
+        </PageHeading>
 
         <MutedText className="flex flex-wrap items-center gap-x-2">
           <CheckIcon className="size-4 shrink-0 text-green-600" />
-          {userEmail} connected
-          <TextLink href={`/${emailAccountId}/calendars`}>Change</TextLink>
+          <Trans>{userEmail} connected</Trans>
+          <TextLink href={`/${emailAccountId}/calendars`}>
+            <Trans>Change</Trans>
+          </TextLink>
         </MutedText>
       </div>
 
       <RadioCardGroup
         name="joinRule"
-        ariaLabel="Which meetings to join"
+        ariaLabel={t`Which meetings to join`}
         value={joinRule}
         onChange={onChange}
-        options={JOIN_RULE_OPTIONS}
+        options={JOIN_RULE_OPTIONS.map((option) => ({
+          ...option,
+          label: i18n._(option.label),
+        }))}
         disabled={isEnabling}
       />
 
       <Button className="self-start" loading={isEnabling} onClick={onConfirm}>
-        Start recording my meetings
+        <Trans>Start recording my meetings</Trans>
       </Button>
 
       <MutedText className="flex items-start gap-2 text-xs">
         <ShieldIcon className="mt-0.5 size-3.5 shrink-0" />
-        Joins as a visible participant called {botName}.
+        <Trans>Joins as a visible participant called {botName}.</Trans>
       </MutedText>
     </div>
   );

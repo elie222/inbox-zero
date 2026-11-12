@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { useCallback } from "react";
 import { Toggle } from "@/components/Toggle";
 import { enableDraftRepliesAction } from "@/utils/actions/rule";
@@ -12,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SettingCard } from "@/components/SettingCard";
 
 export function DraftReplies() {
+  const { t } = useLingui();
   const { enabled, toggleDraftReplies, loading, error } = useDraftReplies();
 
   const handleToggle = useCallback(
@@ -20,17 +22,20 @@ export function DraftReplies() {
         await toggleDraftReplies(enable);
       } catch (error) {
         toastError({
-          description: `There was an error: ${error instanceof Error ? error.message : "Unknown error"}`,
+          description:
+            error instanceof Error
+              ? t`There was an error: ${error.message}`
+              : t`There was an error: Unknown error`,
         });
       }
     },
-    [toggleDraftReplies],
+    [toggleDraftReplies, t],
   );
 
   return (
     <SettingCard
-      title="Auto draft replies"
-      description="Automatically draft replies written in your tone to emails needing a reply."
+      title={t`Auto draft replies`}
+      description={t`Automatically draft replies written in your tone to emails needing a reply.`}
       right={
         <LoadingContent
           loading={loading}

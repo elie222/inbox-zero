@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,9 @@ export function WebhookDocumentationDialog({
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Webhook Payload</DialogTitle>
+          <DialogTitle>
+            <Trans>Webhook Payload</Trans>
+          </DialogTitle>
         </DialogHeader>
         <WebhookPayloadDocumentation />
       </DialogContent>
@@ -67,13 +70,17 @@ export function WebhookPayloadDocumentation() {
   return (
     <div className="space-y-4">
       <MutedText>
-        When a rule with a webhook action is triggered, we'll send a POST
-        request to your URL with the following payload:
+        <Trans>
+          When a rule with a webhook action is triggered, we'll send a POST
+          request to your URL with the following payload:
+        </Trans>
       </MutedText>
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h4 className="font-medium">Webhook Payload Structure</h4>
+          <h4 className="font-medium">
+            <Trans>Webhook Payload Structure</Trans>
+          </h4>
           <Button
             variant="ghost"
             size="sm"
@@ -93,46 +100,72 @@ export function WebhookPayloadDocumentation() {
 
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <h5 className="font-medium mb-2">Email Fields</h5>
+            <h5 className="font-medium mb-2">
+              <Trans>Email Fields</Trans>
+            </h5>
             <div className="space-y-1">
               <MutedText>
-                <code>threadId</code> - Gmail/Outlook thread ID
+                <Trans>
+                  <code>threadId</code> - Gmail/Outlook thread ID
+                </Trans>
               </MutedText>
               <MutedText>
-                <code>messageId</code> - Unique message ID
+                <Trans>
+                  <code>messageId</code> - Unique message ID
+                </Trans>
               </MutedText>
               <MutedText>
-                <code>subject</code> - Email subject line
+                <Trans>
+                  <code>subject</code> - Email subject line
+                </Trans>
               </MutedText>
               <MutedText>
-                <code>from</code> - Sender's email address
+                <Trans>
+                  <code>from</code> - Sender's email address
+                </Trans>
               </MutedText>
               <MutedText>
-                <code>cc/bcc</code> - Optional CC/BCC recipients
+                <Trans>
+                  <code>cc/bcc</code> - Optional CC/BCC recipients
+                </Trans>
               </MutedText>
               <MutedText>
-                <code>headerMessageId</code> - Email Message-ID header
+                <Trans>
+                  <code>headerMessageId</code> - Email Message-ID header
+                </Trans>
               </MutedText>
             </div>
           </div>
 
           <div>
-            <h5 className="font-medium mb-2">Rule Execution Fields</h5>
+            <h5 className="font-medium mb-2">
+              <Trans>Rule Execution Fields</Trans>
+            </h5>
             <div className="space-y-1">
               <MutedText>
-                <code>id</code> - Execution ID
+                <Trans>
+                  <code>id</code> - Execution ID
+                </Trans>
               </MutedText>
               <MutedText>
-                <code>ruleId</code> - Rule that was triggered
+                <Trans>
+                  <code>ruleId</code> - Rule that was triggered
+                </Trans>
               </MutedText>
               <MutedText>
-                <code>reason</code> - Why the rule was triggered
+                <Trans>
+                  <code>reason</code> - Why the rule was triggered
+                </Trans>
               </MutedText>
               <MutedText>
-                <code>automated</code> - Whether rule ran automatically
+                <Trans>
+                  <code>automated</code> - Whether rule ran automatically
+                </Trans>
               </MutedText>
               <MutedText>
-                <code>createdAt</code> - When the rule was executed (ISO 8601)
+                <Trans>
+                  <code>createdAt</code> - When the rule was executed (ISO 8601)
+                </Trans>
               </MutedText>
             </div>
           </div>
@@ -140,9 +173,11 @@ export function WebhookPayloadDocumentation() {
 
         <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md">
           <div className="text-sm text-blue-600 dark:text-blue-400">
-            <strong>Authentication:</strong> Each request includes an{" "}
-            <code>X-Webhook-Secret</code> header with your webhook secret for
-            verification.
+            <Trans>
+              <strong>Authentication:</strong> Each request includes an{" "}
+              <code>X-Webhook-Secret</code> header with your webhook secret for
+              verification.
+            </Trans>
           </div>
         </div>
       </div>
@@ -158,7 +193,7 @@ export function WebhookDocumentationLink() {
         size="xs"
         className="h-auto p-0 text-xs text-blue-600 hover:text-blue-800"
       >
-        View payload structure
+        <Trans>View payload structure</Trans>
       </Button>
     </WebhookDocumentationDialog>
   );

@@ -1,7 +1,9 @@
 "use client";
 
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useState } from "react";
-import { format } from "date-fns";
 import { Send, CheckIcon, CalendarIcon, Building2 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { PageHeading, TypographyP } from "@/components/Typography";
@@ -15,8 +17,10 @@ import { sendBriefAction } from "@/utils/actions/meeting-briefs";
 import { cn } from "@/utils";
 import { extractDomainFromEmail } from "@/utils/email";
 import { sleep } from "@/utils/sleep";
+import { formatDayAtTime } from "@/utils/date";
 
 export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId } = useAccount();
   const { data, isLoading, error } = useCalendarUpcomingEvents();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -27,7 +31,12 @@ export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
     {
       onSuccess: async ({ data: result }) => {
         toastSuccess({
-          description: result.message || "Test brief sent! Check your inbox.",
+          description: result.success
+            ? t`Test brief sent! Check your inbox.`
+            : i18n._(
+                (result.message && BRIEF_SKIPPED_MESSAGES[result.message]) ||
+                  msg`Brief not sent`,
+              ),
         });
         setBriefSent(true);
         await sleep(1000);
@@ -35,7 +44,7 @@ export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
       },
       onError: ({ error: err }) => {
         toastError({
-          description: err.serverError || "Failed to send brief",
+          description: err.serverError || t`Failed to send brief`,
         });
       },
     },
@@ -69,10 +78,14 @@ export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
       </div>
 
       <div className="text-center">
-        <PageHeading className="mt-4">Send a Test Brief</PageHeading>
+        <PageHeading className="mt-4">
+          <Trans>Send a Test Brief</Trans>
+        </PageHeading>
         <TypographyP className="mt-2 max-w-lg mx-auto">
-          Pick an upcoming meeting and we'll send you a sample brief so you can
-          see exactly what you'll receive.
+          <Trans>
+            Pick an upcoming meeting and we'll send you a sample brief so you
+            can see exactly what you'll receive.
+          </Trans>
         </TypographyP>
       </div>
 
@@ -82,13 +95,17 @@ export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
             <div className="flex flex-col items-center gap-4 rounded-xl border bg-card p-6 text-center">
               <CalendarIcon className="h-8 w-8 text-muted-foreground" />
               <div>
-                <p className="font-medium">No upcoming meetings found</p>
+                <p className="font-medium">
+                  <Trans>No upcoming meetings found</Trans>
+                </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  We couldn't find any upcoming meetings with external guests.
+                  <Trans>
+                    We couldn't find any upcoming meetings with external guests.
+                  </Trans>
                 </p>
               </div>
               <Button onClick={onNext} variant="outline">
-                Skip for now
+                <Trans>Skip for now</Trans>
               </Button>
             </div>
           ) : (
@@ -126,10 +143,7 @@ export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
                         </p>
                         <p className="truncate text-sm text-muted-foreground">
                           {companyDomain && `${companyDomain} · `}
-                          {format(
-                            new Date(event.startTime),
-                            "EEE, MMM d 'at' h:mm a",
-                          )}
+                          {formatDayAtTime(new Date(event.startTime), i18n)}
                         </p>
                       </div>
                     </div>
@@ -165,12 +179,12 @@ export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
             {briefSent ? (
               <>
                 <CheckIcon className="mr-2 h-4 w-4" />
-                Brief sent! Check your inbox
+                <Trans>Brief sent! Check your inbox</Trans>
               </>
             ) : (
               <>
                 <Send className="mr-2 h-4 w-4" />
-                Send Test Brief
+                <Trans>Send Test Brief</Trans>
               </>
             )}
           </Button>
@@ -179,3 +193,9 @@ export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
     </>
   );
 }
+
+// The server reports why a brief was skipped in English.
+const BRIEF_SKIPPED_MESSAGES: Record<string, MessageDescriptor> = {
+  "Already being processed": msg`This brief is already being prepared`,
+  "No external guests found": msg`This meeting has no external guests`,
+};

@@ -436,6 +436,96 @@ describe("Squire email editor", () => {
     expect(screen.queryByRole("button", { name: /signature/u })).toBeNull();
   });
 
+  it.each(
+    ["Backspace", "Delete"].flatMap((key) =>
+      ["<br>", "   ", "&nbsp;"].map((blank) => ({ key, blank })),
+    ),
+  )("breaks out of a blank quoted line ($blank) with $key without deleting adjacent text", async ({
+    key,
+    blank,
+  }) => {
+    const { textbox, handle } = await renderEditor({
+      initialHtml: `<blockquote><div>First question</div><div>${blank}</div><div>Second question</div></blockquote>`,
+    });
+    const emptyLine = textbox().querySelector("blockquote > div:nth-child(2)");
+    if (!emptyLine) throw new Error("Missing empty quoted line");
+    act(() => textbox().focus());
+    const range = document.createRange();
+    range.selectNodeContents(emptyLine);
+    range.collapse(true);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+
+    await act(async () => {
+      fireEvent.keyDown(textbox(), { key });
+    });
+    expect(textbox().querySelectorAll("blockquote")).toHaveLength(2);
+
+    await act(async () => {
+      fireEvent.keyDown(textbox(), { key: "z", ctrlKey: true });
+    });
+    expect(textbox().querySelectorAll("blockquote")).toHaveLength(1);
+    expect(textbox().querySelector("blockquote")?.children).toHaveLength(3);
+
+    await act(async () => {
+      fireEvent.keyDown(textbox(), { key: "y", ctrlKey: true });
+    });
+    act(() => handle().insertText("My answer"));
+
+    expect(textbox().querySelectorAll("blockquote")).toHaveLength(2);
+    expect(textbox().querySelectorAll("blockquote")[0].textContent).toBe(
+      "First question",
+    );
+    expect(textbox().querySelectorAll("blockquote")[1].textContent).toBe(
+      "Second question",
+    );
+    expect(textbox().children[1].textContent?.trim()).toBe("My answer");
+  });
+
+  it.each([
+    {
+      tag: "ul",
+      html: "<ul><li><br></li><li>Keep this</li></ul>",
+      selector: "li",
+    },
+    {
+      tag: "table",
+      html: "<table><tbody><tr><td><br></td><td>Keep this</td></tr></tbody></table>",
+      selector: "td",
+    },
+  ])("keeps an empty quoted $tag inside its quote when deleting", async ({
+    tag,
+    html,
+    selector,
+  }) => {
+    const { textbox } = await renderEditor({
+      initialHtml: `<blockquote><div>Before</div>${html}<div>After</div></blockquote>`,
+    });
+    act(() => textbox().focus());
+    // jsdom does not implement inherited editability, which Squire checks
+    // before merging the next block during normal deletion.
+    for (const element of textbox().querySelectorAll("*")) {
+      Object.defineProperty(element, "isContentEditable", { value: true });
+    }
+    const emptyBlock = textbox().querySelector(selector);
+    if (!emptyBlock) throw new Error("Missing structural block");
+    const range = document.createRange();
+    range.selectNodeContents(emptyBlock);
+    range.collapse(true);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+
+    await act(async () => {
+      fireEvent.keyDown(textbox(), { key: "Delete" });
+    });
+
+    expect(textbox().querySelectorAll("blockquote")).toHaveLength(1);
+    expect(textbox().querySelector(`blockquote ${tag}`)?.textContent).toContain(
+      "Keep this",
+    );
+    expect(textbox().querySelector(`:scope > ${tag}`)).toBeNull();
+  });
+
   it("quotes text and leaves the caret on a new line below it", async () => {
     const { handle, textbox } = await renderEditor({});
 
@@ -740,7 +830,65 @@ describe("Squire email editor", () => {
     expect(onImageFiles).toHaveBeenCalledWith([file]);
     expect(paste.defaultPrevented).toBe(true);
   });
+
+  it("formats pasted Markdown text", async () => {
+    const { textbox } = await renderEditor({});
+
+    pasteText(
+      textbox(),
+      "> **Apps on your PC:** Open **Settings**.\n>\n> - one\n> - two",
+    );
+
+    const quote = textbox().querySelector("blockquote");
+    expect(quote?.querySelector("b")?.textContent).toBe("Apps on your PC:");
+    expect(quote?.querySelectorAll("li")).toHaveLength(2);
+    expect(textbox().textContent).not.toContain("**");
+  });
+
+  it("formats single-marker emphasis and strikethrough", async () => {
+    const { textbox } = await renderEditor({});
+
+    pasteText(textbox(), "An *important* and ~~removed~~ note");
+
+    expect(textbox().querySelector("i, em")?.textContent).toBe("important");
+    expect(textbox().querySelector("s, del")?.textContent).toBe("removed");
+  });
+
+  it("hands a pasted image to the app even with Markdown text alongside", async () => {
+    const onImageFiles = vi.fn();
+    const { textbox } = await renderEditor({ onImageFiles });
+    const file = new File(["x"], "photo.png", { type: "image/png" });
+
+    pasteText(textbox(), "**caption**", [file]);
+
+    expect(onImageFiles).toHaveBeenCalledWith([file]);
+    expect(textbox().querySelector("b")).toBeNull();
+  });
+
+  it("keeps Markdown literal when pasting without formatting", async () => {
+    const { textbox } = await renderEditor({});
+
+    fireEvent.keyDown(textbox(), { key: "Shift", shiftKey: true });
+    pasteText(textbox(), "**bold**");
+
+    expect(textbox().querySelector("b")).toBeNull();
+    expect(textbox().textContent).toContain("**bold**");
+  });
 });
+
+function pasteText(target: HTMLElement, text: string, files: File[] = []) {
+  const paste = new Event("paste", { bubbles: true, cancelable: true });
+  Object.defineProperty(paste, "clipboardData", {
+    value: {
+      files,
+      getData: (type: string) => (type === "text/plain" ? text : ""),
+      types: ["text/plain"],
+    },
+  });
+  act(() => {
+    target.dispatchEvent(paste);
+  });
+}
 
 async function renderEditor(props: Partial<EmailEditorProps>) {
   const ref = createRef<EmailEditorHandle>();

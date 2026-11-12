@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { Trans, useLingui } from "@lingui/react/macro";
+import { plural } from "@lingui/core/macro";
 import { SettingCard } from "@/components/SettingCard";
 import { Button } from "@/components/ui/button";
 import { useIntegrations } from "@/hooks/useIntegrations";
@@ -8,6 +10,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useIntegrationsEnabled } from "@/hooks/useFeatureFlags";
 
 export function IntegrationsSetting() {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { data, isLoading } = useIntegrations();
   const integrationsEnabled = useIntegrationsEnabled();
@@ -28,19 +31,29 @@ export function IntegrationsSetting() {
   );
 
   const hasConnectedIntegrations = connectedIntegrations.length > 0;
+  const connectedNames = connectedIntegrations
+    .map((i) => i.shortName || i.displayName)
+    .join(", ");
 
   return (
     <SettingCard
-      title="Integrations"
+      title={t`Integrations`}
       description={
         hasConnectedIntegrations
-          ? `Connected to ${connectedIntegrations.map((i) => i.shortName || i.displayName).join(", ")} with ${enabledToolsCount} tool${enabledToolsCount === 1 ? "" : "s"} enabled`
-          : "Connect to CRM, databases, and other tools to enrich briefings with more context"
+          ? t`Connected to ${connectedNames} with ${plural(enabledToolsCount, {
+              one: "# tool",
+              other: "# tools",
+            })} enabled`
+          : t`Connect to CRM, databases, and other tools to enrich briefings with more context`
       }
       right={
         <Button variant="outline" asChild>
           <Link href={`/${emailAccountId}/integrations`}>
-            {hasConnectedIntegrations ? "Manage" : "Connect"}
+            {hasConnectedIntegrations ? (
+              <Trans>Manage</Trans>
+            ) : (
+              <Trans>Connect</Trans>
+            )}
           </Link>
         </Button>
       }

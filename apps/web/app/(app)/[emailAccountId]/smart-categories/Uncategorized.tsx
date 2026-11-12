@@ -2,6 +2,7 @@
 
 import useSWRInfinite from "swr/infinite";
 import { useMemo, useCallback } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ChevronsDownIcon, SparklesIcon, StopCircleIcon } from "lucide-react";
 import { ClientOnly } from "@/components/ClientOnly";
 import { SendersTable } from "@/components/GroupedTable";
@@ -33,6 +34,7 @@ export function Uncategorized({
   categories: CategoryWithRules[];
   autoCategorizeSenders: boolean;
 }) {
+  const { t } = useLingui();
   const { hasAiAccess } = usePremium();
   const { PremiumModal, openModal: openPremiumModal } = usePremiumModal();
 
@@ -64,7 +66,7 @@ export function Uncategorized({
               disabled={!hasAiAccess}
               onClick={async () => {
                 if (!senderAddresses?.length) {
-                  toastError({ description: "No senders to categorize" });
+                  toastError({ description: t`No senders to categorize` });
                   return;
                 }
 
@@ -75,7 +77,7 @@ export function Uncategorized({
               }}
             >
               <SparklesIcon className="mr-2 size-4" />
-              Categorize all with AI
+              <Trans>Categorize all with AI</Trans>
             </Button>
           </PremiumTooltip>
 
@@ -87,7 +89,7 @@ export function Uncategorized({
               }}
             >
               <StopCircleIcon className="mr-2 size-4" />
-              Stop
+              <Trans>Stop</Trans>
             </Button>
           )}
         </div>
@@ -96,7 +98,7 @@ export function Uncategorized({
           <div className="mr-1.5">
             <TooltipExplanation
               size="sm"
-              text="Automatically categorize new senders when they email you"
+              text={t`Automatically categorize new senders when they email you`}
             />
           </div>
           <AutoCategorizeToggle
@@ -120,14 +122,14 @@ export function Uncategorized({
                 ) : (
                   <ChevronsDownIcon className="mr-2 size-4" />
                 )}
-                Load More
+                <Trans>Load More</Trans>
               </Button>
             )}
           </>
         ) : (
           !isLoading && (
             <SectionDescription className="p-4">
-              No senders left to categorize!
+              <Trans>No senders left to categorize!</Trans>
             </SectionDescription>
           )
         )}
@@ -144,10 +146,12 @@ function AutoCategorizeToggle({
   autoCategorizeSenders: boolean;
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
+
   return (
     <Toggle
       name="autoCategorizeSenders"
-      label="Auto categorize"
+      label={t`Auto categorize`}
       enabled={autoCategorizeSenders}
       onChange={async (enabled) => {
         await setAutoCategorizeAction(emailAccountId, {

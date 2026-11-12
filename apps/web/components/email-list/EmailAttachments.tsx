@@ -1,23 +1,18 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
+import { useAttachmentPreview } from "./AttachmentPreview";
+import { getAttachmentFileType } from "./attachment-file-type";
 import { useOpenedConversationAttachments } from "./OpenedConversationAttachments";
 import Image from "next/image";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { DownloadIcon, ImageIcon, Loader2 } from "lucide-react";
 import type { ThreadMessage } from "@/components/email-list/types";
-import { CardBasic } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";
 import {
-  getAttachmentPreview,
   isPreviewableAttachment,
   isPreviewableImageType,
 } from "@inboxzero/mail-ui/image-preview";
@@ -27,26 +22,36 @@ import {
   saveBlob,
 } from "@/utils/attachments/download";
 
-const PREVIEW_MAX_BYTES = 50 * 1024 * 1024;
+type Attachment = NonNullable<ThreadMessage["attachments"]>[number];
 
 export function EmailAttachments({ message }: { message: ThreadMessage }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [previewingId, setPreviewingId] = useState<string>();
-  const previewing = message.attachments?.find(
-    (attachment) => attachment.attachmentId === previewingId,
-  );
-  // Close for good if the attachment disappears so it can't reopen on its own later.
-  if (previewingId && !previewing) setPreviewingId(undefined);
-  // Keyed by URL so a different account or message never shows a stale file.
-  const previewUrl =
-    previewing && emailAccountId
+  const openPreview = useAttachmentPreview();
+  const [downloading, setDownloading] = useState<string>();
+  const attachments = message.attachments ?? [];
+
+  const urlFor = (attachment: Attachment) =>
+    emailAccountId
       ? getAttachmentUrl({
           accountId: emailAccountId,
           messageId: message.id,
-          attachmentId: previewing.attachmentId,
+          attachmentId: attachment.attachmentId,
         })
       : "";
+  const toPreview = (attachment: Attachment) => ({
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    size: attachment.size,
+    url: urlFor(attachment),
+    emailAccountId,
+  });
+  const images = emailAccountId
+    ? attachments.filter((attachment) =>
+        isPreviewableImageType(attachment.mimeType),
+      )
+    : [];
+
   const controller = useRef(new AbortController());
   useEffect(() => {
     if (!emailAccountId || !message.id) return;
@@ -55,252 +60,202 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
     return () => current.abort();
   }, [emailAccountId, message.id]);
 
-  const downloadAttachment = async ({
-    filename,
-    url,
-  }: {
-    filename: string;
-    url: string;
-  }) => {
+  const download = async (targets: Attachment[], id: string) => {
     const signal = controller.current.signal;
-    setIsDownloading(true);
+    setDownloading(id);
 
-    try {
-      const blob = await fetchAttachment({
-        url,
-        emailAccountId,
-        signal,
+    // Fetch everything first so the saves run back-to-back, and keep going
+    // past a failed file so the rest still download.
+    const results = await Promise.allSettled(
+      targets.map(async (attachment) => ({
+        attachment,
+        blob: await fetchAttachment({
+          url: urlFor(attachment),
+          emailAccountId,
+          signal,
+        }),
+      })),
+    );
+    setDownloading(undefined);
+    if (signal.aborted) return;
+
+    let failed = 0;
+    for (const result of results) {
+      if (result.status === "fulfilled")
+        saveBlob(result.value.blob, result.value.attachment.filename);
+      else failed++;
+    }
+    if (failed === 1 && targets.length === 1)
+      toastError({ description: t`Failed to download attachment` });
+    else if (failed) {
+      const total = targets.length;
+      toastError({
+        description: t`${failed} of ${total} attachments failed to download`,
       });
-      signal.throwIfAborted();
-      saveBlob(blob, filename);
-    } catch {
-      if (!signal.aborted)
-        toastError({ description: "Failed to download attachment" });
-    } finally {
-      setIsDownloading(false);
     }
   };
 
+  if (!attachments.length) return null;
+
   return (
-    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-      {message.attachments?.map((attachment) => {
-        const url = emailAccountId
-          ? getAttachmentUrl({
-              accountId: emailAccountId,
-              messageId: message.id,
-              attachmentId: attachment.attachmentId,
-            })
-          : "";
+    <div className="mt-4">
+      <div className="flex flex-wrap gap-2">
+        {attachments.map((attachment) => {
+          const tileProps = {
+            filename: attachment.filename,
+            onDownload: () => download([attachment], attachment.attachmentId),
+            downloadDisabled: !emailAccountId || !!downloading,
+            isDownloading: downloading === attachment.attachmentId,
+          };
 
-        const canPreview =
-          !!emailAccountId && isPreviewableAttachment(attachment);
+          if (emailAccountId && isPreviewableImageType(attachment.mimeType))
+            return (
+              <AttachmentTile
+                key={attachment.attachmentId}
+                {...tileProps}
+                onPreview={() =>
+                  openPreview({
+                    items: images.map(toPreview),
+                    index: images.indexOf(attachment),
+                  })
+                }
+              >
+                <AttachmentImageThumbnail
+                  key={`${emailAccountId}:${urlFor(attachment)}`}
+                  emailAccountId={emailAccountId}
+                  messageId={message.id}
+                  attachment={attachment}
+                />
+              </AttachmentTile>
+            );
 
-        return (
-          <CardBasic
-            key={attachment.attachmentId}
-            className={cn(
-              "relative overflow-hidden p-0",
-              canPreview && "transition-colors hover:bg-muted/40",
-            )}
-          >
-            {canPreview ? (
-              <button
-                type="button"
-                className="absolute inset-0 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                aria-label={`Preview ${attachment.filename}`}
-                title={attachment.filename}
-                onClick={() => setPreviewingId(attachment.attachmentId)}
-              />
-            ) : null}
-            {isPreviewableImageType(attachment.mimeType) && emailAccountId ? (
-              <AttachmentImagePreview
-                key={`${emailAccountId}:${url}`}
-                emailAccountId={emailAccountId}
-                filename={attachment.filename}
-                messageId={message.id}
-                attachmentId={attachment.attachmentId}
-                attachment={attachment}
-              />
-            ) : null}
-            <div className="p-4">
-              <div className="truncate text-sm" title={attachment.filename}>
-                {attachment.filename}
-              </div>
-              <div className="mt-3 flex items-center justify-between gap-3">
-                <div
-                  className="min-w-0 truncate text-muted-foreground"
-                  title={mimeTypeToString(attachment.mimeType)}
-                >
-                  {mimeTypeToString(attachment.mimeType)}
+          const fileType = getAttachmentFileType(attachment);
+          return (
+            <AttachmentTile
+              key={attachment.attachmentId}
+              {...tileProps}
+              onPreview={
+                emailAccountId && isPreviewableAttachment(attachment)
+                  ? () =>
+                      openPreview({ items: [toPreview(attachment)], index: 0 })
+                  : undefined
+              }
+            >
+              <div className="flex size-full flex-col justify-between bg-muted/50 p-3">
+                <div className="line-clamp-3 break-words font-medium text-foreground/90 text-sm leading-snug">
+                  {stripExtension(attachment.filename)}
                 </div>
-                <Button
-                  variant="outline"
-                  size="iconSm"
-                  type="button"
-                  className="relative"
-                  aria-label={`Download ${attachment.filename}`}
-                  title="Download attachment"
-                  disabled={!emailAccountId || isDownloading}
-                  onClick={() =>
-                    downloadAttachment({
-                      filename: attachment.filename,
-                      url,
-                    })
-                  }
+                <span
+                  className={cn(
+                    "self-start rounded px-1.5 py-0.5 font-semibold text-[10px] tracking-wide",
+                    fileType.className,
+                  )}
                 >
-                  <DownloadIcon className="size-4" aria-hidden="true" />
-                </Button>
+                  {fileType.label}
+                </span>
               </div>
-            </div>
-          </CardBasic>
-        );
-      })}
-      <Dialog
-        open={!!previewing}
-        onOpenChange={(open) => {
-          if (!open) setPreviewingId(undefined);
-        }}
-      >
-        {previewing && emailAccountId ? (
-          <AttachmentPreviewDialogContent
-            key={previewUrl}
-            filename={previewing.filename}
-            size={previewing.size}
-            url={previewUrl}
-            emailAccountId={emailAccountId}
-          />
-        ) : null}
-      </Dialog>
+            </AttachmentTile>
+          );
+        })}
+      </div>
+
+      {attachments.length > 1 ? (
+        <button
+          type="button"
+          className="mt-2 inline-flex items-center gap-1.5 rounded-md py-1 text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+          disabled={!emailAccountId || !!downloading}
+          onClick={() => download(attachments, "all")}
+        >
+          {downloading === "all" ? (
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <DownloadIcon className="size-4" aria-hidden="true" />
+          )}
+          <Trans>Download all</Trans>
+        </button>
+      ) : null}
     </div>
   );
 }
 
-function AttachmentPreviewDialogContent({
+function AttachmentTile({
   filename,
-  size,
-  url,
-  emailAccountId,
+  onPreview,
+  onDownload,
+  downloadDisabled,
+  isDownloading,
+  children,
 }: {
   filename: string;
-  size: number;
-  url: string;
-  emailAccountId: string;
+  onPreview?: () => void;
+  onDownload: () => void;
+  downloadDisabled: boolean;
+  isDownloading: boolean;
+  children: ReactNode;
 }) {
-  const tooLarge = size > PREVIEW_MAX_BYTES;
-  const [file, setFile] = useState<Blob>();
-  const [preview, setPreview] = useState<{ url: string; type: string }>();
-  const [error, setError] = useState<string | undefined>(
-    tooLarge ? "This file is too large to preview." : undefined,
+  const { t } = useLingui();
+  const downloadIcon = isDownloading ? (
+    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+  ) : (
+    <DownloadIcon className="size-4" aria-hidden="true" />
   );
-
-  useEffect(() => {
-    if (tooLarge) return;
-    const controller = new AbortController();
-    let objectUrl: string | undefined;
-
-    fetchAttachment({
-      url,
-      emailAccountId,
-      signal: controller.signal,
-      maxBytes: PREVIEW_MAX_BYTES,
-    })
-      .then(async (blob) => {
-        const typed = await getAttachmentPreview(blob);
-        if (controller.signal.aborted) return;
-        setFile(blob);
-        if (!typed) {
-          setError("Preview isn't available for this file.");
-          return;
-        }
-        objectUrl = URL.createObjectURL(typed);
-        setPreview({ url: objectUrl, type: typed.type });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted)
-          setError("Couldn't load this attachment.");
-      });
-
-    return () => {
-      controller.abort();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [url, emailAccountId, tooLarge]);
+  const revealClassName =
+    !isDownloading &&
+    "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100";
 
   return (
-    <DialogContent className="flex h-[90vh] max-w-5xl flex-col gap-0 overflow-hidden p-0">
-      <div className="flex items-center gap-3 border-b py-3 pr-12 pl-4">
-        <DialogTitle className="min-w-0 flex-1 truncate font-medium text-sm">
-          {filename}
-        </DialogTitle>
-        <DialogDescription className="sr-only">
-          Attachment preview
-        </DialogDescription>
+    <div
+      className="group relative h-28 w-40 overflow-hidden rounded-lg border border-border/70 bg-background shadow-xs transition-shadow hover:shadow-md"
+      title={filename}
+    >
+      {children}
+      {/* Files without a preview download when the tile is clicked. */}
+      <button
+        type="button"
+        className="absolute inset-0 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:cursor-default"
+        aria-label={
+          onPreview ? t`Preview ${filename}` : t`Download ${filename}`
+        }
+        disabled={!onPreview && downloadDisabled}
+        onClick={onPreview ?? onDownload}
+      />
+      {onPreview ? (
         <Button
           variant="outline"
-          size="sm"
+          size="iconSm"
           type="button"
-          disabled={!file}
-          onClick={() => file && saveBlob(file, filename)}
+          className={cn(
+            "absolute right-2 bottom-2 size-7 bg-background/90 shadow-sm backdrop-blur transition-opacity",
+            revealClassName,
+          )}
+          aria-label={t`Download ${filename}`}
+          disabled={downloadDisabled}
+          onClick={onDownload}
         >
-          <DownloadIcon className="mr-2 size-4" aria-hidden="true" />
-          Download
+          {downloadIcon}
         </Button>
-      </div>
-      <div className="relative flex min-h-0 flex-1 items-center justify-center bg-muted/40">
-        <AttachmentPreviewBody
-          filename={filename}
-          preview={preview}
-          error={error}
-        />
-      </div>
-    </DialogContent>
+      ) : (
+        <span
+          className={cn(
+            "pointer-events-none absolute right-2 bottom-2 flex size-7 items-center justify-center rounded-md border bg-background/90 shadow-sm transition-opacity",
+            revealClassName,
+          )}
+        >
+          {downloadIcon}
+        </span>
+      )}
+    </div>
   );
 }
 
-function AttachmentPreviewBody({
-  filename,
-  preview,
-  error,
-}: {
-  filename: string;
-  preview?: { url: string; type: string };
-  error?: string;
-}) {
-  if (error) return <p className="text-muted-foreground text-sm">{error}</p>;
-  if (!preview)
-    return <Loader2 className="size-6 animate-spin text-muted-foreground" />;
-  if (preview.type === "application/pdf")
-    return (
-      <iframe
-        title={filename}
-        src={preview.url}
-        className="size-full border-0"
-      />
-    );
-  return (
-    <Image
-      fill
-      unoptimized
-      alt={filename}
-      className="object-contain"
-      sizes="(min-width: 1024px) 64rem, 100vw"
-      src={preview.url}
-    />
-  );
-}
-
-function AttachmentImagePreview({
+function AttachmentImageThumbnail({
   emailAccountId,
-  filename,
   messageId,
-  attachmentId,
   attachment,
 }: {
   emailAccountId: string;
-  filename: string;
   messageId: string;
-  attachmentId: string;
-  attachment: NonNullable<ThreadMessage["attachments"]>[number];
+  attachment: Attachment;
 }) {
   const session = useOpenedConversationAttachments();
   const [previewUrl, setPreviewUrl] = useState<string>();
@@ -313,7 +268,12 @@ function AttachmentImagePreview({
 
     (
       (emailAccountId
-        ? session?.load(messageId, attachmentId, controller.signal, attachment)
+        ? session?.load(
+            messageId,
+            attachment.attachmentId,
+            controller.signal,
+            attachment,
+          )
         : undefined) ?? Promise.resolve(undefined)
     ).then(
       (blob) => {
@@ -335,21 +295,21 @@ function AttachmentImagePreview({
       controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [emailAccountId, session, messageId, attachmentId, attachment]);
+  }, [emailAccountId, session, messageId, attachment]);
 
   return (
-    <div className="pointer-events-none relative flex aspect-video items-center justify-center overflow-hidden border-border/60 border-b bg-muted/40">
+    <div className="pointer-events-none relative flex size-full items-center justify-center bg-muted/50">
       {previewUrl ? (
         <Image
           fill
           unoptimized
-          alt={filename}
-          className="object-contain"
-          sizes="(min-width: 1280px) 33vw, 50vw"
+          alt={attachment.filename}
+          className="object-cover"
+          sizes="160px"
           src={previewUrl}
         />
       ) : failed ? (
-        <ImageIcon className="size-8 text-muted-foreground/60" />
+        <ImageIcon className="size-7 text-muted-foreground/60" />
       ) : (
         <div className="size-full animate-pulse bg-muted" />
       )}
@@ -357,30 +317,7 @@ function AttachmentImagePreview({
   );
 }
 
-function mimeTypeToString(mimeType: string): string {
-  switch (mimeType) {
-    case "application/pdf":
-      return "PDF";
-    case "application/zip":
-      return "ZIP";
-    case "image/png":
-      return "PNG";
-    case "image/jpeg":
-      return "JPEG";
-    // LLM generated. Need to check they're actually needed
-    case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-      return "DOCX";
-    case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-      return "XLSX";
-    case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-      return "PPTX";
-    case "application/vnd.ms-excel":
-      return "XLS";
-    case "application/vnd.ms-powerpoint":
-      return "PPT";
-    case "application/msword":
-      return "DOC";
-    default:
-      return mimeType;
-  }
+function stripExtension(filename: string) {
+  const dot = filename.lastIndexOf(".");
+  return dot > 0 ? filename.slice(0, dot) : filename;
 }

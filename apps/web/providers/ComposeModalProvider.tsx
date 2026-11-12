@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import {
   createContext,
   useCallback,
@@ -23,7 +24,10 @@ import { getAccountScopedKey } from "@/utils/swr";
 import type { ReplyingToEmail } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailForm";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getActiveMailClient } from "@/utils/mail-engine/active-client";
-import { discardMailboxDraft } from "@/utils/mail-engine/discard-mailbox-draft";
+import {
+  DISCARD_DRAFT_FAILED_MESSAGE,
+  discardMailboxDraft,
+} from "@/utils/mail-engine/discard-mailbox-draft";
 import {
   getDraftSessionMessageIds,
   type ReplyDraftMode,
@@ -67,6 +71,7 @@ const ComposeModalContext = createContext<Context>({
 export const useComposeModal = () => useContext(ComposeModalContext);
 
 export function ComposeModalProvider(props: { children: React.ReactNode }) {
+  const { t } = useLingui();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { emailAccountId } = useAccount();
@@ -143,19 +148,25 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
             draftId,
           });
         } catch (error) {
-          toastError({
-            description:
-              error instanceof Error
-                ? error.message
-                : "Failed to discard draft",
-          });
+          // The helper's own messages are English; show a translated title and
+          // keep a provider rejection reason, if any, as detail.
+          const detail =
+            error instanceof Error &&
+            error.message !== DISCARD_DRAFT_FAILED_MESSAGE
+              ? error.message
+              : undefined;
+          toastError(
+            detail
+              ? { title: t`Failed to discard draft`, description: detail }
+              : { description: t`Failed to discard draft` },
+          );
           return false;
         }
       }
       closeCompose();
       return true;
     },
-    [reply, closeCompose],
+    [reply, closeCompose, t],
   );
   const contextValue = useMemo(
     () => ({
@@ -213,14 +224,16 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
                 isExpanded && "text-2xl font-medium",
               )}
             >
-              {reply ? reply.replyingToEmail.subject || "Reply" : "New Message"}
+              {reply
+                ? reply.replyingToEmail.subject || t`Reply`
+                : t`New Message`}
             </DialogTitle>
             <div className="flex items-center gap-0.5">
               <Button
-                aria-label={isExpanded ? "Restore compose" : "Expand compose"}
+                aria-label={isExpanded ? t`Restore compose` : t`Expand compose`}
                 onClick={() => setIsExpanded((expanded) => !expanded)}
                 size="iconSm"
-                title={isExpanded ? "Restore compose" : "Expand compose"}
+                title={isExpanded ? t`Restore compose` : t`Expand compose`}
                 variant="ghost"
               >
                 {isExpanded ? (
@@ -231,9 +244,9 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
               </Button>
               <DialogClose asChild>
                 <Button
-                  aria-label="Close compose"
+                  aria-label={t`Close compose`}
                   size="iconSm"
-                  title="Close compose"
+                  title={t`Close compose`}
                   variant="ghost"
                 >
                   <XIcon className="size-4" />

@@ -1,3 +1,4 @@
+import { es } from "date-fns/locale/es";
 import { describe, expect, it } from "vitest";
 import { formatInvitationTime } from "@/utils/calendar/invitations/format-time";
 
@@ -79,5 +80,19 @@ describe("formatInvitationTime", () => {
         timeZone,
       ),
     ).toBe("Tuesday, September 29, 2026 · 1:00 PM");
+  });
+
+  it("orders the day and month the way the viewer's language does", () => {
+    expect(
+      formatInvitationTime(
+        {
+          start: "2026-10-01T10:00:00.000Z",
+          end: "2026-10-01T10:30:00.000Z",
+          allDay: false,
+        },
+        "UTC",
+        es,
+      ),
+    ).toBe("jueves, 1 de octubre de 2026 · 10:00 – 10:30");
   });
 });

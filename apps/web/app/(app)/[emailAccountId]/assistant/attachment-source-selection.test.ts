@@ -1,3 +1,4 @@
+import { setupI18n } from "@lingui/core";
 import { describe, expect, it } from "vitest";
 import { AttachmentSourceType } from "@/generated/prisma/enums";
 import {
@@ -14,6 +15,8 @@ import {
 } from "./attachment-source-selection";
 
 describe("formatAttachmentSourceCount", () => {
+  const i18n = setupI18n({ locale: "en", messages: { en: {} } });
+
   it.each([
     [0, 0, ""],
     [1, 0, "1 folder"],
@@ -34,7 +37,7 @@ describe("formatAttachmentSourceCount", () => {
       ),
     ];
 
-    expect(formatAttachmentSourceCount(sources)).toBe(expected);
+    expect(formatAttachmentSourceCount(i18n, sources)).toBe(expected);
   });
 });
 

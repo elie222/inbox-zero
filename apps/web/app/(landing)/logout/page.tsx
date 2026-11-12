@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { logOut } from "@/utils/user";
 import { Loading } from "@/components/Loading";
-import { BasicLayout } from "@/components/layouts/BasicLayout";
+import { ClientBasicLayout } from "@/components/layouts/ClientBasicLayout";
 
 export default function LogoutPage() {
   useEffect(() => {
@@ -11,8 +11,8 @@ export default function LogoutPage() {
   }, []);
 
   return (
-    <BasicLayout>
+    <ClientBasicLayout>
       <Loading />
-    </BasicLayout>
+    </ClientBasicLayout>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAtom, useSetAtom } from "jotai";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
@@ -26,23 +27,27 @@ import { getActionErrorMessage } from "@/utils/error";
 import { feedbackDialogOpenAtom } from "@/store/command-palette";
 
 export function FeedbackSidebarButton() {
+  const { t } = useLingui();
   const setOpen = useSetAtom(feedbackDialogOpenAtom);
 
   return (
     <SidebarMenuButton
-      tooltip="Feedback"
+      tooltip={t`Feedback`}
       sidebarName="left-sidebar"
       className="h-9 font-semibold"
       aria-haspopup="dialog"
       onClick={() => setOpen(true)}
     >
       <MessageSquarePlusIcon />
-      <span>Feedback</span>
+      <span>
+        <Trans>Feedback</Trans>
+      </span>
     </SidebarMenuButton>
   );
 }
 
 export function FeedbackDialog() {
+  const { t } = useLingui();
   const [open, setOpen] = useAtom(feedbackDialogOpenAtom);
 
   const {
@@ -57,14 +62,14 @@ export function FeedbackDialog() {
 
   const { execute, isExecuting } = useAction(submitFeedbackAction, {
     onSuccess: () => {
-      toastSuccess({ description: "Thanks for your feedback!" });
+      toastSuccess({ description: t`Thanks for your feedback!` });
       reset();
       setOpen(false);
     },
     onError: (error) => {
       toastError({
         description: getActionErrorMessage(error.error, {
-          prefix: "Failed to submit feedback",
+          prefix: t`Failed to submit feedback`,
         }),
       });
     },
@@ -83,10 +88,14 @@ export function FeedbackDialog() {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Send feedback</DialogTitle>
+          <DialogTitle>
+            <Trans>Send feedback</Trans>
+          </DialogTitle>
           <DialogDescription>
-            Tell us what you like, what is confusing, or what you want us to
-            build next.
+            <Trans>
+              Tell us what you like, what is confusing, or what you want us to
+              build next.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
@@ -95,7 +104,7 @@ export function FeedbackDialog() {
             name="feedback"
             autosizeTextarea
             rows={5}
-            placeholder="What's on your mind?"
+            placeholder={t`What's on your mind?`}
             registerProps={register("feedback")}
             error={errors.feedback}
           />
@@ -106,10 +115,10 @@ export function FeedbackDialog() {
               onClick={() => handleOpenChange(false)}
               disabled={isExecuting}
             >
-              Cancel
+              <Trans>Cancel</Trans>
             </Button>
             <Button type="submit" loading={isExecuting}>
-              Submit
+              <Trans>Submit</Trans>
             </Button>
           </DialogFooter>
         </form>

@@ -4,6 +4,7 @@ import { useCallback, useState, useRef, useMemo } from "react";
 import useSWR from "swr";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import PQueue from "p-queue";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   BookOpenCheckIcon,
   SparklesIcon,
@@ -43,10 +44,7 @@ import { useRules } from "@/hooks/useRules";
 import { useInfiniteMessages } from "@/hooks/useMessages";
 import { usePremium } from "@/hooks/usePremium";
 import { hasTierAccess } from "@/utils/premium";
-import {
-  RERUN_MINIMUM_TIER,
-  RERUN_UPGRADE_MESSAGE,
-} from "@/utils/premium/rerun";
+import { RERUN_MINIMUM_TIER } from "@/utils/premium/rerun";
 import { Tooltip } from "@/components/Tooltip";
 
 type Message = MessagesResponse["messages"][number];
@@ -54,6 +52,7 @@ type Message = MessagesResponse["messages"][number];
 const logger = createClientLogger("automation-test");
 
 export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
+  const { t } = useLingui();
   const [searchQuery, setSearchQuery] = useQueryState("search");
   const [showCustomForm, setShowCustomForm] = useQueryState(
     "custom",
@@ -163,7 +162,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
           serverError: true,
         });
         toastError({
-          title: "There was an error processing the email",
+          title: t`There was an error processing the email`,
           description: result.serverError,
         });
       } else if (result?.data) {
@@ -184,7 +183,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
       }
       setIsRunning((prev) => ({ ...prev, [message.id]: false }));
     },
-    [testMode, emailAccountId],
+    [testMode, emailAccountId, t],
   );
 
   const handleRunAll = async () => {
@@ -226,8 +225,8 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
           } catch (error) {
             console.error(`Failed to process message ${message.id}:`, error);
             toastError({
-              title: "Failed to process email",
-              description: `Error processing email from ${message.headers.from}: ${error instanceof Error ? error.message : "Unknown error"}`,
+              title: t`Failed to process email`,
+              description: t`Error processing email from ${message.headers.from}: ${error instanceof Error ? error.message : t`Unknown error`}`,
             });
           }
         });
@@ -256,11 +255,11 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
   const { setInput } = useChat();
 
-  let loadMoreLabel = "No More Messages";
+  let loadMoreLabel = t`No More Messages`;
   if (isValidating) {
-    loadMoreLabel = "Loading...";
+    loadMoreLabel = t`Loading...`;
   } else if (hasMore) {
-    loadMoreLabel = "Load More";
+    loadMoreLabel = t`Load More`;
   }
 
   return (
@@ -270,12 +269,12 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
           {isRunningAll ? (
             <Button onClick={handleStop} variant="outline" size="sm">
               <PauseIcon className="mr-2 size-4" />
-              Stop
+              <Trans>Stop</Trans>
             </Button>
           ) : (
             <Button onClick={handleRunAll} size="sm">
               <BookOpenCheckIcon className="mr-2 size-4" />
-              {testMode ? "Test All" : "Run on All"}
+              {testMode ? <Trans>Test All</Trans> : <Trans>Run on All</Trans>}
             </Button>
           )}
         </div>
@@ -288,7 +287,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
               size="sm"
             >
               <PenSquareIcon className="mr-2 size-4" />
-              Custom
+              <Trans>Custom</Trans>
             </Button>
           )}
           <SearchForm
@@ -303,8 +302,10 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
           {!hasAiRules && (
             <Alert variant="destructive">
               <AlertDescription>
-                You don't have any AI rules set up. The test won't match
-                anything. Please create AI rules first.
+                <Trans>
+                  You don't have any AI rules set up. The test won't match
+                  anything. Please create AI rules first.
+                </Trans>
               </AlertDescription>
             </Alert>
           )}
@@ -318,7 +319,9 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
         loadingComponent={<ProcessRulesLoading />}
       >
         {messages.length === 0 ? (
-          <MutedText className="p-4 text-center">No emails found</MutedText>
+          <MutedText className="p-4 text-center">
+            <Trans>No emails found</Trans>
+          </MutedText>
         ) : (
           <Card>
             <Table className="table-fixed sm:table-auto">
@@ -463,7 +466,9 @@ function ProcessRulesRow({
                 onClick={() => onRun()}
               >
                 {!isRunning && <SparklesIcon className="mr-2 size-4" />}
-                <span>{testMode ? "Test" : "Run"}</span>
+                <span>
+                  {testMode ? <Trans>Test</Trans> : <Trans>Run</Trans>}
+                </span>
               </Button>
             )}
           </div>
@@ -484,6 +489,7 @@ function RerunButton({
   testMode: boolean;
   onRun: (rerun?: boolean) => void;
 }) {
+  const { t } = useLingui();
   const button = (
     <Button
       variant="outline"
@@ -494,14 +500,16 @@ function RerunButton({
       <RefreshCcwIcon
         className={cn("mr-2 size-4", isRunning && "animate-spin")}
       />
-      <span>{testMode ? "Retest" : "Rerun"}</span>
+      <span>{testMode ? <Trans>Retest</Trans> : <Trans>Rerun</Trans>}</span>
     </Button>
   );
 
   if (canRerun) return button;
 
   return (
-    <Tooltip content={RERUN_UPGRADE_MESSAGE}>
+    <Tooltip
+      content={t`Re-processing emails you've already handled is available on the Professional plan.`}
+    >
       <span className="inline-flex cursor-not-allowed">{button}</span>
     </Tooltip>
   );

@@ -1,9 +1,8 @@
 import { NEXT_ACTION_NOT_FOUND_HEADER } from "next/dist/client/components/app-router-headers";
 import { toast } from "sonner";
 import { isSafeToReload, reloadAtNextSafeMoment } from "./safe-reload";
+import { claimAutomaticReload } from "./automatic-reload";
 
-const RELOADED_AT_KEY = "stale-deployment-reloaded-at";
-const RELOAD_COOLDOWN_MS = 5 * 60 * 1000;
 let cancelPendingReload: (() => void) | undefined;
 
 // A window left open across a deploy still calls the previous build's server
@@ -19,18 +18,6 @@ export function installStaleDeploymentReload() {
     }
     return response;
   };
-}
-
-export function claimStaleDeploymentReload(
-  storage: Pick<Storage, "getItem" | "setItem">,
-  nowMs: number,
-) {
-  const reloadedAt = Number(storage.getItem(RELOADED_AT_KEY));
-  // A reload that still lands on the old build (for example the offline copy
-  // of the page) must not turn into a reload loop.
-  if (reloadedAt && nowMs - reloadedAt < RELOAD_COOLDOWN_MS) return false;
-  storage.setItem(RELOADED_AT_KEY, String(nowMs));
-  return true;
 }
 
 function handleStaleDeployment() {
@@ -50,12 +37,4 @@ function handleStaleDeployment() {
   toast.error("Could not complete the action. Please try again.", {
     id: "stale-action-error",
   });
-}
-
-function claimAutomaticReload() {
-  try {
-    return claimStaleDeploymentReload(window.sessionStorage, Date.now());
-  } catch {
-    return false;
-  }
 }
