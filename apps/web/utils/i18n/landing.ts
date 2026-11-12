@@ -15,7 +15,60 @@ type LandingLocale = (typeof LANDING_LOCALES)[number];
 // Landing pages that have a translated version. Links on a translated page
 // only point to the same language when the target is listed here, so a page
 // without a translation is never linked to a missing URL.
-const LOCALIZED_LANDING_PATHS = new Set<string>(["/", "/pricing"]);
+// The marketing submodule translated pages are listed here too: their URLs
+// are public, and self-hosted builds without the submodule never link to them.
+const LOCALIZED_LANDING_PATHS = new Set<string>([
+  "/",
+  "/pricing",
+  "/about",
+  "/accounting-firms",
+  "/ai-assistant-chat",
+  "/ai-automation",
+  "/ai-email-assistant",
+  "/ai-email-assistant-for-outlook",
+  "/ai-meeting-notetaker",
+  "/auto-file-email-attachments",
+  "/auto-forward-emails",
+  "/block-cold-emails",
+  "/brief-my-meeting",
+  "/bulk-email-unsubscriber",
+  "/clean-inbox",
+  "/cli",
+  "/client-intake-email-automation",
+  "/commercial-real-estate",
+  "/construction",
+  "/creator",
+  "/customer-support",
+  "/download",
+  "/ecommerce",
+  "/email-analytics",
+  "/email-client",
+  "/email-follow-up-tracker",
+  "/enterprise",
+  "/executive-assistants",
+  "/founders",
+  "/gmail-mcp",
+  "/insurance-agencies",
+  "/law-firms",
+  "/meeting-briefs-for-client-teams",
+  "/mobile-app",
+  "/msp",
+  "/openclaw",
+  "/operations-managers",
+  "/organize-document-heavy-email",
+  "/outlook-mcp",
+  "/property-management",
+  "/real-estate",
+  "/recruiting",
+  "/reply-zero-ai",
+  "/sales",
+  "/slack-integration",
+  "/small-business",
+  "/support",
+  "/teams-integration",
+  "/telegram-integration",
+  "/travel-advisors",
+]);
 
 export function isLocalizedLandingPath(path: string) {
   return LOCALIZED_LANDING_PATHS.has(path);
