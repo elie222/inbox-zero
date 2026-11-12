@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { ExternalLinkIcon, FolderIcon, InfoIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -50,20 +51,30 @@ export function FilingActivity() {
 
   return (
     <div>
-      <SectionHeader className="mb-3">Recent Activity</SectionHeader>
+      <SectionHeader className="mb-3">
+        <Trans>Recent Activity</Trans>
+      </SectionHeader>
       <LoadingContent loading={isLoading} error={error}>
         {data?.filings.length === 0 ? (
-          <MutedText className="italic">No recently filed documents.</MutedText>
+          <MutedText className="italic">
+            <Trans>No recently filed documents.</Trans>
+          </MutedText>
         ) : (
           <div className="rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>File</TableHead>
-                  <TableHead>Folder</TableHead>
-                  <TableHead className="w-[100px]">When</TableHead>
+                  <TableHead>
+                    <Trans>File</Trans>
+                  </TableHead>
+                  <TableHead>
+                    <Trans>Folder</Trans>
+                  </TableHead>
+                  <TableHead className="w-[100px]">
+                    <Trans>When</Trans>
+                  </TableHead>
                   <TableHead className="w-[80px] text-center">
-                    Correct?
+                    <Trans>Correct?</Trans>
                   </TableHead>
                   <TableHead className="w-[50px]" />
                 </TableRow>
@@ -83,7 +94,10 @@ export function FilingActivity() {
             </Table>
             {data && data.total > 10 && (
               <MutedText className="p-3 border-t">
-                Showing {data.filings.length} of {data.total} filings
+                <Trans>
+                  Showing {data.filings.length} of{" "}
+                  <Plural value={data.total} one="# filing" other="# filings" />
+                </Trans>
               </MutedText>
             )}
           </div>
@@ -106,6 +120,7 @@ function FilingRow({
   savedFolders: { folderId: string; folderName: string; folderPath: string }[];
   onFeedbackSaved: () => void;
 }) {
+  const { t } = useLingui();
   const [vote, setVote] = useState<boolean | null>(
     filing.feedbackPositive ?? null,
   );
@@ -141,14 +156,14 @@ function FilingRow({
 
       if (result?.serverError) {
         setVote(previousValue);
-        toastError({ description: "Failed to submit feedback" });
+        toastError({ description: t`Failed to submit feedback` });
         return;
       }
 
       onFeedbackSaved();
     } catch {
       setVote(previousValue);
-      toastError({ description: "Failed to submit feedback" });
+      toastError({ description: t`Failed to submit feedback` });
     } finally {
       setIsSubmitting(false);
     }
@@ -159,6 +174,7 @@ function FilingRow({
     isSubmitting,
     onFeedbackSaved,
     vote,
+    t,
   ]);
 
   const handleMoveToFolder = useCallback(
@@ -176,19 +192,19 @@ function FilingRow({
 
         if (result?.serverError) {
           setVote(voteBeforeDropdownRef.current);
-          toastError({ description: "Failed to move file" });
+          toastError({ description: t`Failed to move file` });
           return;
         }
 
-        toastSuccess({ description: `Moved to ${folderName}` });
+        toastSuccess({ description: t`Moved to ${folderName}` });
       } catch {
         setVote(voteBeforeDropdownRef.current);
-        toastError({ description: "Failed to move file" });
+        toastError({ description: t`Failed to move file` });
       } finally {
         setIsSubmitting(false);
       }
     },
-    [canGiveFeedback, emailAccountId, filing.id, isSubmitting],
+    [canGiveFeedback, emailAccountId, filing.id, isSubmitting, t],
   );
 
   const handleWrongClick = useCallback(async () => {
@@ -206,14 +222,14 @@ function FilingRow({
 
       if (result?.serverError) {
         setVote(previousValue);
-        toastError({ description: "Failed to submit feedback" });
+        toastError({ description: t`Failed to submit feedback` });
         return;
       }
 
       onFeedbackSaved();
     } catch {
       setVote(previousValue);
-      toastError({ description: "Failed to submit feedback" });
+      toastError({ description: t`Failed to submit feedback` });
     } finally {
       setIsSubmitting(false);
     }
@@ -224,6 +240,7 @@ function FilingRow({
     isSubmitting,
     onFeedbackSaved,
     vote,
+    t,
   ]);
 
   const handleFeedbackClick = useCallback(
@@ -240,6 +257,7 @@ function FilingRow({
   const otherFolders = savedFolders.filter(
     (f) => f.folderPath !== filing.folderPath,
   );
+  const filename = filing.filename;
 
   return (
     <TableRow>
@@ -280,7 +298,7 @@ function FilingRow({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>
-                  Which folder does this file belong in?
+                  <Trans>Which folder does this file belong in?</Trans>
                 </DropdownMenuLabel>
                 {otherFolders.map((folder) => (
                   <DropdownMenuItem
@@ -300,7 +318,7 @@ function FilingRow({
                 <DropdownMenuItem
                   onClick={() => setVote(voteBeforeDropdownRef.current)}
                 >
-                  Cancel
+                  <Trans>Cancel</Trans>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -323,7 +341,7 @@ function FilingRow({
             target="_blank"
             rel="noopener noreferrer"
             className="text-muted-foreground hover:text-foreground"
-            aria-label={`Open ${filing.filename} in drive`}
+            aria-label={t`Open ${filename} in drive`}
           >
             <ExternalLinkIcon className="size-4" />
           </a>
@@ -338,13 +356,14 @@ function FolderCell({
 }: {
   filing: GetFilingsResponse["filings"][number];
 }) {
+  const { t } = useLingui();
   const isSkipped = !filing.folderPath;
 
   if (isSkipped) {
     return (
-      <Tooltip content={filing.reasoning || "Doesn't match preferences"}>
+      <Tooltip content={filing.reasoning || t`Doesn't match preferences`}>
         <span className="flex items-center gap-1.5 text-muted-foreground italic">
-          Skipped
+          <Trans>Skipped</Trans>
           <InfoIcon className="size-3.5 shrink-0" />
         </span>
       </Tooltip>

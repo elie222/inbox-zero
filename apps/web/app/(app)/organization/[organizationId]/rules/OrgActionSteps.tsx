@@ -1,4 +1,3 @@
-import { useLingui } from "@lingui/react/macro";
 import type {
   Control,
   UseFormRegister,
@@ -6,6 +5,9 @@ import type {
   UseFormWatch,
 } from "react-hook-form";
 import { useWatch } from "react-hook-form";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ActionType } from "@/generated/prisma/enums";
 import { Input } from "@/components/Input";
 import { Card } from "@/components/ui/card";
@@ -46,12 +48,13 @@ export function OrgActionSteps({
   append: (action: OrgActionFormValue) => void;
   remove: (index: number) => void;
 }) {
+  const { t } = useLingui();
   const actions = useWatch({ control, name: "actions" }) ?? [];
 
   return (
     <RuleSteps
       onAdd={() => append(EMPTY_ORG_ACTION)}
-      addButtonLabel="Add Action"
+      addButtonLabel={t`Add Action`}
       addButtonDisabled={false}
     >
       {fields.map((field, index) => (
@@ -87,7 +90,7 @@ function OrgActionCard({
   setValue: UseFormSetValue<OrgRuleFormValues>;
   onRemove: () => void;
 }) {
-  const { i18n } = useLingui();
+  const { t, i18n } = useLingui();
   const actionTypeOptions = getAvailableOrganizationRuleActionTypes(
     id ? type : undefined,
   ).map((value) => ({
@@ -119,7 +122,7 @@ function OrgActionCard({
                 <span>{selectedOption.label}</span>
               </div>
             ) : (
-              <SelectValue placeholder="Select action" />
+              <SelectValue placeholder={t`Select action`} />
             )}
           </SelectTrigger>
         </FormControl>
@@ -140,10 +143,12 @@ function OrgActionCard({
     </FormItem>
   );
 
-  const actionFields = renderOrgActionFields({ index, type, register });
+  const actionFields = renderOrgActionFields({ index, type, register, i18n });
   const delayControls = delayEnabled ? (
     <div className="flex items-center space-x-2">
-      <span className="text-muted-foreground">after</span>
+      <span className="text-muted-foreground">
+        <Trans>after</Trans>
+      </span>
       <DelayInputControls
         name={`org-delay-${index}`}
         value={delayValue}
@@ -167,7 +172,7 @@ function OrgActionCard({
   return (
     <RuleStep
       onRemove={onRemove}
-      removeAriaLabel="Remove action"
+      removeAriaLabel={t`Remove action`}
       leftContent={leftContent}
       rightContent={rightContent}
       onAddDelay={
@@ -195,10 +200,12 @@ function renderOrgActionFields({
   index,
   type,
   register,
+  i18n,
 }: {
   index: number;
   type: ActionType;
   register: UseFormRegister<OrgRuleFormValues>;
+  i18n: I18n;
 }) {
   const isSend = type === ActionType.SEND_EMAIL;
   const isReply = type === ActionType.REPLY;
@@ -213,9 +220,9 @@ function renderOrgActionFields({
         key="label"
         type="text"
         name={`actions.${index}.label`}
-        label="Label name"
+        label={i18n._(msg`Label name`)}
         registerProps={register(`actions.${index}.label`)}
-        placeholder="e.g. Invoices"
+        placeholder={i18n._(msg`e.g. Invoices`)}
       />,
     );
   }
@@ -226,7 +233,7 @@ function renderOrgActionFields({
         key="folderName"
         type="text"
         name={`actions.${index}.folderName`}
-        label="Folder name"
+        label={i18n._(msg`Folder name`)}
         registerProps={register(`actions.${index}.folderName`)}
       />,
     );
@@ -238,7 +245,7 @@ function renderOrgActionFields({
         key="url"
         type="text"
         name={`actions.${index}.url`}
-        label="Webhook URL"
+        label={i18n._(msg`Webhook URL`)}
         registerProps={register(`actions.${index}.url`)}
       />,
     );
@@ -250,7 +257,7 @@ function renderOrgActionFields({
         key="to"
         type="text"
         name={`actions.${index}.to`}
-        label={isForward ? "Forward to" : "To"}
+        label={isForward ? i18n._(msg`Forward to`) : i18n._(msg`To`)}
         registerProps={register(`actions.${index}.to`)}
       />,
     );
@@ -262,7 +269,7 @@ function renderOrgActionFields({
         key="subject"
         type="text"
         name={`actions.${index}.subject`}
-        label="Subject"
+        label={i18n._(msg`Subject`)}
         registerProps={register(`actions.${index}.subject`)}
       />,
     );
@@ -279,8 +286,8 @@ function renderOrgActionFields({
         name={`actions.${index}.content`}
         label={
           type === ActionType.DRAFT_EMAIL
-            ? "Draft content (optional)"
-            : "Content"
+            ? i18n._(msg`Draft content (optional)`)
+            : i18n._(msg`Content`)
         }
         registerProps={register(`actions.${index}.content`)}
       />,
@@ -293,13 +300,13 @@ function renderOrgActionFields({
         <Input
           type="text"
           name={`actions.${index}.cc`}
-          label="CC (optional)"
+          label={i18n._(msg`CC (optional)`)}
           registerProps={register(`actions.${index}.cc`)}
         />
         <Input
           type="text"
           name={`actions.${index}.bcc`}
-          label="BCC (optional)"
+          label={i18n._(msg`BCC (optional)`)}
           registerProps={register(`actions.${index}.bcc`)}
         />
       </div>,

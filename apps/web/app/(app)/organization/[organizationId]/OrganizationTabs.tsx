@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useLingui } from "@lingui/react/macro";
 import { TabSelect } from "@/components/TabSelect";
 import { PageHeading } from "@/components/Typography";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -14,6 +15,7 @@ interface OrganizationTabsProps {
 }
 
 export function OrganizationTabs({ organizationId }: OrganizationTabsProps) {
+  const { t } = useLingui();
   const pathname = usePathname();
   const {
     data: organization,
@@ -26,19 +28,19 @@ export function OrganizationTabs({ organizationId }: OrganizationTabsProps) {
   const tabs = [
     {
       id: "members",
-      label: "Members",
+      label: t`Members`,
       href: `/organization/${organizationId}`,
     },
     ...(isAdmin
       ? [
           {
             id: "rules",
-            label: "Rules",
+            label: t`Rules`,
             href: `/organization/${organizationId}/rules`,
           },
           {
             id: "stats",
-            label: "Analytics",
+            label: t`Analytics`,
             href: `/organization/${organizationId}/stats`,
           },
         ]

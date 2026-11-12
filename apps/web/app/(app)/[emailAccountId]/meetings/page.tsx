@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { CalendarIcon, MicIcon, SettingsIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -37,19 +38,20 @@ export default function MeetingsPage() {
 }
 
 function MeetingsPageContent() {
+  const { t } = useLingui();
   const meetingRecorderEnabled = useMeetingRecorderEnabled();
 
   if (!meetingRecorderEnabled) {
     return (
       <PageWrapper>
-        <PageHeader title="Meetings" />
+        <PageHeader title={t`Meetings`} />
 
         <div className="mt-8 max-w-3xl">
           <ActionCard
             variant="blue"
             icon={<MicIcon className="h-5 w-5" />}
-            title="Meeting notetaker is disabled"
-            description="The meeting notetaker is turned off on this server. Set NEXT_PUBLIC_MEETING_RECORDER_ENABLED=true and see the self-hosting docs to configure it."
+            title={t`Meeting notetaker is disabled`}
+            description={t`The meeting notetaker is turned off on this server. Set NEXT_PUBLIC_MEETING_RECORDER_ENABLED=true and see the self-hosting docs to configure it.`}
           />
         </div>
       </PageWrapper>
@@ -60,6 +62,7 @@ function MeetingsPageContent() {
 }
 
 function MeetingRecorderPageContent() {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const analytics = useProductAnalytics();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -87,7 +90,7 @@ function MeetingRecorderPageContent() {
       onError: ({ error }) => {
         toastError({
           description: getActionErrorMessage(error, {
-            prefix: "Failed to turn on the notetaker",
+            prefix: t`Failed to turn on the notetaker`,
           }),
         });
       },
@@ -142,14 +145,14 @@ function MeetingRecorderPageContent() {
   return (
     <PageWrapper>
       <div className="flex items-start justify-between gap-4">
-        <PageHeader title="Meetings" />
+        <PageHeader title={t`Meetings`} />
 
         <Button
           variant="outline"
           Icon={SettingsIcon}
           onClick={() => setIsSettingsOpen(true)}
         >
-          Settings
+          <Trans>Settings</Trans>
         </Button>
       </div>
 
@@ -160,12 +163,14 @@ function MeetingRecorderPageContent() {
           <ActionCard
             variant="blue"
             icon={<CalendarIcon className="h-5 w-5" />}
-            title="Reconnect your calendar"
+            title={t`Reconnect your calendar`}
             description={
               <div className="space-y-4">
                 <p>
-                  Your meeting notetaker is still enabled. Connect a calendar so
-                  it can find upcoming meetings.
+                  <Trans>
+                    Your meeting notetaker is still enabled. Connect a calendar
+                    so it can find upcoming meetings.
+                  </Trans>
                 </p>
                 <ConnectCalendar
                   analyticsPage="meetings"
