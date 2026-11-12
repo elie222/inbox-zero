@@ -4,8 +4,14 @@ import {
   messageContextSchema,
 } from "@/utils/ai/assistant/chat-context-validation";
 import { inlineEmailActionSchema } from "@/utils/ai/assistant/inline-email-actions";
+import {
+  bulkInboxActionSearchSchema,
+  bulkInboxActionTypes,
+} from "@/utils/bulk-inbox-action/validation";
 
 export const ASSISTANT_CHAT_MAX_TEXT_LENGTH = 20_000;
+// How long a confirmation may stay "processing" before it counts as abandoned.
+export const ASSISTANT_CONFIRMATION_PROCESSING_LEASE_MS = 5 * 60 * 1000;
 export const ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE =
   "Messages can be up to 20,000 characters.";
 
@@ -174,6 +180,60 @@ export const confirmAssistantSaveMemoryBody = confirmAssistantActionBaseBody;
 export type ConfirmAssistantSaveMemoryBody = z.infer<
   typeof confirmAssistantSaveMemoryBody
 >;
+
+export const pendingBulkInboxActionToolOutputSchema = z.object({
+  success: z.literal(true),
+  actionType: z.literal("bulk_inbox_action"),
+  requiresConfirmation: z.literal(true),
+  confirmationState: z.enum([
+    "pending",
+    "processing",
+    "confirmed",
+    "cancelled",
+  ]),
+  confirmationProcessingAt: z.string().optional(),
+  pendingAction: z.object({
+    search: bulkInboxActionSearchSchema,
+    action: z.enum(bulkInboxActionTypes),
+    labelId: z.string().nullable(),
+    labelName: z.string().nullable(),
+    instruction: z.string().nullable(),
+  }),
+  estimate: z
+    .object({
+      threadCount: z.number(),
+      isApproximate: z.boolean(),
+      isLowerBound: z.boolean().optional(),
+      searchThreadCount: z.number(),
+    })
+    .optional(),
+  matchSummary: z.string().nullish(),
+  samples: z
+    .array(
+      z.object({ from: z.string(), subject: z.string(), date: z.string() }),
+    )
+    .optional(),
+  confirmationResult: z
+    .object({
+      jobId: z.string().min(1),
+      confirmedAt: z.string().min(1),
+    })
+    .optional(),
+});
+
+export type PendingBulkInboxActionToolOutput = z.infer<
+  typeof pendingBulkInboxActionToolOutputSchema
+>;
+
+export const confirmAssistantBulkInboxActionBody =
+  confirmAssistantActionBaseBody;
+
+export const dismissAssistantBulkInboxActionBody =
+  confirmAssistantActionBaseBody;
+
+export const cancelBulkInboxActionJobBody = z.object({
+  jobId: z.string().min(1),
+});
 
 const assistantChatTextPartSchema = z.object({
   type: z.literal("text"),

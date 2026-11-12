@@ -21,6 +21,7 @@ import { runWithBoundedConcurrency } from "@/utils/async";
 import { findNestedLabelMatches } from "@/utils/label/find-nested-label-matches";
 import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
+import { applyLabelToThread } from "@/utils/label/apply-label-to-thread";
 import {
   buildMicrosoftSearchErrorResult,
   normalizeOutlookSearchInput,
@@ -506,7 +507,7 @@ const searchInboxBaseFields = {
   ),
 };
 
-const gmailSearchQuerySchema = z
+export const gmailSearchQuerySchema = z
   .string()
   .trim()
   .max(500)
@@ -528,7 +529,7 @@ const gmailSearchPageStateSchema = z.object({
   pageToken: z.string().min(1),
 });
 
-const outlookSearchFilterFields = {
+export const outlookSearchFilterFields = {
   query: z
     .string()
     .trim()
@@ -1813,40 +1814,7 @@ async function findThreadIdForMessageId(
   }
 }
 
-async function applyLabelToThread({
-  emailProvider,
-  threadId,
-  labelId,
-  labelName,
-}: {
-  emailProvider: EmailProvider;
-  threadId: string;
-  labelId: string;
-  labelName: string | null;
-}) {
-  const messages = await emailProvider.getThreadMessages(threadId);
-  const results = await runWithBoundedConcurrency({
-    items: messages,
-    concurrency: LABEL_MESSAGE_CONCURRENCY,
-    run: async (message) => {
-      await emailProvider.labelMessage({
-        messageId: message.id,
-        labelId,
-        labelName,
-      });
-    },
-  });
-
-  const failedCount = results.filter(
-    ({ result }) => result.status === "rejected",
-  ).length;
-
-  if (failedCount > 0) {
-    throw new Error(`Failed to label ${failedCount} messages in thread`);
-  }
-}
-
-async function resolveThreadLabel({
+export async function resolveThreadLabel({
   emailProvider,
   labelName,
   action,
@@ -2053,7 +2021,6 @@ function isThreadLabelAction(
   return action === "label_threads" || action === "remove_label_threads";
 }
 
-const LABEL_MESSAGE_CONCURRENCY = 1;
 const THREAD_ACTION_CONCURRENCY = 3;
 
 const MAX_ATTACHMENT_TEXT_LENGTH = 8000;

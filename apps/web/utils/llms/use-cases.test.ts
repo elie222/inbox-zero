@@ -105,6 +105,7 @@ describe("LLM use cases", () => {
   it.each([
     [LlmUseCase.CategorizeSender, "default"],
     [LlmUseCase.CategorizeSendersBulk, "economy"],
+    [LlmUseCase.BulkInboxActionFilter, "economy"],
     [LlmUseCase.AssistantChat, "chat"],
     [LlmUseCase.DraftReply, "draft"],
   ] as const)("delegates %s to getModel with the matching role", (useCase, modelType) => {

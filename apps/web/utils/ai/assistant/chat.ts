@@ -39,6 +39,11 @@ import {
   startSenderCategorizationTool,
 } from "./chat-inbox-tools";
 import { saveMemoryTool, searchMemoriesTool } from "./chat-memory-tools";
+import {
+  bulkManageInboxTool,
+  endsWithPendingBulkInboxAction,
+} from "./chat-bulk-inbox-tool";
+import { buildBulkInboxActionStatusMessage } from "./bulk-inbox-action-status";
 import { getCalendarEventsTool } from "./chat-calendar-tools";
 import { controlMailScreenTool } from "./chat-mail-screen-tool";
 import { manageSplitInboxTool } from "./chat-split-inbox-tool";
@@ -60,7 +65,7 @@ import { guardChatTools } from "@/utils/ai/assistant/chat-tool-guards";
 
 export const maxDuration = 800;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 19;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 20;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 720_000,
   messaging: 60_000,
@@ -281,6 +286,11 @@ export async function aiProcessAssistantChat({
     ];
   }
 
+  const bulkInboxActionStatusMessage =
+    responseSurface === "web" && chatId
+      ? await buildBulkInboxActionStatusMessage({ chatId, logger })
+      : null;
+
   const contextMessages = [
     ...inboxContextMessage,
     ...(memories && memories.length > 0
@@ -293,6 +303,7 @@ export async function aiProcessAssistantChat({
       : []),
     ...freshRuleContextMessage,
     ...hiddenContextMessage,
+    ...(bulkInboxActionStatusMessage ? [bulkInboxActionStatusMessage] : []),
   ];
 
   const { messages: cacheOptimizedMessages, stablePrefixEndIndex } =
@@ -318,6 +329,10 @@ export async function aiProcessAssistantChat({
     searchInbox: searchInboxTool(toolOptions),
     readEmail: readEmailTool(toolOptions),
     manageInbox: manageInboxTool(toolOptions),
+    // Needs the web confirmation card, which messaging surfaces lack.
+    ...(responseSurface === "web"
+      ? { bulkManageInbox: bulkManageInboxTool(toolOptions) }
+      : {}),
     getUserRulesAndSettings: getUserRulesAndSettingsTool(toolOptions),
     getRuleExecutionForMessage: getRuleExecutionForMessageTool(toolOptions),
     testRulesOnEmail: testRulesOnEmailTool(toolOptions),
@@ -410,7 +425,10 @@ export async function aiProcessAssistantChat({
       onModelResolved?.(resolvedModel);
     },
     onEnd,
-    stopWhen: () => false,
+    stopWhen: (options) => {
+      const lastStep = options?.steps.at(-1);
+      return lastStep ? endsWithPendingBulkInboxAction(lastStep) : false;
+    },
     createSteering: finalReply.createSteering,
     prepareStep: ({
       messages: stepMessages,
@@ -759,6 +777,13 @@ export function buildResolvedSystemPrompt({
   currentTimestamp: string;
 }) {
   const providerPolicy = getAssistantChatProvider(provider);
+  // Web chat has bulkManageInbox for cleanup across many pages.
+  const manualBulkCleanupPolicy =
+    responseSurface === "web"
+      ? ""
+      : `- For all-matching cleanup, paginate searchInbox until hasMore=false, collect matching threadIds across pages, then write in batches.
+- For confirmed multi-batch cleanup, continue search and action batches within the current response until the requested scope is complete. Do not pause merely to provide progress updates or ask the user to trigger the next batch, and never claim work will continue after the response ends.
+`;
   const sections = [
     "You are the Inbox Zero assistant. You help users understand their inbox, take inbox actions, update account features, and manage automation rules.",
     messagingPlatform === "teams"
@@ -836,10 +861,8 @@ export function buildResolvedSystemPrompt({
 - Prioritize "To Reply" items as must handle. ${providerPolicy.missingContextPolicy}, infer urgency from sender, subject, and snippet.
 - For retroactive cleanup requests, use the inbox stats in context plus a search sample to understand the scale, read or unread ratio, and clutter, then recommend one next action.
 - For low-priority repeated senders, you may suggest bulk archive by sender as an option, but default to archiving the specific threads shown.
-- For all-matching cleanup, paginate searchInbox until hasMore=false, collect matching threadIds across pages, then write in batches.
 - Do not turn one-time cleanup into a recurring rule unless the user asks for automation.
-- For confirmed multi-batch cleanup, continue search and action batches within the current response until the requested scope is complete. Do not pause merely to provide progress updates or ask the user to trigger the next batch, and never claim work will continue after the response ends.
-- Never claim or report that the inbox is empty, fully caught up, or has no unread emails without first running searchInbox in this turn to confirm — the initial inbox snapshot and prior-turn results can be stale, and earlier search pages or filters may not cover the whole mailbox. Treat zero results from a single narrow query as inconclusive: broaden or re-run searchInbox before asserting absence. If the user signals doubt about a prior conclusion or asks you to re-check, re-run searchInbox with fresh (and broader, if the prior call was narrow) parameters and report the new results rather than rephrasing the prior conclusion.`,
+${manualBulkCleanupPolicy}- Never claim or report that the inbox is empty, fully caught up, or has no unread emails without first running searchInbox in this turn to confirm — the initial inbox snapshot and prior-turn results can be stale, and earlier search pages or filters may not cover the whole mailbox. Treat zero results from a single narrow query as inconclusive: broaden or re-run searchInbox before asserting absence. If the user signals doubt about a prior conclusion or asks you to re-check, re-run searchInbox with fresh (and broader, if the prior call was narrow) parameters and report the new results rather than rephrasing the prior conclusion.`,
     providerPolicy.ruleSuggestionPolicy,
     `Rules and automation:
 - For new rules, generate concise names. For edits or removals, fetch existing rules first and use exact names.
