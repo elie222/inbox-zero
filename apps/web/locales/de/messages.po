@@ -3804,6 +3804,10 @@ msgstr "Absender konnten nicht hinzugefügt werden. Bitte versuch es erneut."
 msgid "Couldn't apply label. Please try again."
 msgstr "Label konnte nicht angewendet werden. Bitte versuch es erneut."
 
+#: app/(app)/[emailAccountId]/mail/use-engine-mail-threads.ts
+msgid "Couldn't complete this search."
+msgstr "Diese Suche konnte nicht abgeschlossen werden."
+
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
 msgid "Couldn't confirm delivery"
 msgstr "Zustellung konnte nicht bestätigt werden"
@@ -3824,6 +3828,10 @@ msgstr "{0, plural, one {# Unterhaltung, die nur teilweise geändert wurde, konn
 #: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
 msgid "Couldn't load public context"
 msgstr "Öffentlicher Kontext konnte nicht geladen werden"
+
+#: app/(app)/[emailAccountId]/mail/use-engine-mail-threads.ts
+msgid "Couldn't load this mailbox."
+msgstr "Dieses Postfach konnte nicht geladen werden."
 
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Couldn't move conversations. Please try again."
@@ -3873,6 +3881,10 @@ msgstr "Verschieben in den Posteingang konnte nicht eingereiht werden"
 #: app/(app)/[emailAccountId]/compose/undo-send.ts
 msgid "Couldn't reach the server to undo. Try again."
 msgstr "Server zum Rückgängigmachen nicht erreichbar. Versuch es erneut."
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Couldn't refresh search results. Showing previously loaded emails."
+msgstr "Die Suchergebnisse konnten nicht aktualisiert werden. Zuvor geladene E-Mails werden angezeigt."
 
 #: app/(app)/[emailAccountId]/mail/MailShell.tsx
 msgid "Couldn't remove label"
@@ -8027,6 +8039,10 @@ msgstr "E-Mail wird geladen"
 msgid "Loading email…"
 msgstr "E-Mail wird geladen…"
 
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Loading mail…"
+msgstr "E-Mails werden geladen…"
+
 #: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
 msgid "Loading messages…"
 msgstr "Nachrichten werden geladen…"
@@ -10675,6 +10691,10 @@ msgstr "Erneut testen"
 msgid "Retry"
 msgstr "Erneut versuchen"
 
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Retry search"
+msgstr "Suche erneut versuchen"
+
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
 msgid "Retry send"
 msgstr "Senden erneut versuchen"
@@ -11050,6 +11070,10 @@ msgstr "Suche nach „{query}“ auf dem Bildschirm"
 #: components/assistant-chat/message-part.tsx
 msgid "Searching inbox..."
 msgstr "Posteingang wird durchsucht..."
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Searching mail…"
+msgstr "E-Mails werden gesucht…"
 
 #: components/assistant-chat/message-part.tsx
 msgid "Searching memories..."
