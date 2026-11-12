@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { format, formatDistanceToNow } from "date-fns";
 import { CalendarIcon, SendIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,24 +37,33 @@ import {
 import { TypographyH3 } from "@/components/Typography";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { MeetingBriefingStatus } from "@/generated/prisma/enums";
+
+const briefingStatusLabels: Record<MeetingBriefingStatus, MessageDescriptor> = {
+  PENDING: msg`PENDING`,
+  SENT: msg`SENT`,
+  FAILED: msg`FAILED`,
+  SKIPPED: msg`SKIPPED`,
+};
 
 export function UpcomingMeetings({
   emailAccountId,
 }: {
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
   const { data, isLoading, error } = useCalendarUpcomingEvents();
   const [sendingEventId, setSendingEventId] = useState<string | null>(null);
 
   const { execute } = useAction(sendBriefAction.bind(null, emailAccountId), {
     onSuccess: ({ data: result }) => {
       toastSuccess({
-        description: result.message || "Test brief sent!",
+        description: result.message || t`Test brief sent!`,
       });
     },
     onError: ({ error }) => {
       toastError({
-        description: error.serverError || "Failed to send brief",
+        description: error.serverError || t`Failed to send brief`,
       });
     },
     onSettled: () => {
@@ -81,7 +93,9 @@ export function UpcomingMeetings({
 
   return (
     <>
-      <TypographyH3>Upcoming Meetings</TypographyH3>
+      <TypographyH3>
+        <Trans>Upcoming Meetings</Trans>
+      </TypographyH3>
 
       <LoadingContent loading={isLoading} error={error}>
         {!data?.events.length ? (
@@ -90,7 +104,9 @@ export function UpcomingMeetings({
               <EmptyMedia variant="icon">
                 <CalendarIcon />
               </EmptyMedia>
-              <EmptyTitle>No upcoming calendar events found</EmptyTitle>
+              <EmptyTitle>
+                <Trans>No upcoming calendar events found</Trans>
+              </EmptyTitle>
             </EmptyHeader>
           </Empty>
         ) : (
@@ -115,12 +131,12 @@ export function UpcomingMeetings({
                           Icon={SendIcon}
                           loading={sendingEventId === event.id}
                         >
-                          Send test brief
+                          <Trans>Send test brief</Trans>
                         </Button>
                       }
-                      title="Send test brief?"
-                      description="This will send you a briefing email for this meeting now. Use this to verify briefs are working correctly."
-                      confirmText="Send"
+                      title={t`Send test brief?`}
+                      description={t`This will send you a briefing email for this meeting now. Use this to verify briefs are working correctly.`}
+                      confirmText={t`Send`}
                       onConfirm={() => handleSendTestBrief(event)}
                     />
                   </ItemActions>
@@ -139,18 +155,21 @@ export function UpcomingMeetings({
 }
 
 function SendHistoryLink() {
+  const { i18n } = useLingui();
   const { data, isLoading, error } = useMeetingBriefsHistory();
 
   return (
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="link" className="h-auto p-0 text-muted-foreground">
-          View send history →
+          <Trans>View send history →</Trans>
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Send History</DialogTitle>
+          <DialogTitle>
+            <Trans>Send History</Trans>
+          </DialogTitle>
         </DialogHeader>
 
         <LoadingContent
@@ -164,7 +183,9 @@ function SendHistoryLink() {
                 <EmptyMedia variant="icon">
                   <CalendarIcon />
                 </EmptyMedia>
-                <EmptyTitle>No briefings have been sent yet</EmptyTitle>
+                <EmptyTitle>
+                  <Trans>No briefings have been sent yet</Trans>
+                </EmptyTitle>
               </EmptyHeader>
             </Empty>
           ) : (
@@ -174,8 +195,12 @@ function SendHistoryLink() {
                   <ItemContent>
                     <ItemTitle>{briefing.eventTitle}</ItemTitle>
                     <ItemDescription>
-                      {briefing.guestCount} guest
-                      {briefing.guestCount !== 1 ? "s" : ""} •{" "}
+                      <Plural
+                        value={briefing.guestCount}
+                        one="# guest"
+                        other="# guests"
+                      />{" "}
+                      •{" "}
                       {formatDistanceToNow(new Date(briefing.createdAt), {
                         addSuffix: true,
                       })}
@@ -189,7 +214,7 @@ function SendHistoryLink() {
                           : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
                       }`}
                     >
-                      {briefing.status}
+                      {i18n._(briefingStatusLabels[briefing.status])}
                     </span>
                   </ItemActions>
                 </Item>

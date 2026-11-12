@@ -13,7 +13,10 @@ describe("getRecordingStatusBadge", () => {
         endTime: new Date("2026-07-30T17:30:00.000Z"),
         now: NOW,
       }),
-    ).toEqual({ label: "Waiting to join", variant: "secondary" });
+    ).toEqual({
+      label: expect.objectContaining({ message: "Waiting to join" }),
+      variant: "secondary",
+    });
   });
 
   it("shows when the calendar event is in progress before a bot status exists", () => {
@@ -24,7 +27,10 @@ describe("getRecordingStatusBadge", () => {
         endTime: new Date("2026-07-30T17:30:00.000Z"),
         now: NOW,
       }),
-    ).toEqual({ label: "Call in progress", variant: "secondary" });
+    ).toEqual({
+      label: expect.objectContaining({ message: "Call in progress" }),
+      variant: "secondary",
+    });
   });
 
   it("shows that an ended meeting has no recording when capture failed", () => {
@@ -35,17 +41,26 @@ describe("getRecordingStatusBadge", () => {
         endTime: new Date("2026-07-30T16:30:00.000Z"),
         now: NOW,
       }),
-    ).toEqual({ label: "Not recorded", variant: "red" });
+    ).toEqual({
+      label: expect.objectContaining({ message: "Not recorded" }),
+      variant: "red",
+    });
   });
 
   it.each([
     [
       MeetingRecordingStatus.IN_CALL,
-      { label: "Notetaker joined", variant: "default" },
+      {
+        label: expect.objectContaining({ message: "Notetaker joined" }),
+        variant: "default",
+      },
     ],
     [
       MeetingRecordingStatus.RECORDING,
-      { label: "Recording", variant: "green" },
+      {
+        label: expect.objectContaining({ message: "Recording" }),
+        variant: "green",
+      },
     ],
   ] as const)("uses the bot status after the scheduled end while capture is still in progress (%s)", (status, expectedBadge) => {
     expect(
@@ -66,7 +81,10 @@ describe("getRecordingStatusBadge", () => {
         endTime: new Date("2026-07-30T17:30:00.000Z"),
         now: NOW,
       }),
-    ).toEqual({ label: "Waiting to be let in", variant: "default" });
+    ).toEqual({
+      label: expect.objectContaining({ message: "Waiting to be let in" }),
+      variant: "default",
+    });
   });
 
   it("shows when the notetaker has joined the call", () => {
@@ -77,7 +95,10 @@ describe("getRecordingStatusBadge", () => {
         endTime: new Date("2026-07-30T17:30:00.000Z"),
         now: NOW,
       }),
-    ).toEqual({ label: "Notetaker joined", variant: "default" });
+    ).toEqual({
+      label: expect.objectContaining({ message: "Notetaker joined" }),
+      variant: "default",
+    });
   });
 
   it("hides a past booking the recorder never engaged with", () => {
@@ -110,6 +131,9 @@ describe("getRecordingStatusBadge", () => {
         endTime: new Date("2026-07-30T18:30:00.000Z"),
         now: NOW,
       }),
-    ).toEqual({ label: "Scheduled", variant: "secondary" });
+    ).toEqual({
+      label: expect.objectContaining({ message: "Scheduled" }),
+      variant: "secondary",
+    });
   });
 });

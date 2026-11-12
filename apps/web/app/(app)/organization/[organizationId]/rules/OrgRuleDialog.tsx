@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useForm, useFieldArray, type UseFormReturn } from "react-hook-form";
 import { InboxIcon, ZapIcon } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { LogicalOperator } from "@/generated/prisma/enums";
 import {
   Dialog,
@@ -59,6 +60,7 @@ export function OrgRuleDialog({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const { t } = useLingui();
   const editing = !!rule;
   // biome-ignore lint/correctness/useExhaustiveDependencies: isOpen forces a re-derive so reopening "New rule" starts clean.
   const values = useMemo(() => toFormValues(rule), [rule, isOpen]);
@@ -141,12 +143,12 @@ export function OrgRuleDialog({
       toastError({
         description:
           result.serverError ||
-          "There was an error saving the rule. Please check the fields and try again.",
+          t`There was an error saving the rule. Please check the fields and try again.`,
       });
       return;
     }
 
-    toastSuccess({ description: editing ? "Rule updated" : "Rule created" });
+    toastSuccess({ description: editing ? t`Rule updated` : t`Rule created` });
     onSuccess();
   });
 
@@ -160,10 +162,16 @@ export function OrgRuleDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            {editing ? "Edit organization rule" : "New organization rule"}
+            {editing ? (
+              <Trans>Edit organization rule</Trans>
+            ) : (
+              <Trans>New organization rule</Trans>
+            )}
           </DialogTitle>
           <DialogDescription>
-            This rule applies to every member of your organization.
+            <Trans>
+              This rule applies to every member of your organization.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
 
@@ -172,18 +180,18 @@ export function OrgRuleDialog({
             <Input
               type="text"
               name="name"
-              label="Name"
+              label={t`Name`}
               registerProps={register("name", {
-                required: "Please enter a name",
+                required: t`Please enter a name`,
               })}
               error={errors.name}
-              placeholder="e.g. Label invoices"
+              placeholder={t`e.g. Label invoices`}
             />
 
             <RuleSectionCard
               icon={InboxIcon}
               color="blue"
-              title="When I get an email"
+              title={t`When I get an email`}
             >
               <ConditionSteps
                 conditionFields={conditionFields}
@@ -199,7 +207,7 @@ export function OrgRuleDialog({
               />
             </RuleSectionCard>
 
-            <RuleSectionCard icon={ZapIcon} color="green" title="Then">
+            <RuleSectionCard icon={ZapIcon} color="green" title={t`Then`}>
               <OrgActionSteps
                 fields={actionFields}
                 register={register}
@@ -212,15 +220,21 @@ export function OrgRuleDialog({
             </RuleSectionCard>
 
             <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
-              <CollapsibleHeading>Advanced options</CollapsibleHeading>
+              <CollapsibleHeading>
+                <Trans>Advanced options</Trans>
+              </CollapsibleHeading>
               <CollapsibleContent>
                 <div className="rounded-md border">
                   <div className="flex items-center justify-between gap-4 px-4 py-3">
                     <div>
-                      <p className="text-sm font-medium">Apply to threads</p>
+                      <p className="text-sm font-medium">
+                        <Trans>Apply to threads</Trans>
+                      </p>
                       <p className="text-sm text-muted-foreground">
-                        Run on every reply in a conversation, not just the first
-                        message.
+                        <Trans>
+                          Run on every reply in a conversation, not just the
+                          first message.
+                        </Trans>
                       </p>
                     </div>
                     <div className="shrink-0">
@@ -239,10 +253,14 @@ export function OrgRuleDialog({
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
+                <Trans>Cancel</Trans>
               </Button>
               <Button type="submit" loading={isSubmitting}>
-                {editing ? "Save rule" : "Create rule"}
+                {editing ? (
+                  <Trans>Save rule</Trans>
+                ) : (
+                  <Trans>Create rule</Trans>
+                )}
               </Button>
             </DialogFooter>
           </form>
