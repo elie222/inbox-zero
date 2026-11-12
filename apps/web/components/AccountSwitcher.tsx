@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { useCallback } from "react";
 import { useParams, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -113,7 +114,9 @@ export function AccountSwitcherInternal({
                   </div>
                 </>
               ) : (
-                <div>Choose account</div>
+                <div>
+                  <Trans>Choose account</Trans>
+                </div>
               )}
               <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
@@ -125,7 +128,7 @@ export function AccountSwitcherInternal({
             sideOffset={4}
           >
             <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Accounts
+              <Trans>Accounts</Trans>
             </DropdownMenuLabel>
             {emailAccounts.map((emailAccount) => (
               <DropdownMenuItem
@@ -158,7 +161,7 @@ export function AccountSwitcherInternal({
                   <Plus className="size-4" />
                 </div>
                 <div className="font-medium text-muted-foreground">
-                  Add or manage accounts
+                  <Trans>Add or manage accounts</Trans>
                 </div>
               </DropdownMenuItem>
             </Link>

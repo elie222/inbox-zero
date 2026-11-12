@@ -40,6 +40,7 @@ return <PageHeader title={t(i18n)`Settings`} />;
 
 - Module-level constants (option lists, labels) can't call `t` at import time. Define them with `msg` from `@lingui/core/macro` and render with `i18n._(descriptor)` (`const { i18n } = useLingui()`).
 - Counts use `plural` / `<Plural>`, never `count === 1 ? ... : ...`.
+- In JSX, render counts with `<Plural>`. A `plural()` nested in `t` as a direct JSX child compiles to the global i18n, which has no locale and throws in production; `utils/i18n/macro-compile.test.ts` catches it.
 - Keep whole sentences in one message, with JSX inside `<Trans>`, rather than gluing fragments together.
 - Don't translate brand and product names (Slack, Gmail, Inbox Zero), user data, or values the server stores and compares.
 - Wrapping a string keeps its English text, so Playwright specs that select by visible name keep working. Don't reword strings while wrapping them.

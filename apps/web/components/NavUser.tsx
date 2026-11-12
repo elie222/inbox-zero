@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import Link from "next/link";
 import {
@@ -95,7 +96,7 @@ export function NavUser() {
               }}
             >
               <SettingsIcon className="mr-2 size-4" />
-              Settings
+              <Trans>Settings</Trans>
             </DropdownMenuItem>
             {!hasOrganization && (
               <DropdownMenuItem asChild>
@@ -107,7 +108,7 @@ export function NavUser() {
                   onClick={() => closeMobileSidebar("left-sidebar")}
                 >
                   <Building2Icon className="mr-2 size-4" />
-                  Create organization
+                  <Trans>Create organization</Trans>
                 </Link>
               </DropdownMenuItem>
             )}
@@ -118,7 +119,7 @@ export function NavUser() {
                   onClick={() => closeMobileSidebar("left-sidebar")}
                 >
                   <Building2Icon className="mr-2 size-4" />
-                  My Organization
+                  <Trans>My Organization</Trans>
                 </Link>
               </DropdownMenuItem>
             )}
@@ -131,7 +132,7 @@ export function NavUser() {
                   onClick={() => closeMobileSidebar("left-sidebar")}
                 >
                   <GlobeIcon className="mr-2 size-4" />
-                  Install extension
+                  <Trans>Install extension</Trans>
                 </Link>
               </DropdownMenuItem>
             )}
@@ -150,7 +151,7 @@ export function NavUser() {
                   onClick={() => closeMobileSidebar("left-sidebar")}
                 >
                   <ShieldCheckIcon className="mr-2 size-4" />
-                  Cold Email Blocker
+                  <Trans>Cold Email Blocker</Trans>
                 </Link>
               </DropdownMenuItem>
             )}
@@ -166,7 +167,7 @@ export function NavUser() {
                   onClick={() => closeMobileSidebar("left-sidebar")}
                 >
                   <CrownIcon className="mr-2 size-4" />
-                  Premium
+                  <Trans>Premium</Trans>
                 </Link>
               </DropdownMenuItem>
             )}
@@ -178,7 +179,7 @@ export function NavUser() {
                 onClick={() => closeMobileSidebar("left-sidebar")}
               >
                 <CircleHelpIcon className="mr-2 size-4" />
-                Help Center
+                <Trans>Help Center</Trans>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
@@ -189,7 +190,7 @@ export function NavUser() {
                 onClick={() => closeMobileSidebar("left-sidebar")}
               >
                 <LightbulbIcon className="mr-2 size-4" />
-                Feature Requests
+                <Trans>Feature Requests</Trans>
               </Link>
             </DropdownMenuItem>
             {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
@@ -200,7 +201,7 @@ export function NavUser() {
                 }}
               >
                 <GiftIcon className="mr-2 size-4" />
-                Refer a Friend
+                <Trans>Refer a Friend</Trans>
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
@@ -213,7 +214,7 @@ export function NavUser() {
             }}
           >
             <LogOutIcon className="mr-2 size-4" />
-            Sign out
+            <Trans>Sign out</Trans>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

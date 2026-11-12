@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "next/link";
 import useSWR from "swr";
 import { useAction } from "next-safe-action/hooks";
@@ -11,6 +12,7 @@ import { clearUserErrorMessagesAction } from "@/utils/actions/error-messages";
 import type { GetErrorMessagesResponse } from "@/app/api/user/error-messages/route";
 
 export function ErrorMessages() {
+  const { t } = useLingui();
   const { data: errorMessages, mutate } = useSWR<GetErrorMessagesResponse>(
     "/api/user/error-messages",
   );
@@ -31,7 +33,7 @@ export function ErrorMessages() {
 
   return (
     <AppAlertBanner
-      title="Action Required"
+      title={t`Action Required`}
       description={
         <ul className="list-none space-y-1">
           {errors.map((error) => (
@@ -39,7 +41,7 @@ export function ErrorMessages() {
               {error.message}
               {hasMultipleErrors && error.actionUrl ? (
                 <Link className="ml-2 underline" href={error.actionUrl}>
-                  {error.actionLabel || "Fix this"}
+                  {error.actionLabel || t`Fix this`}
                 </Link>
               ) : null}
             </li>
@@ -51,7 +53,7 @@ export function ErrorMessages() {
           {singleError?.actionUrl ? (
             <Button asChild variant="red" size="sm">
               <Link href={singleError.actionUrl}>
-                {singleError.actionLabel || "Fix this"}
+                {singleError.actionLabel || t`Fix this`}
               </Link>
             </Button>
           ) : null}
@@ -61,7 +63,7 @@ export function ErrorMessages() {
             loading={isExecuting}
             onClick={() => clearErrorMessages()}
           >
-            I've fixed them
+            <Trans>I've fixed them</Trans>
           </Button>
         </div>
       }

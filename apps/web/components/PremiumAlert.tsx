@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CrownIcon } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import { usePremium } from "@/hooks/usePremium";
 import { Tooltip } from "@/components/Tooltip";
@@ -25,6 +26,7 @@ export function PremiumAiAssistantAlert({
   stripeSubscriptionStatus?: string | null;
   activeOnly?: boolean;
 }) {
+  const { t } = useLingui();
   const { PremiumModal, openModal } = usePremiumModal();
 
   const isBasicPlan = tier === "BASIC_MONTHLY" || tier === "BASIC_ANNUALLY";
@@ -34,8 +36,8 @@ export function PremiumAiAssistantAlert({
       <div className={className}>
         <ActionCard
           icon={<CrownIcon className="h-5 w-5" />}
-          title="Active Subscription Required"
-          description="This feature is not available during the free trial. Start your paid plan to use it."
+          title={t`Active Subscription Required`}
+          description={t`This feature is not available during the free trial. Start your paid plan to use it.`}
           action={<EndTrialButton variant="primaryBlack" />}
         />
       </div>
@@ -47,33 +49,35 @@ export function PremiumAiAssistantAlert({
       {isBasicPlan ? (
         <ActionCard
           icon={<CrownIcon className="h-5 w-5" />}
-          title={`${starterTierName} Plan Required`}
-          description={`Switch to the ${starterTierName} plan to use this feature.`}
+          title={t`${starterTierName} Plan Required`}
+          description={t`Switch to the ${starterTierName} plan to use this feature.`}
           action={
             <Button variant="primaryBlack" onClick={openModal}>
-              Switch Plan
+              <Trans>Switch Plan</Trans>
             </Button>
           }
         />
       ) : showSetApiKey ? (
         <ActionCard
           icon={<CrownIcon className="h-5 w-5" />}
-          title="API Key Required"
-          description="You need to set an AI API key to use this feature."
+          title={t`API Key Required`}
+          description={t`You need to set an AI API key to use this feature.`}
           action={
             <Button variant="primaryBlack" asChild>
-              <Link href="/settings">Set API Key</Link>
+              <Link href="/settings">
+                <Trans>Set API Key</Trans>
+              </Link>
             </Button>
           }
         />
       ) : (
         <ActionCard
           icon={<CrownIcon className="h-5 w-5" />}
-          title="Premium Feature"
-          description={`This is a premium feature. Upgrade to the ${starterTierName} plan.`}
+          title={t`Premium Feature`}
+          description={t`This is a premium feature. Upgrade to the ${starterTierName} plan.`}
           action={
             <Button variant="primaryBlack" onClick={openModal}>
-              Upgrade
+              <Trans>Upgrade</Trans>
             </Button>
           }
         />
@@ -138,10 +142,14 @@ export function PremiumTooltipContent({
 }) {
   return (
     <div className="text-center">
-      <p>You{"'"}ve hit the free tier limit 🥺</p>
-      <p>Upgrade to unlock full access.</p>
+      <p>
+        <Trans>You've hit the free tier limit 🥺</Trans>
+      </p>
+      <p>
+        <Trans>Upgrade to unlock full access.</Trans>
+      </p>
       <Button className="mt-1" onClick={openModal} size="xs">
-        Upgrade
+        <Trans>Upgrade</Trans>
       </Button>
     </div>
   );

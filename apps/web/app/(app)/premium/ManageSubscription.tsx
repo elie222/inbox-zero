@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CreditCardIcon } from "lucide-react";
 import Link from "next/link";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { env } from "@/env";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
@@ -62,7 +63,11 @@ export function ManageSubscription({
           loading={loadingBillingPortal}
           onClick={openBillingPortal}
         >
-          Manage{hasBothStripeAndLemon ? " Stripe" : ""} subscription
+          {hasBothStripeAndLemon ? (
+            <Trans>Manage Stripe subscription</Trans>
+          ) : (
+            <Trans>Manage subscription</Trans>
+          )}
         </Button>
       )}
 
@@ -74,7 +79,11 @@ export function ManageSubscription({
             rel="noopener noreferrer"
           >
             {Icon && <Icon className="mr-2 h-4 w-4" />}
-            Manage{hasBothStripeAndLemon ? " Lemon" : ""} subscription
+            {hasBothStripeAndLemon ? (
+              <Trans>Manage Lemon subscription</Trans>
+            ) : (
+              <Trans>Manage subscription</Trans>
+            )}
           </Link>
         </Button>
       )}
@@ -87,7 +96,7 @@ export function ManageSubscription({
             rel="noopener noreferrer"
           >
             {Icon && <Icon className="mr-2 h-4 w-4" />}
-            Manage in App Store
+            <Trans>Manage in App Store</Trans>
           </Link>
         </Button>
       )}
@@ -118,7 +127,7 @@ export function ViewInvoicesButton({
           loading={loading}
           onClick={openBillingPortal}
         >
-          {hasBoth ? "Stripe invoices" : "Invoices"}
+          {hasBoth ? <Trans>Stripe invoices</Trans> : <Trans>Invoices</Trans>}
         </Button>
       )}
 
@@ -129,7 +138,7 @@ export function ViewInvoicesButton({
             target="_blank"
             rel="noopener noreferrer"
           >
-            {hasBoth ? "Lemon invoices" : "Invoices"}
+            {hasBoth ? <Trans>Lemon invoices</Trans> : <Trans>Invoices</Trans>}
           </Link>
         </Button>
       )}
@@ -138,6 +147,7 @@ export function ViewInvoicesButton({
 }
 
 function useOpenBillingPortal() {
+  const { t } = useLingui();
   const [loading, setLoading] = useState(false);
 
   const openBillingPortal = async () => {
@@ -149,7 +159,7 @@ function useOpenBillingPortal() {
       toastError({
         description:
           result?.serverError ||
-          "Error loading billing portal. Please contact support.",
+          t`Error loading billing portal. Please contact support.`,
       });
     } else {
       redirectToSafeUrl(url, { allowExternal: true });
