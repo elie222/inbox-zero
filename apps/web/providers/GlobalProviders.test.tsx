@@ -197,6 +197,32 @@ describe("service worker updates", () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
+  it("does not reload before a waiting worker takes control", async () => {
+    const { registration, waiting, reload } = setUpDesktopUpdate();
+    const view = render(<GlobalProviders>mail</GlobalProviders>);
+    await waitFor(() => expect(registration.update).toHaveBeenCalled());
+    vi.useFakeTimers();
+    serwistState.pathname += "/next";
+    view.rerender(<GlobalProviders>mail</GlobalProviders>);
+    expect(waiting.postMessage).toHaveBeenCalledOnce();
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("stops repeated controller-change reloads across page loads", async () => {
+    const { registration, serviceWorker, reload } = setUpDesktopUpdate();
+    for (let load = 0; load < 2; load++) {
+      const view = render(<GlobalProviders>mail</GlobalProviders>);
+      await waitFor(() => expect(registration.update).toHaveBeenCalled());
+      vi.useFakeTimers();
+      act(() => vi.advanceTimersByTime(3000));
+      act(() => serviceWorker.dispatchEvent(new Event("controllerchange")));
+      view.unmount();
+      vi.useRealTimers();
+    }
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
   it("leaves a waiting worker alone in a browser tab", async () => {
     const { waiting } = setUpDesktopUpdate({ desktop: false });
     const register = serwistState.serwist?.register;

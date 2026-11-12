@@ -16,6 +16,7 @@ describe("DeploymentUpdateNotice", () => {
 
   afterEach(() => {
     cleanup();
+    sessionStorage.clear();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
@@ -36,6 +37,21 @@ describe("DeploymentUpdateNotice", () => {
     await Promise.resolve();
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(reloadAtNextSafeMoment).toHaveBeenCalledOnce();
+  });
+
+  it("does not repeat a deployment reload after loading the same stale page", async () => {
+    stubDeployment("dpl_newer");
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
+    for (let load = 0; load < 2; load++) {
+      const view = render(<DeploymentUpdateNotice />);
+      await waitFor(() =>
+        expect(reloadAtNextSafeMoment).toHaveBeenCalledTimes(load + 1),
+      );
+      vi.mocked(reloadAtNextSafeMoment).mock.calls[load][0]();
+      view.unmount();
+    }
+    expect(reload).toHaveBeenCalledOnce();
   });
 
   it("stays quiet while the tab runs the live deployment", async () => {
