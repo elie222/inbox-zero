@@ -109,8 +109,6 @@ function buildMessages(): ModelMessage[] {
     provider: "google",
     responseSurface: "web",
     supportsInlineEmailCards: false,
-    userTimezone: "UTC",
-    currentTimestamp: "2026-11-08T10:00:00.000Z",
   });
   const threadIds = Array.from({ length: 40 }, (_, i) => `thread-${i + 1}`);
 

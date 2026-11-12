@@ -856,7 +856,9 @@ describe("aiProcessAssistantChat", () => {
       content: "assistant response",
     });
     expect(args.messages[3].role).toBe("user");
-    expect(args.messages[3].content).toContain(
+    expect(args.messages[3].content).toContain("Current timestamp:");
+    expect(args.messages[4].role).toBe("user");
+    expect(args.messages[4].content).toContain(
       "Memories from previous conversations:",
     );
     expect(args.messages.at(-1)).toMatchObject({
@@ -896,8 +898,95 @@ describe("aiProcessAssistantChat", () => {
       { type: "ephemeral" },
       { type: "ephemeral" },
       undefined,
+      undefined,
       { type: "ephemeral" },
     ]);
+  });
+
+  it("keeps the system prompt and cached history prefix identical across turns", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const { aiProcessAssistantChat } = await loadAssistantChatModule({
+        emailSend: true,
+      });
+      mockToolCallAgentStream.mockResolvedValue({
+        toUIMessageStreamResponse: vi.fn(),
+      });
+
+      const secondTurn: ModelMessage[] = [
+        { role: "user", content: "What came in today?" },
+        { role: "assistant", content: "Two newsletters and a receipt." },
+        { role: "user", content: "Archive the newsletters." },
+      ];
+      const thirdTurn: ModelMessage[] = [
+        ...secondTurn,
+        { role: "assistant", content: "Archived both newsletters." },
+        { role: "user", content: "Anything from yesterday?" },
+      ];
+
+      vi.setSystemTime(new Date("2026-03-02T09:15:00.123Z"));
+      await aiProcessAssistantChat({
+        messages: secondTurn,
+        emailAccountId: "email-account-id",
+        user: getEmailAccount(),
+        logger,
+        chatId: "chat-1",
+        memories: [{ content: "Prefers short replies", date: "2026-02-18" }],
+      });
+
+      vi.setSystemTime(new Date("2026-03-02T09:17:42.456Z"));
+      await aiProcessAssistantChat({
+        messages: thirdTurn,
+        emailAccountId: "email-account-id",
+        user: getEmailAccount(),
+        logger,
+        chatId: "chat-1",
+        memories: [
+          { content: "Prefers short replies", date: "2026-02-18" },
+          { content: "Works at Acme", date: "2026-03-02" },
+        ],
+      });
+
+      const [second, third] = mockToolCallAgentStream.mock.calls.map(
+        ([args]) => args.messages as ModelMessage[],
+      );
+      const withoutCacheControl = (messages: ModelMessage[]) =>
+        messages.map(({ role, content }) => ({ role, content }));
+
+      expect(third[0]).toEqual(second[0]);
+      // The second turn's history breakpoint covers the system prompt and
+      // its history, which the third turn must repeat exactly to reuse it.
+      const secondTurnHistoryEnd = second.findIndex(
+        (message, index) =>
+          index > 0 && message.providerOptions?.anthropic?.cacheControl,
+      );
+      expect(secondTurnHistoryEnd).toBe(1);
+      expect(
+        withoutCacheControl(third.slice(0, secondTurnHistoryEnd + 1)),
+      ).toEqual(withoutCacheControl(second.slice(0, secondTurnHistoryEnd + 1)));
+      expect(withoutCacheControl(third.slice(0, 5))).toEqual(
+        withoutCacheControl([second[0], ...thirdTurn.slice(0, -1)]),
+      );
+
+      for (const [messages, timestamp] of [
+        [second, "2026-03-02T09:15:00.123Z"],
+        [third, "2026-03-02T09:17:42.456Z"],
+      ] as const) {
+        expect(messages[0].content).not.toContain(timestamp);
+        const timeMessage = messages.find(
+          (message) =>
+            typeof message.content === "string" &&
+            message.content.includes(timestamp),
+        );
+        expect(timeMessage?.role).toBe("user");
+        expect(timeMessage?.content).toContain("User timezone:");
+        // Before the memories and the latest user message.
+        expect(messages.indexOf(timeMessage!)).toBe(messages.length - 3);
+      }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("uses systemType (not rule name) to detect conversation status fix context", async () => {
