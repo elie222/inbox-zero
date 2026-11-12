@@ -9,6 +9,8 @@ import {
   buildGmailDraftUploadTemplate,
   rewriteGmailDraft,
 } from "./draft-attachments";
+import { saveComposeDraft } from "@/utils/email/compose-draft";
+import type { EmailProvider } from "@/utils/email/types";
 import { listGmailAttachmentParts } from "./attachment";
 
 const getDraft = vi.hoisted(() => vi.fn());
@@ -82,6 +84,58 @@ describe("rewriteGmailDraft", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getDraft.mockResolvedValue(draftWithReport());
+  });
+
+  it("autosaves edited recipients as valid MIME without losing the draft's files", async () => {
+    const gmail = gmailClient();
+    const provider = {
+      updateDraft: vi
+        .fn<EmailProvider["updateDraft"]>()
+        .mockImplementation((draftId, text) =>
+          rewriteGmailDraft({ gmail, draftId, text }),
+        ),
+      getDraft: vi.fn().mockResolvedValue(draftWithReport()),
+    } as unknown as EmailProvider;
+    await saveComposeDraft({
+      provider,
+      draftId: "r-1",
+      content: {
+        to: '"Doe, Jane" <jane@example.com>, good@example.com next@',
+        cc: "copied@example.com, Name <good@example.com",
+        bcc: "hidden@example.com, other@",
+        subject: "Edited subject",
+        messageHtml: "<p>Edited body</p>",
+      },
+    });
+    const email = await PostalMime.parse(await readStream(uploadedBody(gmail)));
+    expect(email.to).toEqual([
+      { name: "Doe, Jane", address: "jane@example.com" },
+    ]);
+    expect(email.cc).toEqual([{ name: "", address: "copied@example.com" }]);
+    expect(email.bcc).toEqual([{ name: "", address: "hidden@example.com" }]);
+    expect(email.subject).toBe("Edited subject");
+    expect(email.html).toContain("Edited body");
+    expect(email.attachments[0]?.filename).toBe("report.pdf");
+  });
+
+  it.each([
+    { to: "", cc: "", bcc: "" },
+    { to: "", cc: "copied@example.com", bcc: "" },
+    { to: "", cc: "", bcc: "hidden@example.com" },
+  ])("rewrites a draft without To recipients: %j", async (recipients) => {
+    const gmail = gmailClient();
+    await rewriteGmailDraft({
+      gmail,
+      draftId: "r-1",
+      text: { ...recipients, messageHtml: "<p>Edited</p>" },
+    });
+    const raw = await readStream(uploadedBody(gmail));
+    const email = await PostalMime.parse(raw);
+    expect(raw).not.toMatch(/^To:/im);
+    expect(email.cc?.[0]?.address ?? "").toBe(recipients.cc);
+    expect(email.bcc?.[0]?.address ?? "").toBe(recipients.bcc);
+    expect(email.html).toContain("Edited");
+    expect(email.attachments[0]?.filename).toBe("report.pdf");
   });
 
   it("adds a file while keeping the draft's other files and their ids", async () => {
