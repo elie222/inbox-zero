@@ -10,6 +10,8 @@ import {
 } from "@/utils/bulk-inbox-action/validation";
 
 export const ASSISTANT_CHAT_MAX_TEXT_LENGTH = 20_000;
+// How long a confirmation may stay "processing" before it counts as abandoned.
+export const ASSISTANT_CONFIRMATION_PROCESSING_LEASE_MS = 5 * 60 * 1000;
 export const ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE =
   "Messages can be up to 20,000 characters.";
 

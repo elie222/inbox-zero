@@ -24,7 +24,10 @@ import {
   confirmAssistantBulkInboxAction,
   dismissAssistantBulkInboxAction,
 } from "@/utils/actions/assistant-chat";
-import type { PendingBulkInboxActionToolOutput } from "@/utils/actions/assistant-chat.validation";
+import {
+  ASSISTANT_CONFIRMATION_PROCESSING_LEASE_MS,
+  type PendingBulkInboxActionToolOutput,
+} from "@/utils/actions/assistant-chat.validation";
 import {
   BULK_INBOX_ACTION_MAX_THREADS,
   type BulkInboxActionType,
@@ -73,6 +76,7 @@ export function BulkInboxActionCard({
   const [isStopping, setIsStopping] = useState(false);
   const [confirmedJobId, setConfirmedJobId] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const jobId = confirmedJobId ?? output.confirmationResult?.jobId ?? null;
   const { data: job, mutate } = useBulkInboxActionJob(jobId);
@@ -80,15 +84,27 @@ export function BulkInboxActionCard({
   const { pendingAction, estimate, samples = [] } = output;
   const copy = ACTION_COPY[pendingAction.action];
   const isCancelled = dismissed || output.confirmationState === "cancelled";
-  const isProcessing = output.confirmationState === "processing";
+  // A start that saved neither its job nor an error is retryable once the
+  // server's processing lease runs out.
+  const isAbandonedStart =
+    output.confirmationState === "processing" &&
+    isProcessingLeaseExpired(output.confirmationProcessingAt);
+  const isProcessing =
+    output.confirmationState === "processing" && !isAbandonedStart;
+  const notice =
+    errorMessage ??
+    (isAbandonedStart
+      ? "This cleanup didn't finish starting. Try again, or cancel it."
+      : null);
 
   const handleConfirm = async () => {
     if (!chatId) {
-      toastError({ description: "Could not start this action." });
+      setErrorMessage("Couldn't start the cleanup. Try again.");
       return;
     }
 
     setIsConfirming(true);
+    setErrorMessage(null);
     try {
       const result = await confirmAssistantBulkInboxAction(emailAccountId, {
         chatId,
@@ -97,14 +113,14 @@ export function BulkInboxActionCard({
       });
       const confirmedId = result?.data?.confirmationResult?.jobId;
       if (result?.serverError || !confirmedId) {
-        toastError({
-          description: result?.serverError || "Could not start this action.",
-        });
+        setErrorMessage(
+          result?.serverError || "Couldn't start the cleanup. Try again.",
+        );
         return;
       }
       setConfirmedJobId(confirmedId);
     } catch {
-      toastError({ description: "Could not start this action." });
+      setErrorMessage("Couldn't start the cleanup. Try again.");
     } finally {
       setIsConfirming(false);
     }
@@ -113,6 +129,7 @@ export function BulkInboxActionCard({
   const handleDismiss = async () => {
     if (!chatId) return;
     setIsDismissing(true);
+    setErrorMessage(null);
     try {
       const result = await dismissAssistantBulkInboxAction(emailAccountId, {
         chatId,
@@ -120,12 +137,12 @@ export function BulkInboxActionCard({
         toolCallId,
       });
       if (result?.serverError) {
-        toastError({ description: result.serverError });
+        setErrorMessage(result.serverError);
         return;
       }
       setDismissed(true);
     } catch {
-      toastError({ description: "Could not cancel this action." });
+      setErrorMessage("Couldn't cancel the cleanup. Try again.");
     } finally {
       setIsDismissing(false);
     }
@@ -241,6 +258,11 @@ export function BulkInboxActionCard({
             {hasMore ? " + more" : ""}
           </p>
         )}
+        {notice && (
+          <p role="alert" className="text-xs text-destructive">
+            {notice}
+          </p>
+        )}
       </CardHeader>
 
       <Collapsible>
@@ -298,6 +320,15 @@ export function BulkInboxActionCard({
         </CollapsibleContent>
       </Collapsible>
     </Card>
+  );
+}
+
+function isProcessingLeaseExpired(processingAt?: string) {
+  if (!processingAt) return false;
+  const startedAt = Date.parse(processingAt);
+  return (
+    !Number.isNaN(startedAt) &&
+    Date.now() - startedAt >= ASSISTANT_CONFIRMATION_PROCESSING_LEASE_MS
   );
 }
 

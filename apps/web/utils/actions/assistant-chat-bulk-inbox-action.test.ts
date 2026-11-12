@@ -18,6 +18,7 @@ describe("confirmAssistantBulkInboxActionForAccount", () => {
     vi.clearAllMocks();
     prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 });
     prisma.bulkInboxActionJob.findUnique.mockResolvedValue(null);
+    vi.mocked(enqueueBulkInboxActionChunk).mockResolvedValue(undefined);
     prisma.bulkInboxActionJob.create.mockImplementation((async ({
       data,
     }: any) => ({ id: "job-1", chunkToken: data.chunkToken })) as any);
@@ -81,9 +82,24 @@ describe("confirmAssistantBulkInboxActionForAccount", () => {
       new Error("queue down"),
     );
 
-    await expect(confirm()).rejects.toThrow("Failed to start the bulk action");
+    await expect(confirm()).rejects.toThrow(
+      "Couldn't queue the cleanup. Nothing changed",
+    );
 
     expect(prisma.bulkInboxActionJob.delete).not.toHaveBeenCalled();
+  });
+
+  it("returns the running job even when saving the card's state fails", async () => {
+    mockChatMessage(buildPendingPart());
+    // The reservation succeeds, then every attempt to save the result loses.
+    prisma.chatMessage.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValue({ count: 0 });
+
+    const result = await confirm();
+
+    expect(enqueueBulkInboxActionChunk).toHaveBeenCalled();
+    expect(result.confirmationResult?.jobId).toBe("job-1");
   });
 
   it("does not start another job when the action was already confirmed", async () => {
@@ -121,7 +137,9 @@ describe("confirmAssistantBulkInboxActionForAccount", () => {
     );
     prisma.bulkInboxActionJob.delete.mockResolvedValue({} as any);
 
-    await expect(confirm()).rejects.toThrow("Failed to start the bulk action");
+    await expect(confirm()).rejects.toThrow(
+      "Couldn't queue the cleanup. Nothing changed",
+    );
 
     expect(prisma.bulkInboxActionJob.delete).toHaveBeenCalledWith({
       where: { id: "job-1" },
@@ -210,6 +228,50 @@ describe("dismissAssistantBulkInboxActionForAccount", () => {
         ...pending.output,
         confirmationState: "confirmed",
         confirmationResult: { jobId: "job-1", confirmedAt: "2026-11-11" },
+      },
+    });
+
+    await expect(dismiss()).rejects.toThrow("already started");
+  });
+
+  it("cancels a start that never finished and stops any job it queued", async () => {
+    const pending = buildPendingPart();
+    mockChatMessage({
+      ...pending,
+      output: {
+        ...pending.output,
+        confirmationState: "processing",
+        confirmationProcessingAt: new Date(
+          Date.now() - 10 * 60 * 1000,
+        ).toISOString(),
+      },
+    });
+    prisma.bulkInboxActionJob.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await dismiss();
+
+    expect(result.confirmationState).toBe("cancelled");
+    expect(prisma.bulkInboxActionJob.updateMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "ea_1",
+        confirmationKey: "chat-message-1:tool-1",
+        status: "RUNNING",
+      },
+      data: expect.objectContaining({ status: "CANCELLED" }),
+    });
+    const parts = (prisma.chatMessage.updateMany.mock.calls[0][0] as any).data
+      .parts;
+    expect(parts[0].output.confirmationState).toBe("cancelled");
+  });
+
+  it("does not cancel a start that is still in progress", async () => {
+    const pending = buildPendingPart();
+    mockChatMessage({
+      ...pending,
+      output: {
+        ...pending.output,
+        confirmationState: "processing",
+        confirmationProcessingAt: new Date().toISOString(),
       },
     });
 

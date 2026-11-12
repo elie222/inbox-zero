@@ -12,6 +12,7 @@ import { sleep } from "@/utils/sleep";
 import { convertNewlinesToBr, escapeHtml, truncate } from "@/utils/string";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import {
+  ASSISTANT_CONFIRMATION_PROCESSING_LEASE_MS,
   type AssistantEmailConfirmationResult,
   type AssistantPendingEmailActionType,
   type AssistantPendingEmailToolOutput,
@@ -38,7 +39,6 @@ const BULK_INBOX_ACTION_CONFIRMATION_IN_PROGRESS_ERROR =
   "Bulk action confirmation already in progress";
 const SAVE_MEMORY_CONFIRMATION_IN_PROGRESS_ERROR =
   "Memory save confirmation already in progress";
-const CONFIRMATION_PROCESSING_LEASE_MS = 5 * 60 * 1000;
 const CONFIRMATION_PERSIST_MAX_ATTEMPTS = 3;
 const PENDING_ACTION_PERSIST_WAIT_MS = 2000;
 const PENDING_ACTION_POLL_INTERVAL_MS = 250;
@@ -553,7 +553,9 @@ export async function confirmAssistantBulkInboxActionForAccount({
       });
     });
     logger.error("Failed to start bulk inbox action", { error });
-    throw new SafeError("Failed to start the bulk action");
+    throw new SafeError(
+      "Couldn't queue the cleanup. Nothing changed, so you can try again.",
+    );
   }
 
   const confirmationResult = { jobId, confirmedAt: new Date().toISOString() };
@@ -575,13 +577,13 @@ export async function confirmAssistantBulkInboxActionForAccount({
         }),
     });
   } catch (error) {
+    // The job is queued and runs either way, so the card should show its
+    // progress. After a reload the stored part is still processing; once that
+    // lease expires, confirming again reuses this job and saves it.
     logger.error("Failed to persist confirmed bulk inbox action", {
       error,
       jobId,
     });
-    throw new SafeError(
-      "The bulk action started but its confirmation could not be saved. Please refresh.",
-    );
   }
 
   return {
@@ -622,8 +624,23 @@ export async function dismissAssistantBulkInboxActionForAccount({
 
   const state = lookup.output.confirmationState;
   if (state === "cancelled") return { confirmationState: "cancelled" as const };
-  if (state !== "pending") {
+  // A start whose processing lease expired never saved its job, though it may
+  // have queued one. Cancelling it stops that job too.
+  const isAbandonedStart =
+    state === "processing" &&
+    hasProcessingLeaseExpired(lookup.output.confirmationProcessingAt);
+  if (state !== "pending" && !isAbandonedStart) {
     throw new SafeError("This action has already started.");
+  }
+  if (isAbandonedStart) {
+    await prisma.bulkInboxActionJob.updateMany({
+      where: {
+        emailAccountId,
+        confirmationKey: `${chatMessage.id}:${toolCallId}`,
+        status: "RUNNING",
+      },
+      data: { status: "CANCELLED", completedAt: new Date() },
+    });
   }
 
   await persistConfirmedAssistantPart({
@@ -634,7 +651,7 @@ export async function dismissAssistantBulkInboxActionForAccount({
     isConfirmed: (current) => current.output.confirmationState === "cancelled",
     buildParts: ({ parts, partIndex }) => {
       const current = findPart(parts);
-      if (current?.output.confirmationState !== "pending") {
+      if (current?.output.confirmationState !== state) {
         throw new SafeError("This action has already started.");
       }
       return updateAssistantEmailPartOutput({
@@ -1514,7 +1531,9 @@ function hasProcessingLeaseExpired(processingAt?: string | null) {
   const processingTime = Date.parse(processingAt);
   if (Number.isNaN(processingTime)) return false;
 
-  return Date.now() - processingTime >= CONFIRMATION_PROCESSING_LEASE_MS;
+  return (
+    Date.now() - processingTime >= ASSISTANT_CONFIRMATION_PROCESSING_LEASE_MS
+  );
 }
 
 async function reservePendingAssistantSaveMemory({
