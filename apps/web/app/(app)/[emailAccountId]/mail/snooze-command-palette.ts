@@ -78,7 +78,7 @@ const LOCALE_DATE_PARSERS: Partial<Record<string, chrono.Chrono>> = {
   es: chrono.es.casual,
   fr: chrono.fr.casual,
   de: chrono.de.casual,
-  pt: chrono.pt.casual,
+  "pt-BR": chrono.pt.casual,
   it: chrono.it.casual,
   nl: chrono.nl.casual,
 };

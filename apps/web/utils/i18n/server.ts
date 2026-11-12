@@ -5,9 +5,18 @@ import { setI18n } from "@lingui/react/server";
 import { cookies } from "next/headers";
 import { messages as en } from "@/locales/en/messages.po";
 import { messages as es } from "@/locales/es/messages.po";
+import { messages as fr } from "@/locales/fr/messages.po";
+import { messages as de } from "@/locales/de/messages.po";
+import { messages as ptBR } from "@/locales/pt-BR/messages.po";
 import { LOCALE_COOKIE, type Locale, toLocale } from "@/utils/i18n/locales";
 
-const catalogs: Record<Locale, Messages> = { en, es };
+const catalogs: Record<Locale, Messages> = {
+  en,
+  es,
+  fr,
+  de,
+  "pt-BR": ptBR,
+};
 
 // Catalogs are read-only, so one instance per locale is safe to share
 // across requests.
