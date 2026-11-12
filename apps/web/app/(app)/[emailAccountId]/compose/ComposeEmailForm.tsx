@@ -638,7 +638,7 @@ function ComposeEmailFormContent({
       />
 
       <EmailEditor
-        placeholder={isInlineReply ? "" : undefined}
+        placeholder={isInlineReply ? "" : t`Write a message…`}
         appearance={isComposeWindow || isInlineReply ? "seamless" : "contained"}
         autofocus={!focusRecipientField}
         onSlashKeyDown={onSlashKeyDown}

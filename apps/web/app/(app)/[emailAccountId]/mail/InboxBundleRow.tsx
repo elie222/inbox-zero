@@ -46,7 +46,7 @@ export const InboxBundleRow = memo(function InboxBundleRow({
   onSelectRangeTo: (index: number) => void;
   rowRef?: Ref<HTMLDivElement>;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const senders = useMemo(
     () =>
       // Deduplicated in recency order, so the newest senders are named first.
@@ -78,7 +78,10 @@ export const InboxBundleRow = memo(function InboxBundleRow({
       date={
         <span className="text-muted-foreground text-xs">
           {timestamp
-            ? formatShortDate(new Date(timestamp), { lowercase: true })
+            ? formatShortDate(new Date(timestamp), {
+                lowercase: true,
+                locale: i18n.locale,
+              })
             : null}
         </span>
       }
@@ -99,7 +102,7 @@ export const InboxBundleRow = memo(function InboxBundleRow({
       participantSummary={bundle.name}
       renderSelectionControl={({ ariaLabel, checked, onClick, visible }) => (
         <Checkbox
-          aria-label={ariaLabel.replace("conversation", "bundle")}
+          aria-label={ariaLabel}
           checked={checked}
           className={getMailRowCheckboxClassName(visible)}
           onClick={onClick}
@@ -108,6 +111,9 @@ export const InboxBundleRow = memo(function InboxBundleRow({
       rowRef={rowRef}
       selectionEnabled={selectionEnabled}
       snippet={getConversationSubject(newest.messages)}
+      strings={{
+        selectConversation: (bundleName) => t`Select bundle with ${bundleName}`,
+      }}
       subject={senders.join(", ")}
     />
   );

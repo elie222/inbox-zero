@@ -102,7 +102,7 @@ export function buildPrintDocument({
 
     return `<section class="message">
   <div class="meta">
-    <div class="row"><strong>${escapeHtml(from)}</strong><span>${escapeHtml(formatPrintDate(date))}</span></div>
+    <div class="row"><strong>${escapeHtml(from)}</strong><span>${escapeHtml(formatPrintDate(date, i18n))}</span></div>
     ${to ? `<div>${t(i18n)`To: ${escapeHtml(to)}`}</div>` : ""}
     ${cc ? `<div>${t(i18n)`Cc: ${escapeHtml(cc)}`}</div>` : ""}
     ${attachments.length ? `<div>${t(i18n)`Attachments: ${attachments.map(escapeHtml).join(", ")}`}</div>` : ""}
@@ -137,8 +137,8 @@ ${sections.join("\n")}
 </html>`;
 }
 
-function formatPrintDate(date: string) {
+function formatPrintDate(date: string, i18n: I18n) {
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) return date;
-  return parsed.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  return i18n.date(parsed, { dateStyle: "medium", timeStyle: "short" });
 }

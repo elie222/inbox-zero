@@ -267,6 +267,7 @@ function HistoryMessageRow({
 }) {
   const { userEmail } = useAccount();
   const { setInput } = useChat();
+  const { i18n } = useLingui();
   const isMessageLoading = !message && messagesLoading;
   return (
     <TableRow className="max-sm:flex max-sm:flex-col">
@@ -284,10 +285,13 @@ function HistoryMessageRow({
             {messageCount === undefined &&
               result.executedRules[0]?.createdAt && (
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {format(
-                    new Date(result.executedRules[0].createdAt),
-                    "MMM d, yyyy, p",
-                  )}
+                  {i18n.date(new Date(result.executedRules[0].createdAt), {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
                 </div>
               )}
             <div className="mt-2 flex flex-wrap gap-2">

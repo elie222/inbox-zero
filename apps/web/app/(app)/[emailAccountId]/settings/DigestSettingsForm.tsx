@@ -287,6 +287,7 @@ function LoadedDigestSettingsForm({
           const deliveryTime = formatDigestDeliveryTime(
             estimatedDeliveryAt,
             digestStatus.delivery.timezone,
+            i18n.locale,
           );
           toastSuccess({
             description: t`Saved. Next digest expected around ${deliveryTime}.`,
@@ -311,6 +312,7 @@ function LoadedDigestSettingsForm({
       digestStatus.delivery.timezone,
       onSuccess,
       t,
+      i18n.locale,
     ],
   );
 
@@ -415,6 +417,7 @@ function LoadedDigestSettingsForm({
                     {formatDigestDeliveryTime(
                       new Date(digestStatus.delivery.estimatedNextDeliveryAt),
                       digestStatus.delivery.timezone,
+                      i18n.locale,
                     )}
                     .
                   </Trans>
@@ -509,7 +512,7 @@ function DigestDeliveryActivity({
 }: {
   digestStatus: GetDigestStatusResponse | undefined;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const { delivery } = digestStatus ?? {};
 
   if (!delivery) return null;
@@ -527,10 +530,12 @@ function DigestDeliveryActivity({
       ? t`Last sent ${formatDigestDeliveryTime(
           new Date(delivery.lastDelivery.occurredAt),
           delivery.timezone,
+          i18n.locale,
         )}`
       : t`Last delivery failed ${formatDigestDeliveryTime(
           new Date(delivery.lastDelivery.occurredAt),
           delivery.timezone,
+          i18n.locale,
         )}`
     : null;
 
@@ -648,8 +653,12 @@ function getSelectedDigestItemIds(rules: RulesResponse) {
   );
 }
 
-function formatDigestDeliveryTime(date: Date, timezone?: string | null) {
-  return new Intl.DateTimeFormat(undefined, {
+function formatDigestDeliveryTime(
+  date: Date,
+  timezone: string | null | undefined,
+  locale: string,
+) {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: timezone || undefined,

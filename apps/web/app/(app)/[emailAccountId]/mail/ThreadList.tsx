@@ -164,6 +164,7 @@ export const ThreadList = memo(function ThreadList({
       focusedIndex={focusedIndex}
       getGroupLabel={getGroupLabel}
       todayGroupLabel={i18n._(msg`Today`)}
+      listLabel={i18n._(msg`Conversations`)}
       getKey={getListThreadKey}
       groupHeaderClassName={groupHeaderClassName}
       isLoadingMore={isLoadingMore}
