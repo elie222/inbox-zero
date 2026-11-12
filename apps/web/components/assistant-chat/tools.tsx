@@ -503,7 +503,7 @@ type EmailConfirmationResult = {
 };
 
 export function ReadEmailResult({ output }: { output: unknown }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const { provider, userEmail } = useAccount();
   const providerName = provider === "microsoft" ? "Outlook" : "Gmail";
   const subject = getOutputField<string>(output, "subject");
@@ -522,7 +522,7 @@ export function ReadEmailResult({ output }: { output: unknown }) {
     provider,
   });
   const formattedDate = date
-    ? formatShortDate(new Date(date), { lowercase: true })
+    ? formatShortDate(new Date(date), { lowercase: true, locale: i18n.locale })
     : null;
 
   return (

@@ -105,7 +105,7 @@ function StatusIcon({ status }: { status: ScheduledEmail["status"] }) {
 function statusLabel(row: ScheduledEmail, i18n: I18n) {
   switch (row.status) {
     case "PENDING":
-      return formatTime(row.sendAt);
+      return formatTime(row.sendAt, i18n);
     case "PROCESSING":
       return i18n._(msg`Sending…`);
     case "UNCERTAIN":
@@ -117,8 +117,8 @@ function statusLabel(row: ScheduledEmail, i18n: I18n) {
   }
 }
 
-function formatTime(value: string | Date) {
-  return new Date(value).toLocaleString(undefined, {
+function formatTime(value: string | Date, i18n: I18n) {
+  return i18n.date(new Date(value), {
     month: "short",
     day: "numeric",
     hour: "numeric",

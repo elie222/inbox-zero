@@ -107,6 +107,7 @@ import {
   MailSplitFilterKind,
 } from "@/generated/prisma/enums";
 import { MailSetupPanel } from "@/app/(app)/[emailAccountId]/mail/MailSetupPanel";
+import { isDefaultAllMailSplit } from "@/utils/split-inbox/initial-splits";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { mailPreviewAtom, mailScreenMountedAtom } from "@/store/mail-preview";
@@ -142,6 +143,7 @@ import { submitConversationChange } from "@/utils/mail-engine/submit-conversatio
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
 import {
   getPortableLabelSplits,
+  type MailSplit,
   OTHER_SPLIT_ID,
   splitToThreadsQuery,
   mailTypeToThreadsQuery,
@@ -390,38 +392,42 @@ export function MailShell() {
     [settings?.splits, userLabels],
   );
 
-  const splits = useMemo(
-    () =>
-      [
-        ...(settings?.splits ?? []).map((split) => ({
-          ...split,
-          name:
-            isGoogle && split.name.trim().toLowerCase() === "other"
-              ? `${split.name} (custom)`
-              : split.name,
-          // Exclusions are served for Gmail only, the same limit as Other.
-          hideFromAll: isGoogle && !isAllAccounts && split.hideFromAll,
-        })),
-        ...(isGoogle && !isAllAccounts
-          ? [
-              {
-                id: OTHER_SPLIT_ID,
-                name: "Other",
-                matchAll: true,
-                filters: [],
-              },
-            ]
-          : []),
-      ].filter(
-        (split) =>
-          !isAllAccounts ||
-          split.filters.every(
-            (filter) => filter.kind === MailSplitFilterKind.UNREAD,
-          ) ||
-          combinedLabelSplits.some((portable) => portable.id === split.id),
-      ),
-    [settings?.splits, isAllAccounts, combinedLabelSplits, isGoogle],
-  );
+  const splits = useMemo(() => {
+    // Stored names stay as the user saved them; only the tabs the app adds
+    // itself are translated.
+    const getDisplayName = (split: MailSplit) => {
+      if (isDefaultAllMailSplit(split)) return t`All`;
+      const { name } = split;
+      if (isGoogle && name.trim().toLowerCase() === "other")
+        return t`${name} (custom)`;
+      return name;
+    };
+    return [
+      ...(settings?.splits ?? []).map((split) => ({
+        ...split,
+        name: getDisplayName(split),
+        // Exclusions are served for Gmail only, the same limit as Other.
+        hideFromAll: isGoogle && !isAllAccounts && split.hideFromAll,
+      })),
+      ...(isGoogle && !isAllAccounts
+        ? [
+            {
+              id: OTHER_SPLIT_ID,
+              name: t`Other`,
+              matchAll: true,
+              filters: [],
+            },
+          ]
+        : []),
+    ].filter(
+      (split) =>
+        !isAllAccounts ||
+        split.filters.every(
+          (filter) => filter.kind === MailSplitFilterKind.UNREAD,
+        ) ||
+        combinedLabelSplits.some((portable) => portable.id === split.id),
+    );
+  }, [settings?.splits, isAllAccounts, combinedLabelSplits, isGoogle, t]);
   const splitTabs = useMemo(
     () =>
       splits.map((split) => ({

@@ -146,13 +146,15 @@ function KnowledgeTableRow({
   onDelete: () => void;
   emailAccountId: string;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const [isDeleting, setIsDeleting] = useState(false);
 
   return (
     <TableRow>
       <TableCell>{item.title}</TableCell>
-      <TableCell>{formatDateSimple(new Date(item.updatedAt))}</TableCell>
+      <TableCell>
+        {formatDateSimple(new Date(item.updatedAt), i18n.locale)}
+      </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-2">
           <Button variant="outline" size="sm" onClick={onEdit}>

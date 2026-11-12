@@ -4,7 +4,6 @@ import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useState } from "react";
-import { format } from "date-fns";
 import { Send, CheckIcon, CalendarIcon, Building2 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { PageHeading, TypographyP } from "@/components/Typography";
@@ -18,6 +17,7 @@ import { sendBriefAction } from "@/utils/actions/meeting-briefs";
 import { cn } from "@/utils";
 import { extractDomainFromEmail } from "@/utils/email";
 import { sleep } from "@/utils/sleep";
+import { formatDayAtTime } from "@/utils/date";
 
 export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
   const { t, i18n } = useLingui();
@@ -143,10 +143,7 @@ export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
                         </p>
                         <p className="truncate text-sm text-muted-foreground">
                           {companyDomain && `${companyDomain} · `}
-                          {format(
-                            new Date(event.startTime),
-                            "EEE, MMM d 'at' h:mm a",
-                          )}
+                          {formatDayAtTime(new Date(event.startTime), i18n)}
                         </p>
                       </div>
                     </div>
