@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -17,6 +18,7 @@ import {
 import { redirectToSafeUrl } from "@/utils/redirect";
 
 export function ConnectDrive() {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
   const [isConnectingMicrosoft, setIsConnectingMicrosoft] = useState(false);
@@ -46,8 +48,8 @@ export function ConnectDrive() {
         extra: { context: "Google Drive OAuth initiation" },
       });
       toastError({
-        title: "Error initiating Google Drive connection",
-        description: "Please try again or contact support",
+        title: t`Error initiating Google Drive connection`,
+        description: t`Please try again or contact support`,
       });
       setIsConnectingGoogle(false);
     }
@@ -76,8 +78,8 @@ export function ConnectDrive() {
         extra: { context: "OneDrive OAuth initiation" },
       });
       toastError({
-        title: "Error initiating OneDrive connection",
-        description: "Please try again or contact support",
+        title: t`Error initiating OneDrive connection`,
+        description: t`Please try again or contact support`,
       });
       setIsConnectingMicrosoft(false);
     }
@@ -100,7 +102,11 @@ export function ConnectDrive() {
             height={16}
             unoptimized
           />
-          {isConnectingGoogle ? "Connecting..." : "Add Google Drive"}
+          {isConnectingGoogle ? (
+            <Trans>Connecting...</Trans>
+          ) : (
+            <Trans>Add Google Drive</Trans>
+          )}
         </Button>
 
         <Button
@@ -117,22 +123,32 @@ export function ConnectDrive() {
             height={16}
             unoptimized
           />
-          {isConnectingMicrosoft ? "Connecting..." : "Add OneDrive"}
+          {isConnectingMicrosoft ? (
+            <Trans>Connecting...</Trans>
+          ) : (
+            <Trans>Add OneDrive</Trans>
+          )}
         </Button>
       </div>
 
       <Dialog open={googleDialogOpen} onOpenChange={setGoogleDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Connect Google Drive</DialogTitle>
+            <DialogTitle>
+              <Trans>Connect Google Drive</Trans>
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-4 rounded-md border p-3">
               <div>
-                <p className="text-sm font-medium">Standard</p>
+                <p className="text-sm font-medium">
+                  <Trans>Standard</Trans>
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  You&apos;ll need to create new folders for filing
+                  <Trans>
+                    You&apos;ll need to create new folders for filing
+                  </Trans>
                 </p>
               </div>
               <Button
@@ -145,15 +161,17 @@ export function ConnectDrive() {
                 disabled={isConnectingGoogle}
                 loading={isConnectingGoogle}
               >
-                Connect
+                <Trans>Connect</Trans>
               </Button>
             </div>
 
             <div className="flex items-center justify-between gap-4 rounded-md border p-3">
               <div>
-                <p className="text-sm font-medium">Full access</p>
+                <p className="text-sm font-medium">
+                  <Trans>Full access</Trans>
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  Use your existing folders
+                  <Trans>Use your existing folders</Trans>
                 </p>
               </div>
               <Button
@@ -166,7 +184,7 @@ export function ConnectDrive() {
                 disabled={isConnectingGoogle}
                 loading={isConnectingGoogle}
               >
-                Connect
+                <Trans>Connect</Trans>
               </Button>
             </div>
           </div>

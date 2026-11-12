@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAction } from "next-safe-action/hooks";
 import { ListCard } from "@/components/ListCard";
 import { RadioCardGroup } from "@/components/RadioCardGroup";
@@ -33,6 +34,7 @@ export function MeetingRecorderSettingsDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const analytics = useProductAnalytics();
   // Only mounted inside the page's `settings.enabled` branch, so the settings
   // are already loaded and SWR serves them from cache.
@@ -43,7 +45,7 @@ export function MeetingRecorderSettingsDialog({
     updateMeetingRecorderSettingsAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Settings saved" });
+        toastSuccess({ description: t`Settings saved` });
         mutate();
         mutateUpcoming();
       },
@@ -51,7 +53,7 @@ export function MeetingRecorderSettingsDialog({
         mutate();
         toastError({
           description: getActionErrorMessage(error, {
-            prefix: "Failed to save settings",
+            prefix: t`Failed to save settings`,
           }),
         });
       },
@@ -69,16 +71,20 @@ export function MeetingRecorderSettingsDialog({
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Notetaker settings</DialogTitle>
+          <DialogTitle>
+            <Trans>Notetaker settings</Trans>
+          </DialogTitle>
         </DialogHeader>
 
         {data && (
           <div className="space-y-6">
             <div className="space-y-2">
-              <ItemTitle>Which meetings to join</ItemTitle>
+              <ItemTitle>
+                <Trans>Which meetings to join</Trans>
+              </ItemTitle>
               <RadioCardGroup
                 name="joinRule"
-                ariaLabel="Which meetings to join"
+                ariaLabel={t`Which meetings to join`}
                 value={data.joinRule}
                 onChange={(joinRule) => {
                   analytics.captureAction("meeting_recorder_setting_changed", {
@@ -87,18 +93,23 @@ export function MeetingRecorderSettingsDialog({
                   });
                   save({ joinRule });
                 }}
-                options={JOIN_RULE_OPTIONS}
+                options={JOIN_RULE_OPTIONS.map((option) => ({
+                  ...option,
+                  label: i18n._(option.label),
+                }))}
               />
             </div>
 
             <ListCard>
               <Item>
                 <ItemContent>
-                  <ItemTitle>Email me the notes</ItemTitle>
+                  <ItemTitle>
+                    <Trans>Email me the notes</Trans>
+                  </ItemTitle>
                 </ItemContent>
                 <Toggle
                   name="recapEmailEnabled"
-                  ariaLabel="Email me the notes"
+                  ariaLabel={t`Email me the notes`}
                   enabled={data.recapEmailEnabled}
                   onChange={(recapEmailEnabled) => {
                     analytics.captureAction(
@@ -112,11 +123,13 @@ export function MeetingRecorderSettingsDialog({
 
               <Item>
                 <ItemContent>
-                  <ItemTitle>Draft a follow-up email</ItemTitle>
+                  <ItemTitle>
+                    <Trans>Draft a follow-up email</Trans>
+                  </ItemTitle>
                 </ItemContent>
                 <Toggle
                   name="followUpDraftEnabled"
-                  ariaLabel="Draft a follow-up email"
+                  ariaLabel={t`Draft a follow-up email`}
                   enabled={data.followUpDraftEnabled}
                   onChange={(followUpDraftEnabled) => {
                     analytics.captureAction(
@@ -133,7 +146,9 @@ export function MeetingRecorderSettingsDialog({
             </ListCard>
 
             <div className="flex items-center justify-between gap-4">
-              <MutedText>Cancels every call it is booked to join.</MutedText>
+              <MutedText>
+                <Trans>Cancels every call it is booked to join.</Trans>
+              </MutedText>
               <Button
                 variant="outline"
                 onClick={() => {
@@ -142,7 +157,7 @@ export function MeetingRecorderSettingsDialog({
                   onClose();
                 }}
               >
-                Turn off
+                <Trans>Turn off</Trans>
               </Button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -50,6 +51,7 @@ function FilingRulesFormContent({
   initialPrompt: string;
   mutateEmail: () => void;
 }) {
+  const { t } = useLingui();
   const {
     register,
     handleSubmit,
@@ -67,29 +69,33 @@ function FilingRulesFormContent({
 
       if (result?.serverError) {
         toastError({
-          title: "Error saving rules",
+          title: t`Error saving rules`,
           description: result.serverError,
         });
       } else {
-        toastSuccess({ description: "Filing rules saved" });
+        toastSuccess({ description: t`Filing rules saved` });
         mutateEmail();
       }
     },
-    [emailAccountId, mutateEmail],
+    [emailAccountId, mutateEmail, t],
   );
 
   return (
     <Card size="sm">
       <CardHeader>
-        <CardTitle>Filing rules</CardTitle>
-        <CardDescription>How should we organize your files?</CardDescription>
+        <CardTitle>
+          <Trans>Filing rules</Trans>
+        </CardTitle>
+        <CardDescription>
+          <Trans>How should we organize your files?</Trans>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
           <Input
             type="textarea"
             name="filingPrompt"
-            placeholder="Receipts go to Expenses, in a subfolder per year and month. Contracts go to Legal, one subfolder per counterparty."
+            placeholder={t`Receipts go to Expenses, in a subfolder per year and month. Contracts go to Legal, one subfolder per counterparty.`}
             registerProps={register("filingPrompt")}
             error={errors.filingPrompt}
             autosizeTextarea
@@ -97,7 +103,7 @@ function FilingRulesFormContent({
           />
           <div className="flex justify-end">
             <Button type="submit" size="sm" loading={isSubmitting}>
-              Save
+              <Trans>Save</Trans>
             </Button>
           </div>
         </form>
