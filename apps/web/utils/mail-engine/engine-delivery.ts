@@ -1,3 +1,5 @@
+import type { I18n } from "@lingui/core";
+import { t } from "@lingui/core/macro";
 import type { OperationStatus } from "@inboxzero/mail-core/operations";
 
 export type EngineSendCommand = {
@@ -38,22 +40,26 @@ export function shouldShowEngineDeliveryStatus({
   return NEEDS_DELIVERY_ATTENTION.has(status);
 }
 
-export function engineDeliveryLabel(status: string, online: boolean) {
+export function engineDeliveryLabel(
+  status: string,
+  online: boolean,
+  i18n: I18n,
+) {
   switch (status) {
     case "succeeded":
-      return "Reply sent";
+      return t(i18n)`Reply sent`;
     case "executing":
     case "verifying":
-      return "Sending…";
+      return t(i18n)`Sending…`;
     case "uncertain":
-      return "Couldn't confirm delivery";
+      return t(i18n)`Couldn't confirm delivery`;
     case "failed":
     case "needs_attention":
-      return "Reply could not be sent";
+      return t(i18n)`Reply could not be sent`;
     case "blocked_auth":
-      return "Reconnect your account to send this reply";
+      return t(i18n)`Reconnect your account to send this reply`;
     default:
-      return online ? "Sending…" : "Waiting for connection";
+      return online ? t(i18n)`Sending…` : t(i18n)`Waiting for connection`;
   }
 }
 

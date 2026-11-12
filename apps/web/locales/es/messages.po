@@ -56,6 +56,10 @@ msgstr "(sin asunto)"
 msgid "(No subject)"
 msgstr "(Sin asunto)"
 
+#: components/team-comments/ConversationParticipants.tsx
+msgid "(you)"
+msgstr "(tú)"
+
 #. placeholder {0}: emails.length
 #: components/InviteMemberModal.tsx
 msgid "{0, plural, =0 {Send Invitation} one {Send Invitation} other {Send Invitations}}"
@@ -151,6 +155,11 @@ msgstr "{0, plural, one {# usuario} other {# usuarios}}"
 msgid "{0, plural, one {Action issue} other {Action issues}}"
 msgstr "{0, plural, one {Problema con la acción} other {Problemas con las acciones}}"
 
+#. placeholder {0}: suggestions.length
+#: components/sidebar-cards/useSignatureSidebarCard.tsx
+msgid "{0, plural, one {Add your other signature} other {Add your # other signatures}}"
+msgstr "{0, plural, one {Añade tu otra firma} other {Añade tus otras # firmas}}"
+
 #. placeholder {0}: status.threadsTotal
 #: components/BulkArchiveCards.tsx
 msgid "{0, plural, one {Archived #!} other {Archived #!}}"
@@ -158,6 +167,7 @@ msgstr "{0, plural, one {¡# archivado!} other {¡# archivados!}}"
 
 #. placeholder {0}: status.threadsTotal
 #: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+#: components/GroupedTable.tsx
 msgid "{0, plural, one {Archived #} other {Archived #}}"
 msgstr "{0, plural, one {# archivado} other {# archivados}}"
 
@@ -210,6 +220,11 @@ msgstr "{0, plural, one {Marcada como spam} other {# conversaciones marcadas com
 #: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
 msgid "{0, plural, one {Marked as unread} other {Marked # conversations as unread}}"
 msgstr "{0, plural, one {Marcada como no leída} other {# conversaciones marcadas como no leídas}}"
+
+#. placeholder {0}: open.openCount
+#: components/email-list/SentMessageOpenStatus.tsx
+msgid "{0, plural, one {Opened # time · Last opened {lastOpened}} other {Opened # times · Last opened {lastOpened}}}"
+msgstr "{0, plural, one {Abierto # vez · Última apertura {lastOpened}} other {Abierto # veces · Última apertura {lastOpened}}}"
 
 #. placeholder {0}: data.updated
 #: app/(app)/[emailAccountId]/settings/ResetLabelColorsSection.tsx
@@ -302,6 +317,10 @@ msgstr "{0}/{1} completados"
 #: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
 msgid "{0}% inbox cleanup"
 msgstr "{0}% de limpieza de la bandeja de entrada"
+
+#: components/PlanBadge.tsx
+msgid "{actionLabel} to {to}"
+msgstr "{actionLabel} a {to}"
 
 #: components/assistant-chat/inline-email-card.tsx
 msgid "{archivedCount, plural, one {# archived} other {# archived}}"
@@ -439,6 +458,10 @@ msgstr "{duration, plural, one {Pensó durante # segundo} other {Pensó durante 
 msgid "{enabled, plural, one {# enabled} other {# enabled}}"
 msgstr "{enabled, plural, one {# activada} other {# activadas}}"
 
+#: components/team-comments/CommentComposer.tsx
+msgid "{error} Your draft is saved here; retry when ready."
+msgstr "{error} Tu borrador está guardado aquí; vuelve a intentarlo cuando quieras."
+
 #: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "{errorCount, plural, one {Failed to send # invitation} other {Failed to send # invitations}}"
@@ -535,6 +558,10 @@ msgstr "{labelAction} como {quotedLabelName}"
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 msgid "{labelSingular} name"
 msgstr "Nombre de la {labelSingular}"
+
+#: components/PlanBadge.tsx
+msgid "{labelTerm}: \"{label}\""
+msgstr "{labelTerm}: \"{label}\""
 
 #. placeholder {0}: connection.name
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
@@ -1166,6 +1193,8 @@ msgstr "Actividad oculta"
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 #: app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton.tsx
 #: app/(app)/[emailAccountId]/smart-categories/setup/SetUpCategories.tsx
+#: components/sidebar-cards/useSignatureSidebarCard.tsx
+#: components/snippets/SnippetsManager.tsx
 msgid "Add"
 msgstr "Añadir"
 
@@ -1188,6 +1217,10 @@ msgstr "Añade {videoLabel} a los eventos del calendario."
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Add a filtered tab to your inbox."
 msgstr "Añade una pestaña filtrada a tu bandeja de entrada."
+
+#: components/snippets/SnippetsManager.tsx
+msgid "Add a reusable snippet."
+msgstr "Añade un fragmento reutilizable."
 
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Add Account"
@@ -1322,9 +1355,17 @@ msgstr "Añadir firma"
 msgid "Add site"
 msgstr "Añadir sitio"
 
+#: components/snippets/SnippetsManager.tsx
+msgid "Add snippet"
+msgstr "Añadir fragmento"
+
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Add split"
 msgstr "Añadir pestaña"
+
+#: components/team-comments/ConversationDiscussion.tsx
+msgid "Add teammate"
+msgstr "Añadir compañero de equipo"
 
 #: components/assistant-chat/examples-dialog.tsx
 msgid "Add the following rules:"
@@ -1350,6 +1391,10 @@ msgstr "Añadir tarea de Todoist"
 #: app/(app)/[emailAccountId]/smart-categories/setup/SetUpCategories.tsx
 msgid "Add your own"
 msgstr "Añade la tuya"
+
+#: components/sidebar-cards/useSignatureSidebarCard.tsx
+msgid "Add your signature"
+msgstr "Añade tu firma"
 
 #. placeholder {0}: item.name
 #. placeholder {1}: label.name
@@ -1408,6 +1453,10 @@ msgstr "Opciones avanzadas"
 #: app/(app)/organization/[organizationId]/rules/OrgActionSteps.tsx
 msgid "after"
 msgstr "después de"
+
+#: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+msgid "AI"
+msgstr "IA"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
 msgid "AI assistant"
@@ -1508,6 +1557,10 @@ msgstr "Todo listo"
 #: app/(app)/[emailAccountId]/clean/TimeRangeStep.tsx
 msgid "All emails"
 msgstr "Todos los correos"
+
+#: components/GroupedTable.tsx
+msgid "All emails removed from category"
+msgstr "Todos los correos se quitaron de la categoría"
 
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 msgid "All inboxes"
@@ -1623,6 +1676,10 @@ msgstr "Siempre reversible"
 msgid "An action could not be completed."
 msgstr "No se pudo completar una acción."
 
+#: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
+msgid "An attachment changed while it was being uploaded."
+msgstr "Un adjunto cambió mientras se subía."
+
 #: app/(app)/[emailAccountId]/assistant/RuleDialog.tsx
 msgid "An error occurred while opening this rule. Please contact support at <0>{SUPPORT_EMAIL}</0> if the problem persists."
 msgstr "Se produjo un error al abrir esta regla. Contacta con soporte en <0>{SUPPORT_EMAIL}</0> si el problema persiste."
@@ -1639,6 +1696,10 @@ msgstr "Se produjo un error. Inténtalo de nuevo."
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 msgid "An unexpected error occurred while starting auto-filing."
 msgstr "Se produjo un error inesperado al iniciar el archivado automático."
+
+#: components/messaging/DeliveryChannelsSetting.tsx
+msgid "An unknown error occurred"
+msgstr "Se produjo un error desconocido"
 
 #: app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton.tsx
 msgid "An unknown error occurred."
@@ -1663,10 +1724,15 @@ msgstr "Estadísticas de {accountName}"
 msgid "Analytics reset! Visit the Unsubscriber or Analytics page and click the 'Load More' button to reload your data."
 msgstr "¡Estadísticas restablecidas! Visita la página Unsubscriber o Analytics y haz clic en el botón 'Load More' para volver a cargar tus datos."
 
+#: components/drive/FilingStatusCell.tsx
+msgid "Analyzing..."
+msgstr "Analizando..."
+
 #: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
 msgid "and"
 msgstr "y"
 
+#: app/(app)/[emailAccountId]/assistant/condition-messages.ts
 #: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
 msgid "AND"
 msgstr "Y"
@@ -1777,6 +1843,7 @@ msgstr "Aprobar"
 #: app/(app)/[emailAccountId]/mail/outlook-search-query.ts
 #: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
 #: components/assistant-chat/inline-email-card.tsx
+#: components/PlanBadge.tsx
 #: lib/shortcuts/registry.ts
 #: utils/action-display-messages.ts
 #: utils/action-display.tsx
@@ -1793,6 +1860,7 @@ msgstr "Archivar tras 7 días"
 
 #: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
 #: components/assistant-chat/inline-email-card.tsx
+#: components/GroupedTable.tsx
 msgid "Archive all"
 msgstr "Archivar todo"
 
@@ -1843,6 +1911,7 @@ msgstr "Archiva, elimina o marca como leídos correos en bloque por categoría p
 #: app/(app)/[emailAccountId]/stats/MainStatChart.tsx
 #: components/assistant-chat/inline-email-card.tsx
 #: components/BulkArchiveCards.tsx
+#: components/GroupedTable.tsx
 #: components/SideNav.tsx
 msgid "Archived"
 msgstr "Archivado"
@@ -1925,6 +1994,7 @@ msgstr "Archivando remitentes... {failedItems, plural, one {# fallido.} other {#
 #: app/(app)/[emailAccountId]/clean/EmailFirehoseItem.tsx
 #: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
 #: components/BulkArchiveCards.tsx
+#: components/GroupedTable.tsx
 msgid "Archiving..."
 msgstr "Archivando..."
 
@@ -2036,6 +2106,10 @@ msgstr "Adjuntar imágenes"
 msgid "attachment"
 msgstr "adjunto"
 
+#: components/email-list/EmailAttachments.tsx
+msgid "Attachment preview"
+msgstr "Vista previa del adjunto"
+
 #: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 #: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
@@ -2137,6 +2211,10 @@ msgid "Auto-generate drafts"
 msgstr "Generar borradores automáticamente"
 
 #: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "Automated notification"
+msgstr "Notificación automática"
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
 msgid "Automated notifications and updates"
 msgstr "Notificaciones y actualizaciones automáticas"
 
@@ -2230,6 +2308,7 @@ msgstr "ETIQUETAS BÁSICAS"
 
 #: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
 #: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+#: components/email-list/EmailDetails.tsx
 msgid "Bcc"
 msgstr "Cco"
 
@@ -2307,6 +2386,10 @@ msgstr "Cuerpo"
 #: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
 msgid "Body: \"{0}\""
 msgstr "Cuerpo: \"{0}\""
+
+#: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+msgid "Body: \"{body}\""
+msgstr "Cuerpo: \"{body}\""
 
 #: app/(app)/[emailAccountId]/calendars/BookingLinksSection.tsx
 msgid "Booking link"
@@ -2456,6 +2539,10 @@ msgstr "Error al conectar el calendario"
 msgid "Calendar consent not granted"
 msgstr "No se concedió el consentimiento del calendario"
 
+#: components/email-list/CalendarInvitation.tsx
+msgid "Calendar invitation"
+msgstr "Invitación de calendario"
+
 #: app/(app)/[emailAccountId]/calendars/CalendarConnectionCard.tsx
 msgid "Calendar options"
 msgstr "Opciones del calendario"
@@ -2509,12 +2596,19 @@ msgstr "¿Podemos mover la llamada del jueves?"
 #: components/assistant-chat/tools.tsx
 #: components/BulkArchiveCards.tsx
 #: components/ConfirmDialog.tsx
+#: components/email-list/ThreadDeliveryStatus.tsx
 #: components/FeedbackDialog.tsx
 #: components/InviteMemberModal.tsx
+#: components/team-comments/ShareConversationDialog.tsx
 msgid "Cancel"
 msgstr "Cancelar"
 
+#: components/email-list/ThreadDeliveryStatus.tsx
+msgid "Cancel reminder"
+msgstr "Cancelar recordatorio"
+
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+#: components/email-list/ThreadDeliveryStatus.tsx
 msgid "Cancel send"
 msgstr "Cancelar envío"
 
@@ -2935,6 +3029,7 @@ msgid "Category"
 msgstr "Categoría"
 
 #: components/CategorySelect.tsx
+#: components/GroupedTable.tsx
 msgid "Category changed"
 msgstr "Categoría cambiada"
 
@@ -2948,6 +3043,7 @@ msgstr "Categoría actualizada"
 
 #: app/(app)/[emailAccountId]/compose/ComposeContactRecipientField.tsx
 #: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+#: components/email-list/EmailDetails.tsx
 msgid "Cc"
 msgstr "Cc"
 
@@ -3035,6 +3131,7 @@ msgid "Check how your the cold email blocker performs against previous emails."
 msgstr "Comprueba cómo funciona el bloqueador de correos en frío con correos anteriores."
 
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+#: components/email-list/ThreadDeliveryStatus.tsx
 msgid "Check Sent"
 msgstr "Revisar Enviados"
 
@@ -3187,6 +3284,10 @@ msgstr "Limpieza"
 msgid "Clear"
 msgstr "Borrar"
 
+#: components/FolderSelector.tsx
+msgid "Clear folder selection"
+msgstr "Borrar selección de carpeta"
+
 #: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
 msgid "Clear search"
 msgstr "Borrar búsqueda"
@@ -3219,6 +3320,10 @@ msgstr "Cerrar"
 #: components/assistant-chat/chat.tsx
 msgid "Close assistant"
 msgstr "Cerrar asistente"
+
+#: components/team-comments/PublisherDiscussion.tsx
+msgid "Close comments"
+msgstr "Cerrar comentarios"
 
 #: providers/ComposeModalProvider.tsx
 msgid "Close compose"
@@ -3293,6 +3398,18 @@ msgstr "Paleta de comandos"
 #: lib/shortcuts/registry.ts
 msgid "Comment"
 msgstr "Comentar"
+
+#: components/team-comments/CommentComposer.tsx
+msgid "Comment and @mention a teammate"
+msgstr "Comenta y @menciona a un compañero de equipo"
+
+#: components/team-comments/ConversationDiscussion.tsx
+msgid "Comment deleted"
+msgstr "Comentario eliminado"
+
+#: components/team-comments/PublisherDiscussion.tsx
+msgid "Comments are never sent as email. @mention a teammate to share this conversation."
+msgstr "Los comentarios nunca se envían como correo. @menciona a un compañero de equipo para compartir esta conversación."
 
 #: components/SetupProgressCard.tsx
 msgid "Complete setup"
@@ -3434,6 +3551,10 @@ msgstr "Conectar MCP"
 msgid "Connect Slack"
 msgstr "Conectar Slack"
 
+#: components/messaging/DeliveryChannelsSetting.tsx
+msgid "Connect Slack in Settings"
+msgstr "Conecta Slack en Configuración"
+
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Connect Slack, Telegram, or Teams to deliver outside email."
 msgstr "Conecta Slack, Telegram o Teams para recibir entregas fuera del correo."
@@ -3569,6 +3690,8 @@ msgstr "Contactos"
 
 #: app/(app)/organization/[organizationId]/rules/OrgActionSteps.tsx
 #: components/assistant-chat/tools.tsx
+#: components/snippets/SnippetForm.tsx
+#: components/snippets/SnippetsManager.tsx
 #: utils/action-item.ts
 msgid "Content"
 msgstr "Contenido"
@@ -3610,9 +3733,19 @@ msgid "Conversation shared"
 msgstr "Conversación compartida"
 
 #. placeholder {0}: conversation.publisher
+#. placeholder {0}: publisher.name
 #: app/(app)/shared/SharedConversationList.tsx
+#: components/team-comments/ConversationParticipants.tsx
 msgid "Conversation shared by {0}"
 msgstr "Conversación compartida por {0}"
+
+#: components/team-comments/ConversationParticipants.tsx
+msgid "Conversation shared by a teammate"
+msgstr "Conversación compartida por un compañero de equipo"
+
+#: components/team-comments/ConversationParticipants.tsx
+msgid "Conversation shared by you"
+msgstr "Conversación compartida por ti"
 
 #: app/(app)/[emailAccountId]/clean/CleanInstructionsStep.tsx
 #: app/(app)/[emailAccountId]/mail/ThreadList.tsx
@@ -3665,6 +3798,10 @@ msgstr "Copiar reglas de otra cuenta"
 msgid "Copy to other days"
 msgstr "Copiar a otros días"
 
+#: components/drive/YesNoIndicator.tsx
+msgid "Correct"
+msgstr "Correcto"
+
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 #: app/(app)/[emailAccountId]/drive/FilingActivity.tsx
 msgid "Correct?"
@@ -3675,9 +3812,21 @@ msgstr "¿Es correcto?"
 msgid "Could not attach {0}."
 msgstr "No se pudo adjuntar {0}."
 
+#: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
+msgid "Could not attach {filename}."
+msgstr "No se pudo adjuntar {filename}."
+
+#: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
+msgid "Could not attach {filename}. Try again."
+msgstr "No se pudo adjuntar {filename}. Inténtalo de nuevo."
+
 #: app/(app)/shared/[conversationId]/SharedConversationReader.tsx
 msgid "Could not check conversation access. Retry or refresh this page."
 msgstr "No se pudo comprobar el acceso a la conversación. Vuelve a intentarlo o actualiza esta página."
+
+#: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
+msgid "Could not confirm {filename} was attached."
+msgstr "No se pudo confirmar que {filename} se adjuntó."
 
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "Could not confirm delivery. Check the thread status before trying again."
@@ -3729,10 +3878,30 @@ msgstr "No se pudo cargar la actividad."
 msgid "Could not load email content: {0}"
 msgstr "No se pudo cargar el contenido del correo: {0}"
 
+#: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
+msgid "Could not load the draft's attachments."
+msgstr "No se pudieron cargar los adjuntos del borrador."
+
+#: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
+msgid "Could not queue this email. Try again."
+msgstr "No se pudo poner este correo en cola. Inténtalo de nuevo."
+
+#: components/email-list/ThreadDeliveryStatus.tsx
+msgid "Could not refresh. Showing the last known status."
+msgstr "No se pudo actualizar. Se muestra el último estado conocido."
+
 #. placeholder {0}: attachment.filename
 #: app/(app)/[emailAccountId]/compose/useComposeAttachments.ts
 msgid "Could not remove {0}."
 msgstr "No se pudo quitar {0}."
+
+#: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
+msgid "Could not remove the attachment."
+msgstr "No se pudo quitar el adjunto."
+
+#: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
+msgid "Could not save this email on the device."
+msgstr "No se pudo guardar este correo en el dispositivo."
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not save this memory."
@@ -3763,6 +3932,14 @@ msgstr "No se pudo iniciar el micrófono."
 msgid "Could not unsubscribe from {0}"
 msgstr "No se pudo cancelar la suscripción a {0}"
 
+#: components/email-list/ThreadDeliveryStatus.tsx
+msgid "Could not update delivery."
+msgstr "No se pudo actualizar el envío."
+
+#: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
+msgid "Could not upload the attachment. Try again."
+msgstr "No se pudo subir el adjunto. Inténtalo de nuevo."
+
 #: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
 msgid "Couldn't add senders. Please try again."
 msgstr "No se pudieron añadir los remitentes. Inténtalo de nuevo."
@@ -3776,6 +3953,8 @@ msgid "Couldn't complete this search."
 msgstr "No se pudo completar esta búsqueda."
 
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+#: components/email-list/ThreadDeliveryStatus.tsx
+#: utils/mail-engine/engine-delivery.ts
 msgid "Couldn't confirm delivery"
 msgstr "No se pudo confirmar el envío"
 
@@ -3795,6 +3974,10 @@ msgstr "{0, plural, one {No se pudo revertir del todo # conversación que solo c
 #: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
 msgid "Couldn't load public context"
 msgstr "No se pudo cargar el contexto público"
+
+#: components/email-list/EmailAttachments.tsx
+msgid "Couldn't load this attachment."
+msgstr "No se pudo cargar este adjunto."
 
 #: app/(app)/[emailAccountId]/mail/use-engine-mail-threads.ts
 msgid "Couldn't load this mailbox."
@@ -4155,6 +4338,7 @@ msgstr "Definición"
 #: components/assistant-chat/ChatHistoryItem.tsx
 #: components/assistant-chat/DeleteChatDialog.tsx
 #: components/ConfirmDialog.tsx
+#: components/snippets/SnippetsManager.tsx
 #: lib/shortcuts/registry.ts
 #: utils/action-display-messages.ts
 #: utils/action-display.tsx
@@ -4182,6 +4366,16 @@ msgstr "Eliminar {selected} de {total}"
 #: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
 msgid "Delete {typeName}?"
 msgstr "¿Eliminar {typeName}?"
+
+#. placeholder {0}: item.shortcut
+#: components/snippets/SnippetsManager.tsx
+msgid "Delete /{0}"
+msgstr "Eliminar /{0}"
+
+#. placeholder {0}: item.shortcut
+#: components/snippets/SnippetsManager.tsx
+msgid "Delete /{0}? This cannot be undone."
+msgstr "¿Eliminar /{0}? Esto no se puede deshacer."
 
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Delete account"
@@ -4212,6 +4406,10 @@ msgstr "Eliminar enlace de reserva"
 msgid "Delete chat?"
 msgstr "¿Eliminar chat?"
 
+#: components/team-comments/ConversationDiscussion.tsx
+msgid "Delete comment"
+msgstr "Eliminar comentario"
+
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
 msgstr "Eliminar entrada de la base de conocimiento"
@@ -4240,6 +4438,10 @@ msgstr "Eliminar regla"
 #: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
 msgid "Delete signature"
 msgstr "Eliminar firma"
+
+#: components/snippets/SnippetsManager.tsx
+msgid "Delete snippet"
+msgstr "Eliminar fragmento"
 
 #: components/assistant-chat/tools.tsx
 msgid "Delete split"
@@ -4502,6 +4704,10 @@ msgstr "Desconectando..."
 msgid "Discuss an email privately by @mentioning a teammate in a comment."
 msgstr "Comenta un correo en privado mencionando a un compañero con @ en un comentario."
 
+#: components/team-comments/ConversationDiscussion.tsx
+msgid "Discussion options"
+msgstr "Opciones de la discusión"
+
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 #: app/(app)/shared/[conversationId]/SharedConversationReader.tsx
 #: app/(app)/shared/SharedTabs.tsx
@@ -4510,12 +4716,18 @@ msgid "Discussions"
 msgstr "Debates"
 
 #: components/assistant-chat/messaging-channel-hint.tsx
+#: components/email-list/ThreadDeliveryStatus.tsx
+#: components/sidebar-cards/useSignatureSidebarCard.tsx
 msgid "Dismiss"
 msgstr "Descartar"
 
 #: components/PremiumCard.tsx
 msgid "Dismiss banner"
 msgstr "Cerrar banner"
+
+#: components/email-list/ThreadDeliveryStatus.tsx
+msgid "Dismiss failed reply"
+msgstr "Descartar respuesta fallida"
 
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 msgid "Do nothing"
@@ -4539,6 +4751,7 @@ msgid "Doesn't have"
 msgstr "No contiene"
 
 #: app/(app)/[emailAccountId]/drive/FilingActivity.tsx
+#: components/drive/FilingStatusCell.tsx
 msgid "Doesn't match preferences"
 msgstr "No coincide con las preferencias"
 
@@ -4564,8 +4777,18 @@ msgid "Done"
 msgstr "Listo"
 
 #: app/(app)/[emailAccountId]/mail/MessageSourceDialog.tsx
+#: components/email-list/EmailAttachments.tsx
 msgid "Download"
 msgstr "Descargar"
+
+#. placeholder {0}: attachment.filename
+#: components/email-list/EmailAttachments.tsx
+msgid "Download {0}"
+msgstr "Descargar {0}"
+
+#: components/email-list/EmailAttachments.tsx
+msgid "Download attachment"
+msgstr "Descargar adjunto"
 
 #: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
 msgid "Download message"
@@ -4579,6 +4802,7 @@ msgstr "Descargando Inbox Zero {0}"
 #: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
 #: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
+#: components/PlanBadge.tsx
 msgid "Draft"
 msgstr "Borrador"
 
@@ -4768,6 +4992,8 @@ msgstr "editar"
 #: app/(app)/[emailAccountId]/smart-categories/setup/SetUpCategories.tsx
 #: app/(app)/organization/[organizationId]/rules/OrgRules.tsx
 #: components/assistant-chat/tools.tsx
+#: components/GroupedTable.tsx
+#: components/snippets/SnippetsManager.tsx
 msgid "Edit"
 msgstr "Editar"
 
@@ -4799,6 +5025,10 @@ msgstr "Editar manualmente"
 msgid "Edit organization rule"
 msgstr "Editar regla de la organización"
 
+#: components/email-list/ThreadDeliveryStatus.tsx
+msgid "Edit reply"
+msgstr "Editar respuesta"
+
 #: components/assistant-chat/tools.tsx
 msgid "Edit rule"
 msgstr "Editar regla"
@@ -4815,6 +5045,10 @@ msgstr "Editar configuración"
 msgid "Edit signature"
 msgstr "Editar firma"
 
+#: components/snippets/SnippetsManager.tsx
+msgid "Edit snippet"
+msgstr "Editar fragmento"
+
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Edit split"
 msgstr "Editar pestaña"
@@ -4823,6 +5057,10 @@ msgstr "Editar pestaña"
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Edit the {0} split"
 msgstr "Editar la pestaña {0}"
+
+#: components/snippets/SnippetsManager.tsx
+msgid "Edit this snippet."
+msgstr "Edita este fragmento."
 
 #: app/(app)/[emailAccountId]/assistant/Rules.tsx
 msgid "Edit via AI"
@@ -4833,6 +5071,7 @@ msgstr "Editar con IA"
 #: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailRejected.tsx
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 #: components/assistant-chat/inline-email-card.tsx
+#: components/messaging/DeliveryChannelsSetting.tsx
 msgid "Email"
 msgstr "Correo"
 
@@ -4953,6 +5192,10 @@ msgstr "El correo no está disponible"
 #: app/(app)/[emailAccountId]/meetings/MeetingRecorderSettingsDialog.tsx
 msgid "Email me the notes"
 msgstr "Envíame las notas por correo"
+
+#: components/EmailMessageCell.tsx
+msgid "Email not found"
+msgstr "Correo no encontrado"
 
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
 msgid "Email not found in Slack"
@@ -5192,6 +5435,10 @@ msgstr "Error al crear la entrada de la base de conocimiento"
 msgid "Error creating organization"
 msgstr "Error al crear la organización"
 
+#: components/snippets/SnippetForm.tsx
+msgid "Error creating snippet"
+msgstr "Error al crear el fragmento"
+
 #: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
 msgid "Error deleting account: {message}"
 msgstr "Error al eliminar la cuenta: {message}"
@@ -5212,6 +5459,10 @@ msgstr "Error al eliminar la regla. {0}"
 #: app/(app)/[emailAccountId]/assistant/settings/SignaturesSetting.tsx
 msgid "Error deleting signature"
 msgstr "Error al eliminar la firma"
+
+#: components/snippets/SnippetsManager.tsx
+msgid "Error deleting snippet"
+msgstr "Error al eliminar el fragmento"
 
 #: app/(app)/[emailAccountId]/integrations/IntegrationRow.tsx
 msgid "Error disconnecting"
@@ -5266,8 +5517,13 @@ msgstr "Error al cargar el portal de facturación. Contacta con soporte."
 msgid "Error loading chats"
 msgstr "Error al cargar los chats"
 
+#: components/EmailMessageCell.tsx
+msgid "Error loading email"
+msgstr "Error al cargar el correo"
+
 #: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
 #: components/BulkArchiveCards.tsx
+#: components/GroupedTable.tsx
 msgid "Error loading emails"
 msgstr "Error al cargar los correos"
 
@@ -5369,6 +5625,10 @@ msgstr "Error al actualizar la entrada de la base de conocimiento"
 #: app/(app)/organization/[organizationId]/Members.tsx
 msgid "Error updating role"
 msgstr "Error al actualizar el rol"
+
+#: components/snippets/SnippetForm.tsx
+msgid "Error updating snippet"
+msgstr "Error al actualizar el fragmento"
 
 #: components/assistant-chat/message-part.tsx
 msgid "Error: {error}"
@@ -5508,6 +5768,7 @@ msgstr "Contenido adicional"
 #: app/(app)/[emailAccountId]/meetings/recording-status.ts
 #: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
 #: components/BulkArchiveCards.tsx
+#: components/GroupedTable.tsx
 #: components/InviteMemberModal.tsx
 msgid "Failed"
 msgstr "Fallida"
@@ -5630,6 +5891,10 @@ msgstr "No se pudo descartar el borrador"
 msgid "Failed to disconnect"
 msgstr "No se pudo desconectar"
 
+#: components/email-list/EmailAttachments.tsx
+msgid "Failed to download attachment"
+msgstr "No se pudo descargar el adjunto"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Failed to enable auto archive"
 msgstr "No se pudo activar el archivado automático"
@@ -5645,6 +5910,10 @@ msgstr "No se pudo activar la regla."
 #: app/(app)/[emailAccountId]/assistant/bulk-run.ts
 msgid "Failed to fetch emails"
 msgstr "No se pudieron obtener los correos"
+
+#: components/drive/FilingStatusCell.tsx
+msgid "Failed to file"
+msgstr "No se pudo archivar"
 
 #: app/(app)/[emailAccountId]/channels/Channels.tsx
 #: app/(app)/[emailAccountId]/settings/ConnectedAppsSection.tsx
@@ -6049,6 +6318,7 @@ msgstr "Foros"
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 #: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: components/PlanBadge.tsx
 #: lib/shortcuts/registry.ts
 #: utils/action-display-messages.ts
 #: utils/action-display.tsx
@@ -6179,6 +6449,7 @@ msgstr "remitente"
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 #: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
 #: components/assistant-chat/tools.tsx
+#: components/email-list/EmailDetails.tsx
 msgid "From"
 msgstr "De"
 
@@ -6208,6 +6479,7 @@ msgstr "De: {0}"
 msgid "From: {0} • {1}"
 msgstr "De: {0} • {1}"
 
+#: app/(app)/[emailAccountId]/assistant/condition-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "From: {from}"
 msgstr "De: {from}"
@@ -6435,6 +6707,10 @@ msgstr "¡Encantada de conocerte! Con gusto te comparto la guía de marca"
 #: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
 msgid "greater than"
 msgstr "mayor que"
+
+#: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+msgid "Group"
+msgstr "Grupo"
 
 #: app/(app)/[emailAccountId]/stats/Stats.tsx
 msgid "Group by day"
@@ -7104,6 +7380,14 @@ msgstr "Integraciones"
 #: app/(app)/[emailAccountId]/integrations/page.tsx
 msgid "Integrations are not enabled"
 msgstr "Las integraciones no están activadas"
+
+#: components/team-comments/CommentComposer.tsx
+msgid "Internal comment"
+msgstr "Comentario interno"
+
+#: components/team-comments/ConversationDiscussion.tsx
+msgid "Internal discussion"
+msgstr "Discusión interna"
 
 #: app/(app)/[emailAccountId]/settings/ModelSection.tsx
 msgid "Invalid API Key"
@@ -7902,6 +8186,10 @@ msgstr "Cargar más"
 msgid "Load older activity"
 msgstr "Cargar actividad anterior"
 
+#: components/team-comments/ConversationDiscussion.tsx
+msgid "Load older comments"
+msgstr "Cargar comentarios anteriores"
+
 #: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
 msgid "Load older messages"
 msgstr "Cargar mensajes anteriores"
@@ -7942,9 +8230,17 @@ msgstr "Cargando apps conectadas..."
 msgid "Loading email"
 msgstr "Cargando correo"
 
+#: components/EmailMessageCell.tsx
+msgid "Loading email..."
+msgstr "Cargando correo..."
+
 #: app/(app)/[emailAccountId]/mail/BufferedThreadReader.tsx
 msgid "Loading email…"
 msgstr "Cargando correo…"
+
+#: components/FolderSelector.tsx
+msgid "Loading folders..."
+msgstr "Cargando carpetas..."
 
 #: app/(app)/[emailAccountId]/mail/MailShell.tsx
 msgid "Loading mail…"
@@ -8000,6 +8296,10 @@ msgstr "Correo"
 #: app/(app)/[emailAccountId]/mail/mail-search-query.ts
 msgid "Mail & Spam & Trash"
 msgstr "Correo, spam y papelera"
+
+#: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
+msgid "Mail is full of pending actions. Wait for some to finish, then try again."
+msgstr "El correo tiene demasiadas acciones pendientes. Espera a que terminen algunas y vuelve a intentarlo."
 
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "Mail is still starting. Try sending again in a moment."
@@ -8091,6 +8391,7 @@ msgstr "Marcar todo como leído"
 #: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
 #: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
 #: components/assistant-chat/inline-email-card.tsx
+#: components/PlanBadge.tsx
 msgid "Mark as read"
 msgstr "Marcar como leído"
 
@@ -8101,6 +8402,7 @@ msgstr "Marcar como leído"
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 #: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
 #: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+#: components/PlanBadge.tsx
 #: lib/shortcuts/registry.ts
 msgid "Mark as spam"
 msgstr "Marcar como spam"
@@ -8183,6 +8485,10 @@ msgid "Marketing"
 msgstr "Marketing"
 
 #: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "Marketing / Promotional"
+msgstr "Marketing / Promociones"
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
 msgid "Marketing emails and newsletters you likely don't need"
 msgstr "Correos de marketing y newsletters que probablemente no necesitas"
 
@@ -8221,6 +8527,10 @@ msgstr "Cumple todas las condiciones"
 #: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
 msgid "Maximum number of conditions reached."
 msgstr "Se alcanzó el número máximo de condiciones."
+
+#: components/email-list/CalendarInvitation.tsx
+msgid "Maybe"
+msgstr "Quizás"
 
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "MCP access disabled!"
@@ -8270,10 +8580,6 @@ msgstr "Conoce tu nueva app de correo"
 msgid "Meeting"
 msgstr "Reunión"
 
-#: app/(app)/[emailAccountId]/briefs/DeliveryChannelsSetting.tsx
-msgid "meeting briefs"
-msgstr "informes de reunión"
-
 #: app/(app)/[emailAccountId]/channels/Channels.tsx
 msgid "Meeting briefs"
 msgstr "Informes de reunión"
@@ -8291,6 +8597,10 @@ msgstr "Informes de reunión antes de cada llamada"
 #: app/(app)/[emailAccountId]/onboarding-brief/page.tsx
 msgid "Meeting Briefs Setup"
 msgstr "Configuración de informes de reunión"
+
+#: app/(app)/[emailAccountId]/briefs/DeliveryChannelsSetting.tsx
+msgid "Meeting briefs will be sent to this connected app's direct message destination."
+msgstr "Los informes de reunión se enviarán al destino de mensajes directos de esta app conectada."
 
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 msgid "Meeting notes deleted."
@@ -8346,6 +8656,10 @@ msgstr "Recuerdo guardado."
 msgid "Memory was already saved."
 msgstr "El recuerdo ya estaba guardado."
 
+#: components/team-comments/CommentComposer.tsx
+msgid "Mention a teammate"
+msgstr "Menciona a un compañero de equipo"
+
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Message"
 msgstr "Mensaje"
@@ -8353,6 +8667,10 @@ msgstr "Mensaje"
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Message copied to clipboard"
 msgstr "Mensaje copiado al portapapeles"
+
+#: providers/ChatProvider.tsx
+msgid "Messages can be up to {maxLength} characters."
+msgstr "Los mensajes pueden tener hasta {maxLength} caracteres."
 
 #: app/(app)/accounts/page.tsx
 msgid "Microsoft app setup needs attention"
@@ -8448,6 +8766,7 @@ msgid "Monthly"
 msgstr "Mensual"
 
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
+#: components/GroupedTable.tsx
 #: components/SideNav.tsx
 msgid "More"
 msgstr "Más"
@@ -8553,6 +8872,10 @@ msgstr "Selección de varias reglas"
 #: app/(app)/config/page.tsx
 msgid "Multitenant (common)"
 msgstr "Multitenant (common)"
+
+#: components/team-comments/ConversationDiscussion.tsx
+msgid "Mute"
+msgstr "Silenciar"
 
 #: app/(app)/[emailAccountId]/settings/ApiKeysCreateForm.tsx
 msgid "My API key"
@@ -8733,6 +9056,7 @@ msgid "Next, open Channels to choose where Slack messages go."
 msgstr "Ahora abre Canales para elegir adónde van los mensajes de Slack."
 
 #: app/(app)/config/page.tsx
+#: components/email-list/CalendarInvitation.tsx
 msgid "No"
 msgstr "No"
 
@@ -8864,6 +9188,7 @@ msgstr "No se elimina ningún correo: todo se puede encontrar con la búsqueda."
 #: app/(app)/[emailAccountId]/mail/MailShell.tsx
 #: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
 #: components/BulkArchiveCards.tsx
+#: components/GroupedTable.tsx
 msgid "No emails found"
 msgstr "No se encontraron correos"
 
@@ -8906,6 +9231,10 @@ msgstr "No se encontraron reglas ejecutadas en este periodo."
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "No expiry"
 msgstr "Sin caducidad"
+
+#: components/FolderSelector.tsx
+msgid "No folder found."
+msgstr "No se encontró ninguna carpeta."
 
 #: app/(app)/[emailAccountId]/drive/AllowedFolders.tsx
 msgid "No folders found"
@@ -8960,6 +9289,10 @@ msgstr "No se encontró ninguna coincidencia"
 msgid "No matched rules for this message."
 msgstr "Ninguna regla coincide con este mensaje."
 
+#: components/email-list/CalendarInvitation.tsx
+msgid "No matching calendar event was verified. Your response will be emailed to the organizer."
+msgstr "No se verificó ningún evento de calendario coincidente. Tu respuesta se enviará por correo al organizador."
+
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "No matching folders."
 msgstr "No hay carpetas que coincidan."
@@ -8967,6 +9300,10 @@ msgstr "No hay carpetas que coincidan."
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "No matching labels."
 msgstr "No hay etiquetas que coincidan."
+
+#: components/snippets/SnippetPicker.tsx
+msgid "No matching snippets."
+msgstr "No hay fragmentos que coincidan."
 
 #: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
 msgid "No matching splits."
@@ -9024,6 +9361,10 @@ msgstr "No se encontraron PDF"
 #: app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting.tsx
 msgid "No personal rules to export."
 msgstr "No hay reglas personales para exportar."
+
+#: components/PlanBadge.tsx
+msgid "No plan"
+msgstr "Sin plan"
 
 #: components/assistant-chat/chat.tsx
 msgid "No previous chats found"
@@ -9115,6 +9456,14 @@ msgstr "No se encontraron firmas"
 msgid "No signatures found in your Gmail account"
 msgstr "No se encontraron firmas en tu cuenta de Gmail"
 
+#: components/snippets/SnippetsManager.tsx
+msgid "No snippets yet"
+msgstr "Aún no hay fragmentos"
+
+#: components/snippets/SnippetPicker.tsx
+msgid "No snippets yet."
+msgstr "Aún no hay fragmentos."
+
 #: app/(app)/[emailAccountId]/settings/CleanupDraftsSection.tsx
 msgid "No stale drafts found."
 msgstr "No se encontraron borradores antiguos."
@@ -9203,9 +9552,17 @@ msgstr "No configurado"
 msgid "not live"
 msgstr "no publicado"
 
+#: components/email-list/SentMessageOpenStatus.tsx
+msgid "Not opened yet"
+msgstr "Aún no abierto"
+
 #: app/(app)/[emailAccountId]/meetings/recording-status.ts
 msgid "Not recorded"
 msgstr "No grabada"
+
+#: components/team-comments/CommentComposer.tsx
+msgid "Not shared yet"
+msgstr "Aún no compartida"
 
 #: app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton.tsx
 msgid "Note: editing a category name/description only impacts future categorization. Existing email addresses in this category will not be affected."
@@ -9243,6 +9600,10 @@ msgstr "No hay nada programado. Los correos que envíes más tarde aparecen aqu�
 msgid "Nothing selected"
 msgstr "Nada seleccionado"
 
+#: components/sidebar-cards/SidebarCardStack.tsx
+msgid "Notices"
+msgstr "Avisos"
+
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "notifications I have not read"
 msgstr "notificaciones que no he leído"
@@ -9252,6 +9613,7 @@ msgid "Notifications when documents are auto-filed."
 msgstr "Notificaciones cuando los documentos se archivan automáticamente."
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: components/PlanBadge.tsx
 #: utils/action-display-messages.ts
 msgid "Notify"
 msgstr "Notificar"
@@ -9276,6 +9638,7 @@ msgstr "Notificar en {destination}"
 msgid "Notify on {providerList}"
 msgstr "Notificar en {providerList}"
 
+#: components/PlanBadge.tsx
 #: utils/action-display-messages.ts
 msgid "Notify on {providerName}"
 msgstr "Notificar en {providerName}"
@@ -9289,6 +9652,7 @@ msgstr "Solo notificar"
 msgid "Notify sender"
 msgstr "Notificar al remitente"
 
+#: components/PlanBadge.tsx
 #: utils/action-display-messages.ts
 msgid "Notify Sender"
 msgstr "Notificar al remitente"
@@ -9313,6 +9677,14 @@ msgstr "Desactivado"
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Offline access"
 msgstr "Acceso sin conexión"
+
+#: components/team-comments/CommentComposer.tsx
+msgid "Offline. Reconnect to post your comment."
+msgstr "Sin conexión. Vuelve a conectarte para publicar tu comentario."
+
+#: components/email-list/ThreadDeliveryStatus.tsx
+msgid "Offline. Showing the last known status."
+msgstr "Sin conexión. Se muestra el último estado conocido."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Older than"
@@ -9440,6 +9812,7 @@ msgid "Open in {providerName}"
 msgstr "Abrir en {providerName}"
 
 #: components/assistant-chat/inline-email-card.tsx
+#: components/EmailMessageCell.tsx
 msgid "Open in email"
 msgstr "Abrir en el correo"
 
@@ -9482,6 +9855,10 @@ msgstr "Preguntas abiertas"
 msgid "Open settings"
 msgstr "Abrir configuración"
 
+#: components/team-comments/ConversationDiscussion.tsx
+msgid "Open shared view"
+msgstr "Abrir vista compartida"
+
 #: app/(app)/[emailAccountId]/channels/Channels.tsx
 msgid "Open Teams app"
 msgstr "Abrir la app de Teams"
@@ -9498,6 +9875,10 @@ msgstr "Abre esta conversación desde <0>Conversaciones</0>."
 #: app/(app)/early-access/page.tsx
 msgid "Open your inbox in the Inbox Zero mail client."
 msgstr "Abre tu bandeja de entrada en el cliente de correo de Inbox Zero."
+
+#: components/email-list/SentMessageOpenStatus.tsx
+msgid "Opened {firstOpened}"
+msgstr "Abierto {firstOpened}"
 
 #: components/assistant-chat/message-part.tsx
 msgid "Opening the email on screen"
@@ -9516,6 +9897,7 @@ msgstr "Opcional: instala la extensión {BRAND_NAME} Tabs"
 msgid "or"
 msgstr "o"
 
+#: app/(app)/[emailAccountId]/assistant/condition-messages.ts
 #: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
 msgid "OR"
 msgstr "O"
@@ -9555,6 +9937,10 @@ msgstr "Mensaje original"
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "Other"
 msgstr "Otro"
+
+#: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
+msgid "Other category"
+msgstr "Otra categoría"
 
 #: app/(app)/[emailAccountId]/cold-email-blocker/TestRules.tsx
 msgid "Our AI determined this is not a cold email!"
@@ -9735,6 +10121,10 @@ msgstr "Elige una de estas en lugar de tu firma predeterminada al redactar."
 msgid "Pick the signature to add to emails you send."
 msgstr "Elige la firma que se añadirá a los correos que envías."
 
+#: app/(app)/[emailAccountId]/briefs/DeliveryChannelsSetting.tsx
+msgid "Pick where meeting briefs should be delivered for this Slack workspace."
+msgstr "Elige dónde se deben entregar los informes de reunión en este espacio de trabajo de Slack."
+
 #: app/(app)/[emailAccountId]/stats/RuleStatsChart.tsx
 msgid "Pie Chart"
 msgstr "Gráfico circular"
@@ -9822,6 +10212,10 @@ msgstr "Popular"
 msgid "Possible match"
 msgstr "Posible coincidencia"
 
+#: components/team-comments/CommentComposer.tsx
+msgid "Post comment"
+msgstr "Publicar comentario"
+
 #: app/(app)/[emailAccountId]/calendars/page.tsx
 msgid "Powering AI scheduling and meeting briefs."
 msgstr "Impulsa la programación con IA y los informes de reunión."
@@ -9863,6 +10257,10 @@ msgstr "Preparando la eliminación de la regla \"{0}\"..."
 msgid "Preparing to delete rule \"{ruleName}\"..."
 msgstr "Preparando la eliminación de la regla \"{ruleName}\"..."
 
+#: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+msgid "Preset"
+msgstr "Predefinida"
+
 #: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
 msgid "Prevent credentials and card numbers from being sent to AI."
 msgstr "Evita que se envíen credenciales y números de tarjeta a la IA."
@@ -9872,9 +10270,18 @@ msgstr "Evita que se envíen credenciales y números de tarjeta a la IA."
 msgid "Preview"
 msgstr "Vista previa"
 
+#. placeholder {0}: attachment.filename
+#: components/email-list/EmailAttachments.tsx
+msgid "Preview {0}"
+msgstr "Vista previa de {0}"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
 msgid "Preview emails"
 msgstr "Previsualizar correos"
+
+#: components/email-list/EmailAttachments.tsx
+msgid "Preview isn't available for this file."
+msgstr "La vista previa no está disponible para este archivo."
 
 #: app/(app)/[emailAccountId]/clean/PreviewBatch.tsx
 msgid "Preview run"
@@ -10026,6 +10433,7 @@ msgstr "Las preguntas que necesitan tu respuesta seguirán llegando por correo."
 
 #: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
 #: components/BulkArchiveCards.tsx
+#: components/GroupedTable.tsx
 msgid "Queued"
 msgstr "En cola"
 
@@ -10044,6 +10452,10 @@ msgstr "Una breve presentación"
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Quickly clean up your inbox by archiving old emails"
 msgstr "Limpia rápidamente tu bandeja de entrada archivando correos antiguos"
+
+#: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+msgid "Re-processing emails you've already handled is available on the Professional plan."
+msgstr "Volver a procesar correos que ya gestionaste está disponible en el plan Professional."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Re: Intro to the design team"
@@ -10158,6 +10570,10 @@ msgstr "Agente inmobiliario"
 msgid "Reason for choosing this rule:"
 msgstr "Motivo para elegir esta regla:"
 
+#: components/PlanBadge.tsx
+msgid "Reason:"
+msgstr "Motivo:"
+
 #: app/(app)/[emailAccountId]/assistant/ConditionSteps.tsx
 msgid "Receipt for your purchase"
 msgstr "Recibo de tu compra"
@@ -10234,6 +10650,10 @@ msgstr "Vuelve a conectar tu cuenta y marca todas las casillas en la pantalla de
 msgid "Reconnect your account to send this"
 msgstr "Vuelve a conectar tu cuenta para enviar esto"
 
+#: utils/mail-engine/engine-delivery.ts
+msgid "Reconnect your account to send this reply"
+msgstr "Vuelve a conectar tu cuenta para enviar esta respuesta"
+
 #: app/(app)/[emailAccountId]/meetings/page.tsx
 msgid "Reconnect your calendar"
 msgstr "Vuelve a conectar tu calendario"
@@ -10259,6 +10679,10 @@ msgstr "Grabando"
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Recruiter"
 msgstr "Reclutador"
+
+#: components/email-list/CalendarInvitation.tsx
+msgid "Recurring invitation"
+msgstr "Invitación recurrente"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
 msgid "Redact"
@@ -10325,6 +10749,11 @@ msgstr "Recordarme cuando no haya respondido después de"
 msgid "Remind me when they haven't replied after"
 msgstr "Recordarme cuando no hayan respondido después de"
 
+#. placeholder {0}: formatTime(row.remindAt, i18n.locale)
+#: components/email-list/ThreadDeliveryStatus.tsx
+msgid "Reminder if no reply by {0}"
+msgstr "Recordatorio si no hay respuesta antes del {0}"
+
 #: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
 #: app/(app)/[emailAccountId]/integrations/IntegrationRow.tsx
 #: app/(app)/[emailAccountId]/smart-categories/setup/SetUpCategories.tsx
@@ -10333,7 +10762,9 @@ msgid "Remove"
 msgstr "Quitar"
 
 #. placeholder {0}: attachment.filename
+#. placeholder {0}: participant.name
 #: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
+#: components/team-comments/ConversationParticipants.tsx
 msgid "Remove {0}"
 msgstr "Quitar {0}"
 
@@ -10353,6 +10784,10 @@ msgstr "Quitar {url}"
 #: app/(app)/organization/[organizationId]/rules/OrgActionSteps.tsx
 msgid "Remove action"
 msgstr "Quitar acción"
+
+#: components/GroupedTable.tsx
+msgid "Remove All From Category"
+msgstr "Quitar todo de la categoría"
 
 #: components/assistant-chat/preview-attachment.tsx
 msgid "Remove attachment"
@@ -10445,6 +10880,7 @@ msgstr "Respondido a {recipient}"
 msgid "Replies arrive knowing the sender's plan, tickets, and history."
 msgstr "Las respuestas llegan conociendo el plan, los tickets y el historial del remitente."
 
+#: components/PlanBadge.tsx
 #: lib/shortcuts/registry.ts
 #: providers/ComposeModalProvider.tsx
 #: utils/action-display-messages.ts
@@ -10456,6 +10892,15 @@ msgstr "Responder"
 msgid "Reply all"
 msgstr "Responder a todos"
 
+#: components/email-list/ThreadDeliveryStatus.tsx
+#: utils/mail-engine/engine-delivery.ts
+msgid "Reply could not be sent"
+msgstr "No se pudo enviar la respuesta"
+
+#: components/email-list/ThreadDeliveryStatus.tsx
+msgid "Reply delivery status"
+msgstr "Estado de envío de la respuesta"
+
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "Reply queued, but its local draft copy could not be cleared."
 msgstr "Respuesta en cola, pero no se pudo borrar su copia local del borrador."
@@ -10463,6 +10908,11 @@ msgstr "Respuesta en cola, pero no se pudo borrar su copia local del borrador."
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "Reply scheduled, but its local draft copy could not be cleared."
 msgstr "Respuesta programada, pero no se pudo borrar su copia local del borrador."
+
+#: components/email-list/ThreadDeliveryStatus.tsx
+#: utils/mail-engine/engine-delivery.ts
+msgid "Reply sent"
+msgstr "Respuesta enviada"
 
 #: components/assistant-chat/tools.tsx
 msgid "Reply sent."
@@ -10532,6 +10982,14 @@ msgstr "Cambiar el tamaño de la lista de correos"
 msgid "Resize sidebar"
 msgstr "Cambiar el tamaño de la barra lateral"
 
+#: components/email-list/CalendarInvitation.tsx
+msgid "Response emailed to the organizer. Calendar sync wasn’t confirmed."
+msgstr "Respuesta enviada por correo al organizador. No se confirmó la sincronización del calendario."
+
+#: components/email-list/CalendarInvitation.tsx
+msgid "Response sent and calendar updated."
+msgstr "Respuesta enviada y calendario actualizado."
+
 #: app/(app)/[emailAccountId]/stats/Stats.tsx
 msgid "Response Time"
 msgstr "Tiempo de respuesta"
@@ -10583,14 +11041,20 @@ msgid "Retest"
 msgstr "Volver a probar"
 
 #: app/(app)/shared/activity/ConversationActivity.tsx
+#: components/email-list/ThreadDeliveryStatus.tsx
 msgid "Retry"
 msgstr "Reintentar"
+
+#: components/team-comments/CommentComposer.tsx
+msgid "Retry comment"
+msgstr "Reintentar comentario"
 
 #: app/(app)/[emailAccountId]/mail/MailShell.tsx
 msgid "Retry search"
 msgstr "Reintentar búsqueda"
 
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+#: components/email-list/ThreadDeliveryStatus.tsx
 msgid "Retry send"
 msgstr "Reintentar envío"
 
@@ -10802,6 +11266,10 @@ msgstr "Guardar cambios"
 msgid "Save memory"
 msgstr "Guardar recuerdo"
 
+#: components/snippets/SnippetsManager.tsx
+msgid "Save replies you reuse often, then type / in a draft to insert them."
+msgstr "Guarda las respuestas que reutilizas a menudo y luego escribe / en un borrador para insertarlas."
+
 #: app/(app)/organization/[organizationId]/rules/OrgRuleDialog.tsx
 msgid "Save rule"
 msgstr "Guardar regla"
@@ -10815,6 +11283,7 @@ msgid "Save Signature"
 msgstr "Guardar firma"
 
 #: app/(app)/[emailAccountId]/compose/useComposeSnippets.tsx
+#: components/snippets/SnippetForm.tsx
 msgid "Save snippet"
 msgstr "Guardar fragmento"
 
@@ -10894,9 +11363,17 @@ msgstr "Check-ins programados actualizados"
 msgid "Scheduled emails"
 msgstr "Correos programados"
 
+#: components/email-list/ThreadDeliveryStatus.tsx
+msgid "Scheduled for {sendAt}"
+msgstr "Programado para el {sendAt}"
+
 #: app/(app)/[emailAccountId]/meetings/recording-status.ts
 msgid "Scheduling"
 msgstr "Programando"
+
+#: components/email-list/ThreadDeliveryStatus.tsx
+msgid "Scheduling for {sendAt}…"
+msgstr "Programando para el {sendAt}…"
 
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
 #: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
@@ -10916,6 +11393,10 @@ msgstr "Busca por remitente, asunto o cualquier palabra del correo"
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Search folders"
 msgstr "Buscar carpetas"
+
+#: components/FolderSelector.tsx
+msgid "Search folders..."
+msgstr "Buscar carpetas..."
 
 #: components/assistant-chat/tools.tsx
 msgid "Search Inbox"
@@ -10941,6 +11422,10 @@ msgstr "Opciones de búsqueda"
 #: components/assistant-chat/tools.tsx
 msgid "Search results were unavailable for that request."
 msgstr "Los resultados de búsqueda no estaban disponibles para esa solicitud."
+
+#: components/snippets/SnippetPicker.tsx
+msgid "Search snippets"
+msgstr "Buscar fragmentos"
 
 #: app/(app)/[emailAccountId]/mail/SplitPickerDialog.tsx
 msgid "Search splits"
@@ -11014,6 +11499,10 @@ msgstr "Selecciona un destino en <0>Canales</0> para activar las notificaciones 
 msgid "Select a different time period to view statistics"
 msgstr "Selecciona otro periodo para ver las estadísticas"
 
+#: components/FolderSelector.tsx
+msgid "Select a folder..."
+msgstr "Selecciona una carpeta..."
+
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 #: app/(app)/[emailAccountId]/onboarding/OnboardingCategories.tsx
 #: app/(app)/organization/[organizationId]/rules/OrgActionSteps.tsx
@@ -11059,6 +11548,7 @@ msgstr "Seleccionar grupo con {bundleName}"
 
 #: components/BulkArchiveCards.tsx
 #: components/CategorySelect.tsx
+#: components/GroupedTable.tsx
 msgid "Select category"
 msgstr "Seleccionar categoría"
 
@@ -11071,6 +11561,7 @@ msgid "Select conversation with {participants}"
 msgstr "Seleccionar conversación con {participants}"
 
 #: app/(app)/[emailAccountId]/drive/page.tsx
+#: components/messaging/DeliveryChannelsSetting.tsx
 msgid "Select destination"
 msgstr "Seleccionar destino"
 
@@ -11102,6 +11593,10 @@ msgstr "Seleccionar fuentes para la IA"
 msgid "Select sources for AI to search"
 msgstr "Selecciona las fuentes en las que buscará la IA"
 
+#: components/team-comments/ShareConversationDialog.tsx
+msgid "Select teammates"
+msgstr "Selecciona compañeros de equipo"
+
 #: app/(app)/[emailAccountId]/calendars/CalendarSettings.tsx
 msgid "Select timezone"
 msgstr "Seleccionar zona horaria"
@@ -11131,6 +11626,7 @@ msgstr "Seleccionando {0, plural, one {# correo} other {# correos}} en pantalla"
 #: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/DraftRepliesIllustration.tsx
 #: components/assistant-chat/tools.tsx
+#: components/PlanBadge.tsx
 #: components/voice/VoiceOverlay.tsx
 #: lib/shortcuts/registry.ts
 msgid "Send"
@@ -11320,12 +11816,22 @@ msgstr "Remitentes de los que recibes muchos correos pero que casi nunca abres"
 msgid "Senders you rarely read"
 msgstr "Remitentes que casi nunca lees"
 
+#: components/email-list/CalendarInvitation.tsx
+msgid "Sending response…"
+msgstr "Enviando respuesta…"
+
+#: components/team-comments/CommentComposer.tsx
+msgid "Sending will also share all past and future messages in this conversation with <0>{newlySharedNames}</0>."
+msgstr "Al enviar también se compartirán todos los mensajes pasados y futuros de esta conversación con <0>{newlySharedNames}</0>."
+
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 #: components/assistant-chat/tools.tsx
 msgid "Sending..."
 msgstr "Enviando..."
 
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
+#: components/email-list/ThreadDeliveryStatus.tsx
+#: utils/mail-engine/engine-delivery.ts
 msgid "Sending…"
 msgstr "Enviando…"
 
@@ -11485,6 +11991,7 @@ msgstr "Configuración"
 #: app/(app)/[emailAccountId]/drive/page.tsx
 #: app/(app)/[emailAccountId]/meetings/MeetingRecorderSettingsDialog.tsx
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
+#: components/messaging/DeliveryChannelsSetting.tsx
 msgid "Settings saved"
 msgstr "Configuración guardada"
 
@@ -11512,8 +12019,13 @@ msgid "Setup incomplete"
 msgstr "Configuración incompleta"
 
 #: components/ReferralDialog.tsx
+#: components/team-comments/ShareConversationDialog.tsx
 msgid "Share"
 msgstr "Compartir"
+
+#: components/team-comments/ShareConversationDialog.tsx
+msgid "Share conversation"
+msgstr "Compartir conversación"
 
 #: components/ReferralDialog.tsx
 msgid "Share Inbox Zero with friends and get a free month for each friend who completes their trial"
@@ -11535,6 +12047,10 @@ msgstr "Comparte este código con tus amigos para ganar recompensas"
 msgid "Share your plan by inviting teammates to your organization."
 msgstr "Comparte tu plan invitando a tus compañeros a tu organización."
 
+#: components/team-comments/ConversationParticipants.tsx
+msgid "Shared"
+msgstr "Compartida"
+
 #. placeholder {0}: publisher.name
 #: app/(app)/shared/[conversationId]/SharedConversationReader.tsx
 msgid "Shared by {0}"
@@ -11544,9 +12060,26 @@ msgstr "Compartido por {0}"
 msgid "Shared conversation"
 msgstr "Conversación compartida"
 
+#: components/team-comments/ConversationParticipants.tsx
+msgid "Shared participants"
+msgstr "Participantes compartidos"
+
+#: components/team-comments/ConversationDiscussion.tsx
+msgid "Sharing started"
+msgstr "Se empezó a compartir"
+
+#: components/team-comments/ShareConversationDialog.tsx
+msgid "Sharing…"
+msgstr "Compartiendo…"
+
 #: lib/shortcuts/registry.ts
 msgid "Short / expanded preview text"
 msgstr "Vista previa corta / ampliada"
+
+#: components/snippets/SnippetForm.tsx
+#: components/snippets/SnippetsManager.tsx
+msgid "Shortcut"
+msgstr "Atajo"
 
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "Should we draft replies for you?"
@@ -11704,12 +12237,17 @@ msgstr "Omite la solicitud a la IA cuando se detectan datos sensibles."
 
 #: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
 #: app/(app)/[emailAccountId]/drive/FilingActivity.tsx
+#: components/drive/FilingStatusCell.tsx
 msgid "Skipped"
 msgstr "Omitida"
 
 #: app/(app)/[emailAccountId]/briefs/UpcomingMeetings.tsx
 msgid "SKIPPED"
 msgstr "OMITIDO"
+
+#: components/drive/FilingStatusCell.tsx
+msgid "Skipped — {reason}"
+msgstr "Omitido — {reason}"
 
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 msgid "Skipped {skippedCount, plural, one {# attachment} other {# attachments}} (didn't match your filing preferences):"
@@ -11752,7 +12290,20 @@ msgstr "Espacio de trabajo de Slack"
 msgid "Small Business Owner"
 msgstr "Dueño de pequeña empresa"
 
+#: components/snippets/SnippetForm.tsx
+msgid "Snippet created"
+msgstr "Fragmento creado"
+
+#: components/snippets/SnippetsManager.tsx
+msgid "Snippet deleted"
+msgstr "Fragmento eliminado"
+
+#: components/snippets/SnippetForm.tsx
+msgid "Snippet updated"
+msgstr "Fragmento actualizado"
+
 #: app/(app)/[emailAccountId]/assistant/settings/SnippetsSetting.tsx
+#: components/snippets/SnippetPicker.tsx
 msgid "Snippets"
 msgstr "Fragmentos"
 
@@ -11848,6 +12399,7 @@ msgstr "Estándar"
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 #: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
 #: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+#: components/PlanBadge.tsx
 #: utils/action-display-messages.ts
 #: utils/action-display.tsx
 msgid "Star"
@@ -11913,6 +12465,10 @@ msgstr "Empezar a grabar mis reuniones"
 msgid "Starting sender categorization..."
 msgstr "Iniciando la categorización de remitentes..."
 
+#: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+msgid "Static"
+msgstr "Estática"
+
 #: components/assistant-chat/tools.tsx
 msgid "Status"
 msgstr "Estado"
@@ -11936,6 +12492,10 @@ msgstr "Detener"
 #: components/voice/VoiceOverlay.tsx
 msgid "Stop recording"
 msgstr "Detener grabación"
+
+#: components/team-comments/ConversationDiscussion.tsx
+msgid "Stop sharing"
+msgstr "Dejar de compartir"
 
 #. placeholder {0}: item.name
 #. placeholder {1}: label.name
@@ -11971,6 +12531,10 @@ msgstr "Asunto"
 #: app/(app)/[emailAccountId]/assistant/ResultDisplay.tsx
 msgid "Subject: \"{0}\""
 msgstr "Asunto: \"{0}\""
+
+#: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+msgid "Subject: \"{subject}\""
+msgstr "Asunto: \"{subject}\""
 
 #: components/assistant-chat/tools.tsx
 msgid "Subject: {subject}"
@@ -12102,6 +12666,10 @@ msgstr "Enséñame cómo gestionar tus correos entrantes por ti"
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Team"
 msgstr "Equipo"
+
+#: components/team-comments/ShareConversationDialog.tsx
+msgid "Teammates can read this conversation, including future replies, and leave internal comments. They can't send email from your account."
+msgstr "Tus compañeros de equipo pueden leer esta conversación, incluidas las respuestas futuras, y dejar comentarios internos. No pueden enviar correos desde tu cuenta."
 
 #: app/(app)/[emailAccountId]/calendars/ConfigureBookingLinkDialog.tsx
 #: app/(app)/[emailAccountId]/calendars/CreateBookingLinkDialog.tsx
@@ -12377,6 +12945,10 @@ msgstr "Se produjo un error al guardar las categorías. {0}"
 msgid "There was an error saving the rule. Please check the fields and try again."
 msgstr "Se produjo un error al guardar la regla. Revisa los campos e inténtalo de nuevo."
 
+#: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
+msgid "There was an error sending the email"
+msgstr "Hubo un error al enviar el correo"
+
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "There was an error sending the email :("
 msgstr "Se produjo un error al enviar el correo :("
@@ -12454,6 +13026,18 @@ msgstr "Esto puede tardar hasta un minuto después de actualizar la app."
 msgid "This can't be changed for this rule type."
 msgstr "Esto no se puede cambiar para este tipo de regla."
 
+#: components/GroupedTable.tsx
+msgid "This category is empty"
+msgstr "Esta categoría está vacía"
+
+#: components/team-comments/ConversationParticipants.tsx
+msgid "This conversation is shared with:"
+msgstr "Esta conversación se comparte con:"
+
+#: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
+msgid "This device does not have enough storage for that mail action."
+msgstr "Este dispositivo no tiene suficiente almacenamiento para esa acción de correo."
+
 #: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
 msgid "This draft is not ready to save yet."
 msgstr "Este borrador aún no está listo para guardarse."
@@ -12477,6 +13061,10 @@ msgstr "Esta función se está lanzando de forma limitada. Únete al acceso anti
 #: components/PremiumAlert.tsx
 msgid "This feature is not available during the free trial. Start your paid plan to use it."
 msgstr "Esta función no está disponible durante la prueba gratuita. Empieza tu plan de pago para usarla."
+
+#: components/email-list/EmailAttachments.tsx
+msgid "This file is too large to preview."
+msgstr "Este archivo es demasiado grande para la vista previa."
 
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
 msgid "This helps us set up your inbox the way you actually need it."
@@ -12534,6 +13122,10 @@ msgstr "Esto elimina permanentemente tus datos de Inbox Zero y desconecta {conne
 msgid "This person has previously emailed you. This is not a cold email!"
 msgstr "Esta persona ya te ha escrito antes. ¡No es un correo en frío!"
 
+#: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
+msgid "This reply is already queued with different content. Check the thread delivery status."
+msgstr "Esta respuesta ya está en cola con otro contenido. Revisa el estado de envío de la conversación."
+
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "This reply may have been sent. Check Sent before retrying."
 msgstr "Puede que esta respuesta ya se haya enviado. Revisa Enviados antes de reintentar."
@@ -12545,6 +13137,10 @@ msgstr "Esta respuesta ya se envió, así que los cambios aquí ya no se guardan
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "This reply was already submitted to the outbox. Check its delivery status before scheduling a new reply."
 msgstr "Esta respuesta ya se envió a la bandeja de salida. Revisa su estado de envío antes de programar una nueva respuesta."
+
+#: components/email-list/ThreadDeliveryStatus.tsx
+msgid "This reply's status changed. Refresh the thread and try again."
+msgstr "El estado de esta respuesta cambió. Actualiza la conversación y vuelve a intentarlo."
 
 #: app/(app)/organization/[organizationId]/rules/OrgRuleDialog.tsx
 msgid "This rule applies to every member of your organization."
@@ -12598,6 +13194,10 @@ msgstr "Solo se mostrará una vez. Cópiala. Tu clave secreta es:"
 msgid "This will permanently delete the rule and its actions."
 msgstr "Esto eliminará permanentemente la regla y sus acciones."
 
+#: components/GroupedTable.tsx
+msgid "This will remove all emails from this category. You can re-categorize them later. Do you want to continue?"
+msgstr "Esto quitará todos los correos de esta categoría. Puedes volver a categorizarlos más tarde. ¿Quieres continuar?"
+
 #: app/(app)/[emailAccountId]/briefs/UpcomingMeetings.tsx
 msgid "This will send you a briefing email for this meeting now. Use this to verify briefs are working correctly."
 msgstr "Se te enviará ahora un correo con el informe de esta reunión. Úsalo para comprobar que los informes funcionan correctamente."
@@ -12644,6 +13244,7 @@ msgstr "Título"
 #: app/(app)/[emailAccountId]/mail/OutlookSearchFilters.tsx
 #: app/(app)/organization/[organizationId]/rules/OrgActionSteps.tsx
 #: components/assistant-chat/tools.tsx
+#: components/email-list/EmailDetails.tsx
 #: utils/action-item.ts
 msgid "To"
 msgstr "Para"
@@ -12691,6 +13292,7 @@ msgstr "Para deshacer alguno, pasa el cursor sobre la insignia \"Marcar como le�
 msgid "To: {0}"
 msgstr "Para: {0}"
 
+#: app/(app)/[emailAccountId]/assistant/condition-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "To: {to}"
 msgstr "Para: {to}"
@@ -12870,6 +13472,10 @@ msgstr "Prueba gratis, planes de pago asequibles"
 msgid "Tuesday"
 msgstr "Martes"
 
+#: components/snippets/SnippetPicker.tsx
+msgid "Turn into snippet"
+msgstr "Convertir en fragmento"
+
 #: app/(app)/[emailAccountId]/meetings/MeetingRecorderSettingsDialog.tsx
 msgid "Turn off"
 msgstr "Desactivar"
@@ -13019,6 +13625,10 @@ msgstr "Error desconocido"
 msgid "Unlimited"
 msgstr "Ilimitado"
 
+#: components/team-comments/ConversationDiscussion.tsx
+msgid "Unmute"
+msgstr "Activar sonido"
+
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 #: app/(app)/[emailAccountId]/stats/EmailsToIncludeFilter.tsx
 #: app/(app)/[emailAccountId]/stats/MainStatChart.tsx
@@ -13116,6 +13726,7 @@ msgstr "Próximas reuniones"
 
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm.tsx
 #: app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton.tsx
+#: components/snippets/SnippetForm.tsx
 msgid "Update"
 msgstr "Actualizar"
 
@@ -13288,6 +13899,10 @@ msgstr "Slug de la URL"
 msgid "Usage"
 msgstr "Uso"
 
+#: components/snippets/SnippetForm.tsx
+msgid "Use {FIRST_NAME_VARIABLE}, {NAME_VARIABLE}, or {EMAIL_VARIABLE} for the first recipient."
+msgstr "Usa {FIRST_NAME_VARIABLE}, {NAME_VARIABLE} o {EMAIL_VARIABLE} para el primer destinatario."
+
 #: app/(app)/[emailAccountId]/assistant/RuleStep.tsx
 msgid "Use AI draft"
 msgstr "Usar borrador de IA"
@@ -13387,6 +14002,11 @@ msgstr "Ver filtro de archivado automático"
 msgid "View changes"
 msgstr "Ver cambios"
 
+#: components/EmailMessageCell.tsx
+#: components/ViewEmailButton.tsx
+msgid "View email"
+msgstr "Ver correo"
+
 #: app/(app)/[emailAccountId]/assistant/LearnedPatternExclusionHint.tsx
 msgid "View exclusions"
 msgstr "Ver exclusiones"
@@ -13479,6 +14099,10 @@ msgstr "Visualiza tus datos"
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "vs previous"
 msgstr "vs. anterior"
+
+#: utils/mail-engine/engine-delivery.ts
+msgid "Waiting for connection"
+msgstr "Esperando conexión"
 
 #: app/(app)/[emailAccountId]/meetings/MeetingRecorderOnboarding.tsx
 msgid "Waiting in your drafts, never sent"
@@ -13666,6 +14290,10 @@ msgstr "Ya configuramos lo básico, pero esto es solo el comienzo. Tu asistente 
 #: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
 msgid "Web search is not configured for this account."
 msgstr "La búsqueda web no está configurada para esta cuenta."
+
+#: components/PlanBadge.tsx
+msgid "Webhook"
+msgstr "Webhook"
 
 #: components/WebhookDocumentation.tsx
 msgid "Webhook Payload"
@@ -13913,6 +14541,10 @@ msgstr "Estilo de redacción"
 msgid "Writing style saved!"
 msgstr "¡Estilo de redacción guardado!"
 
+#: components/drive/YesNoIndicator.tsx
+msgid "Wrong"
+msgstr "Incorrecto"
+
 #: app/(app)/accounts/page.tsx
 msgid "Wrong account signed in"
 msgstr "Se inició sesión con otra cuenta"
@@ -13926,6 +14558,7 @@ msgid "yearly"
 msgstr "anualmente"
 
 #: app/(app)/config/page.tsx
+#: components/email-list/CalendarInvitation.tsx
 msgid "Yes"
 msgstr "Sí"
 
@@ -14075,6 +14708,7 @@ msgid "Your access comes from a plan someone else set up. To manage billing your
 msgstr "Tu acceso proviene de un plan que configuró otra persona. Para gestionar la facturación tú mismo, contacta con {supportEmail}."
 
 #: app/(app)/shared/[conversationId]/SharedConversationReader.tsx
+#: components/team-comments/ConversationDiscussion.tsx
 msgid "Your access to this conversation has ended."
 msgstr "Tu acceso a esta conversación ha terminado."
 
@@ -14174,6 +14808,14 @@ msgstr "Tus correos enviados recientes solo usan firmas que ya tienes."
 #: components/ReferralDialog.tsx
 msgid "Your referral code"
 msgstr "Tu código de recomendación"
+
+#: components/email-list/CalendarInvitation.tsx
+msgid "Your response"
+msgstr "Tu respuesta"
+
+#: components/email-list/CalendarInvitation.tsx
+msgid "Your response will update your calendar and notify the organizer."
+msgstr "Tu respuesta actualizará tu calendario y avisará al organizador."
 
 #: app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting.tsx
 msgid "Your signature preview will appear here..."

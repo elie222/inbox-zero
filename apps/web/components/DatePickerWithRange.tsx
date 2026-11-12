@@ -8,6 +8,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { CalendarIcon, ChevronDown } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/utils";
+import { getDateFnsLocale } from "@/utils/i18n/date-fns-locale";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -59,6 +60,7 @@ export function DatePickerWithRange({
   className,
 }: DatePickerWithRangeProps) {
   const { i18n } = useLingui();
+  const dateFnsLocale = getDateFnsLocale(i18n.locale);
   const now = useMemo(() => new Date(), []);
   const isMobile = useIsMobile();
   const days =
@@ -89,11 +91,16 @@ export function DatePickerWithRange({
               (dateRange?.from ? (
                 dateRange.to ? (
                   <>
-                    {format(dateRange.from, "LLL dd, y")} -{" "}
-                    {format(dateRange.to, "LLL dd, y")}
+                    {format(dateRange.from, "LLL dd, y", {
+                      locale: dateFnsLocale,
+                    })}{" "}
+                    -{" "}
+                    {format(dateRange.to, "LLL dd, y", {
+                      locale: dateFnsLocale,
+                    })}
                   </>
                 ) : (
-                  format(dateRange.from, "LLL dd, y")
+                  format(dateRange.from, "LLL dd, y", { locale: dateFnsLocale })
                 )
               ) : (
                 <span>
@@ -106,6 +113,7 @@ export function DatePickerWithRange({
       </PopoverTrigger>
       <PopoverContent className="w-auto max-h-[var(--radix-popover-content-available-height)] overflow-y-auto p-0">
         <Calendar
+          locale={dateFnsLocale}
           initialFocus
           mode="range"
           defaultMonth={dateRange?.from}

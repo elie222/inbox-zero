@@ -3,6 +3,7 @@
 import { CalendarIcon } from "lucide-react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { cn } from "@/utils";
+import { getDateFnsLocale } from "@/utils/i18n/date-fns-locale";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -45,6 +46,7 @@ export function SetDateDropdown({
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
+          locale={getDateFnsLocale(i18n.locale)}
           mode="single"
           captionLayout="dropdown-buttons"
           fromYear={2000}

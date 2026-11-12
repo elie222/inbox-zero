@@ -1,6 +1,7 @@
 "use client";
 
 import type { MouseEvent } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { CheckIcon, XIcon } from "lucide-react";
 import { cn } from "@/utils";
 
@@ -21,6 +22,7 @@ export function YesNoIndicator({
   dropdownTrigger,
   wrongActive,
 }: YesNoIndicatorProps) {
+  const { t } = useLingui();
   const iconSize = size === "sm" ? "size-3.5" : "size-4";
   const isInteractive = !!onClick || !!dropdownTrigger;
 
@@ -30,7 +32,7 @@ export function YesNoIndicator({
         <span
           className="rounded-full p-1.5 bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400 inline-flex"
           role="status"
-          aria-label="Correct"
+          aria-label={t`Correct`}
         >
           <CheckIcon className={iconSize} />
         </span>
@@ -41,7 +43,7 @@ export function YesNoIndicator({
         <span
           className="rounded-full p-1.5 bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 inline-flex"
           role="status"
-          aria-label="Wrong"
+          aria-label={t`Wrong`}
         >
           <XIcon className={iconSize} />
         </span>
@@ -75,7 +77,7 @@ export function YesNoIndicator({
             ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400 hover:opacity-80"
             : "text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
-        aria-label="Correct"
+        aria-label={t`Correct`}
       >
         <CheckIcon className={iconSize} />
       </button>
@@ -88,7 +90,7 @@ export function YesNoIndicator({
             ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:opacity-80"
             : "text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
-        aria-label="Wrong"
+        aria-label={t`Wrong`}
       >
         <XIcon className={iconSize} />
       </button>

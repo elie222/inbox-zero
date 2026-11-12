@@ -5,6 +5,7 @@ import type { MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { format, formatDistanceToNow } from "date-fns";
+import { getDateFnsLocale } from "@/utils/i18n/date-fns-locale";
 import { CalendarIcon, SendIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -203,6 +204,7 @@ function SendHistoryLink() {
                       •{" "}
                       {formatDistanceToNow(new Date(briefing.createdAt), {
                         addSuffix: true,
+                        locale: getDateFnsLocale(i18n.locale),
                       })}
                     </ItemDescription>
                   </ItemContent>

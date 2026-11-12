@@ -50,6 +50,7 @@ import {
 } from "./queued-reply";
 import { getReplyToEmailPayload } from "./reply-to-email-payload";
 import { resolveSendDraftId } from "./send-draft-reference";
+import { getComposeErrorMessage } from "./compose-error-messages";
 import {
   getEditableText,
   getSendWarnings,
@@ -481,10 +482,11 @@ export function useComposeSend({
         } catch (error) {
           // biome-ignore lint/suspicious/noConsole: send failures stay visible in the browser console
           console.error(error);
-          const description =
-            error instanceof Error
-              ? error.message
-              : t`Could not confirm this reply was queued. Check the thread delivery status before retrying.`;
+          const description = getComposeErrorMessage(
+            error,
+            i18n,
+            t`Could not confirm this reply was queued. Check the thread delivery status before retrying.`,
+          );
           showDraftAgain();
           setSubmissionError(description);
           toastError({ description });
@@ -544,7 +546,9 @@ export function useComposeSend({
                 return;
               }
               if (settled.status === "failed" && settled.ownsNotification) {
-                toastError({ description: settled.error });
+                toastError({
+                  description: getComposeErrorMessage(settled.error, i18n),
+                });
               } else if (
                 settled.status === "uncertain" &&
                 settled.ownsNotification
@@ -593,7 +597,9 @@ export function useComposeSend({
           }
           onClose?.();
         } else if (outcome.status === "failed" && outcome.ownsNotification) {
-          toastError({ description: outcome.error });
+          toastError({
+            description: getComposeErrorMessage(outcome.error, i18n),
+          });
         }
       } catch (error) {
         // biome-ignore lint/suspicious/noConsole: send failures stay visible in the browser console

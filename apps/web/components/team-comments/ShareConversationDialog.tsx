@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export function ShareConversationDialog({
   }>;
   onShared: () => void;
 }) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const { executeAsync, isExecuting } = useAction(shareConversationAction);
@@ -51,20 +53,25 @@ export function ShareConversationDialog({
     >
       <DialogTrigger asChild>
         <Button variant="ghost" size="xs" className="shrink-0">
-          Share
+          <Trans>Share</Trans>
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Share conversation</DialogTitle>
+          <DialogTitle>
+            <Trans>Share conversation</Trans>
+          </DialogTitle>
           <DialogDescription>
-            Teammates can read this conversation, including future replies, and
-            leave internal comments. They can't send email from your account.
+            <Trans>
+              Teammates can read this conversation, including future replies,
+              and leave internal comments. They can't send email from your
+              account.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
         <div
           className="max-h-64 space-y-3 overflow-auto"
-          aria-label="Select teammates"
+          aria-label={t`Select teammates`}
           role="group"
         >
           {teammates.map((teammate) => (
@@ -96,7 +103,7 @@ export function ShareConversationDialog({
         )}
         <DialogFooter>
           <Button variant="ghost" onClick={close} disabled={isExecuting}>
-            Cancel
+            <Trans>Cancel</Trans>
           </Button>
           <Button
             disabled={!selected.length || isExecuting}
@@ -113,7 +120,7 @@ export function ShareConversationDialog({
               } else setError(getActionErrorMessage(result ?? {}));
             }}
           >
-            {isExecuting ? "Sharing…" : "Share conversation"}
+            {isExecuting ? t`Sharing…` : t`Share conversation`}
           </Button>
         </DialogFooter>
       </DialogContent>

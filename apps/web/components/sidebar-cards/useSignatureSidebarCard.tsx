@@ -1,5 +1,7 @@
 "use client";
 
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { type ReactNode, useState } from "react";
 import { SignatureIcon, XIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
@@ -19,6 +21,7 @@ export function useSignatureSidebarCard(): {
   card: SidebarCard | null;
   dialog: ReactNode;
 } {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const [open, setOpen] = useState(false);
   const { data, mutate } = useSWR<GetSignatureSuggestionsResponse>(
@@ -45,10 +48,11 @@ export function useSignatureSidebarCard(): {
   if (suggestions.length === 0) return { card: null, dialog };
 
   const title = needsDefault
-    ? "Add your signature"
-    : suggestions.length === 1
-      ? "Add your other signature"
-      : `Add your ${suggestions.length} other signatures`;
+    ? t`Add your signature`
+    : t`${plural(suggestions.length, {
+        one: "Add your other signature",
+        other: "Add your # other signatures",
+      })}`;
 
   const dismiss = () => {
     mutate({ suggestions: [], needsDefault: false }, { revalidate: false });
@@ -65,7 +69,7 @@ export function useSignatureSidebarCard(): {
             <p className="font-medium text-sm leading-tight">{title}</p>
           </div>
           <button
-            aria-label="Dismiss"
+            aria-label={t`Dismiss`}
             className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted"
             onClick={dismiss}
             type="button"
@@ -79,7 +83,7 @@ export function useSignatureSidebarCard(): {
           variant="outline"
           onClick={() => setOpen(true)}
         >
-          Add
+          <Trans>Add</Trans>
         </Button>
       </Card>
     ),

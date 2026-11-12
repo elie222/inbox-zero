@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
+import { getDateFnsLocale } from "@/utils/i18n/date-fns-locale";
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { ExternalLinkIcon, FolderIcon, InfoIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -120,7 +121,7 @@ function FilingRow({
   savedFolders: { folderId: string; folderName: string; folderPath: string }[];
   onFeedbackSaved: () => void;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const [vote, setVote] = useState<boolean | null>(
     filing.feedbackPositive ?? null,
   );
@@ -271,7 +272,10 @@ function FilingRow({
       </TableCell>
       <TableCell>
         <span className="text-muted-foreground text-xs">
-          {formatDistanceToNow(new Date(filing.createdAt), { addSuffix: true })}
+          {formatDistanceToNow(new Date(filing.createdAt), {
+            addSuffix: true,
+            locale: getDateFnsLocale(i18n.locale),
+          })}
         </span>
       </TableCell>
       <TableCell>
