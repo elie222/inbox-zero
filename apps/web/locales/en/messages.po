@@ -8688,8 +8688,8 @@ msgid "Meeting Briefs Setup"
 msgstr "Meeting Briefs Setup"
 
 #: app/(app)/[emailAccountId]/briefs/DeliveryChannelsSetting.tsx
-msgid "meeting briefs will be sent to this connected app's direct message destination."
-msgstr "meeting briefs will be sent to this connected app's direct message destination."
+msgid "Meeting briefs will be sent to this connected app's direct message destination."
+msgstr "Meeting briefs will be sent to this connected app's direct message destination."
 
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 msgid "Meeting notes deleted."

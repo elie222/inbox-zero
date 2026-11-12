@@ -8688,7 +8688,7 @@ msgid "Meeting Briefs Setup"
 msgstr "Configuración de informes de reunión"
 
 #: app/(app)/[emailAccountId]/briefs/DeliveryChannelsSetting.tsx
-msgid "meeting briefs will be sent to this connected app's direct message destination."
+msgid "Meeting briefs will be sent to this connected app's direct message destination."
 msgstr "Los informes de reunión se enviarán al destino de mensajes directos de esta app conectada."
 
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx

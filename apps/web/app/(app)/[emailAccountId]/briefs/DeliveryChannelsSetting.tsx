@@ -43,7 +43,7 @@ export function DeliveryChannelsSetting() {
       description={t`Choose where to receive meeting briefings`}
       purpose={MessagingRoutePurpose.MEETING_BRIEFS}
       slackDestinationHint={t`Pick where meeting briefs should be delivered for this Slack workspace.`}
-      directMessageHint={t`meeting briefs will be sent to this connected app's direct message destination.`}
+      directMessageHint={t`Meeting briefs will be sent to this connected app's direct message destination.`}
       email={{
         enabled: briefSettings?.meetingBriefsSendEmail ?? true,
         isLoading: isLoadingBriefSettings,
