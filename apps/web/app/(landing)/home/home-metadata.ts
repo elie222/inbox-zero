@@ -1,7 +1,10 @@
 import { msg } from "@lingui/core/macro";
 import type { Metadata } from "next";
 import { BRAND_NAME } from "@/utils/branding";
-import { getLandingAlternates } from "@/utils/i18n/landing";
+import {
+  getLandingAlternates,
+  localizeLandingHref,
+} from "@/utils/i18n/landing";
 import type { Locale } from "@/utils/i18n/locales";
 import { initLandingLingui } from "@/utils/i18n/server";
 
@@ -19,8 +22,20 @@ export function getHomeMetadata(locale: Locale): Metadata {
   return {
     title,
     description,
-    openGraph: { title, description },
-    twitter: { title, description },
+    // Nested metadata replaces the root layout's rather than merging with it.
+    openGraph: {
+      title,
+      description,
+      siteName: BRAND_NAME,
+      type: "website",
+      url: localizeLandingHref("/", locale),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      creator: "@inboxzero_ai",
+    },
     alternates,
   };
 }

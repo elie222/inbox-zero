@@ -5,6 +5,8 @@ import { CopyIcon, ExternalLinkIcon, PaletteIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Logo as Wordmark } from "@/components/Logo";
 import { LandingLink } from "@/components/new-landing/LandingLink";
+import { localizeLandingHref } from "@/utils/i18n/landing";
+import { toLocale } from "@/utils/i18n/locales";
 import { toastError, toastSuccess } from "@/components/Toast";
 import {
   ContextMenu,
@@ -22,7 +24,7 @@ interface LogoProps {
 
 export function Logo({ variant = "default" }: LogoProps) {
   const router = useRouter();
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const sizeClass = variant === "mobile" ? "h-4 w-auto" : "h-5 w-auto";
 
   const link = (
@@ -37,7 +39,14 @@ export function Logo({ variant = "default" }: LogoProps) {
     <ContextMenu>
       <ContextMenuTrigger asChild>{link}</ContextMenuTrigger>
       <ContextMenuContent className="w-52">
-        <ContextMenuItem onSelect={() => window.open("/", "_blank")}>
+        <ContextMenuItem
+          onSelect={() =>
+            window.open(
+              localizeLandingHref("/", toLocale(i18n.locale)),
+              "_blank",
+            )
+          }
+        >
           <ExternalLinkIcon className="mr-2 size-4" />
           <Trans>Open Link in New Tab</Trans>
         </ContextMenuItem>

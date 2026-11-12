@@ -23,6 +23,16 @@ export function BasicLayout({
       locale={locale}
       messages={getLandingMessages(locale, messages)}
     >
+      {locale === DEFAULT_LOCALE ? null : (
+        // The root layout is static and renders lang="en"; set the real
+        // language before hydration so crawlers and screen readers get it.
+        <script
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: static locale code from LOCALES
+          dangerouslySetInnerHTML={{
+            __html: `document.documentElement.lang=${JSON.stringify(locale)}`,
+          }}
+        />
+      )}
       <BasicLayoutShell>{children}</BasicLayoutShell>
     </LinguiClientProvider>
   );

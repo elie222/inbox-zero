@@ -10,7 +10,7 @@ export const LANDING_LOCALES = LOCALES.filter(
   (locale) => locale !== DEFAULT_LOCALE,
 );
 
-export type LandingLocale = (typeof LANDING_LOCALES)[number];
+type LandingLocale = (typeof LANDING_LOCALES)[number];
 
 // Landing pages that have a translated version. Links on a translated page
 // only point to the same language when the target is listed here, so a page
@@ -42,16 +42,19 @@ export function localizeLandingHref(href: string, locale: Locale): string {
   return `${localizedPath}${query ? `?${query}` : ""}${hash ? `#${hash}` : ""}`;
 }
 
-/** Splits `/es/pricing` into its locale and the unprefixed path. */
+// Accepts the internal `/l/es/pricing` form too: during static rendering the
+// server sees the rewritten path while the browser sees `/es/pricing`, and
+// both must give the same result to hydrate cleanly.
 export function parseLandingPathname(pathname: string): {
   locale: Locale;
   path: string;
 } {
-  const [, first, ...rest] = pathname.split("/");
+  const publicPathname = pathname.replace(/^\/l(?=\/)/, "");
+  const [, first, ...rest] = publicPathname.split("/");
   if (first && isLandingLocale(first)) {
     return { locale: first, path: `/${rest.join("/")}` };
   }
-  return { locale: DEFAULT_LOCALE, path: pathname || "/" };
+  return { locale: DEFAULT_LOCALE, path: publicPathname || "/" };
 }
 
 /** Canonical and hreflang alternates for a landing path in a language. */

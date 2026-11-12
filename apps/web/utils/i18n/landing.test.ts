@@ -31,6 +31,10 @@ describe("parseLandingPathname", () => {
       path: "/pricing",
     });
     expect(parseLandingPathname("/es")).toEqual({ locale: "es", path: "/" });
+    expect(parseLandingPathname("/l/es/pricing")).toEqual({
+      locale: "es",
+      path: "/pricing",
+    });
     expect(parseLandingPathname("/pricing")).toEqual({
       locale: "en",
       path: "/pricing",
