@@ -38,7 +38,11 @@
     "utils/mail-api/assistant-state.ts",
     "app/api/mail/v1/accounts/[accountId]/assistant-state/route.ts"
   ],
-  "attachment-previews.spec.ts": ["components/email-list/EmailAttachments.tsx"],
+  "attachment-previews.spec.ts": [
+    "components/email-list/EmailAttachments.tsx",
+    "components/email-list/AttachmentPreview.tsx",
+    "components/email-list/OpenedConversationAttachments.tsx"
+  ],
   "cached-settings.spec.ts": ["hooks/useMailSettings.ts"],
   "calendar-invitation.spec.ts": [
     "components/email-list/CalendarInvitation.tsx"
