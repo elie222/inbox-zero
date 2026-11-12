@@ -4,7 +4,6 @@ import type { I18n } from "@lingui/core";
 import { plural, t } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useRef } from "react";
-import { format } from "date-fns";
 import groupBy from "lodash/groupBy";
 import { toast } from "sonner";
 import { releaseLatestToastUndo, toastUndo } from "@/components/Toast";
@@ -20,6 +19,7 @@ import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider"
 import type { MetadataChange } from "@inboxzero/mail-core/commands";
 import { submitConversationChanges } from "@/utils/mail-engine/submit-conversations";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
+import { formatSnoozeTime } from "@/app/(app)/[emailAccountId]/mail/snooze-command-palette";
 
 /** Engine changes queued in order; an action is undoable when every step has a compensation. */
 type UndoableAction = {
@@ -430,7 +430,7 @@ export function useThreadActions({
       const total = threadKeys.length;
       const failedCount = total - snapshots.length;
       if (snapshots.length) {
-        const snoozedUntilLabel = format(snoozedUntil, "EEE, MMM d 'at' p");
+        const snoozedUntilLabel = formatSnoozeTime(snoozedUntil, i18n);
         toast.success(
           t(i18n)`${plural(snapshots.length, {
             one: `Snoozed until ${snoozedUntilLabel}`,

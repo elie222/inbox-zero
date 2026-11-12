@@ -101,16 +101,22 @@ export function ApiKeysSection() {
                             .join(", ")}
                         </TableCell>
                         <TableCell>
-                          {new Date(apiKey.createdAt).toLocaleString()}
+                          {new Date(apiKey.createdAt).toLocaleString(
+                            i18n.locale,
+                          )}
                         </TableCell>
                         <TableCell>
                           {apiKey.expiresAt
-                            ? new Date(apiKey.expiresAt).toLocaleString()
+                            ? new Date(apiKey.expiresAt).toLocaleString(
+                                i18n.locale,
+                              )
                             : t`Never`}
                         </TableCell>
                         <TableCell>
                           {apiKey.lastUsedAt
-                            ? new Date(apiKey.lastUsedAt).toLocaleString()
+                            ? new Date(apiKey.lastUsedAt).toLocaleString(
+                                i18n.locale,
+                              )
                             : t`Never`}
                         </TableCell>
                         <TableCell>

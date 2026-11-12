@@ -535,7 +535,7 @@ function MessageHeader({
   hasDraft: boolean;
   sentMessageOpen?: SentMessageOpenState;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const { emailAccount, emailAccountId, userEmail } = useAccount();
 
   const isSent = message.labelIds?.includes(GmailLabel.SENT) ?? false;
@@ -746,7 +746,9 @@ function MessageHeader({
           className="shrink-0 whitespace-nowrap text-muted-foreground text-xs"
           dateTime={message.headers.date}
         >
-          {formatShortDate(new Date(message.headers.date))}
+          {formatShortDate(new Date(message.headers.date), {
+            locale: i18n.locale,
+          })}
         </time>
       </div>
     </div>

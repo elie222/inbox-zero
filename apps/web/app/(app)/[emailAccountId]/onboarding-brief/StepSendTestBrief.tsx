@@ -1,10 +1,9 @@
 "use client";
 
-import type { MessageDescriptor } from "@lingui/core";
+import type { I18n, MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useState } from "react";
-import { format } from "date-fns";
 import { Send, CheckIcon, CalendarIcon, Building2 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { PageHeading, TypographyP } from "@/components/Typography";
@@ -143,10 +142,7 @@ export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
                         </p>
                         <p className="truncate text-sm text-muted-foreground">
                           {companyDomain && `${companyDomain} · `}
-                          {format(
-                            new Date(event.startTime),
-                            "EEE, MMM d 'at' h:mm a",
-                          )}
+                          {formatEventStart(new Date(event.startTime), i18n)}
                         </p>
                       </div>
                     </div>
@@ -202,3 +198,13 @@ const BRIEF_SKIPPED_MESSAGES: Record<string, MessageDescriptor> = {
   "Already being processed": msg`This brief is already being prepared`,
   "No external guests found": msg`This meeting has no external guests`,
 };
+
+function formatEventStart(date: Date, i18n: I18n) {
+  const day = i18n.date(date, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  const time = i18n.date(date, { hour: "numeric", minute: "2-digit" });
+  return i18n._(msg`${day} at ${time}`);
+}
