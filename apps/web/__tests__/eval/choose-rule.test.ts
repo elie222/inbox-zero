@@ -758,7 +758,9 @@ Product Research Lead, ToolStack
 Unsubscribe from research invitations
 ToolStack Inc. | 100 Innovation Blvd, Seattle, WA 98101`,
     }),
-    expectedRule: ["Marketing", "Notification", "Conversations"],
+    // Optional research outreach sits between these categories; abstaining is
+    // reasonable when none of the offered rules clearly covers its purpose.
+    expectedRule: ["Marketing", "Notification", "Conversations", "no match"],
   },
   {
     email: getEmail({
