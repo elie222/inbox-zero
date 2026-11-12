@@ -1,3 +1,5 @@
+import { normalizeMimeType } from "@inboxzero/mail-ui/image-preview";
+
 export function getAttachmentFileType({
   mimeType,
   filename,
@@ -9,7 +11,7 @@ export function getAttachmentFileType({
     ? filename.split(".").pop()?.toUpperCase()
     : undefined;
   const known =
-    FILE_TYPES[mimeType.toLowerCase()] ??
+    FILE_TYPES[normalizeMimeType(mimeType)] ??
     (extension === "PDF" ? FILE_TYPES["application/pdf"] : undefined);
   return {
     label: known?.label ?? (extension?.slice(0, 5) || "FILE"),
