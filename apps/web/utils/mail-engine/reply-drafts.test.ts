@@ -1105,6 +1105,54 @@ describe("drafts still saving when the page is left", () => {
     expect(localStorage.length).toBe(0);
   });
 
+  it("doesn't bring back a reply another tab discarded before this one left", async () => {
+    const engine = createRevisionCheckingClient();
+    const leaving = await loadPage(engine);
+    const writer = leaving.drafts.createReplyDraftWriter(replyIdentity);
+    await writer.save({ ...content, composeMode: "reply" });
+    leaving.activeClient.setActiveMailClient({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    } as never);
+    writer
+      .save({ ...content, composeMode: "reply", requestId: "later" })
+      .catch(() => {});
+
+    vi.resetModules();
+    const otherTab = await loadPage(engine);
+    const opened = await otherTab.drafts.getReplyDraft(replyIdentity);
+    await otherTab.drafts
+      .createReplyDraftWriter(replyIdentity, opened?.revision)
+      .clear();
+    window.dispatchEvent(new Event("pagehide"));
+
+    vi.resetModules();
+    const reloaded = await loadPage(engine);
+    expect(
+      (await reloaded.drafts.getReplyDraft(replyIdentity))?.content ?? null,
+    ).toBeNull();
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("recovers a kept reply when another kept entry is damaged", async () => {
+    localStorage.setItem("inbox-zero:unsaved-reply-draft:broken", "{");
+    const leaving = await loadPage({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    });
+    leaving.drafts
+      .createReplyDraftWriter(replyIdentity)
+      .save({ ...content, composeMode: "reply" })
+      .catch(() => {});
+    window.dispatchEvent(new Event("pagehide"));
+
+    vi.resetModules();
+    const reloaded = await loadPage(createRevisionCheckingClient());
+    await reloaded.drafts.hydrateReplyDrafts("account");
+
+    expect(reloaded.drafts.getReplyDraftThreadKeys()).toBe("account:thread");
+  });
+
   it("drops drafts kept from a reload when the account's local mail is cleared", async () => {
     const leaving = await loadPage({
       saveDraft: () => new Promise(() => {}),
@@ -1211,5 +1259,5 @@ async function loadPage(client: unknown) {
     import("./active-client"),
   ]);
   activeClient.setActiveMailClient(client as never);
-  return { drafts };
+  return { drafts, activeClient };
 }
