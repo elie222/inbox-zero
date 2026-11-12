@@ -285,6 +285,24 @@ describe("processBulkInboxActionJobChunk", () => {
     });
   });
 
+  it("asks the queue to retry this delivery when handing off to the next chunk fails", async () => {
+    mailbox = createMailbox(10);
+    useMailbox(mailbox);
+    const updateMany =
+      prisma.bulkInboxActionJob.updateMany.getMockImplementation();
+    prisma.bulkInboxActionJob.updateMany.mockImplementation(((args: any) =>
+      args.data.chunkToken
+        ? Promise.reject(new Error("database unavailable"))
+        : updateMany?.(args)) as any);
+
+    const outcome = await runChunk({ budgetMs: 0 });
+
+    // The next chunk's token never reached the database, so only a retry of
+    // this delivery can resume the job.
+    expect(outcome.status).toBe("busy");
+    expect(job.chunkToken).toBe(CHUNK_TOKEN);
+  });
+
   it("ignores a delivery whose chunk token was already used", async () => {
     mailbox = createMailbox(10);
     useMailbox(mailbox);

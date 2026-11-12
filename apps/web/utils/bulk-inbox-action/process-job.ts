@@ -80,10 +80,9 @@ export async function processBulkInboxActionJobChunk({
       : { status: "stale" };
   }
 
-  let outcome: ChunkOutcome = { status: "stopped" };
+  let outcome: ChunkOutcome;
   try {
     outcome = await runChunk({ jobId, deadline, maxThreads, logger });
-    return outcome;
   } catch (error) {
     // A cooldown can reject the provider before the page loop handles it.
     if (isEmailProviderRateLimitError({ error, provider: undefined })) {
@@ -91,31 +90,25 @@ export async function processBulkInboxActionJobChunk({
       await saveProgress(jobId, {
         rateLimitedUntil: getRateLimitedUntil(error, ""),
       });
-      outcome = {
-        status: "continue",
-        nextChunkToken: randomUUID(),
-      };
-      return outcome;
+      outcome = { status: "continue", nextChunkToken: randomUUID() };
+    } else {
+      logger.error("Bulk inbox action failed", { error });
+      await failJob(jobId, "The email provider returned an error.");
+      outcome = { status: "stopped" };
     }
-    logger.error("Bulk inbox action failed", { error });
-    await failJob(jobId, "The email provider returned an error.");
-    outcome = { status: "stopped" };
-    return outcome;
-  } finally {
-    await prisma.bulkInboxActionJob
-      .updateMany({
-        where: { id: jobId, status: "RUNNING", chunkToken },
-        data: {
-          leaseExpiresAt: null,
-          ...(outcome.status === "continue" && {
-            chunkToken: outcome.nextChunkToken,
-          }),
-        },
-      })
-      .catch((error: unknown) => {
-        logger.error("Failed to release bulk inbox action lease", { error });
-      });
   }
+
+  const handedOff = await releaseLease({
+    jobId,
+    chunkToken,
+    nextChunkToken:
+      outcome.status === "continue" ? outcome.nextChunkToken : undefined,
+    logger,
+  });
+  // The next token never reached the database. Retrying this delivery
+  // resumes the job with the token it still holds once the lease expires.
+  if (outcome.status === "continue" && !handedOff) return { status: "busy" };
+  return outcome;
 }
 
 async function runChunk({
@@ -469,6 +462,32 @@ async function getHandledThreadIds(jobId: string, threadIds: string[]) {
     select: { threadId: true },
   });
   return new Set(rows.map((row) => row.threadId));
+}
+
+async function releaseLease({
+  jobId,
+  chunkToken,
+  nextChunkToken,
+  logger,
+}: {
+  jobId: string;
+  chunkToken: string;
+  nextChunkToken?: string;
+  logger: Logger;
+}) {
+  try {
+    const released = await prisma.bulkInboxActionJob.updateMany({
+      where: { id: jobId, status: "RUNNING", chunkToken },
+      data: {
+        leaseExpiresAt: null,
+        ...(nextChunkToken && { chunkToken: nextChunkToken }),
+      },
+    });
+    return released.count === 1;
+  } catch (error) {
+    logger.error("Failed to release bulk inbox action lease", { error });
+    return false;
+  }
 }
 
 // Only a running job completes, so a Stop that landed meanwhile stays.
