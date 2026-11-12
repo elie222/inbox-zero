@@ -278,7 +278,7 @@ function GroupItemList({
   mutate: KeyedMutator<GroupItemsResponse>;
 }) {
   const { emailAccountId } = useAccount();
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
 
   return (
     <Table>
@@ -315,7 +315,9 @@ function GroupItemList({
               <TableCell className="flex items-center justify-end gap-4 py-2 text-right">
                 <Tooltip content={t`Date added`}>
                   <MutedText className="hidden sm:block">
-                    {formatShortDate(new Date(item.createdAt))}
+                    {formatShortDate(new Date(item.createdAt), {
+                      locale: i18n.locale,
+                    })}
                   </MutedText>
                 </Tooltip>
 

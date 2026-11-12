@@ -218,7 +218,7 @@ export function BulkRunRules() {
               <Trans>
                 Your email provider is limiting requests, so processing is
                 paused. It will continue automatically around{" "}
-                {state.rateLimitResumeAt.toLocaleTimeString()}.
+                {state.rateLimitResumeAt.toLocaleTimeString(i18n.locale)}.
               </Trans>
             </div>
           )}

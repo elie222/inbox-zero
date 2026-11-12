@@ -384,6 +384,10 @@ msgstr "{countLabel} in this view"
 msgid "{created, plural, one {# created} other {# created}}"
 msgstr "{created, plural, one {# created} other {# created}}"
 
+#: utils/date.ts
+msgid "{day} at {time}"
+msgstr "{day} at {time}"
+
 #: app/(app)/[emailAccountId]/calendars/availability-schedule.ts
 msgid "{dayLabel}: end time must be after start time."
 msgstr "{dayLabel}: end time must be after start time."
@@ -526,6 +530,10 @@ msgstr "{memberCount, plural, one {{0} / # member} other {{1} / # members}}"
 #: app/(app)/[emailAccountId]/assistant/History.tsx
 msgid "{messageCount, plural, one {# message handled} other {# messages handled}}"
 msgstr "{messageCount, plural, one {# message handled} other {# messages handled}}"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "{name} (custom)"
+msgstr "{name} (custom)"
 
 #: app/(app)/[emailAccountId]/calendars/ConfigureBookingLinkDialog.tsx
 #: app/(app)/[emailAccountId]/calendars/CreateBookingLinkDialog.tsx
@@ -1341,6 +1349,7 @@ msgstr "all"
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSection.tsx
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/SenderPanel.tsx
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 #: components/DatePickerWithRange.tsx
 msgid "All"
@@ -3374,6 +3383,7 @@ msgid "Conversation"
 msgstr "Conversation"
 
 #: app/(app)/[emailAccountId]/clean/CleanInstructionsStep.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadList.tsx
 msgid "Conversations"
 msgstr "Conversations"
 
@@ -4256,6 +4266,7 @@ msgid "Download message"
 msgstr "Download message"
 
 #: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepInboxProcessed.tsx
 msgid "Draft"
 msgstr "Draft"
@@ -4557,6 +4568,10 @@ msgstr "Email app"
 #: app/(app)/[emailAccountId]/drive/page.tsx
 msgid "Email confirmations"
 msgstr "Email confirmations"
+
+#: components/email-list/EmailContents.tsx
+msgid "Email content preview"
+msgstr "Email content preview"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Email copied to clipboard"
@@ -6048,6 +6063,10 @@ msgstr "Hide examples"
 msgid "Hide extra fields"
 msgstr "Hide extra fields"
 
+#: components/email-list/EmailContents.tsx
+msgid "Hide quoted content"
+msgstr "Hide quoted content"
+
 #: app/(app)/[emailAccountId]/compose/ComposeHeaderFields.tsx
 msgid "Hide recipients"
 msgstr "Hide recipients"
@@ -7161,7 +7180,7 @@ msgstr "Last 7 days"
 msgid "Last day"
 msgstr "Last day"
 
-#. placeholder {0}: formatDigestDeliveryTime( new Date(delivery.lastDelivery.occurredAt), delivery.timezone, )
+#. placeholder {0}: formatDigestDeliveryTime( new Date(delivery.lastDelivery.occurredAt), delivery.timezone, i18n.locale, )
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Last delivery failed {0}"
 msgstr "Last delivery failed {0}"
@@ -7174,7 +7193,7 @@ msgstr "Last month"
 msgid "Last processed email {relativeDate}."
 msgstr "Last processed email {relativeDate}."
 
-#. placeholder {0}: formatDigestDeliveryTime( new Date(delivery.lastDelivery.occurredAt), delivery.timezone, )
+#. placeholder {0}: formatDigestDeliveryTime( new Date(delivery.lastDelivery.occurredAt), delivery.timezone, i18n.locale, )
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Last sent {0}"
 msgstr "Last sent {0}"
@@ -8044,7 +8063,7 @@ msgstr "Newsletters, blogs, and publications"
 msgid "Next"
 msgstr "Next"
 
-#. placeholder {0}: formatDigestDeliveryTime( new Date(digestStatus.delivery.estimatedNextDeliveryAt), digestStatus.delivery.timezone, )
+#. placeholder {0}: formatDigestDeliveryTime( new Date(digestStatus.delivery.estimatedNextDeliveryAt), digestStatus.delivery.timezone, i18n.locale, )
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Next delivery around {0}."
 msgstr "Next delivery around {0}."
@@ -8842,6 +8861,7 @@ msgid "Original message"
 msgstr "Original message"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
 #: app/(app)/[emailAccountId]/mail/MailSidebar.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepHowYouHeard.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepWho.tsx
@@ -9077,6 +9097,10 @@ msgstr "Powering AI scheduling and meeting briefs."
 #: app/(app)/[emailAccountId]/drive/page.tsx
 msgid "Preferences saved"
 msgstr "Preferences saved"
+
+#: components/email-list/EmailContents.tsx
+msgid "Preparing email content preview"
+msgstr "Preparing email content preview"
 
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing email..."
@@ -10198,6 +10222,10 @@ msgstr "Select an account"
 msgid "Select an account to transfer rules from. Rules with matching names will be replaced."
 msgstr "Select an account to transfer rules from. Rules with matching names will be replaced."
 
+#: app/(app)/[emailAccountId]/mail/InboxBundleRow.tsx
+msgid "Select bundle with {bundleName}"
+msgstr "Select bundle with {bundleName}"
+
 #: components/BulkArchiveCards.tsx
 #: components/CategorySelect.tsx
 msgid "Select category"
@@ -10206,6 +10234,10 @@ msgstr "Select category"
 #: components/SlackNotificationTargetSelect.tsx
 msgid "Select channel"
 msgstr "Select channel"
+
+#: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
+msgid "Select conversation with {participants}"
+msgstr "Select conversation with {participants}"
 
 #: app/(app)/[emailAccountId]/drive/page.tsx
 msgid "Select destination"
@@ -10686,6 +10718,10 @@ msgstr "Show more"
 msgid "Show original"
 msgstr "Show original"
 
+#: components/email-list/EmailContents.tsx
+msgid "Show quoted content"
+msgstr "Show quoted content"
+
 #: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
 msgid "Show search options"
 msgstr "Show search options"
@@ -10851,7 +10887,7 @@ msgstr "Snooze"
 msgid "Snooze until"
 msgstr "Snooze until"
 
-#. placeholder {0}: formatSnoozeTime(naturalLanguageDate)
+#. placeholder {0}: formatDayAtTime(naturalLanguageDate, i18n)
 #: app/(app)/[emailAccountId]/mail/snooze-command-palette.ts
 msgid "Snooze until {0}"
 msgstr "Snooze until {0}"
@@ -10941,6 +10977,11 @@ msgstr "Star / unstar"
 #: app/(app)/[emailAccountId]/onboarding/illustrations/SplitInboxIllustration.tsx
 msgid "Starred"
 msgstr "Starred"
+
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
+msgid "Starred conversation"
+msgstr "Starred conversation"
 
 #: app/(app)/[emailAccountId]/clean/CleanInstructionsStep.tsx
 msgid "Starred emails"
@@ -11582,6 +11623,10 @@ msgstr "Those senders won't reach your inbox again."
 #: components/ai-elements/reasoning.tsx
 msgid "Thought for a few seconds"
 msgstr "Thought for a few seconds"
+
+#: app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx
+msgid "Thread actions"
+msgstr "Thread actions"
 
 #: app/(app)/[emailAccountId]/calendars/availability-schedule.ts
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
@@ -12751,6 +12796,10 @@ msgstr "Within 1 Hour"
 msgid "Would you like cleaned emails to be archived or marked as read?"
 msgstr "Would you like cleaned emails to be archived or marked as read?"
 
+#: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
+msgid "Write a message…"
+msgstr "Write a message…"
+
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"
 msgstr "Write rules"
@@ -12896,7 +12945,7 @@ msgstr "Your email analytics are currently private. Enable access to let organiz
 msgid "Your email analytics are currently private. Enable access to let other organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively."
 msgstr "Your email analytics are currently private. Enable access to let other organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively."
 
-#. placeholder {0}: state.rateLimitResumeAt.toLocaleTimeString()
+#. placeholder {0}: state.rateLimitResumeAt.toLocaleTimeString(i18n.locale)
 #: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
 msgid "Your email provider is limiting requests, so processing is paused. It will continue automatically around {0}."
 msgstr "Your email provider is limiting requests, so processing is paused. It will continue automatically around {0}."

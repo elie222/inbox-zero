@@ -122,6 +122,10 @@ export function ReaderToolbar({
         renderActionTooltip(button, children, i18n)
       }
       renderButton={(button) => renderButton(button, i18n)}
+      strings={{
+        starredConversation: t`Starred conversation`,
+        threadActions: t`Thread actions`,
+      }}
       subject={subject}
     />
   );

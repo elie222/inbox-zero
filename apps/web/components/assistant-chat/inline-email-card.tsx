@@ -351,7 +351,7 @@ export function InlineEmailCard({
   const knownThreadIds = useKnownThreadIds();
   const listState = useContext(InlineEmailListContext);
   const inlineEmailActionContext = useInlineEmailActionContext();
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const { emailAccountId, provider, userEmail } = useAccount();
   const [actionState, setActionState] = useState<ActionState>("idle");
   const [markReadState, setMarkReadState] = useState<ActionState>("idle");
@@ -481,7 +481,10 @@ export function InlineEmailCard({
         <div className="flex shrink-0 items-center gap-0.5">
           {meta ? (
             <span className="mr-1 text-xs tabular-nums text-muted-foreground">
-              {formatShortDate(new Date(meta.date), { lowercase: true })}
+              {formatShortDate(new Date(meta.date), {
+                lowercase: true,
+                locale: i18n.locale,
+              })}
             </span>
           ) : null}
           {threadId ? (
@@ -588,7 +591,7 @@ export function InlineEmailDetail({
 }) {
   const emailLookup = useEmailLookup();
   const knownThreadIds = useKnownThreadIds();
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const { provider, userEmail } = useAccount();
   const threadId = resolveInlineEmailThreadId({ id, threadid, knownThreadIds });
   const meta = threadId ? emailLookup.get(threadId) : undefined;
@@ -611,7 +614,10 @@ export function InlineEmailDetail({
             <div className="text-xs text-muted-foreground">
               {meta.from}
               {" · "}
-              {formatShortDate(new Date(meta.date), { lowercase: true })}
+              {formatShortDate(new Date(meta.date), {
+                lowercase: true,
+                locale: i18n.locale,
+              })}
             </div>
           ) : null}
           {children ? (

@@ -1,8 +1,7 @@
 "use client";
 
-import { format } from "date-fns/format";
 import { CalendarIcon } from "lucide-react";
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { cn } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -23,6 +22,8 @@ export function SetDateDropdown({
   placeholder?: string;
   disabled?: boolean;
 }) {
+  const { i18n } = useLingui();
+
   return (
     <Popover modal={true}>
       <PopoverTrigger asChild>
@@ -35,7 +36,7 @@ export function SetDateDropdown({
           disabled={disabled}
         >
           {value ? (
-            format(value, "PPP")
+            i18n.date(value, { dateStyle: "long" })
           ) : (
             <span>{placeholder || <Trans>Set a date</Trans>}</span>
           )}

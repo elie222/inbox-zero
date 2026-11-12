@@ -184,7 +184,7 @@ function EmailRow({
 }: {
   email: GetOnboardingProcessedEmailsResponse["emails"][number];
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
 
   return (
     <li className="flex items-center gap-3 px-4 py-2.5">
@@ -212,7 +212,9 @@ function EmailRow({
           </Badge>
         )}
         <span className="whitespace-nowrap text-xs text-muted-foreground tabular-nums">
-          {formatShortDate(internalDateToDate(email.date))}
+          {formatShortDate(internalDateToDate(email.date), {
+            locale: i18n.locale,
+          })}
         </span>
       </div>
     </li>

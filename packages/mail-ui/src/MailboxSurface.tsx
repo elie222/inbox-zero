@@ -61,6 +61,7 @@ export type MailboxThreadListProps<T> = {
   loadMoreButton?: ReactNode;
   /** The group label that gets no heading, since the newest mail needs none. */
   todayGroupLabel?: string;
+  listLabel?: string;
 };
 
 export function MailboxThreadList<T>({
@@ -68,6 +69,7 @@ export function MailboxThreadList<T>({
   getKey,
   getGroupLabel = () => null,
   todayGroupLabel = "Today",
+  listLabel = "Conversations",
   renderItem,
   emptyMessage = "No emails in this view",
   selectionEnabled = true,
@@ -186,7 +188,7 @@ export function MailboxThreadList<T>({
         ) : (
           <>
             <div
-              aria-label="Conversations"
+              aria-label={listLabel}
               aria-multiselectable={selectionEnabled || undefined}
               className={listClassName}
               role="listbox"

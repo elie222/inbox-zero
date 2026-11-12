@@ -77,7 +77,7 @@ export const ThreadRow = memo(function ThreadRow({
   hasLocalDraft = false,
   sentMessageOpen,
 }: ThreadRowProps) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const message = thread.messages.at(-1);
   const labels = useMemo(
     () =>
@@ -136,6 +136,7 @@ export const ThreadRow = memo(function ThreadRow({
           <span className="text-muted-foreground text-xs">
             {formatShortDate(internalDateToDate(message.internalDate), {
               lowercase: true,
+              locale: i18n.locale,
             })}
           </span>
         </div>
@@ -174,6 +175,12 @@ export const ThreadRow = memo(function ThreadRow({
       rowRef={rowRef}
       selectionEnabled={selectionEnabled}
       snippet={snippet}
+      strings={{
+        draft: t`Draft`,
+        starredConversation: t`Starred conversation`,
+        selectConversation: (participants) =>
+          t`Select conversation with ${participants}`,
+      }}
       subject={getConversationSubject(thread.messages)}
     />
   );

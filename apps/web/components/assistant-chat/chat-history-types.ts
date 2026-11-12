@@ -9,6 +9,6 @@ export function getChatHistoryLabel(
   i18n: I18n,
 ): string {
   if (chat.name != null) return chat.name;
-  const date = new Date(chat.createdAt).toLocaleString();
+  const date = new Date(chat.createdAt).toLocaleString(i18n.locale);
   return i18n._(msg`Chat from ${date}`);
 }

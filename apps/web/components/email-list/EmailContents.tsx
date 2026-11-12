@@ -7,6 +7,7 @@ import {
   shouldApplyDarkMailTheme,
 } from "@inboxzero/mail-ui/MailBody";
 import { useTheme } from "next-themes";
+import { useLingui } from "@lingui/react/macro";
 import { EllipsisIcon } from "lucide-react";
 import { decodeHtmlEntities } from "@/utils/gmail/decode";
 import {
@@ -62,6 +63,7 @@ export function HtmlEmail({
   onNavigateMessage?: (direction: -1 | 1) => void;
   onFocusMessage?: () => void;
 }) {
+  const { t } = useLingui();
   const cacheKey = inlineImageCacheKey(
     emailAccountId,
     messageId,
@@ -189,6 +191,10 @@ export function HtmlEmail({
       }),
     [quotedContent, applyQuotedDarkTheme, quotedDocumentKey, rendered.images],
   );
+  const frameStrings = {
+    preview: t`Email content preview`,
+    preparingPreview: t`Preparing email content preview`,
+  };
   const callbacks = {
     onForwardMessage,
     onNavigateMessage,
@@ -203,13 +209,14 @@ export function HtmlEmail({
         documentKey={documentKey}
         isDarkMode={applyDarkTheme}
         callbacks={callbacks}
+        strings={frameStrings}
       />
       {hasQuotedContent && (
         <button
           type="button"
           aria-expanded={showReplies}
           aria-label={
-            showReplies ? "Hide quoted content" : "Show quoted content"
+            showReplies ? t`Hide quoted content` : t`Show quoted content`
           }
           className="mt-1 inline-flex h-5 items-center rounded-full bg-muted px-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
           onClick={() => setShowReplies(!showReplies)}
@@ -223,6 +230,7 @@ export function HtmlEmail({
           documentKey={quotedDocumentKey}
           isDarkMode={applyQuotedDarkTheme}
           callbacks={callbacks}
+          strings={frameStrings}
         />
       )}
     </div>

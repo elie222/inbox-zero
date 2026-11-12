@@ -1,8 +1,8 @@
 import type { I18n } from "@lingui/core";
 import { t } from "@lingui/core/macro";
-import { format } from "date-fns";
 import * as chrono from "chrono-node";
 import type { Command } from "@/lib/commands/types";
+import { formatDayAtTime } from "@/utils/date";
 
 export function buildSnoozeCommandPalette({
   now = new Date(),
@@ -24,7 +24,9 @@ export function buildSnoozeCommandPalette({
     return [
       {
         id: "mail-snooze-natural-language",
-        label: t(i18n)`Snooze until ${formatSnoozeTime(naturalLanguageDate)}`,
+        label: t(
+          i18n,
+        )`Snooze until ${formatDayAtTime(naturalLanguageDate, i18n)}`,
         section: "actions",
         priority: 0,
         keywords: [query],
@@ -36,7 +38,7 @@ export function buildSnoozeCommandPalette({
   return presets.map((preset, index) => ({
     id: `mail-snooze-${preset.id}`,
     label: preset.label,
-    description: formatSnoozeTime(preset.until),
+    description: formatDayAtTime(preset.until, i18n),
     section: "actions",
     priority: index,
     keywords: ["snooze", "later", "remind", preset.id, preset.label],
@@ -118,10 +120,6 @@ export function getSnoozePresets(now: Date, i18n: I18n, query = "") {
     seen.add(key);
     return [{ ...preset, until }];
   });
-}
-
-function formatSnoozeTime(date: Date) {
-  return format(date, "EEE, MMM d 'at' p");
 }
 
 function atHour(now: Date, daysFromNow: number, hour: number) {

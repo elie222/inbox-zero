@@ -340,4 +340,12 @@ describe("formatShortDate", () => {
     expect(formatted).not.toContain("2026");
     expect(formatted).toContain("15");
   });
+
+  it("formats month names in the given locale", () => {
+    const formatted = formatShortDate(new Date("2026-01-15T09:00:00"), {
+      lowercase: true,
+      locale: "es",
+    });
+    expect(formatted).toContain("ene");
+  });
 });
