@@ -1709,6 +1709,10 @@ msgstr "An error occurred. Please try again."
 msgid "An unexpected error occurred while starting auto-filing."
 msgstr "An unexpected error occurred while starting auto-filing."
 
+#: components/messaging/DeliveryChannelsSetting.tsx
+msgid "An unknown error occurred"
+msgstr "An unknown error occurred"
+
 #: app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton.tsx
 msgid "An unknown error occurred."
 msgstr "An unknown error occurred."

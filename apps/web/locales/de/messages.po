@@ -1709,6 +1709,10 @@ msgstr "Ein Fehler ist aufgetreten. Bitte versuche es erneut."
 msgid "An unexpected error occurred while starting auto-filing."
 msgstr "Beim Starten der automatischen Ablage ist ein unerwarteter Fehler aufgetreten."
 
+#: components/messaging/DeliveryChannelsSetting.tsx
+msgid "An unknown error occurred"
+msgstr "Ein unbekannter Fehler ist aufgetreten"
+
 #: app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton.tsx
 msgid "An unknown error occurred."
 msgstr "Ein unbekannter Fehler ist aufgetreten."

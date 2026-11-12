@@ -1709,6 +1709,10 @@ msgstr "Se produjo un error. Inténtalo de nuevo."
 msgid "An unexpected error occurred while starting auto-filing."
 msgstr "Se produjo un error inesperado al iniciar el archivado automático."
 
+#: components/messaging/DeliveryChannelsSetting.tsx
+msgid "An unknown error occurred"
+msgstr "Se produjo un error desconocido"
+
 #: app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton.tsx
 msgid "An unknown error occurred."
 msgstr "Se produjo un error desconocido."

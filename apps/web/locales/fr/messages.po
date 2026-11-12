@@ -1709,6 +1709,10 @@ msgstr "Une erreur s’est produite. Réessaie."
 msgid "An unexpected error occurred while starting auto-filing."
 msgstr "Une erreur inattendue s’est produite au démarrage du classement automatique."
 
+#: components/messaging/DeliveryChannelsSetting.tsx
+msgid "An unknown error occurred"
+msgstr "Une erreur inconnue s’est produite"
+
 #: app/(app)/[emailAccountId]/smart-categories/CategorizeWithAiButton.tsx
 msgid "An unknown error occurred."
 msgstr "Une erreur inconnue s’est produite."

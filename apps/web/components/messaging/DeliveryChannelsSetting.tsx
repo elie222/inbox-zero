@@ -180,7 +180,10 @@ function ChannelRow({
       },
       onError: (error) => {
         toastError({
-          description: getActionErrorMessage(error.error),
+          description: getActionErrorMessage(
+            error.error,
+            t`An unknown error occurred`,
+          ),
         });
       },
     },
