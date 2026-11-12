@@ -7,6 +7,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { CheckIcon, Loader2Icon } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/ui/button";
@@ -53,10 +54,13 @@ export function InlineRuleSuggestionCard({
   markread,
   children,
 }: InlineRuleSuggestionCardProps) {
+  const { t } = useLingui();
   const { submitTextMessage } = useChat();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRuleCreated, setIsRuleCreated] = useState(false);
-  const title = normalizeTagAttribute(name) || "Suggested rule";
+  const ruleName = normalizeTagAttribute(name);
+  // The fallback title is sent to the assistant, so it stays English.
+  const title = ruleName || "Suggested rule";
   const whenText = normalizeTagAttribute(when);
   const actionText = normalizeTagAttribute(action);
   const summary = nodeToText(children).trim();
@@ -95,12 +99,12 @@ export function InlineRuleSuggestionCard({
 
   return (
     <RuleSummaryCard
-      title={title}
+      title={ruleName || t`Suggested rule`}
       actions={
         isRuleCreated ? (
           <Badge color="green" className="shrink-0 gap-1.5">
             <CheckIcon className="size-3.5" />
-            Rule created
+            <Trans>Rule created</Trans>
           </Badge>
         ) : (
           <Button
@@ -115,19 +119,19 @@ export function InlineRuleSuggestionCard({
             ) : (
               <CheckIcon className="size-3.5" />
             )}
-            Approve
+            <Trans>Approve</Trans>
           </Button>
         )
       }
     >
       {whenText && (
-        <RuleSummaryRow label="When">
+        <RuleSummaryRow label={t`When`}>
           <RuleSummaryText>{whenText}</RuleSummaryText>
         </RuleSummaryRow>
       )}
 
       {(actionText || suggestedActions.length > 0) && (
-        <RuleSummaryRow label="Then">
+        <RuleSummaryRow label={t`Then`}>
           <div className="flex flex-wrap items-center gap-1.5">
             {suggestedActions.length > 0 && (
               <SuggestedActionBadgeList actions={suggestedActions} />
