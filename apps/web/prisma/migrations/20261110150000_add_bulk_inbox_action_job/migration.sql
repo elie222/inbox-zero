@@ -16,6 +16,7 @@ CREATE TABLE "BulkInboxActionJob" (
     "rateLimitedUntil" TIMESTAMP(3),
     "leaseExpiresAt" TIMESTAMP(3),
     "chunkToken" TEXT,
+    "recoveryCount" INTEGER NOT NULL DEFAULT 0,
     "processedCount" INTEGER NOT NULL DEFAULT 0,
     "matchedCount" INTEGER NOT NULL DEFAULT 0,
     "actedCount" INTEGER NOT NULL DEFAULT 0,

@@ -1,6 +1,7 @@
 import type { ModelMessage } from "ai";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { resumeStalledBulkInboxActionJob } from "@/utils/bulk-inbox-action/resume-stalled-job";
 
 const STATUS_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 const MAX_JOBS = 5;
@@ -43,9 +44,17 @@ export async function buildBulkInboxActionStatusMessage({
         failedCount: true,
         limitReached: true,
         error: true,
+        chunkToken: true,
+        leaseExpiresAt: true,
+        updatedAt: true,
+        recoveryCount: true,
       },
     });
     if (!jobs.length) return null;
+
+    for (const job of jobs) {
+      await resumeStalledBulkInboxActionJob({ job, logger });
+    }
 
     const lines = jobs.map((job) =>
       JSON.stringify({

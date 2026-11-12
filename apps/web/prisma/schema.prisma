@@ -1322,6 +1322,8 @@ model BulkInboxActionJob {
   // Each queued chunk carries the current token, so stale or duplicate
   // deliveries do nothing.
   chunkToken       String?
+  // Times a stalled job was requeued; past a few, it is marked failed.
+  recoveryCount    Int       @default(0)
 
   processedCount Int     @default(0)
   matchedCount   Int     @default(0)
