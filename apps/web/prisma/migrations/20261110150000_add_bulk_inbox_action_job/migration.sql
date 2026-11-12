@@ -13,7 +13,6 @@ CREATE TABLE "BulkInboxActionJob" (
     "labelName" TEXT,
     "instruction" TEXT,
     "pageToken" TEXT,
-    "pageSeenThreadIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "rateLimitedUntil" TIMESTAMP(3),
     "leaseExpiresAt" TIMESTAMP(3),
     "chunkToken" TEXT,
@@ -31,6 +30,14 @@ CREATE TABLE "BulkInboxActionJob" (
     CONSTRAINT "BulkInboxActionJob_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "BulkInboxActionThread" (
+    "jobId" TEXT NOT NULL,
+    "threadId" TEXT NOT NULL,
+
+    CONSTRAINT "BulkInboxActionThread_pkey" PRIMARY KEY ("jobId","threadId")
+);
+
 -- CreateIndex
 CREATE INDEX "BulkInboxActionJob_chatId_updatedAt_idx" ON "BulkInboxActionJob"("chatId", "updatedAt");
 
@@ -42,4 +49,7 @@ ALTER TABLE "BulkInboxActionJob" ADD CONSTRAINT "BulkInboxActionJob_chatId_fkey"
 
 -- AddForeignKey
 ALTER TABLE "BulkInboxActionJob" ADD CONSTRAINT "BulkInboxActionJob_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "BulkInboxActionThread" ADD CONSTRAINT "BulkInboxActionThread_jobId_fkey" FOREIGN KEY ("jobId") REFERENCES "BulkInboxActionJob"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

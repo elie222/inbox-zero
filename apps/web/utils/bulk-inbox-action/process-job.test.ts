@@ -227,10 +227,47 @@ describe("processBulkInboxActionJobChunk", () => {
         chunkToken: outcome.nextChunkToken,
         leaseExpiresAt: null,
       });
-      expect(job.pageSeenThreadIds).toHaveLength(25);
+      const recorded = vi
+        .mocked(prisma.bulkInboxActionThread.createMany)
+        .mock.calls.flatMap(([args]) => (args as { data: unknown[] }).data);
+      expect(recorded).toHaveLength(25);
     } finally {
       nowSpy.mockRestore();
     }
+  });
+
+  it("processes a thread once when its messages appear on two pages", async () => {
+    // Marking read leaves threads in the results, so paging moves on normally
+    // and the same thread shows up again on a later page.
+    job.action = "mark_read_threads";
+    const messages = Array.from({ length: 60 }, (_, index) =>
+      getMockMessage({ id: `m${index}`, threadId: `t${index}` }),
+    ) as ParsedMessage[];
+    messages.splice(
+      55,
+      0,
+      getMockMessage({ id: "m0-reply", threadId: "t0" }) as ParsedMessage,
+    );
+    const markReadThread = vi.fn(async () => {});
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({
+        searchMessages: vi.fn(async ({ maxResults = 20, pageToken }) => {
+          const offset = pageToken ? Number(pageToken) : 0;
+          const next = offset + maxResults;
+          return {
+            messages: messages.slice(offset, next),
+            nextPageToken: next < messages.length ? String(next) : undefined,
+          };
+        }),
+        markReadThread,
+      }),
+    );
+
+    const outcome = await runChunk();
+
+    expect(outcome.status).toBe("completed");
+    expect(markReadThread).toHaveBeenCalledTimes(60);
+    expect(job).toMatchObject({ processedCount: 60, actedCount: 60 });
   });
 
   it("ignores a delivery whose chunk token was already used", async () => {
@@ -276,7 +313,6 @@ function createJob() {
     labelName: null,
     instruction: null as string | null,
     pageToken: null,
-    pageSeenThreadIds: [] as string[],
     rateLimitedUntil: null,
     leaseExpiresAt: null as Date | null,
     chunkToken: CHUNK_TOKEN,
@@ -331,6 +367,22 @@ function mockJobStore(getJob: () => Record<string, any>) {
   prisma.bulkInboxActionJob.findUnique.mockImplementation((async () => ({
     ...getJob(),
   })) as any);
+
+  const handledThreadIds = new Set<string>();
+  prisma.bulkInboxActionThread.findMany.mockImplementation((async ({
+    where,
+  }: any) =>
+    (where.threadId.in as string[])
+      .filter((threadId) => handledThreadIds.has(threadId))
+      .map((threadId) => ({ threadId }))) as any);
+  prisma.bulkInboxActionThread.createMany.mockImplementation((async ({
+    data,
+  }: any) => {
+    for (const row of data) handledThreadIds.add(row.threadId);
+    return { count: data.length };
+  }) as any);
+  prisma.$transaction.mockImplementation((async (operations: unknown) =>
+    Promise.all(operations as Promise<unknown>[])) as any);
 }
 
 function createMailbox(

@@ -34,7 +34,7 @@ type ChunkOutcome =
 
 /**
  * Runs one time-boxed chunk of a confirmed bulk inbox action. Progress is
- * saved after every page, so a chunk can stop at any point and the next one
+ * saved after every batch, so a chunk can stop at any point and the next one
  * resumes from the saved page. Returns "continue", with the token for the next
  * chunk, when more work remains.
  */
@@ -152,7 +152,6 @@ async function runChunk({
   const action = job.action as BulkInboxActionType;
 
   let pageToken = job.pageToken;
-  let seenThreadIds = new Set<string>(job.pageSeenThreadIds);
   let rateLimitedUntil = job.rateLimitedUntil?.getTime() ?? 0;
 
   while (Date.now() < deadline) {
@@ -189,8 +188,12 @@ async function runChunk({
     }
 
     const threads = getLatestMessagePerThread(page.messages);
+    const handledThreadIds = await getHandledThreadIds(
+      jobId,
+      threads.map((message) => message.threadId),
+    );
     const unseen = threads.filter(
-      (message) => !seenThreadIds.has(message.threadId),
+      (message) => !handledThreadIds.has(message.threadId),
     );
 
     // The page holds nothing new, so move on. While the action removes
@@ -204,7 +207,6 @@ async function runChunk({
           data: {
             status: "COMPLETED",
             completedAt: new Date(),
-            pageSeenThreadIds: [],
             leaseExpiresAt: null,
           },
         });
@@ -213,15 +215,9 @@ async function runChunk({
       }
 
       pageToken = page.nextPageToken;
-      seenThreadIds = new Set<string>();
-      await saveProgress(jobId, { pageToken, pageSeenThreadIds: [] });
+      await saveProgress(jobId, { pageToken });
       continue;
     }
-
-    const pageThreadIds = new Set(threads.map((thread) => thread.threadId));
-    seenThreadIds = new Set(
-      [...seenThreadIds].filter((threadId) => pageThreadIds.has(threadId)),
-    );
 
     // Saving after each small batch keeps the card's progress moving and
     // limits what a crashed chunk has to redo.
@@ -243,15 +239,12 @@ async function runChunk({
         logger,
       });
 
-      for (const threadId of result.handledThreadIds) {
-        seenThreadIds.add(threadId);
-      }
       if (result.rateLimitError) {
         rateLimitedUntil = getRateLimitedUntil(result.rateLimitError, provider);
       }
 
       await saveProgress(jobId, {
-        pageSeenThreadIds: [...seenThreadIds],
+        handledThreadIds: result.handledThreadIds,
         rateLimitedUntil: result.rateLimitError ? rateLimitedUntil : null,
         totals: result.totals,
       });
@@ -421,12 +414,12 @@ async function saveProgress(
   jobId: string,
   {
     pageToken,
-    pageSeenThreadIds,
+    handledThreadIds = [],
     rateLimitedUntil,
     totals,
   }: {
     pageToken?: string | null;
-    pageSeenThreadIds?: string[];
+    handledThreadIds?: string[];
     rateLimitedUntil?: number | null;
     totals?: {
       processed: number;
@@ -437,23 +430,40 @@ async function saveProgress(
     };
   },
 ) {
-  await prisma.bulkInboxActionJob.update({
-    where: { id: jobId },
-    data: {
-      ...(pageToken !== undefined && { pageToken }),
-      ...(pageSeenThreadIds && { pageSeenThreadIds }),
-      ...(rateLimitedUntil !== undefined && {
-        rateLimitedUntil: rateLimitedUntil ? new Date(rateLimitedUntil) : null,
-      }),
-      ...(totals && {
-        processedCount: { increment: totals.processed },
-        matchedCount: { increment: totals.matched },
-        actedCount: { increment: totals.acted },
-        skippedCount: { increment: totals.skipped },
-        failedCount: { increment: totals.failed },
-      }),
-    },
+  // One transaction, so a crash never records threads without their totals
+  // or counts threads that a retry would process again.
+  await prisma.$transaction([
+    prisma.bulkInboxActionThread.createMany({
+      data: handledThreadIds.map((threadId) => ({ jobId, threadId })),
+      skipDuplicates: true,
+    }),
+    prisma.bulkInboxActionJob.update({
+      where: { id: jobId },
+      data: {
+        ...(pageToken !== undefined && { pageToken }),
+        ...(rateLimitedUntil !== undefined && {
+          rateLimitedUntil: rateLimitedUntil
+            ? new Date(rateLimitedUntil)
+            : null,
+        }),
+        ...(totals && {
+          processedCount: { increment: totals.processed },
+          matchedCount: { increment: totals.matched },
+          actedCount: { increment: totals.acted },
+          skippedCount: { increment: totals.skipped },
+          failedCount: { increment: totals.failed },
+        }),
+      },
+    }),
+  ]);
+}
+
+async function getHandledThreadIds(jobId: string, threadIds: string[]) {
+  const rows = await prisma.bulkInboxActionThread.findMany({
+    where: { jobId, threadId: { in: threadIds } },
+    select: { threadId: true },
   });
+  return new Set(rows.map((row) => row.threadId));
 }
 
 async function isJobRunning(jobId: string) {

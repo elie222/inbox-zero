@@ -1314,15 +1314,14 @@ model BulkInboxActionJob {
   labelName   String?
   instruction String?
 
-  // Re-fetching the current page until it holds no unseen threads keeps
+  // Re-fetching the current page until it holds no unhandled threads keeps
   // paging correct while the action removes matches from the results.
-  pageToken         String?
-  pageSeenThreadIds String[]  @default([])
-  rateLimitedUntil  DateTime?
-  leaseExpiresAt    DateTime?
+  pageToken        String?
+  rateLimitedUntil DateTime?
+  leaseExpiresAt   DateTime?
   // Each queued chunk carries the current token, so stale or duplicate
   // deliveries do nothing.
-  chunkToken        String?
+  chunkToken       String?
 
   processedCount Int @default(0)
   matchedCount   Int @default(0)
@@ -1337,13 +1336,24 @@ model BulkInboxActionJob {
   // chats, and one confirmation must map to exactly one job.
   confirmationKey String
   chatId          String?
-  chat            Chat?   @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  chat            Chat?                   @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  handledThreads  BulkInboxActionThread[]
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, confirmationKey])
   @@index([chatId, updatedAt])
+}
+
+// Threads a bulk job already handled, so a thread whose messages appear on
+// several result pages is processed and counted once.
+model BulkInboxActionThread {
+  jobId    String
+  threadId String
+  job      BulkInboxActionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@id([jobId, threadId])
 }
 
 model Knowledge {
