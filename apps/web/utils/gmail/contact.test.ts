@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 
 const envMock = vi.hoisted(() => ({
@@ -13,6 +13,10 @@ import { ContactsAccessDeniedError } from "@/utils/email/contact";
 import { listContactPhotos, searchContacts } from "./contact";
 
 describe("searchContacts", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     envMock.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED = true;
   });
@@ -63,6 +67,136 @@ describe("searchContacts", () => {
         profilePictureUrl: "https://example.com/photo.jpg",
       },
     ]);
+  });
+
+  it("warms each contact source before searching and discards warmup results", async () => {
+    const createSearch = (emailAddress: string) => {
+      let warmed = false;
+      return vi.fn().mockImplementation(async ({ query }) => {
+        if (query === "") {
+          warmed = true;
+          return {
+            data: {
+              results: [
+                {
+                  person: { emailAddresses: [{ value: "warmup@example.com" }] },
+                },
+              ],
+            },
+          };
+        }
+        if (!warmed) throw new Error("Request failed due to cold cache data");
+        return {
+          data: {
+            results: [
+              { person: { emailAddresses: [{ value: emailAddress }] } },
+            ],
+          },
+        };
+      });
+    };
+    const saved = createSearch("saved@example.com");
+    const other = createSearch("other@example.com");
+    const { client } = createPeopleClient({
+      searchContactsMock: saved,
+      searchOtherContactsMock: other,
+    });
+
+    const result = await searchContacts(client, "contact", createTestLogger());
+
+    expect(result.map((contact) => contact.emailAddress)).toEqual([
+      "saved@example.com",
+      "other@example.com",
+    ]);
+    expect(saved.mock.calls.map(([params]) => params.query)).toEqual([
+      "",
+      "contact",
+    ]);
+    expect(other.mock.calls.map(([params]) => params.query)).toEqual([
+      "",
+      "contact",
+    ]);
+  });
+
+  it("waits for lazy contact caches that are still cold after warmup", async () => {
+    vi.useFakeTimers();
+    const readyAt = Date.now() + 5000;
+    const createSearch = (emailAddress: string) =>
+      vi.fn().mockImplementation(async ({ query }) => {
+        if (query === "") return { data: { results: [] } };
+        if (Date.now() < readyAt) {
+          throw Object.assign(
+            new Error(
+              "FAILED_PRECONDITION: Request failed due to cold cache data. Please retry in 5 seconds",
+            ),
+            { code: 400 },
+          );
+        }
+        return {
+          data: {
+            results: [
+              { person: { emailAddresses: [{ value: emailAddress }] } },
+            ],
+          },
+        };
+      });
+    const saved = createSearch("saved@example.com");
+    const other = createSearch("other@example.com");
+    const { client } = createPeopleClient({
+      searchContactsMock: saved,
+      searchOtherContactsMock: other,
+    });
+
+    const result = searchContacts(client, "contact", createTestLogger());
+    const assertion = expect(result).resolves.toEqual([
+      expect.objectContaining({ emailAddress: "saved@example.com" }),
+      expect.objectContaining({ emailAddress: "other@example.com" }),
+    ]);
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(saved).toHaveBeenCalledTimes(2);
+    expect(other).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1);
+    await assertion;
+    expect(saved).toHaveBeenCalledTimes(3);
+    expect(other).toHaveBeenCalledTimes(3);
+  });
+
+  it("stops after one delayed retry when a contact cache remains cold", async () => {
+    vi.useFakeTimers();
+    envMock.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED = false;
+    const error = Object.assign(
+      new Error("FAILED_PRECONDITION: Request failed due to cold cache data"),
+      { code: 400 },
+    );
+    const saved = vi
+      .fn()
+      .mockResolvedValueOnce({ data: { results: [] } })
+      .mockRejectedValue(error);
+    const { client } = createPeopleClient({ searchContactsMock: saved });
+
+    const assertion = expect(
+      searchContacts(client, "contact", createTestLogger()),
+    ).rejects.toBe(error);
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(saved).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retry unrelated search errors after warmup", async () => {
+    envMock.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED = false;
+    const error = Object.assign(new Error("Other precondition failure"), {
+      code: 400,
+    });
+    const saved = vi
+      .fn()
+      .mockResolvedValueOnce({ data: { results: [] } })
+      .mockRejectedValue(error);
+    const { client } = createPeopleClient({ searchContactsMock: saved });
+
+    await expect(
+      searchContacts(client, "contact", createTestLogger()),
+    ).rejects.toBe(error);
+    expect(saved).toHaveBeenCalledTimes(2);
   });
 
   it("returns no suggestions without calling Google for queries longer than it accepts", async () => {
