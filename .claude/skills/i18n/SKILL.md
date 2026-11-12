@@ -55,6 +55,15 @@ When translating, keep every placeholder (`{0}`, `{name}`), numbered tag (`<0>â€
 
 Add it to `locales` in `lingui.config.ts`, to `LOCALES` and `LOCALE_LABELS` in `utils/i18n/locales.ts`, and to the catalog imports and `catalogs` map in `utils/i18n/server.ts`. Then run `intl:extract`, translate the new catalog, and commit it.
 
+## Landing pages
+
+Landing pages take their language from the URL, not the cookie, so they stay static. English keeps the plain URL; translations live at `/<locale>/<path>` (e.g. `/es/pricing`), which next.config rewrites to the internal `app/(landing)/l/[locale]` tree.
+
+- Every landing page renders through `components/layouts/BasicLayout`, passing its `locale`. It activates that language for Server Components (`initLandingLingui`) and wraps the page in the client provider. Never call `initLingui()` on a landing page.
+- Landing strings live in a separate small catalog, `locales/<locale>/landing.po` (see `LANDING_SOURCES` in lingui.config.ts), so marketing visitors don't download the app catalog. A landing component may only use messages from those sources.
+- Internal links use `LandingLink`, which keeps the page language. A page counts as translated only once it's listed in `utils/i18n/landing.ts`; that list drives in-language links, hreflang alternates (`getLandingAlternates`) and the sitemap.
+- The private marketing submodule keeps its own catalog: `app/(marketing)/lingui.config.ts`, extracted with `pnpm exec lingui extract --config "app/(marketing)/lingui.config.ts"`.
+
 ## Locale selection
 
 The `locale` cookie, set by the Language setting in Settings, picks the language; without it the app is English. The browser's language is not used.

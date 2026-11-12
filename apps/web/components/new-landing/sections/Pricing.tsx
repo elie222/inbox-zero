@@ -5,6 +5,9 @@ import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import type { PostHog } from "posthog-js";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { Sparkle } from "@/components/new-landing/icons/Sparkle";
 import { Zap } from "@/components/new-landing/icons/Zap";
 import { Check } from "@/components/new-landing/icons/Check";
@@ -35,6 +38,7 @@ import {
   type Tier,
   tiers,
 } from "@/app/(app)/premium/config";
+import { TIER_MESSAGES } from "@/app/(app)/premium/config-messages";
 import { Briefcase } from "@/components/new-landing/icons/Briefcase";
 import { Mail } from "@/components/new-landing/icons/Mail";
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
@@ -43,7 +47,7 @@ import { MAIL_CLIENT_SIGNUP_PATH } from "@/utils/config";
 
 type PricingTier = Tier & {
   badges?: {
-    message: string;
+    message: MessageDescriptor;
     variant?: BadgeVariant;
     annualOnly?: boolean;
   }[];
@@ -72,7 +76,7 @@ const pricingTiers: PricingTier[] = [
     ...tiers[1],
     badges: [
       annualSavingsBadge(tiers[1]),
-      { message: "Popular", variant: "green" },
+      { message: msg`Popular`, variant: "green" },
     ],
     button: {
       content: "Try free for 7 days",
@@ -95,6 +99,11 @@ const pricingTiers: PricingTier[] = [
 const frequencies = ["annually", "monthly"] as const;
 type PricingFrequency = (typeof frequencies)[number];
 
+const frequencyLabels: Record<PricingFrequency, MessageDescriptor> = {
+  annually: msg`Annually`,
+  monthly: msg`Monthly`,
+};
+
 export function Pricing() {
   const defaultFrequency: PricingFrequency = "annually";
   const [chosenFrequency, setFrequency] = useState<PricingFrequency | null>(
@@ -102,11 +111,16 @@ export function Pricing() {
   );
   const frequency = chosenFrequency ?? defaultFrequency;
   const posthog = usePostHog();
+  const { i18n } = useLingui();
 
   return (
     <Section id="pricing">
-      <SectionHeading>Try for free, affordable paid plans</SectionHeading>
-      <SectionSubtitle>No hidden fees. Cancel anytime.</SectionSubtitle>
+      <SectionHeading>
+        <Trans>Try for free, affordable paid plans</Trans>
+      </SectionHeading>
+      <SectionSubtitle>
+        <Trans>No hidden fees. Cancel anytime.</Trans>
+      </SectionSubtitle>
       <SectionContent
         noMarginTop
         className="mt-6 flex flex-col items-center justify-center"
@@ -124,7 +138,9 @@ export function Pricing() {
           }}
           className="w-fit rounded-full p-1.5 text-xs font-semibold leading-5 ring-1 ring-inset ring-gray-200 mb-6 shadow-[0_0_7px_0_rgba(0,0,0,0.0.07)]"
         >
-          <Label className="sr-only">Payment frequency</Label>
+          <Label className="sr-only">
+            <Trans>Payment frequency</Trans>
+          </Label>
           {frequencies.map((value) => (
             <Radio
               key={value}
@@ -136,7 +152,7 @@ export function Pricing() {
                 )
               }
             >
-              <span>{value.charAt(0).toUpperCase() + value.slice(1)}</span>
+              <span>{i18n._(frequencyLabels[value])}</span>
             </Radio>
           ))}
         </RadioGroup>
@@ -163,12 +179,18 @@ export function Pricing() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-title text-lg">Email app</h3>
-                    <Badge variant="blue">New</Badge>
+                    <h3 className="font-title text-lg">
+                      <Trans>Email app</Trans>
+                    </h3>
+                    <Badge variant="blue">
+                      <Trans>New</Trans>
+                    </Badge>
                   </div>
                   <Paragraph size="sm" className="mt-1">
-                    A fast email app for Gmail and Outlook. Free on web,
-                    desktop, and iPhone.
+                    <Trans>
+                      A fast email app for Gmail and Outlook. Free on web,
+                      desktop, and iPhone.
+                    </Trans>
                   </Paragraph>
                 </div>
               </div>
@@ -188,7 +210,9 @@ export function Pricing() {
                     })
                   }
                 >
-                  <span className="relative z-10">Get started free</span>
+                  <span className="relative z-10">
+                    <Trans>Get started free</Trans>
+                  </span>
                 </Link>
               </Button>
             </CardContent>
@@ -204,8 +228,10 @@ export function Pricing() {
                 <div>
                   <h3 className="font-title text-lg">Enterprise</h3>
                   <Paragraph size="sm" className="mt-1">
-                    Need SSO, SCIM, on-premise deployment, or a dedicated
-                    account manager?
+                    <Trans>
+                      Need SSO, SCIM, on-premise deployment, or a dedicated
+                      account manager?
+                    </Trans>
                   </Paragraph>
                 </div>
               </div>
@@ -225,7 +251,9 @@ export function Pricing() {
                   }
                 >
                   <Chat />
-                  <span className="relative z-10">Speak to sales</span>
+                  <span className="relative z-10">
+                    <Trans>Speak to sales</Trans>
+                  </span>
                 </Link>
               </Button>
             </CardContent>
@@ -253,15 +281,24 @@ function PricingCard({
   frequencySource,
   posthog,
 }: PricingCardProps) {
-  const { name, description, features } = tier;
+  const { i18n } = useLingui();
+  const { name, features } = tier;
+  const tierMessages = TIER_MESSAGES[name];
   const isAnnual = frequency === "annually";
   const price = isAnnual ? tier.price.annually : tier.price.monthly;
+  const extraAccountPrice = formatPrice(getExtraAccountPrice(price));
   const isFirstTier = !tierIndex;
+  const featureText = (text: string) => {
+    const message = tierMessages?.features[text]?.text;
+    return message ? i18n._(message) : text;
+  };
 
   return (
     <Card
       title={name}
-      description={description}
+      description={
+        tierMessages ? i18n._(tierMessages.description) : tier.description
+      }
       icon={tier.icon}
       variant="extra-rounding"
       addon={
@@ -269,8 +306,8 @@ function PricingCard({
           {tier.badges
             ?.filter(({ annualOnly }) => !annualOnly || isAnnual)
             .map((badge) => (
-              <Badge key={badge.message} variant={badge.variant}>
-                {badge.message}
+              <Badge key={badge.message.id} variant={badge.variant}>
+                {i18n._(badge.message)}
               </Badge>
             ))}
         </div>
@@ -286,20 +323,30 @@ function PricingCard({
                   {formatPrice(price)}
                 </div>
                 <Paragraph size="xs" color="light" className="-translate-y-1">
-                  /user /month
+                  <Trans>/user /month</Trans>
                 </Paragraph>
               </>
             ) : (
               <div className="font-title text-[#242424] text-[1.7rem] md:text-[2.5rem] leading-tight">
-                Contact us
+                <Trans>Contact us</Trans>
               </div>
             )}
           </div>
           {!!price && (
             <Paragraph size="xs" color="light" className="-mt-4">
-              {INCLUDED_EMAIL_ACCOUNTS_PER_PERSON} email accounts included, then{" "}
-              {formatPrice(getExtraAccountPrice(price))}/mo each
-              {isAnnual ? ", billed annually" : ""}
+              {isAnnual ? (
+                <Plural
+                  value={INCLUDED_EMAIL_ACCOUNTS_PER_PERSON}
+                  one={`# email account included, then ${extraAccountPrice}/mo each, billed annually`}
+                  other={`# email accounts included, then ${extraAccountPrice}/mo each, billed annually`}
+                />
+              ) : (
+                <Plural
+                  value={INCLUDED_EMAIL_ACCOUNTS_PER_PERSON}
+                  one={`# email account included, then ${extraAccountPrice}/mo each`}
+                  other={`# email accounts included, then ${extraAccountPrice}/mo each`}
+                />
+              )}
             </Paragraph>
           )}
           <Button auto size="lg" variant={tier.button.variant} asChild>
@@ -318,7 +365,9 @@ function PricingCard({
             >
               {tier.button.icon}
               {/* z-10 keeps text above gradient background on hover to prevent color shift */}
-              <span className="relative z-10">{tier.button.content}</span>
+              <span className="relative z-10">
+                {tierMessages ? i18n._(tierMessages.cta) : tier.button.content}
+              </span>
             </Link>
           </Button>
         </div>
@@ -326,7 +375,7 @@ function PricingCard({
       <CardContent className="border-t border-[#E7E7E780]">
         {isFirstTier ? null : (
           <Paragraph size="sm" className="font-medium mb-4">
-            {tier.features[0].text}
+            {featureText(tier.features[0].text)}
           </Paragraph>
         )}
         <ul className="space-y-3">
@@ -340,7 +389,7 @@ function PricingCard({
                 <div className="text-blue-500">
                   <Check />
                 </div>
-                {feature.text}
+                {featureText(feature.text)}
               </li>
             ))}
         </ul>
@@ -350,8 +399,9 @@ function PricingCard({
 }
 
 function annualSavingsBadge(tier: Tier) {
+  const percent = Math.round(tier.discount.annually);
   return {
-    message: `Save ${Math.round(tier.discount.annually)}%`,
+    message: msg`Save ${percent}%`,
     annualOnly: true,
   };
 }

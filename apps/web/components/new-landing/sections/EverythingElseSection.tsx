@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { BlurFade } from "@/components/new-landing/common/BlurFade";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
 import { DisplayCard } from "@/components/new-landing/common/DisplayCard";
@@ -15,11 +16,18 @@ import { ChatTwo } from "@/components/new-landing/icons/ChatTwo";
 import { Link } from "@/components/new-landing/icons/Link";
 
 export function EverythingElseSection() {
+  const { t } = useLingui();
+
   return (
     <Section>
-      <SectionHeading>Designed around how you actually work</SectionHeading>
+      <SectionHeading>
+        <Trans>Designed around how you actually work</Trans>
+      </SectionHeading>
       <SectionSubtitle>
-        Flexible enough to fit any workflow. Simple enough to set up in minutes.
+        <Trans>
+          Flexible enough to fit any workflow. Simple enough to set up in
+          minutes.
+        </Trans>
       </SectionSubtitle>
       <SectionContent
         noMarginTop
@@ -28,13 +36,13 @@ export function EverythingElseSection() {
         <CardWrapper className="w-full grid grid-cols-1 lg:grid-cols-3 gap-5">
           <BlurFade inView>
             <DisplayCard
-              title="Email analytics. What gets measured, gets managed"
-              description="See who emails you most and what's clogging your inbox. Get clear insights, then take action."
+              title={t`Email analytics. What gets measured, gets managed`}
+              description={t`See who emails you most and what's clogging your inbox. Get clear insights, then take action.`}
               icon={<Analytics />}
             >
               <Image
                 src="/images/new-landing/metrics.svg"
-                alt="metrics"
+                alt={t`metrics`}
                 width={1000}
                 height={400}
               />
@@ -42,13 +50,13 @@ export function EverythingElseSection() {
           </BlurFade>
           <BlurFade delay={0.25} inView>
             <DisplayCard
-              title="Drafts that know your schedule and availability"
-              description="Connects to your calendar and CRM to draft emails based on your actual schedule and customer data."
+              title={t`Drafts that know your schedule and availability`}
+              description={t`Connects to your calendar and CRM to draft emails based on your actual schedule and customer data.`}
               icon={<Link />}
             >
               <Image
                 src="/images/new-landing/integrations.png"
-                alt="App integrations"
+                alt={t`App integrations`}
                 width={1000}
                 height={400}
               />
@@ -56,13 +64,13 @@ export function EverythingElseSection() {
           </BlurFade>
           <BlurFade delay={0.25 * 2} inView>
             <DisplayCard
-              title="Built to fit your workflow. Customize in plain English"
-              description="Your inbox, your rules. Configure everything in plain English. Make it work the way you actually work."
+              title={t`Built to fit your workflow. Customize in plain English`}
+              description={t`Your inbox, your rules. Configure everything in plain English. Make it work the way you actually work.`}
               icon={<ChatTwo />}
             >
               <Image
                 src="/images/new-landing/create-rules.png"
-                alt="Customize"
+                alt={t`Customize`}
                 width={1000}
                 height={400}
               />

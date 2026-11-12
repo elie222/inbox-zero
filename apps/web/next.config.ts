@@ -5,6 +5,7 @@ import { realpathSync } from "node:fs";
 import path from "node:path";
 import { env } from "./env";
 import { isIndexingAllowed } from "./utils/indexing";
+import { LANDING_LOCALES } from "./utils/i18n/landing";
 import type { NextConfig } from "next";
 
 const withMDX = nextMdx({
@@ -29,6 +30,7 @@ const linguiSwcPlugins: [string, Record<string, unknown>][] = [
   ["@lingui/swc-plugin", {}],
 ];
 const indexingAllowed = isIndexingAllowed(env.NEXT_PUBLIC_BASE_URL);
+const LANDING_LOCALE_PATTERN = LANDING_LOCALES.join("|");
 // Outlook uploads large attachments from the browser straight to Graph, which
 // is a plain-http origin when the app runs against the local emulator.
 const microsoftEmulatorOrigin = env.MICROSOFT_BASE_URL
@@ -406,10 +408,32 @@ const nextConfig: NextConfig = {
         permanent: true,
         source: "/soc2",
       },
+      // The internal route tree for translated landing pages is never the
+      // public URL.
+      {
+        destination: "/:locale",
+        permanent: true,
+        source: `/l/:locale(${LANDING_LOCALE_PATTERN})`,
+      },
+      {
+        destination: "/:locale/:path*",
+        permanent: true,
+        source: `/l/:locale(${LANDING_LOCALE_PATTERN})/:path*`,
+      },
     ];
   },
   async rewrites() {
     return [
+      // Translated landing pages: /es/pricing renders /l/es/pricing. These run
+      // after static pages but before dynamic routes like /[emailAccountId].
+      {
+        destination: "/l/:locale",
+        source: `/:locale(${LANDING_LOCALE_PATTERN})`,
+      },
+      {
+        destination: "/l/:locale/:path*",
+        source: `/:locale(${LANDING_LOCALE_PATTERN})/:path*`,
+      },
       {
         destination: "https://app.posthog.com/:path*",
         source: "/ingest/:path*",

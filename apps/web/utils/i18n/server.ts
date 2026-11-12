@@ -8,14 +8,29 @@ import { messages as es } from "@/locales/es/messages.po";
 import { messages as fr } from "@/locales/fr/messages.po";
 import { messages as de } from "@/locales/de/messages.po";
 import { messages as ptBR } from "@/locales/pt-BR/messages.po";
+import { messages as enLanding } from "@/locales/en/landing.po";
+import { messages as esLanding } from "@/locales/es/landing.po";
+import { messages as frLanding } from "@/locales/fr/landing.po";
+import { messages as deLanding } from "@/locales/de/landing.po";
+import { messages as ptBRLanding } from "@/locales/pt-BR/landing.po";
 import { LOCALE_COOKIE, type Locale, toLocale } from "@/utils/i18n/locales";
 
+const landingCatalogs: Record<Locale, Messages> = {
+  en: enLanding,
+  es: esLanding,
+  fr: frLanding,
+  de: deLanding,
+  "pt-BR": ptBRLanding,
+};
+
+// A few app screens render landing components (e.g. the upgrade page's
+// footer), so the app catalog includes the small landing one.
 const catalogs: Record<Locale, Messages> = {
-  en,
-  es,
-  fr,
-  de,
-  "pt-BR": ptBR,
+  en: { ...enLanding, ...en },
+  es: { ...esLanding, ...es },
+  fr: { ...frLanding, ...fr },
+  de: { ...deLanding, ...de },
+  "pt-BR": { ...ptBRLanding, ...ptBR },
 };
 
 // Catalogs are read-only, so one instance per locale is safe to share
@@ -46,3 +61,44 @@ export async function initLingui(): Promise<I18n> {
   setI18n(i18n);
   return i18n;
 }
+
+export function getLandingMessages(
+  locale: Locale,
+  extraMessages?: Messages,
+): Messages {
+  if (!extraMessages) return landingCatalogs[locale];
+  const cached = mergedLandingMessages.get(extraMessages)?.get(locale);
+  if (cached) return cached;
+  const merged = { ...landingCatalogs[locale], ...extraMessages };
+  const byLocale = mergedLandingMessages.get(extraMessages) ?? new Map();
+  byLocale.set(locale, merged);
+  mergedLandingMessages.set(extraMessages, byLocale);
+  return merged;
+}
+
+/**
+ * Activates a landing page's locale for Server Components. Landing pages take
+ * their locale from the URL, not the cookie, so they stay statically rendered.
+ * `extraMessages` lets a page add its own catalog (e.g. the marketing pages').
+ */
+export function initLandingLingui(
+  locale: Locale,
+  extraMessages?: Messages,
+): I18n {
+  const key = extraMessages ?? landingCatalogs;
+  const byLocale = landingI18nInstances.get(key) ?? new Map<Locale, I18n>();
+  let i18n = byLocale.get(locale);
+  if (!i18n) {
+    i18n = setupI18n({
+      locale,
+      messages: { [locale]: getLandingMessages(locale, extraMessages) },
+    });
+    byLocale.set(locale, i18n);
+    landingI18nInstances.set(key, byLocale);
+  }
+  setI18n(i18n);
+  return i18n;
+}
+
+const mergedLandingMessages = new WeakMap<Messages, Map<Locale, Messages>>();
+const landingI18nInstances = new WeakMap<object, Map<Locale, I18n>>();
