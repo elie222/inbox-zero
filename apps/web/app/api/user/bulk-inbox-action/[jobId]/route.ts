@@ -41,6 +41,7 @@ async function getJob({
       actedCount: true,
       skippedCount: true,
       failedCount: true,
+      limitReached: true,
       error: true,
       completedAt: true,
     },

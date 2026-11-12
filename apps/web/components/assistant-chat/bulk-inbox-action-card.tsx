@@ -25,7 +25,10 @@ import {
   dismissAssistantBulkInboxAction,
 } from "@/utils/actions/assistant-chat";
 import type { PendingBulkInboxActionToolOutput } from "@/utils/actions/assistant-chat.validation";
-import type { BulkInboxActionType } from "@/utils/bulk-inbox-action/validation";
+import {
+  BULK_INBOX_ACTION_MAX_THREADS,
+  type BulkInboxActionType,
+} from "@/utils/bulk-inbox-action/validation";
 
 const ACTION_COPY: Record<
   BulkInboxActionType,
@@ -209,6 +212,13 @@ export function BulkInboxActionCard({
             })}
           </span>
         </div>
+        {job.limitReached && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Stopped at the limit of{" "}
+            {BULK_INBOX_ACTION_MAX_THREADS.toLocaleString()} emails per cleanup.
+            Ask again to continue with the rest.
+          </p>
+        )}
         {job.error && (
           <p className="mt-1 text-xs text-muted-foreground">{job.error}</p>
         )}

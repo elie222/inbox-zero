@@ -41,6 +41,7 @@ export async function buildBulkInboxActionStatusMessage({
         actedCount: true,
         skippedCount: true,
         failedCount: true,
+        limitReached: true,
         error: true,
       },
     });
@@ -59,6 +60,7 @@ export async function buildBulkInboxActionStatusMessage({
         acted: job.actedCount,
         skipped: job.skippedCount,
         failed: job.failedCount,
+        ...(job.limitReached && { limitReached: true }),
         ...(job.error && { error: job.error }),
       }),
     );

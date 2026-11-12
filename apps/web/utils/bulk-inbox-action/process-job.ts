@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { aiFilterEmailsForBulkAction } from "@/utils/ai/bulk-inbox-action/filter-emails";
 import { runWithBoundedConcurrency } from "@/utils/async";
 import {
+  BULK_INBOX_ACTION_MAX_THREADS,
   type BulkInboxActionType,
   bulkInboxActionSearchSchema,
 } from "@/utils/bulk-inbox-action/validation";
@@ -43,11 +44,13 @@ export async function processBulkInboxActionJobChunk({
   chunkToken,
   logger: parentLogger,
   budgetMs = BULK_INBOX_ACTION_CHUNK_BUDGET_MS,
+  maxThreads = BULK_INBOX_ACTION_MAX_THREADS,
 }: {
   jobId: string;
   chunkToken: string;
   logger: Logger;
   budgetMs?: number;
+  maxThreads?: number;
 }): Promise<ChunkOutcome> {
   const logger = parentLogger.with({ bulkInboxActionJobId: jobId });
   const startedAt = Date.now();
@@ -79,7 +82,7 @@ export async function processBulkInboxActionJobChunk({
 
   let outcome: ChunkOutcome = { status: "stopped" };
   try {
-    outcome = await runChunk({ jobId, deadline, logger });
+    outcome = await runChunk({ jobId, deadline, maxThreads, logger });
     return outcome;
   } catch (error) {
     // A cooldown can reject the provider before the page loop handles it.
@@ -118,10 +121,12 @@ export async function processBulkInboxActionJobChunk({
 async function runChunk({
   jobId,
   deadline,
+  maxThreads,
   logger,
 }: {
   jobId: string;
   deadline: number;
+  maxThreads: number;
   logger: Logger;
 }): Promise<ChunkOutcome> {
   const continueLater = (): ChunkOutcome => ({
@@ -152,10 +157,16 @@ async function runChunk({
   const action = job.action as BulkInboxActionType;
 
   let pageToken = job.pageToken;
+  let remainingThreads = maxThreads - job.processedCount;
   let rateLimitedUntil = job.rateLimitedUntil?.getTime() ?? 0;
 
   while (Date.now() < deadline) {
     if (!(await isJobRunning(jobId))) return { status: "stopped" };
+    if (remainingThreads <= 0) {
+      await completeJob(jobId, { limitReached: true });
+      logger.info("Bulk inbox action reached its thread limit");
+      return { status: "completed" };
+    }
 
     const waitMs = rateLimitedUntil - Date.now();
     if (waitMs > 0) {
@@ -201,15 +212,7 @@ async function runChunk({
     // because later matches shift into it.
     if (!unseen.length) {
       if (!page.nextPageToken) {
-        // Only a running job completes, so a Stop that landed meanwhile stays.
-        await prisma.bulkInboxActionJob.updateMany({
-          where: { id: jobId, status: "RUNNING" },
-          data: {
-            status: "COMPLETED",
-            completedAt: new Date(),
-            leaseExpiresAt: null,
-          },
-        });
+        await completeJob(jobId, { limitReached: false });
         logger.info("Bulk inbox action completed");
         return { status: "completed" };
       }
@@ -221,14 +224,15 @@ async function runChunk({
 
     // Saving after each small batch keeps the card's progress moving and
     // limits what a crashed chunk has to redo.
+    const allowed = unseen.slice(0, remainingThreads);
     for (
       let index = 0;
-      index < unseen.length && Date.now() < deadline;
+      index < allowed.length && Date.now() < deadline;
       index += FILTER_BATCH_SIZE
     ) {
       const result = await processThreads({
         jobId,
-        threads: unseen.slice(index, index + FILTER_BATCH_SIZE),
+        threads: allowed.slice(index, index + FILTER_BATCH_SIZE),
         action,
         labelId: job.labelId,
         labelName: job.labelName,
@@ -239,6 +243,7 @@ async function runChunk({
         logger,
       });
 
+      remainingThreads -= result.totals.processed;
       if (result.rateLimitError) {
         rateLimitedUntil = getRateLimitedUntil(result.rateLimitError, provider);
       }
@@ -464,6 +469,22 @@ async function getHandledThreadIds(jobId: string, threadIds: string[]) {
     select: { threadId: true },
   });
   return new Set(rows.map((row) => row.threadId));
+}
+
+// Only a running job completes, so a Stop that landed meanwhile stays.
+async function completeJob(
+  jobId: string,
+  { limitReached }: { limitReached: boolean },
+) {
+  await prisma.bulkInboxActionJob.updateMany({
+    where: { id: jobId, status: "RUNNING" },
+    data: {
+      status: "COMPLETED",
+      completedAt: new Date(),
+      leaseExpiresAt: null,
+      limitReached,
+    },
+  });
 }
 
 async function isJobRunning(jobId: string) {

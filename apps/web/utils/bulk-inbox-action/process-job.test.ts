@@ -270,6 +270,21 @@ describe("processBulkInboxActionJobChunk", () => {
     expect(job).toMatchObject({ processedCount: 60, actedCount: 60 });
   });
 
+  it("finishes at the per-job maximum and records that it stopped there", async () => {
+    mailbox = createMailbox(60);
+    useMailbox(mailbox);
+
+    const outcome = await runChunk({ maxThreads: 30 });
+
+    expect(outcome.status).toBe("completed");
+    expect(mailbox.inboxThreadIds()).toHaveLength(30);
+    expect(job).toMatchObject({
+      status: "COMPLETED",
+      processedCount: 30,
+      limitReached: true,
+    });
+  });
+
   it("ignores a delivery whose chunk token was already used", async () => {
     mailbox = createMailbox(10);
     useMailbox(mailbox);
@@ -292,12 +307,19 @@ describe("processBulkInboxActionJobChunk", () => {
     expect(mailbox.inboxThreadIds()).toHaveLength(10);
   });
 
-  async function runChunk({ budgetMs }: { budgetMs?: number } = {}) {
+  async function runChunk({
+    budgetMs,
+    maxThreads,
+  }: {
+    budgetMs?: number;
+    maxThreads?: number;
+  } = {}) {
     return processBulkInboxActionJobChunk({
       jobId: job.id,
       chunkToken: CHUNK_TOKEN,
       logger,
       budgetMs,
+      maxThreads,
     });
   }
 });
@@ -317,6 +339,7 @@ function createJob() {
     leaseExpiresAt: null as Date | null,
     chunkToken: CHUNK_TOKEN,
     processedCount: 0,
+    limitReached: false,
     matchedCount: 0,
     actedCount: 0,
     skippedCount: 0,

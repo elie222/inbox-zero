@@ -21,6 +21,7 @@ CREATE TABLE "BulkInboxActionJob" (
     "actedCount" INTEGER NOT NULL DEFAULT 0,
     "skippedCount" INTEGER NOT NULL DEFAULT 0,
     "failedCount" INTEGER NOT NULL DEFAULT 0,
+    "limitReached" BOOLEAN NOT NULL DEFAULT false,
     "error" TEXT,
     "completedAt" TIMESTAMP(3),
     "confirmationKey" TEXT NOT NULL,

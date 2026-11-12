@@ -1323,11 +1323,13 @@ model BulkInboxActionJob {
   // deliveries do nothing.
   chunkToken       String?
 
-  processedCount Int @default(0)
-  matchedCount   Int @default(0)
-  actedCount     Int @default(0)
-  skippedCount   Int @default(0)
-  failedCount    Int @default(0)
+  processedCount Int     @default(0)
+  matchedCount   Int     @default(0)
+  actedCount     Int     @default(0)
+  skippedCount   Int     @default(0)
+  failedCount    Int     @default(0)
+  // Stopped at the per-job thread limit rather than running out of matches.
+  limitReached   Boolean @default(false)
 
   error       String?
   completedAt DateTime?
