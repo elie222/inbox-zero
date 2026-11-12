@@ -196,18 +196,28 @@ export function getIntegrationActionLabel(action?: {
   integrationName?: string | null;
   integrationToolName?: string | null;
 }): string {
-  // Only guess when the action names no tool at all. An action that names an
-  // unknown tool must not borrow another integration's label, or previews and
-  // history would describe the wrong action.
+  return (
+    getIntegrationActionSpec(action)?.actionLabel ??
+    GENERIC_INTEGRATION_ACTION_LABEL
+  );
+}
+
+/**
+ * The spec an action calls. Only guesses when the action names no tool at all:
+ * an action that names an unknown tool must not borrow another integration's
+ * label, or previews and history would describe the wrong action.
+ */
+export function getIntegrationActionSpec(action?: {
+  integrationName?: string | null;
+  integrationToolName?: string | null;
+}): IntegrationToolSpec | undefined {
   const namesTool = !!action?.integrationName || !!action?.integrationToolName;
-  const spec = namesTool
+  return namesTool
     ? getIntegrationToolSpec(
         action?.integrationName,
         action?.integrationToolName,
       )
     : getOnlyIntegrationToolSpec();
-
-  return spec?.actionLabel ?? GENERIC_INTEGRATION_ACTION_LABEL;
 }
 
 export function getIntegrationActionDisplayValue(action: {
@@ -215,10 +225,7 @@ export function getIntegrationActionDisplayValue(action: {
   integrationToolName?: string | null;
   integrationArgs?: unknown;
 }): string | null {
-  const namesTool = !!action.integrationName || !!action.integrationToolName;
-  const spec = namesTool
-    ? getIntegrationToolSpec(action.integrationName, action.integrationToolName)
-    : getOnlyIntegrationToolSpec();
+  const spec = getIntegrationActionSpec(action);
   if (!spec?.displayArgKey) return null;
 
   const args = action.integrationArgs;

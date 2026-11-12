@@ -7,6 +7,7 @@ import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { SparklesIcon } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
@@ -77,6 +78,7 @@ export function TestRulesContent() {
 type TestRulesInputs = { message: string };
 
 const TestRulesForm = () => {
+  const { t } = useLingui();
   const { response, testEmail } = useColdEmailTest();
 
   const {
@@ -114,14 +116,14 @@ const TestRulesForm = () => {
           autosizeTextarea
           rows={3}
           name="message"
-          label="Email to test against"
-          placeholder="Hey, I run a marketing agency, and would love to chat."
+          label={t`Email to test against`}
+          placeholder={t`Hey, I run a marketing agency, and would love to chat.`}
           registerProps={register("message", { required: true })}
           error={errors.message}
         />
         <Button type="submit" loading={isSubmitting}>
           <SparklesIcon className="mr-2 h-4 w-4" />
-          Test
+          <Trans>Test</Trans>
         </Button>
       </form>
       {response && (
@@ -179,7 +181,7 @@ function TestRulesContentRow({
               }}
             >
               <SparklesIcon className="mr-2 h-4 w-4" />
-              Test
+              <Trans>Test</Trans>
             </Button>
           </div>
         </div>
@@ -193,6 +195,7 @@ function TestRulesContentRow({
 
 function Result(props: { coldEmailResponse: ColdEmailBlockerResponse | null }) {
   const { coldEmailResponse } = props;
+  const { t } = useLingui();
 
   if (!coldEmailResponse) return null;
 
@@ -200,17 +203,17 @@ function Result(props: { coldEmailResponse: ColdEmailBlockerResponse | null }) {
     return (
       <AlertBasic
         variant="destructive"
-        title="Email is a cold email!"
+        title={t`Email is a cold email!`}
         description={coldEmailResponse.aiReason}
       />
     );
   }
 
-  let title = "Our AI determined this is not a cold email!";
+  let title = t`Our AI determined this is not a cold email!`;
   if (coldEmailResponse.reason === "hasPreviousEmail") {
-    title = "This person has previously emailed you. This is not a cold email!";
+    title = t`This person has previously emailed you. This is not a cold email!`;
   } else if (coldEmailResponse.reason === "applicationSender") {
-    title = "This is an application notification, not a cold email!";
+    title = t`This is an application notification, not a cold email!`;
   }
 
   return (
@@ -228,6 +231,7 @@ function useColdEmailTest() {
     null,
   );
   const { emailAccountId } = useAccount();
+  const { t } = useLingui();
 
   const testEmail = async (data: ColdEmailBlockerBody) => {
     setTesting(true);
@@ -235,7 +239,7 @@ function useColdEmailTest() {
       const result = await testColdEmailAction(emailAccountId, data);
       if (result?.serverError) {
         toastError({
-          title: "Error checking whether it's a cold email.",
+          title: t`Error checking whether it's a cold email.`,
           description: result.serverError,
         });
       } else if (result?.data) {

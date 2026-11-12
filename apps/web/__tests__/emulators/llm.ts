@@ -50,6 +50,8 @@ export interface LlmEmulatorReply {
   /** Case-insensitive substring of the prompt text this reply applies to. Omit to match every request. */
   match?: string;
   object?: unknown;
+  /** Answers after a fixed few seconds, to hold a flow in a state a test wants to see. */
+  slow?: boolean;
   text?: string;
   toolCall?: { name: string; arguments: Record<string, unknown> };
 }
@@ -134,7 +136,11 @@ export async function createLlmEmulator(
 
       const summary = summarizeRequest(completionRequest);
       requests.push(summary);
-      const completion = resolveCompletion(completionRequest, summary, replies);
+      const scripted = findScriptedReply(summary, replies);
+      const completion = resolveCompletion(completionRequest, scripted);
+      if (scripted?.slow === true) {
+        await new Promise((resolve) => setTimeout(resolve, SLOW_REPLY_MS));
+      }
 
       if (completionRequest.stream) {
         return respondStream(response, modelName, completion);
@@ -175,26 +181,32 @@ export async function createLlmEmulator(
   };
 }
 
+const SLOW_REPLY_MS = 3000;
+
 type Completion = {
   content: string | null;
   toolCall: { name: string; arguments: string } | null;
 };
 
-function resolveCompletion(
-  request: ChatCompletionRequest,
+function findScriptedReply(
   summary: LlmEmulatorRequest,
   replies: LlmEmulatorReply[],
-): Completion {
+) {
   const promptText = summary.messages
     .map((message) => message.content)
     .join("\n")
     .toLowerCase();
-  const scripted = [...replies]
+  return [...replies]
     .reverse()
     .find(
       (reply) => !reply.match || promptText.includes(reply.match.toLowerCase()),
     );
+}
 
+function resolveCompletion(
+  request: ChatCompletionRequest,
+  scripted: LlmEmulatorReply | undefined,
+): Completion {
   if (scripted?.toolCall) {
     return {
       content: null,

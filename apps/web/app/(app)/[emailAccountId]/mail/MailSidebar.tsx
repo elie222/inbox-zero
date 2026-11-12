@@ -2,6 +2,9 @@
 
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getMailSidebarRowPresentation } from "@inboxzero/mail-ui/MailSidebarRow";
 import {
   ArchiveIcon,
@@ -106,6 +109,7 @@ export type MailSidebarProps = {
 
 type SystemItem = {
   name: string;
+  label: MessageDescriptor;
   type: string;
   /** null means the row never shows a count (a "sent unread" number is noise). */
   countId: string | null;
@@ -116,22 +120,60 @@ export const MAIL_SCHEDULED_TYPE = "scheduled";
 
 /** Everything the inbox isn't. Visited rarely enough to stay behind a toggle. */
 export const MAILBOX_ITEMS: SystemItem[] = [
-  { name: "Drafts", type: "draft", countId: "DRAFT", Icon: FileIcon },
-  { name: "Sent", type: "sent", countId: null, Icon: SendIcon },
-  { name: "Archived", type: "archive", countId: null, Icon: ArchiveIcon },
-  { name: "Starred", type: "starred", countId: null, Icon: StarIcon },
+  {
+    name: "Drafts",
+    label: msg`Drafts`,
+    type: "draft",
+    countId: "DRAFT",
+    Icon: FileIcon,
+  },
+  {
+    name: "Sent",
+    label: msg`Sent`,
+    type: "sent",
+    countId: null,
+    Icon: SendIcon,
+  },
+  {
+    name: "Archived",
+    label: msg`Archived`,
+    type: "archive",
+    countId: null,
+    Icon: ArchiveIcon,
+  },
+  {
+    name: "Starred",
+    label: msg`Starred`,
+    type: "starred",
+    countId: null,
+    Icon: StarIcon,
+  },
   {
     name: "Scheduled",
+    label: msg`Scheduled`,
     type: MAIL_SCHEDULED_TYPE,
     countId: null,
     Icon: Clock3Icon,
   },
-  { name: "Spam", type: "spam", countId: null, Icon: ShieldAlertIcon },
-  { name: "Trash", type: "trash", countId: null, Icon: Trash2Icon },
+  {
+    name: "Spam",
+    label: msg`Spam`,
+    type: "spam",
+    countId: null,
+    Icon: ShieldAlertIcon,
+  },
+  {
+    name: "Trash",
+    label: msg`Trash`,
+    type: "trash",
+    countId: null,
+    Icon: Trash2Icon,
+  },
 ];
 
 export type MailCategory = {
   name: string;
+  label: MessageDescriptor;
   type: string;
   Icon: LucideIcon;
 };
@@ -139,34 +181,48 @@ export type MailCategory = {
 export const MAIL_CATEGORIES: MailCategory[] = [
   {
     name: "Personal",
+    label: msg`Personal`,
     type: GmailLabel.PERSONAL,
     Icon: UserIcon,
   },
   {
     name: "Social",
+    label: msg`Social`,
     type: GmailLabel.SOCIAL,
     Icon: Users2Icon,
   },
   {
     name: "Updates",
+    label: msg`Updates`,
     type: GmailLabel.UPDATES,
     Icon: BellIcon,
   },
   {
     name: "Forums",
+    label: msg`Forums`,
     type: GmailLabel.FORUMS,
     Icon: MessagesSquareIcon,
   },
   {
     name: "Promotions",
+    label: msg`Promotions`,
     type: GmailLabel.PROMOTIONS,
     Icon: MegaphoneIcon,
   },
 ];
 
+const OUTLOOK_INBOX_SECTION_LABELS: Record<
+  (typeof OUTLOOK_INBOX_SECTIONS)[number]["type"],
+  MessageDescriptor
+> = {
+  focused: msg`Focused`,
+  other: msg`Other`,
+};
+
 export const OUTLOOK_INBOX_CATEGORIES: MailCategory[] =
   OUTLOOK_INBOX_SECTIONS.map((section) => ({
     ...section,
+    label: OUTLOOK_INBOX_SECTION_LABELS[section.type],
     Icon: section.type === "focused" ? SparklesIcon : InboxIcon,
   }));
 
@@ -201,6 +257,7 @@ export function MailSidebar({
   unified = false,
   className,
 }: MailSidebarProps) {
+  const { t, i18n } = useLingui();
   const [isAddingLabel, setIsAddingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
   const sidebarFolders = getMailSidebarFolders(folders);
@@ -285,14 +342,14 @@ export function MailSidebar({
 
       {collapsed ? (
         <ShortcutTooltip
-          shortcuts={[{ id: "compose", label: "Compose" }]}
+          shortcuts={[{ id: "compose", label: t`Compose` }]}
           side="right"
         >
           <Button
             variant="outline"
             size="icon"
             onClick={onCompose}
-            aria-label="Compose"
+            aria-label={t`Compose`}
             className="mb-2 size-8 shrink-0 self-center rounded-lg"
           >
             <PenLineIcon className="size-4 text-blue-600 dark:text-blue-400" />
@@ -302,13 +359,15 @@ export function MailSidebar({
         <Button
           variant="outline"
           onClick={onCompose}
-          aria-label="Compose"
+          aria-label={t`Compose`}
           aria-keyshortcuts="c"
           // The 9px inset plus the border lines the icon up with the rows below.
           className="mb-3 w-full shrink-0 justify-start gap-2.5 rounded-xl px-[9px]"
         >
           <PenLineIcon className="size-4 shrink-0 text-blue-600 dark:text-blue-400" />
-          <span className="flex-1 text-left">Compose</span>
+          <span className="flex-1 text-left">
+            <Trans>Compose</Trans>
+          </span>
           <Kbd>{getShortcutHint("compose")}</Kbd>
         </Button>
       )}
@@ -327,7 +386,7 @@ export function MailSidebar({
               (!activeLabelId && !activeFolderId && activeType === "inbox")
             }
             icon={<InboxIcon className="size-4 shrink-0" />}
-            name={unified ? "All inboxes" : "Inbox"}
+            name={unified ? t`All inboxes` : t`Inbox`}
             count={unified ? null : displayCount(countsById.get("INBOX"))}
             emphasizeCount
             collapsed={collapsed}
@@ -341,11 +400,11 @@ export function MailSidebar({
               expanded={showMailboxes}
               onToggle={() => setShowMailboxes((open) => !open)}
             >
-              More
+              <Trans>More</Trans>
             </GroupHeading>
             <SidebarGroupContent open={showMailboxRows}>
               <nav className="flex flex-col gap-px">
-                {MAILBOX_ITEMS.map(({ name, type, countId, Icon }) => (
+                {MAILBOX_ITEMS.map(({ label, type, countId, Icon }) => (
                   <NavRow
                     key={type}
                     href={hrefFor({ kind: "type", type })}
@@ -354,7 +413,7 @@ export function MailSidebar({
                       !activeLabelId && !activeFolderId && activeType === type
                     }
                     icon={<Icon className="size-4 shrink-0" />}
-                    name={name}
+                    name={i18n._(label)}
                     count={
                       countId ? displayCount(countsById.get(countId)) : null
                     }
@@ -385,7 +444,7 @@ export function MailSidebar({
               </GroupHeading>
               <SidebarGroupContent open={showCategoryRows}>
                 <nav className="flex flex-col gap-px">
-                  {categories.map(({ name, type, Icon }) => (
+                  {categories.map(({ label, type, Icon }) => (
                     <NavRow
                       key={type}
                       href={hrefFor({ kind: "type", type })}
@@ -394,7 +453,7 @@ export function MailSidebar({
                         !activeLabelId && !activeFolderId && activeType === type
                       }
                       icon={<Icon className="size-3.5 shrink-0" />}
-                      name={name}
+                      name={i18n._(label)}
                       count={null}
                       collapsed={collapsed}
                     />
@@ -406,7 +465,9 @@ export function MailSidebar({
 
         {!unified && sidebarFolders.length > 0 && (
           <>
-            <GroupHeading collapsed={collapsed}>Folders</GroupHeading>
+            <GroupHeading collapsed={collapsed}>
+              <Trans>Folders</Trans>
+            </GroupHeading>
             <nav className="flex flex-col gap-px">
               {sidebarFolders.map((folder) => (
                 <MailboxItemContextMenu
@@ -416,7 +477,7 @@ export function MailSidebar({
                     id: folder.id,
                     name: folder.displayName,
                   }}
-                  typeName="folder"
+                  typeName={t`folder`}
                   editMode="name"
                   onEdit={onEditMailboxItem}
                   onDelete={onDeleteMailboxItem}
@@ -459,7 +520,7 @@ export function MailSidebar({
                     setIsAddingLabel((open) => !open);
                   }}
                   aria-expanded={isAddingLabel}
-                  aria-label={`Create ${labelSingular}`}
+                  aria-label={t`Create ${labelSingular}`}
                   className="rounded-md p-0.5 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <PlusIcon className="size-3.5" />
@@ -500,7 +561,7 @@ export function MailSidebar({
                     className="flex items-center gap-1 rounded-md px-2.5 py-1 text-muted-foreground text-xs hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <DisclosureChevron expanded={showHiddenLabels} />
-                    More
+                    <Trans>More</Trans>
                   </button>
                   <SidebarGroupContent open={showHiddenLabels}>
                     <nav className="flex flex-col gap-px">
@@ -539,8 +600,8 @@ export function MailSidebar({
                     onKeyDown={(event) => {
                       if (event.key === "Escape") setIsAddingLabel(false);
                     }}
-                    placeholder={`${labelSingular} name`}
-                    aria-label={`New ${labelSingular} name`}
+                    placeholder={t`${labelSingular} name`}
+                    aria-label={t`New ${labelSingular} name`}
                     autoFocus
                     className="h-7 min-w-0 flex-1 px-2 text-xs"
                   />
@@ -550,7 +611,7 @@ export function MailSidebar({
                     size="xs-2"
                     disabled={!newLabelName.trim()}
                   >
-                    Add
+                    <Trans>Add</Trans>
                   </Button>
                 </form>
               ) : null}
@@ -565,7 +626,7 @@ export function MailSidebar({
             onNavigate={onNavigate}
             active={false}
             icon={<Users2Icon className="size-4 shrink-0" />}
-            name="Discussions"
+            name={t`Discussions`}
             count={team.unreadCount}
             emphasizeCount
             collapsed={collapsed}
@@ -576,7 +637,7 @@ export function MailSidebar({
           onNavigate={onNavigate}
           active={false}
           icon={<SettingsIcon className="size-4 shrink-0" />}
-          name="Settings"
+          name={t`Settings`}
           count={null}
           collapsed={collapsed}
         />
@@ -605,7 +666,9 @@ function LabelBranch({
   | "onEditMailboxItem"
   | "onDeleteMailboxItem"
 > & { node: SidebarLabel; hasNestedLabels: boolean; collapsed: boolean }) {
+  const { t } = useLingui();
   const { label, children } = node;
+  const labelName = label.name;
   const activeDescendantId = children.some((child) =>
     containsLabel(child, props.activeLabelId),
   )
@@ -650,7 +713,9 @@ function LabelBranch({
           {children.length > 0 && !collapsed && (
             <button
               type="button"
-              aria-label={`${expanded ? "Collapse" : "Expand"} ${label.name}`}
+              aria-label={
+                expanded ? t`Collapse ${labelName}` : t`Expand ${labelName}`
+              }
               aria-expanded={expanded}
               onClick={() =>
                 setExpansion({ activeDescendantId, expanded: !expanded })

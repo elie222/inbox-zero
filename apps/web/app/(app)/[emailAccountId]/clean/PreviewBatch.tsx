@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { parseAsBoolean, useQueryState } from "nuqs";
+import { Plural, Trans } from "@lingui/react/macro";
 import { toastError } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,24 +51,35 @@ export function PreviewBatch({ job }: { job: CleanupJob }) {
   return (
     <CardGreen className="mb-4">
       <CardHeader>
-        <CardTitle>Preview run</CardTitle>
+        <CardTitle>
+          <Trans>Preview run</Trans>
+        </CardTitle>
         {/* <CardDescription>
           We processed {total} emails. {archived} were{" "}
           {job.action === CleanAction.ARCHIVE ? "archived" : "marked as read"}.
         </CardDescription> */}
         <CardDescription>
-          We're cleaning up {PREVIEW_RUN_COUNT} emails so you can see how it
-          works.
+          <Plural
+            value={PREVIEW_RUN_COUNT}
+            one="We're cleaning up # email so you can see how it works."
+            other="We're cleaning up # emails so you can see how it works."
+          />
         </CardDescription>
         <CardDescription>
-          To undo any, hover over the "
-          {job.action === CleanAction.ARCHIVE ? "Archive" : "Mark as read"}"
-          badge and click undo.
+          {job.action === CleanAction.ARCHIVE ? (
+            <Trans>
+              To undo any, hover over the "Archive" badge and click undo.
+            </Trans>
+          ) : (
+            <Trans>
+              To undo any, hover over the "Mark as read" badge and click undo.
+            </Trans>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex items-center gap-4">
         <Button onClick={handleRunOnFullInbox} loading={isLoading}>
-          Run on Full Inbox
+          <Trans>Run on Full Inbox</Trans>
         </Button>
         {/* {disableRunOnFullInbox && (
           <CardDescription className="font-semibold">

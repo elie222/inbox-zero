@@ -20,6 +20,7 @@ import {
   type StopCondition,
   NoObjectGeneratedError,
   TypeValidationError,
+  type Experimental_Steering,
 } from "ai";
 import type { LanguageModelV4 } from "@ai-sdk/provider";
 import { captureAiGeneration } from "@posthog/ai";
@@ -264,6 +265,8 @@ type ToolCallAgentStreamOptions = BaseStreamOptions & {
   onEnd?: StreamTextOnEndCallback<Record<string, Tool>>;
   onStepEnd?: GenerateTextOnStepEndCallback<Record<string, Tool>>;
   onModelResolved?: (resolvedModel: ToolCallAgentResolvedModel) => void;
+  // Called once per model attempt; steering objects are single-use.
+  createSteering?: () => Experimental_Steering;
   temperature?: number;
   abortSignal?: AbortSignal;
 };
@@ -910,6 +913,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
     onStepEnd,
     onModelResolved,
     sensitiveDataPolicy,
+    createSteering,
     temperature,
     abortSignal,
   } = options;
@@ -1025,6 +1029,11 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       return await agent.stream({
         messages: protectedMessages as ModelMessage[],
         experimental_transform: smoothStream({ chunking: "word" }),
+        // Bridged CLI models run their tools themselves and ignore
+        // activeTools, so a steered tool-free step can't be enforced there.
+        experimental_steering: bridgedAgent.bridged
+          ? undefined
+          : createSteering?.(),
         onStepEnd,
         abortSignal,
       });
@@ -1997,10 +2006,10 @@ function getOpenRouterUsage(value: unknown): {
   const providerMetadata = getObjectProperty(value, "providerMetadata");
   const openRouterMetadata = getObjectProperty(providerMetadata, "openrouter");
   const usage = getObjectProperty(openRouterMetadata, "usage");
-  const costDetails = getObjectProperty(usage, "cost_details");
+  const costDetails = getObjectProperty(usage, "costDetails");
   const cost = getFiniteNumber(getProperty(usage, "cost"));
   const upstreamInferenceCost = getFiniteNumber(
-    getProperty(costDetails, "upstream_inference_cost"),
+    getProperty(costDetails, "upstreamInferenceCost"),
   );
 
   if (cost === undefined && upstreamInferenceCost === undefined) return null;

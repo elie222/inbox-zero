@@ -1,5 +1,7 @@
 "use client";
 
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useState } from "react";
 import Link from "next/link";
 import {
@@ -25,13 +27,14 @@ import { toastError } from "@/components/Toast";
 import { redirectToSafeUrl } from "@/utils/redirect";
 
 const PRICING_FEATURES = [
-  "Briefs for every external meeting",
-  "Google Calendar & Outlook",
-  "LinkedIn & web research",
-  "Sent 1-24 hours before (you choose)",
+  msg`Briefs for every external meeting`,
+  msg`Google Calendar & Outlook`,
+  msg`LinkedIn & web research`,
+  msg`Sent 1-24 hours before (you choose)`,
 ];
 
 export function StepReady() {
+  const { i18n, t } = useLingui();
   const { emailAccount } = useAccount();
   const [frequency, setFrequency] = useState(frequencies[1]);
   const [loading, setLoading] = useState(false);
@@ -48,13 +51,13 @@ export function StepReady() {
       });
 
       if (!result?.data?.url) {
-        toastError({ description: "Error creating checkout session" });
+        toastError({ description: t`Error creating checkout session` });
         return;
       }
 
       redirectToSafeUrl(result.data.url, { allowExternal: true });
     } catch {
-      toastError({ description: "Error creating checkout session" });
+      toastError({ description: t`Error creating checkout session` });
     } finally {
       setLoading(false);
     }
@@ -70,11 +73,13 @@ export function StepReady() {
 
       <div className="text-center">
         <PageHeading className="mt-4">
-          Ready to walk into every meeting prepared?
+          <Trans>Ready to walk into every meeting prepared?</Trans>
         </PageHeading>
         <TypographyP className="mt-2 max-w-lg mx-auto">
-          You'll get a brief like this before every external meeting,
-          automatically.
+          <Trans>
+            You'll get a brief like this before every external meeting,
+            automatically.
+          </Trans>
         </TypographyP>
       </div>
 
@@ -84,7 +89,9 @@ export function StepReady() {
           setFrequency={setFrequency}
         >
           <div className="ml-1">
-            <DiscountBadge>2 months free!</DiscountBadge>
+            <DiscountBadge>
+              <Trans>2 months free!</Trans>
+            </DiscountBadge>
           </div>
         </PricingFrequencyToggle>
 
@@ -97,27 +104,27 @@ export function StepReady() {
               <p className="text-3xl font-bold text-foreground mt-1">
                 ${frequency.value === "annually" ? "7.50" : "9"}
                 <span className="text-base font-normal text-muted-foreground">
-                  /month
+                  <Trans>/month</Trans>
                 </span>
               </p>
               <p className="text-sm text-muted-foreground mt-1">
                 {frequency.value === "annually"
-                  ? "billed annually ($90/year)"
-                  : "billed monthly"}
+                  ? t`billed annually ($90/year)`
+                  : t`billed monthly`}
               </p>
             </div>
             <div className="rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-sm font-semibold text-green-700">
-              7-day free trial
+              <Trans>7-day free trial</Trans>
             </div>
           </div>
 
           <div className="flex flex-col gap-2.5">
             {PRICING_FEATURES.map((feature) => (
-              <div key={feature} className="flex items-center gap-2.5">
+              <div key={feature.id} className="flex items-center gap-2.5">
                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-50">
                   <CheckIcon className="h-3 w-3 text-green-600" />
                 </div>
-                <span className="text-foreground">{feature}</span>
+                <span className="text-foreground">{i18n._(feature)}</span>
               </div>
             ))}
           </div>
@@ -131,7 +138,7 @@ export function StepReady() {
           onClick={handleCheckout}
           loading={loading}
         >
-          Start Free Trial
+          <Trans>Start Free Trial</Trans>
           <ChevronRightIcon className="ml-2 h-4 w-4" />
         </Button>
 
@@ -147,7 +154,7 @@ export function StepReady() {
                 rel="noopener noreferrer"
               >
                 <ExternalLinkIcon className="mr-2 h-4 w-4" />
-                View test brief in Gmail
+                <Trans>View test brief in Gmail</Trans>
               </Link>
             </Button>
           )}

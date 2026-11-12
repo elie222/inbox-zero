@@ -4,6 +4,7 @@ import type { UserAIFields } from "@/utils/llms/types";
 export const LlmUseCase = {
   AssistantChat: "assistant-chat",
   AutomationCheckInMessage: "automation-check-in-message",
+  BulkInboxActionFilter: "bulk-inbox-action-filter",
   CalendarAvailability: "calendar-availability",
   CategorizeSender: "categorize-sender",
   CategorizeSendersBulk: "categorize-senders-bulk",
@@ -52,6 +53,7 @@ export type LlmUseCase = (typeof LlmUseCase)[keyof typeof LlmUseCase];
 export const LLM_USE_CASE_MODEL_TYPES = {
   [LlmUseCase.AssistantChat]: "chat",
   [LlmUseCase.AutomationCheckInMessage]: "economy",
+  [LlmUseCase.BulkInboxActionFilter]: "economy",
   [LlmUseCase.CalendarAvailability]: "default",
   [LlmUseCase.CategorizeSender]: "default",
   [LlmUseCase.CategorizeSendersBulk]: "economy",

@@ -1,5 +1,8 @@
 "use client";
 
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { useCallback } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -22,28 +25,29 @@ import {
 } from "@/utils/dlp/sensitive-content";
 
 const POLICY_OPTIONS: Array<{
-  description: string;
-  label: string;
+  description: MessageDescriptor;
+  label: MessageDescriptor;
   value: SensitiveDataPolicy;
 }> = [
   {
-    description: "Send everything to AI without scanning.",
-    label: "Off",
+    description: msg`Send everything to AI without scanning.`,
+    label: msg`Off`,
     value: "ALLOW",
   },
   {
-    description: "Hide credentials and card numbers, then send to AI.",
-    label: "Redact",
+    description: msg`Hide credentials and card numbers, then send to AI.`,
+    label: msg`Redact`,
     value: "REDACT",
   },
   {
-    description: "Skip the AI request when sensitive data is found.",
-    label: "Block",
+    description: msg`Skip the AI request when sensitive data is found.`,
+    label: msg`Block`,
     value: "BLOCK",
   },
 ];
 
 export function SensitiveDataPolicySetting() {
+  const { t, i18n } = useLingui();
   const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } = useEmailAccountFull();
   const policy = parseSensitiveDataPolicy(data?.sensitiveDataPolicy ?? null);
@@ -56,7 +60,7 @@ export function SensitiveDataPolicySetting() {
       },
       onError: createSettingActionErrorHandler({
         mutate,
-        prefix: "Failed to update sensitive data protection setting",
+        prefix: t`Failed to update sensitive data protection setting`,
       }),
     },
   );
@@ -84,8 +88,8 @@ export function SensitiveDataPolicySetting() {
   return (
     <SettingCard
       collapseOnMobile
-      title="Sensitive data protection"
-      description="Prevent credentials and card numbers from being sent to AI."
+      title={t`Sensitive data protection`}
+      description={t`Prevent credentials and card numbers from being sent to AI.`}
       right={
         <LoadingContent
           loading={isLoading}
@@ -98,10 +102,10 @@ export function SensitiveDataPolicySetting() {
             disabled={isExecuting || !data}
           >
             <SelectTrigger
-              aria-label="Sensitive data protection"
+              aria-label={t`Sensitive data protection`}
               className="w-full md:w-56"
             >
-              <SelectValue>{getPolicyLabel(policy)}</SelectValue>
+              <SelectValue>{getPolicyLabel(policy, i18n)}</SelectValue>
             </SelectTrigger>
             <SelectContent align="end" className="w-72">
               {POLICY_OPTIONS.map((option) => (
@@ -111,9 +115,9 @@ export function SensitiveDataPolicySetting() {
                   className="items-start py-2"
                 >
                   <div className="flex flex-col text-left">
-                    <span className="font-medium">{option.label}</span>
+                    <span className="font-medium">{i18n._(option.label)}</span>
                     <span className="text-xs text-muted-foreground">
-                      {option.description}
+                      {i18n._(option.description)}
                     </span>
                   </div>
                 </SelectItem>
@@ -126,8 +130,7 @@ export function SensitiveDataPolicySetting() {
   );
 }
 
-function getPolicyLabel(policy: SensitiveDataPolicy) {
-  return (
-    POLICY_OPTIONS.find((option) => option.value === policy)?.label ?? policy
-  );
+function getPolicyLabel(policy: SensitiveDataPolicy, i18n: I18n) {
+  const label = POLICY_OPTIONS.find((option) => option.value === policy)?.label;
+  return label ? i18n._(label) : policy;
 }

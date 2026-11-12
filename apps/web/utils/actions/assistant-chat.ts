@@ -1,12 +1,18 @@
 "use server";
 
 import { actionClient } from "@/utils/actions/safe-action";
+import prisma from "@/utils/prisma";
 import {
+  cancelBulkInboxActionJobBody,
+  confirmAssistantBulkInboxActionBody,
+  dismissAssistantBulkInboxActionBody,
   confirmAssistantCreateRuleBody,
   confirmAssistantEmailActionBody,
   confirmAssistantSaveMemoryBody,
 } from "./assistant-chat.validation";
 import {
+  confirmAssistantBulkInboxActionForAccount,
+  dismissAssistantBulkInboxActionForAccount,
   confirmAssistantCreateRuleForAccount,
   confirmAssistantEmailActionForAccount,
   confirmAssistantSaveMemoryForAccount,
@@ -75,3 +81,48 @@ export const confirmAssistantSaveMemory = actionClient
         logger,
       }),
   );
+
+export const confirmAssistantBulkInboxAction = actionClient
+  .metadata({ name: "confirmAssistantBulkInboxAction" })
+  .inputSchema(confirmAssistantBulkInboxActionBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { chatId, chatMessageId, toolCallId },
+    }) =>
+      confirmAssistantBulkInboxActionForAccount({
+        chatId,
+        chatMessageId,
+        toolCallId,
+        waitForPersistence: true,
+        emailAccountId,
+        logger,
+      }),
+  );
+
+export const dismissAssistantBulkInboxAction = actionClient
+  .metadata({ name: "dismissAssistantBulkInboxAction" })
+  .inputSchema(dismissAssistantBulkInboxActionBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { chatId, chatMessageId, toolCallId },
+    }) =>
+      dismissAssistantBulkInboxActionForAccount({
+        chatId,
+        chatMessageId,
+        toolCallId,
+        emailAccountId,
+        logger,
+      }),
+  );
+
+export const cancelBulkInboxActionJob = actionClient
+  .metadata({ name: "cancelBulkInboxActionJob" })
+  .inputSchema(cancelBulkInboxActionJobBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { jobId } }) => {
+    await prisma.bulkInboxActionJob.updateMany({
+      where: { id: jobId, emailAccountId, status: "RUNNING" },
+      data: { status: "CANCELLED", completedAt: new Date() },
+    });
+  });

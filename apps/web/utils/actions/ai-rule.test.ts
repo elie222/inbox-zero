@@ -6,8 +6,10 @@ const {
   createEmailProviderMock,
   flushLoggerSafelyMock,
   getEmailAccountForRuleExecutionMock,
+  retryFailedRuleActionsMock,
   runRulesMock,
 } = vi.hoisted(() => ({
+  retryFailedRuleActionsMock: vi.fn(),
   checkHasAccessMock: vi.fn(),
   createEmailProviderMock: vi.fn(),
   flushLoggerSafelyMock: vi.fn(),
@@ -32,6 +34,9 @@ vi.mock("@/utils/user/get", () => ({
 }));
 vi.mock("@/utils/ai/choose-rule/run-rules", () => ({
   runRules: runRulesMock,
+}));
+vi.mock("@/utils/ai/choose-rule/retry-failed-actions", () => ({
+  retryFailedRuleActions: retryFailedRuleActionsMock,
 }));
 vi.mock("@/utils/premium/server", () => ({
   checkHasAccess: checkHasAccessMock,
@@ -249,6 +254,70 @@ describe("runRulesAction", () => {
     expect(result?.data).toHaveLength(1);
     expect(prisma.executedRule.findMany).not.toHaveBeenCalled();
     expect(runRulesMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("finishes the actions of a saved result that ended in error instead of skipping the email", async () => {
+    const savedResult = {
+      id: "failed-executed-rule",
+      status: "ERROR",
+      reason: "Rule matched",
+      actionItems: [{ id: "archive", executionStatus: "FAILED" }],
+      rule: { id: "rule-1" },
+      createdAt: new Date("2026-03-27T00:00:00.000Z"),
+    };
+    prisma.executedRule.findMany
+      .mockResolvedValueOnce([savedResult] as any)
+      .mockResolvedValueOnce([
+        {
+          ...savedResult,
+          status: "APPLIED",
+          actionItems: [{ id: "archive", executionStatus: "SUCCEEDED" }],
+        },
+      ] as any);
+    retryFailedRuleActionsMock.mockResolvedValue("APPLIED");
+
+    const result = await runRulesAction("account-1", {
+      messageId: "message-1",
+      threadId: "thread-1",
+      isTest: false,
+      skipDraftReplies: true,
+    });
+
+    expect(retryFailedRuleActionsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        executedRuleId: "failed-executed-rule",
+        message: expect.objectContaining({ id: "message-1" }),
+        skipDraftReplies: true,
+      }),
+    );
+    expect(result?.data?.[0]).toMatchObject({
+      existing: true,
+      status: "APPLIED",
+      actionItems: [{ id: "archive", executionStatus: "SUCCEEDED" }],
+    });
+    expect(runRulesMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a saved result that did not fail without running actions", async () => {
+    prisma.executedRule.findMany.mockResolvedValue([
+      {
+        id: "applied-executed-rule",
+        status: "APPLIED",
+        reason: "Rule matched",
+        actionItems: [],
+        rule: { id: "rule-1" },
+        createdAt: new Date("2026-03-27T00:00:00.000Z"),
+      },
+    ] as any);
+
+    const result = await runRulesAction("account-1", {
+      messageId: "message-1",
+      threadId: "thread-1",
+      isTest: false,
+    });
+
+    expect(retryFailedRuleActionsMock).not.toHaveBeenCalled();
+    expect(result?.data?.[0]).toMatchObject({ status: "APPLIED" });
   });
 
   it("does not check tier access for a normal run", async () => {

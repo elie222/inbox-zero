@@ -36,6 +36,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "marked": "18.1.1",
     "parse5": "8.1.1"
   },
   "peerDependencies": {

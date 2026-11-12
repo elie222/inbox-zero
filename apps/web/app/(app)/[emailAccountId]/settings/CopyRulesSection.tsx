@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { ArrowLeftRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,12 +39,14 @@ export function CopyRulesSection({
       <ItemSeparator />
       <Item size="sm">
         <ItemContent>
-          <ItemTitle>Copy Rules From Another Account</ItemTitle>
+          <ItemTitle>
+            <Trans>Copy Rules From Another Account</Trans>
+          </ItemTitle>
         </ItemContent>
         <ItemActions>
           <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
             <ArrowLeftRight className="mr-2 size-4" />
-            Copy Rules
+            <Trans>Copy Rules</Trans>
           </Button>
         </ItemActions>
       </Item>

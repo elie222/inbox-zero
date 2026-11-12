@@ -1,9 +1,15 @@
+import { Trans } from "@lingui/react/macro";
+
 export function InboxZeroCelebration({ splitName }: { splitName?: string }) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-6 pt-4">
       <SunriseScene />
       <h2 className="font-title text-2xl text-foreground tracking-tight">
-        {splitName ? "All clear" : "You've reached inbox zero"}
+        {splitName ? (
+          <Trans>All clear</Trans>
+        ) : (
+          <Trans>You've reached inbox zero</Trans>
+        )}
       </h2>
     </div>
   );

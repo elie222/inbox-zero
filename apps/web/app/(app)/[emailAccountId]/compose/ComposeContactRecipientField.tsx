@@ -6,6 +6,9 @@ import {
   ComboboxOption,
   ComboboxOptions,
 } from "@headlessui/react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import useSWR from "swr";
@@ -31,10 +34,10 @@ import {
   useLocalContactSuggestions,
 } from "./contact-suggestions";
 
-const RECIPIENT_LABELS: Record<ComposeRecipientField, string> = {
-  to: "To",
-  cc: "Cc",
-  bcc: "Bcc",
+const RECIPIENT_LABELS: Record<ComposeRecipientField, MessageDescriptor> = {
+  to: msg`To`,
+  cc: msg`Cc`,
+  bcc: msg`Bcc`,
 };
 
 export function ComposeContactRecipientField({
@@ -71,10 +74,11 @@ export function ComposeContactRecipientField({
   reconnectRequired: boolean;
   selectedRecipients: string;
 }) {
+  const { t, i18n } = useLingui();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const normalizedQuery = searchQuery.trim().toLowerCase();
-  const label = RECIPIENT_LABELS[name];
+  const label = i18n._(RECIPIENT_LABELS[name]);
   const selectedEmailAddresses = splitRecipientList(selectedRecipients);
 
   const { data: contacts } = useSWR<ContactsResponse>(
@@ -183,7 +187,7 @@ export function ComposeContactRecipientField({
         {selectedEmailAddresses.map((emailAddress) => (
           <Badge className="rounded-md" key={emailAddress} variant="secondary">
             <button
-              aria-label={`Edit ${emailAddress}`}
+              aria-label={t`Edit ${emailAddress}`}
               className="cursor-pointer"
               onClick={() => {
                 removeSelectedEmail(emailAddress);
@@ -194,7 +198,7 @@ export function ComposeContactRecipientField({
               {extractNameFromEmail(emailAddress)}
             </button>
             <button
-              aria-label={`Remove ${emailAddress}`}
+              aria-label={t`Remove ${emailAddress}`}
               onClick={() => removeSelectedEmail(emailAddress)}
               type="button"
             >
@@ -241,7 +245,9 @@ export function ComposeContactRecipientField({
                 role="status"
               >
                 <span className="flex-1">
-                  Reconnect this account to enable contact suggestions.
+                  <Trans>
+                    Reconnect this account to enable contact suggestions.
+                  </Trans>
                 </span>
                 <Button
                   className="h-auto p-0"
@@ -251,7 +257,7 @@ export function ComposeContactRecipientField({
                   type="button"
                   variant="link"
                 >
-                  Reconnect
+                  <Trans>Reconnect</Trans>
                 </Button>
               </div>
             )}

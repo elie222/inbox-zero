@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import type { DateRange } from "react-day-picker";
 import { subDays } from "date-fns/subDays";
 import { Mail, Sparkles, Users } from "lucide-react";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +26,7 @@ const selectOptions = [
 const defaultSelected = selectOptions[1];
 
 export function OrgStats({ organizationId }: { organizationId: string }) {
+  const { t } = useLingui();
   const { data: membership, isLoading: membershipLoading } =
     useOrganizationMembership();
   const isAdmin = hasOrganizationAdminRole(membership?.role ?? "");
@@ -87,7 +89,9 @@ export function OrgStats({ organizationId }: { organizationId: string }) {
 
   if (!isAdmin) {
     return (
-      <AccessDenied message="You don't have permission to view organization analytics. Only administrators can access this page." />
+      <AccessDenied
+        message={t`You don't have permission to view organization analytics. Only administrators can access this page.`}
+      />
     );
   }
 
@@ -118,17 +122,17 @@ export function OrgStats({ organizationId }: { organizationId: string }) {
           {totalsData && (
             <div className="grid gap-4 md:grid-cols-3">
               <StatCard
-                title="Emails Received"
+                title={t`Emails Received`}
                 value={totalsData.totalEmails.toLocaleString()}
                 icon={<Mail className="h-4 w-4 text-muted-foreground" />}
               />
               <StatCard
-                title="Rules Executed"
+                title={t`Rules Executed`}
                 value={totalsData.totalRules.toLocaleString()}
                 icon={<Sparkles className="h-4 w-4 text-muted-foreground" />}
               />
               <StatCard
-                title="Active Members"
+                title={t`Active Members`}
                 value={totalsData.activeMembers.toLocaleString()}
                 icon={<Users className="h-4 w-4 text-muted-foreground" />}
               />
@@ -144,10 +148,10 @@ export function OrgStats({ organizationId }: { organizationId: string }) {
           >
             {emailBucketsData && (
               <BucketChart
-                title="Email Volume Distribution"
-                description="Number of users by emails received in selected period"
+                title={t`Email Volume Distribution`}
+                description={t`Number of users by emails received in selected period`}
                 data={emailBucketsData}
-                emptyMessage="No email data available. Users need to load their stats first."
+                emptyMessage={t`No email data available. Users need to load their stats first.`}
                 unit="emails"
               />
             )}
@@ -160,10 +164,10 @@ export function OrgStats({ organizationId }: { organizationId: string }) {
           >
             {rulesBucketsData && (
               <BucketChart
-                title="Automation Usage Distribution"
-                description="Number of users by rules executed in selected period"
+                title={t`Automation Usage Distribution`}
+                description={t`Number of users by rules executed in selected period`}
                 data={rulesBucketsData}
-                emptyMessage="No automation data yet."
+                emptyMessage={t`No automation data yet.`}
                 unit="rules"
               />
             )}
@@ -207,7 +211,7 @@ function BucketChart({
   description: string;
   data: { label: string; userCount: number }[];
   emptyMessage: string;
-  unit?: string;
+  unit?: "emails" | "rules";
 }) {
   const hasData = data.some((bucket) => bucket.userCount > 0);
   const maxValue = Math.max(...data.map((d) => d.userCount), 1);
@@ -229,11 +233,18 @@ function BucketChart({
               <div key={bucket.label} className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {bucket.label} {unit}
+                    {unit === "rules" ? (
+                      <Trans>{bucket.label} rules</Trans>
+                    ) : (
+                      <Trans>{bucket.label} emails</Trans>
+                    )}
                   </span>
                   <span className="font-medium">
-                    {bucket.userCount}{" "}
-                    {bucket.userCount === 1 ? "user" : "users"}
+                    <Plural
+                      value={bucket.userCount}
+                      one="# user"
+                      other="# users"
+                    />
                   </span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-secondary">

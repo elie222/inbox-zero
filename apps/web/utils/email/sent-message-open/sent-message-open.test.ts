@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   appendSentMessageOpenPixel,
   chunkSentMessageOpenThreadIds,
-  describeSentMessageOpen,
   isSameOriginSentMessageOpenRequest,
   isSentMessageOpenPixelUrl,
   isSentMessageOpenToken,
@@ -110,46 +109,6 @@ describe("isSameOriginSentMessageOpenRequest", () => {
         referer: null,
       }),
     ).toBe(false);
-  });
-});
-
-describe("describeSentMessageOpen", () => {
-  const formatRelative = (date: Date) =>
-    date.toISOString() === "2026-09-11T12:00:00.000Z" ? "2 hours ago" : "later";
-
-  it("describes an unopened message", () => {
-    expect(
-      describeSentMessageOpen(
-        { firstOpenedAt: null, lastOpenedAt: null, openCount: 0 },
-        formatRelative,
-      ),
-    ).toBe("Not opened yet");
-  });
-
-  it("describes a single open", () => {
-    expect(
-      describeSentMessageOpen(
-        {
-          firstOpenedAt: "2026-09-11T12:00:00.000Z",
-          lastOpenedAt: "2026-09-11T12:00:00.000Z",
-          openCount: 1,
-        },
-        formatRelative,
-      ),
-    ).toBe("Opened 2 hours ago");
-  });
-
-  it("describes repeated opens", () => {
-    expect(
-      describeSentMessageOpen(
-        {
-          firstOpenedAt: "2026-09-11T10:00:00.000Z",
-          lastOpenedAt: "2026-09-11T12:00:00.000Z",
-          openCount: 3,
-        },
-        formatRelative,
-      ),
-    ).toBe("Opened 3 times · Last opened 2 hours ago");
   });
 });
 

@@ -28,7 +28,8 @@ export const sendEmailBody = z
     /**
      * The compose session whose mailbox draft this send replaces. Once the
      * send is delivered the server removes that draft, including one a save
-     * still in flight creates afterwards.
+     * still in flight creates afterwards. Only durable sends honor it; a plain
+     * send ignores it.
      */
     replacesDraftOfSession: z.string().min(1).max(128).optional(),
     replyToEmail: z

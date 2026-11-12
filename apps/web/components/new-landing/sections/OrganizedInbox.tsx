@@ -7,6 +7,7 @@ import {
   SectionSubtitle,
 } from "@/components/new-landing/common/Typography";
 import Image from "next/image";
+import { useLingui } from "@lingui/react/macro";
 
 interface OrganizedInboxProps {
   subtitle: React.ReactNode;
@@ -14,6 +15,8 @@ interface OrganizedInboxProps {
 }
 
 export function OrganizedInbox({ title, subtitle }: OrganizedInboxProps) {
+  const { t } = useLingui();
+
   return (
     <Section>
       <SectionHeading>{title}</SectionHeading>
@@ -22,7 +25,7 @@ export function OrganizedInbox({ title, subtitle }: OrganizedInboxProps) {
         <Image
           className="hidden h-auto w-full md:block"
           src="/images/new-landing/an-organized-inbox.png"
-          alt="an organized inbox"
+          alt={t`an organized inbox`}
           width={2120}
           height={1294}
           sizes="(min-width: 1280px) 1152px, (min-width: 1024px) calc(100vw - 64px), calc(100vw - 48px)"
@@ -30,7 +33,7 @@ export function OrganizedInbox({ title, subtitle }: OrganizedInboxProps) {
         <Image
           className="block h-auto w-full md:hidden"
           src="/images/new-landing/an-organized-inbox-mobile.png"
-          alt="an organized inbox"
+          alt={t`an organized inbox`}
           width={1431}
           height={3301}
           sizes="calc(100vw - 48px)"

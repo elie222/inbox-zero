@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { setupI18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   assertNoShortcutConflicts,
@@ -15,6 +17,8 @@ import {
   type ShortcutEntry,
   SHORTCUTS,
 } from "./registry";
+
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
 
 describe("shortcut registry", () => {
   afterEach(() => {
@@ -233,10 +237,10 @@ describe("createSequencePrefixTracker", () => {
 
 describe("buildShortcutPaletteCommands", () => {
   it("surfaces a shortcut once its handler is registered", () => {
-    expect(buildShortcutPaletteCommands({})).toEqual([]);
+    expect(buildShortcutPaletteCommands({}, i18n)).toEqual([]);
 
     const archive = vi.fn();
-    const [command, ...rest] = buildShortcutPaletteCommands({ archive });
+    const [command, ...rest] = buildShortcutPaletteCommands({ archive }, i18n);
 
     expect(rest).toEqual([]);
     expect(command).toMatchObject({
@@ -251,14 +255,14 @@ describe("buildShortcutPaletteCommands", () => {
   });
 
   it("leaves shortcuts without palette metadata out", () => {
-    const commands = buildShortcutPaletteCommands({ reply: vi.fn() });
+    const commands = buildShortcutPaletteCommands({ reply: vi.fn() }, i18n);
 
     expect(commands.map((command) => command.id)).not.toContain("reply");
   });
 
   it("surfaces keyboard shortcuts in the palette when help is registered", () => {
     const help = vi.fn();
-    const commands = buildShortcutPaletteCommands({ help });
+    const commands = buildShortcutPaletteCommands({ help }, i18n);
 
     expect(commands).toEqual(
       expect.arrayContaining([
@@ -277,7 +281,7 @@ describe("buildShortcutPaletteCommands", () => {
 
   it("surfaces forwarding in the palette when a message can be forwarded", () => {
     const forward = vi.fn();
-    const commands = buildShortcutPaletteCommands({ forward });
+    const commands = buildShortcutPaletteCommands({ forward }, i18n);
 
     expect(commands).toHaveLength(1);
     expect(commands.at(0)).toMatchObject({
@@ -298,7 +302,7 @@ function buildEntry(overrides: Partial<ShortcutEntry>): ShortcutEntry {
     keys: ["t"],
     scope: "mail",
     group: "Triage",
-    label: "Test",
+    label: msg`Test`,
     ...overrides,
   };
 }

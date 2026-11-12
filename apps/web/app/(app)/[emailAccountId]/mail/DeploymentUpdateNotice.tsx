@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { claimAutomaticReload } from "@/utils/automatic-reload";
 import { reloadAtNextSafeMoment } from "@/utils/safe-reload";
 import type { DeploymentResponse } from "@/app/api/deployment/route";
 
@@ -17,6 +18,8 @@ export function DeploymentUpdateNotice() {
 
     let lastCheckAt = 0;
     let notified = false;
+    let disposed = false;
+    let cancelPendingReload: (() => void) | undefined;
     const check = async () => {
       if (notified || Date.now() - lastCheckAt < MIN_CHECK_GAP_MS) return;
       lastCheckAt = Date.now();
@@ -24,10 +27,18 @@ export function DeploymentUpdateNotice() {
         const response = await fetch("/api/deployment", { cache: "no-store" });
         if (!response.ok) return;
         const { deploymentId }: DeploymentResponse = await response.json();
-        if (!deploymentId || deploymentId === tabDeploymentId || notified)
+        if (
+          disposed ||
+          !deploymentId ||
+          deploymentId === tabDeploymentId ||
+          notified
+        )
           return;
         notified = true;
-        reloadAtNextSafeMoment(() => window.location.reload());
+        cancelPendingReload = reloadAtNextSafeMoment(() => {
+          if (claimAutomaticReload()) window.location.reload();
+          else notified = false;
+        });
       } catch {
         // Offline or mid-deploy; the next check will try again.
       }
@@ -41,6 +52,8 @@ export function DeploymentUpdateNotice() {
     window.addEventListener("focus", check);
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
+      disposed = true;
+      cancelPendingReload?.();
       clearInterval(interval);
       window.removeEventListener("focus", check);
       document.removeEventListener("visibilitychange", onVisibilityChange);

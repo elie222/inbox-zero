@@ -78,7 +78,7 @@ model User {
   utms                    Json?
   errorMessages           Json? // eg. user set incorrect AI API key
   announcementDismissedAt DateTime?
-  dismissedHints          String[]  @default([])
+  dismissedHints          String[]      @default([])
 
   // survey answers (extracted from onboardingAnswers for easier querying)
   surveyFeatures     String[] // multiple choice: features user is interested in
@@ -89,15 +89,15 @@ model User {
   surveyImprovements String? // open text: what user wants to improve
 
   // settings
-  mcpServerEnabled  Boolean  @default(false)
-  mcpTokenVersion   Int      @default(0)
-  emailOtpEnabled   Boolean  @default(false)
-  emailOtpVersion   Int      @default(0)
-  aiProvider        String?
-  aiModel           String?
-  aiApiKey          String?
+  mcpServerEnabled     Boolean  @default(false)
+  mcpTokenVersion      Int      @default(0)
+  emailOtpEnabled      Boolean  @default(false)
+  emailOtpVersion      Int      @default(0)
+  aiProvider           String?
+  aiModel              String?
+  aiApiKey             String?
   decisionModelEnabled Boolean? // null follows DEFAULT_DECISION_MODEL_ENABLED
-  webhookSecret     String?
+  webhookSecret        String?
 
   // referral system
   referralCode String? @unique // User's own referral code
@@ -195,8 +195,8 @@ model EmailAccount {
   allowHiddenAiDraftLinks   Boolean              @default(false)
   rulesRevision             Int                  @default(0)
 
-  mailLayout          MailLayout @default(LIST)
-  mailExpandedPreview Boolean    @default(false)
+  mailLayout          MailLayout     @default(LIST)
+  mailExpandedPreview Boolean        @default(false)
   /// Collapses threads from bundled splits into one row each in the inbox.
   /// Null until first turned on, which is when default bundles are chosen.
   mailBundleInbox     Boolean?
@@ -240,6 +240,7 @@ model EmailAccount {
   categories          Category[]
   threadTrackers      ThreadTracker[]
   cleanupJobs         CleanupJob[]
+  bulkInboxActionJobs BulkInboxActionJob[]
   cleanupThreads      CleanupThread[]
   emailMessages       EmailMessage[]
   emailTokens         EmailToken[]
@@ -289,17 +290,17 @@ model EmailAccount {
 // ids for LABEL splits and a single provider category for CATEGORY splits; it is empty
 // for INBOX/UNREAD.
 model MailSplit {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  name      String
-  order     Int
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  name          String
+  order         Int
   /// Whether every filter must match, or any one of them ("Show mail matching
   /// all/any of these conditions"). A split with no filters is the plain inbox.
-  matchAll  Boolean  @default(true)
+  matchAll      Boolean  @default(true)
   /// Shown as one collapsed row in the inbox when the account bundles its inbox.
-  bundleInInbox Boolean @default(false)
-  hideFromAll   Boolean @default(false)
+  bundleInInbox Boolean  @default(false)
+  hideFromAll   Boolean  @default(false)
 
   emailAccountId String
   emailAccount   EmailAccount      @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -1298,6 +1299,67 @@ model CleanupThread {
   @@index([emailAccountId])
 }
 
+// A bulk inbox action the user confirmed in assistant chat. A background job
+// pages through every search match and applies the action.
+model BulkInboxActionJob {
+  id        String                   @id @default(cuid())
+  createdAt DateTime                 @default(now())
+  updatedAt DateTime                 @updatedAt
+  status    BulkInboxActionJobStatus @default(RUNNING)
+
+  // Provider-specific search filters, with the same meaning as searchInbox.
+  search      Json
+  action      String
+  labelId     String?
+  labelName   String?
+  instruction String?
+
+  // Re-fetching the current page until it holds no unhandled threads keeps
+  // paging correct while the action removes matches from the results.
+  pageToken        String?
+  rateLimitedUntil DateTime?
+  leaseExpiresAt   DateTime?
+  // Each queued chunk carries the current token, so stale or duplicate
+  // deliveries do nothing.
+  chunkToken       String?
+  // Times a stalled job was requeued; past a few, it is marked failed.
+  recoveryCount    Int       @default(0)
+
+  processedCount Int     @default(0)
+  matchedCount   Int     @default(0)
+  actedCount     Int     @default(0)
+  skippedCount   Int     @default(0)
+  failedCount    Int     @default(0)
+  // Stopped at the per-job thread limit rather than running out of matches.
+  limitReached   Boolean @default(false)
+
+  error       String?
+  completedAt DateTime?
+
+  // Chat message id plus tool call id. Models can repeat tool call ids across
+  // chats, and one confirmation must map to exactly one job.
+  confirmationKey String
+  chatId          String?
+  chat            Chat?                   @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  handledThreads  BulkInboxActionThread[]
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, confirmationKey])
+  @@index([chatId, updatedAt])
+}
+
+// Threads a bulk job already handled, so a thread whose messages appear on
+// several result pages is processed and counted once.
+model BulkInboxActionThread {
+  jobId    String
+  threadId String
+  job      BulkInboxActionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@id([jobId, threadId])
+}
+
 model Knowledge {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -1472,16 +1534,18 @@ model Chat {
 
   name String?
 
-  compactionCount       Int     @default(0)
+  compactionCount       Int       @default(0)
   lastSeenRulesRevision Int?
   activeStreamId        String?
   activeStreamStartedAt DateTime?
 
-  messages       ChatMessage[]
-  compactions    ChatCompaction[]
-  memories       ChatMemory[]
-  emailAccountId String
-  emailAccount   EmailAccount     @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  messages            ChatMessage[]
+  compactions         ChatCompaction[]
+  memories            ChatMemory[]
+  actionTotals        ChatActionTotal[]
+  bulkInboxActionJobs BulkInboxActionJob[]
+  emailAccountId      String
+  emailAccount        EmailAccount         @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@index([emailAccountId])
   @@index([deletedAt])
@@ -1515,6 +1579,22 @@ model ChatCompaction {
   chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
   @@index([chatId])
+}
+
+// Running count of inbox actions the assistant took in a chat, so totals stay
+// exact after earlier tool results are compacted or trimmed away.
+model ChatActionTotal {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  action String
+  count  Int    @default(0)
+
+  chatId String
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, action])
 }
 
 model ChatMemory {
@@ -2249,6 +2329,8 @@ enum MailSplitFilterKind {
   CATEGORY
   FROM
   OLDER_THAN
+  /// Mail addressed to an address or @domain, in To or Cc.
+  TO
 }
 
 enum DraftReplyConfidence {
@@ -2369,6 +2451,13 @@ enum ThreadTrackerType {
 enum ProcessorType {
   LEMON_SQUEEZY
   STRIPE
+}
+
+enum BulkInboxActionJobStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 enum CleanAction {

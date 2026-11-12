@@ -76,4 +76,40 @@ describe("Resend transactional email provider", () => {
       }),
     ).rejects.toThrow("Error sending email: Rejected");
   });
+
+  it.each([
+    ["Re: Hello", "Re: Hello"],
+    ["a".repeat(1998), "a".repeat(1998)],
+    ["a".repeat(1999), "a".repeat(1999)],
+    ["a".repeat(2000), "a".repeat(1999)],
+    [`Re: ${"a".repeat(3000)}`, `Re: ${"a".repeat(1995)}`],
+    [`${"a".repeat(1998)}😀tail`, "a".repeat(1998)],
+    [`${"a".repeat(1997)}😀tail`, `${"a".repeat(1997)}😀`],
+  ])("bounds subject case %# without splitting Unicode or changing threading", async (subject, expected) => {
+    mockSend.mockResolvedValue({ data: { id: "message_1" }, error: null });
+    const provider = createResendTransactionalEmailProvider("api_key");
+    const headers = {
+      "In-Reply-To": "<original@example.test>",
+      References: "<original@example.test>",
+    };
+
+    await provider.send({
+      from: "sender@example.test",
+      to: "recipient@example.test",
+      replyTo: "reply@example.test",
+      subject,
+      headers,
+      html: "<p>Hello</p>",
+      text: "Hello",
+    });
+
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expected,
+        headers,
+        replyTo: "reply@example.test",
+      }),
+      undefined,
+    );
+  });
 });

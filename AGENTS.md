@@ -74,6 +74,7 @@
 ## Component Guidelines
 - Use shadcn/ui components when available
 - Use `LoadingContent` component for async data: `<LoadingContent loading={isLoading} error={error}>{data && <YourComponent data={data} />}</LoadingContent>`
+- UI translation uses Lingui; see `.claude/skills/i18n/SKILL.md`. A PR that adds or changes UI strings in a translated area wraps them and adds their translations to every locale's `messages.po` (`pnpm -F inbox-zero-ai intl:extract`).
 
 ## Fullstack Workflow
 See `.claude/skills/fullstack-workflow/SKILL.md` for full examples and templates.

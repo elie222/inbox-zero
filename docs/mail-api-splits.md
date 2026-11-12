@@ -29,9 +29,10 @@ entire filter list; it is not a partial field patch. Its ID comes from the path,
 not the body. `matchAll` defaults to true on both create and update. Names are
 trimmed and must contain 1–60 characters. There are at most 25 filters per split
 and 14 persisted splits per account. Filter kinds are `LABEL`, `CATEGORY`,
-`FROM`, `UNREAD`, `STARRED`, and `OLDER_THAN`; value requirements and allowed age
-values follow `split-filters.ts` and `split-query.ts`. Multiple distinct senders
-or both Outlook inbox sections require `matchAll: false`. As on web, the action
+`FROM`, `TO` (a recipient address or `@domain` in To or Cc), `UNREAD`,
+`STARRED`, and `OLDER_THAN`; value requirements and allowed age values follow
+`split-filters.ts` and `split-query.ts`. Multiple distinct senders, multiple
+distinct recipients, or both Outlook inbox sections require `matchAll: false`. As on web, the action
 schemas allow an empty filter list; such a split cannot later be deleted.
 
 DELETE uses the web action's account-scoped deletion and lock. Filterless

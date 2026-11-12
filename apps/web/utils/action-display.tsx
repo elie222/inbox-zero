@@ -1,3 +1,5 @@
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { ActionType, type MessagingProvider } from "@/generated/prisma/enums";
 import { getEmailTerminology } from "@/utils/terminology";
 import { sortActionsByPriority } from "@/utils/action-sort";
@@ -23,6 +25,7 @@ import {
   getIntegrationActionDisplayValue,
   getIntegrationActionLabel,
 } from "@/utils/mcp/tool-specs";
+import { getIntegrationActionLabelMessage } from "@/utils/mcp/tool-specs-messages";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
 
 /**
@@ -69,21 +72,7 @@ export function getActionDisplay(
       }
       return "Draft Reply";
     case ActionType.LABEL: {
-      let labelName: string | null | undefined = null;
-
-      // Priority 1: Use labelId to look up current name from labels
-      if (action.labelId && labels?.length) {
-        const foundLabel = labels.find((l) => l.id === action.labelId);
-        if (foundLabel) {
-          labelName = foundLabel.name;
-        }
-      }
-
-      // Priority 2: Fallback to stored label name (may be outdated but better than nothing)
-      if (!labelName && action.label) {
-        labelName = action.label;
-      }
-
+      const labelName = getActionLabelName(action, labels);
       return labelName
         ? `${terminology.label.action} as '${truncate(labelName, 15)}'`
         : terminology.label.action;
@@ -136,26 +125,40 @@ export function getActionDisplay(
 }
 
 export const ACTION_TYPE_LABELS = {
-  [ActionType.LABEL]: "Label",
-  [ActionType.ARCHIVE]: "Archive",
-  [ActionType.DELETE]: "Delete",
-  [ActionType.MARK_READ]: "Mark read",
-  [ActionType.MARK_SPAM]: "Mark spam",
-  [ActionType.STAR]: "Star",
-  [ActionType.MOVE_FOLDER]: "Move to folder",
-  [ActionType.FORWARD]: "Forward",
-  [ActionType.REPLY]: "Reply",
-  [ActionType.SEND_EMAIL]: "Send email",
-  [ActionType.DRAFT_EMAIL]: "Draft reply",
-  [ActionType.DRAFT_MESSAGING_CHANNEL]: "Draft to chat channel",
-  [ActionType.NOTIFY_MESSAGING_CHANNEL]: "Notify chat channel",
-  [ActionType.CALL_WEBHOOK]: "Call webhook",
-  [ActionType.DIGEST]: "Add to digest",
-  [ActionType.NOTIFY_SENDER]: "Notify sender",
+  [ActionType.LABEL]: msg({ message: "Label", context: "action" }),
+  [ActionType.ARCHIVE]: msg`Archive`,
+  [ActionType.DELETE]: msg`Delete`,
+  [ActionType.MARK_READ]: msg`Mark read`,
+  [ActionType.MARK_SPAM]: msg`Mark spam`,
+  [ActionType.STAR]: msg`Star`,
+  [ActionType.MOVE_FOLDER]: msg`Move to folder`,
+  [ActionType.FORWARD]: msg`Forward`,
+  [ActionType.REPLY]: msg`Reply`,
+  [ActionType.SEND_EMAIL]: msg`Send email`,
+  [ActionType.DRAFT_EMAIL]: msg`Draft reply`,
+  [ActionType.DRAFT_MESSAGING_CHANNEL]: msg`Draft to chat channel`,
+  [ActionType.NOTIFY_MESSAGING_CHANNEL]: msg`Notify chat channel`,
+  [ActionType.CALL_WEBHOOK]: msg`Call webhook`,
+  [ActionType.DIGEST]: msg`Add to digest`,
+  [ActionType.NOTIFY_SENDER]: msg`Notify sender`,
   // ActionType alone cannot name a specific tool; getIntegrationActionLabel
   // gives the precise name when the action is known.
-  [ActionType.INTEGRATION]: getIntegrationActionLabel(),
-} satisfies Record<ActionType, string>;
+  [ActionType.INTEGRATION]: getIntegrationActionLabelMessage(),
+} satisfies Record<ActionType, MessageDescriptor>;
+
+export function getActionLabelName(
+  action: { label?: string | null; labelId?: string | null },
+  labels: Array<{ id: string; name: string }>,
+): string | null {
+  // Priority 1: Use labelId to look up current name from labels
+  if (action.labelId && labels?.length) {
+    const foundLabel = labels.find((l) => l.id === action.labelId);
+    if (foundLabel) return foundLabel.name;
+  }
+
+  // Priority 2: Fallback to stored label name (may be outdated but better than nothing)
+  return action.label || null;
+}
 
 export function getActionIcon(actionType: ActionType) {
   switch (actionType) {

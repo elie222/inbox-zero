@@ -11,7 +11,9 @@ import {
   type SetStateAction,
 } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
-import { capitalCase } from "capital-case";
+import { msg } from "@lingui/core/macro";
+import type { MessageDescriptor } from "@lingui/core";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { toastSuccess, toastError } from "@/components/Toast";
 import type { GroupItemsResponse } from "@/app/api/user/group/[groupId]/items/route";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -91,7 +93,7 @@ function ViewGroupInner({ groupId }: { groupId: string }) {
                 onClick={() => setShowAddItem(true)}
               >
                 <PlusIcon className="mr-2 h-4 w-4" />
-                Add pattern
+                <Trans>Add pattern</Trans>
               </Button>
             </div>
           </div>
@@ -108,7 +110,7 @@ function ViewGroupInner({ groupId }: { groupId: string }) {
               <GroupItems items={group.items} mutate={mutate} />
             ) : (
               <MessageText className="my-4 px-4">
-                No learned patterns yet
+                <Trans>No learned patterns yet</Trans>
               </MessageText>
             ))}
         </LoadingContent>
@@ -127,6 +129,7 @@ const AddGroupItemForm = ({
   setShowAddItem: Dispatch<SetStateAction<boolean>>;
 }) => {
   const { emailAccountId } = useAccount();
+  const { t } = useLingui();
   const [exclude, setExclude] = useState(false);
 
   const {
@@ -150,15 +153,15 @@ const AddGroupItemForm = ({
       });
       if (result?.serverError) {
         toastError({
-          description: `Failed to add pattern. ${result.serverError || ""}`,
+          description: t`Failed to add pattern. ${result.serverError || ""}`,
         });
       } else {
-        toastSuccess({ description: "Pattern added!" });
+        toastSuccess({ description: t`Pattern added!` });
       }
       mutate();
       onClose();
     },
-    [mutate, onClose, emailAccountId, exclude],
+    [mutate, onClose, emailAccountId, exclude, t],
   );
 
   const handleKeyDown = useCallback(
@@ -178,8 +181,8 @@ const AddGroupItemForm = ({
         <Select
           label=""
           options={[
-            { label: "From", value: GroupItemType.FROM },
-            { label: "Subject", value: GroupItemType.SUBJECT },
+            { label: t`From`, value: GroupItemType.FROM },
+            { label: t`Subject`, value: GroupItemType.SUBJECT },
           ]}
           {...register("type", { required: true })}
           error={errors.type}
@@ -188,7 +191,7 @@ const AddGroupItemForm = ({
           <Input
             type="text"
             name="value"
-            placeholder="e.g. hello@company.com"
+            placeholder={t`e.g. hello@company.com`}
             registerProps={register("value", { required: true })}
             error={errors.value}
           />
@@ -202,10 +205,10 @@ const AddGroupItemForm = ({
               handleSubmit(onSubmit)();
             }}
           >
-            Add
+            <Trans>Add</Trans>
           </Button>
           <Button variant="outline" size="sm" onClick={onClose}>
-            Cancel
+            <Trans>Cancel</Trans>
           </Button>
         </div>
       </div>
@@ -213,8 +216,8 @@ const AddGroupItemForm = ({
       <div className="mt-4 flex justify-end">
         <Toggle
           name="exclude"
-          tooltipText="When enabled, never match this pattern."
-          label="Exclude"
+          tooltipText={t`When enabled, never match this pattern.`}
+          label={t`Exclude`}
           enabled={exclude}
           onChange={setExclude}
         />
@@ -239,8 +242,10 @@ function GroupItems({
       <GroupItemList
         title={
           <div className="flex items-center gap-x-1.5">
-            When these patterns are encountered, the rule will automatically
-            match:
+            <Trans>
+              When these patterns are encountered, the rule will automatically
+              match:
+            </Trans>
           </div>
         }
         items={groupedByStatus.include || []}
@@ -250,7 +255,9 @@ function GroupItems({
         <GroupItemList
           title={
             <div className="flex items-center gap-x-1.5">
-              When these patterns are encountered, the rule will never match:
+              <Trans>
+                When these patterns are encountered, the rule will never match:
+              </Trans>
             </div>
           }
           items={groupedByStatus.exclude || []}
@@ -271,6 +278,7 @@ function GroupItemList({
   mutate: KeyedMutator<GroupItemsResponse>;
 }) {
   const { emailAccountId } = useAccount();
+  const { t, i18n } = useLingui();
 
   return (
     <Table>
@@ -295,7 +303,7 @@ function GroupItemList({
                   {isCreatedRecently ||
                     (isUpdatedRecently && (
                       <Badge variant="green" className="mr-1">
-                        {isCreatedRecently ? "New!" : "Updated"}
+                        {isCreatedRecently ? t`New!` : t`Updated`}
                       </Badge>
                     ))}
 
@@ -305,9 +313,11 @@ function GroupItemList({
                 </div>
               </TableCell>
               <TableCell className="flex items-center justify-end gap-4 py-2 text-right">
-                <Tooltip content="Date added">
+                <Tooltip content={t`Date added`}>
                   <MutedText className="hidden sm:block">
-                    {formatShortDate(new Date(item.createdAt))}
+                    {formatShortDate(new Date(item.createdAt), {
+                      locale: i18n.locale,
+                    })}
                   </MutedText>
                 </Tooltip>
 
@@ -320,11 +330,11 @@ function GroupItemList({
                     });
                     if (result?.serverError) {
                       toastError({
-                        description: `Failed to remove ${item.value}. ${result.serverError || ""}`,
+                        description: t`Failed to remove ${item.value}. ${result.serverError || ""}`,
                       });
                     } else {
                       toastSuccess({
-                        description: "Removed learned pattern!",
+                        description: t`Removed learned pattern!`,
                       });
                       mutate();
                     }
@@ -340,7 +350,9 @@ function GroupItemList({
         {items.length === 0 && (
           <TableRow>
             <TableCell colSpan={3}>
-              <MessageText>No items</MessageText>
+              <MessageText>
+                <Trans>No items</Trans>
+              </MessageText>
             </TableCell>
           </TableRow>
         )}
@@ -354,17 +366,25 @@ export function GroupItemDisplay({
 }: {
   item: Pick<GroupItem, "type" | "value" | "exclude">;
 }) {
+  const { i18n } = useLingui();
+
   return (
     <>
       {item.exclude && (
         <Badge variant="destructive" className="mr-2">
-          Exclude
+          <Trans>Exclude</Trans>
         </Badge>
       )}
       <Badge variant="secondary" className="mr-2">
-        {capitalCase(item.type)}
+        {i18n._(GROUP_ITEM_TYPE_LABELS[item.type])}
       </Badge>
       {item.value}
     </>
   );
 }
+
+const GROUP_ITEM_TYPE_LABELS: Record<GroupItemType, MessageDescriptor> = {
+  FROM: msg`From`,
+  SUBJECT: msg`Subject`,
+  BODY: msg`Body`,
+};

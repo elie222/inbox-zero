@@ -146,7 +146,7 @@ describe("query subscriptions", () => {
     registry.closeAll();
   });
 
-  it("does not notify listeners when a refresh returns the same revision", async () => {
+  it("publishes updated query data when the database revision is unchanged", async () => {
     const registry = createQueryRegistry();
     const requests: Array<ReturnType<typeof deferredSnapshot>> = [];
     const handle = registry.observe("inbox", () => {
@@ -156,7 +156,7 @@ describe("query subscriptions", () => {
     });
     requests[0].resolve({
       revision: { databaseEpoch: "db", sequence: 1 },
-      data: "same",
+      data: "loading",
     });
     await waitFor(() => handle.getSnapshot().status === "ready");
     let notifications = 0;
@@ -167,11 +167,11 @@ describe("query subscriptions", () => {
     await waitFor(() => requests.length === 2);
     requests[1].resolve({
       revision: { databaseEpoch: "db", sequence: 1 },
-      data: "same-object-identity-ignored",
+      data: "ready",
     });
     await refresh;
-    expect(notifications).toBe(0);
-    expect(handle.getSnapshot().data).toBe("same");
+    expect(notifications).toBe(1);
+    expect(handle.getSnapshot().data).toBe("ready");
     registry.closeAll();
   });
 });

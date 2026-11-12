@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Trans } from "@lingui/react/macro";
 import {
   ExternalLinkIcon,
   Undo2Icon,
@@ -66,7 +67,9 @@ export function EmailItem({
           </Link>
         </div>
         <div className="truncate text-xs text-muted-foreground">
-          From: {email.from} • {formatShortDate(email.date)}
+          <Trans>
+            From: {email.from} • {formatShortDate(email.date)}
+          </Trans>
         </div>
       </div>
 
@@ -116,20 +119,36 @@ function StatusBadge({
   emailAccountId: string;
 }) {
   if (status === "processing") {
-    return <Badge color="purple">Processing...</Badge>;
+    return (
+      <Badge color="purple">
+        <Trans>Processing...</Trans>
+      </Badge>
+    );
   }
 
   if (undoState === "undoing") {
-    return <Badge color="purple">Undoing...</Badge>;
+    return (
+      <Badge color="purple">
+        <Trans>Undoing...</Trans>
+      </Badge>
+    );
   }
 
   if (undoState === "undone") {
-    return <Badge color="purple">Undone</Badge>;
+    return (
+      <Badge color="purple">
+        <Trans>Undone</Trans>
+      </Badge>
+    );
   }
 
   // If the email has the undone flag, show it as undone regardless of other status
   if (email.undone) {
-    return <Badge color="purple">Undone</Badge>;
+    return (
+      <Badge color="purple">
+        <Trans>Undone</Trans>
+      </Badge>
+    );
   }
 
   if (status === "markedDone" || status === "markingDone") {
@@ -137,13 +156,7 @@ function StatusBadge({
       <div className="group">
         <span className="group-hover:hidden">
           <Badge color="green">
-            {status === "markingDone"
-              ? action === CleanAction.MARK_READ
-                ? "Marking read..."
-                : "Archiving..."
-              : action === CleanAction.MARK_READ
-                ? "Marked read"
-                : "Archived"}
+            <DoneBadgeText status={status} action={action} />
           </Badge>
         </span>
         <div className="hidden group-hover:inline-flex">
@@ -169,7 +182,7 @@ function StatusBadge({
             }}
           >
             <Undo2Icon className="size-3" />
-            Undo
+            <Trans>Undo</Trans>
           </Button>
         </div>
       </div>
@@ -180,7 +193,9 @@ function StatusBadge({
     return (
       <div className="group">
         <span className="group-hover:hidden">
-          <Badge color="blue">Keep</Badge>
+          <Badge color="blue">
+            <Trans>Keep</Trans>
+          </Badge>
         </span>
         <div className="hidden group-hover:inline-flex">
           <Button
@@ -206,12 +221,12 @@ function StatusBadge({
             {action === CleanAction.ARCHIVE ? (
               <>
                 <ArchiveIcon className="mr-1 size-3" />
-                Archive
+                <Trans>Archive</Trans>
               </>
             ) : (
               <>
                 <CheckIcon className="mr-1 size-3" />
-                Mark Read
+                <Trans>Mark Read</Trans>
               </>
             )}
           </Button>
@@ -223,6 +238,27 @@ function StatusBadge({
   if (status === "labelled") {
     return <Badge color="yellow">{email.label}</Badge>;
   }
+}
+
+function DoneBadgeText({
+  status,
+  action,
+}: {
+  status: Status;
+  action: CleanAction;
+}) {
+  if (status === "markingDone") {
+    return action === CleanAction.MARK_READ ? (
+      <Trans>Marking read...</Trans>
+    ) : (
+      <Trans>Archiving...</Trans>
+    );
+  }
+  return action === CleanAction.MARK_READ ? (
+    <Trans>Marked read</Trans>
+  ) : (
+    <Trans>Archived</Trans>
+  );
 }
 
 function getStatus(email: CleanThread): Status {

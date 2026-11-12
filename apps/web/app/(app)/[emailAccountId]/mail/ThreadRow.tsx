@@ -2,6 +2,7 @@
 
 import { memo, useMemo, type Ref } from "react";
 import { CopyIcon, PaperclipIcon } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { MailThreadRow } from "@inboxzero/mail-ui/MailThreadRow";
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
@@ -76,6 +77,7 @@ export const ThreadRow = memo(function ThreadRow({
   hasLocalDraft = false,
   sentMessageOpen,
 }: ThreadRowProps) {
+  const { t, i18n } = useLingui();
   const message = thread.messages.at(-1);
   const labels = useMemo(
     () =>
@@ -92,8 +94,9 @@ export const ThreadRow = memo(function ThreadRow({
       getThreadParticipantNames(
         [...(thread.participantMessages ?? []), ...thread.messages],
         accountEmail,
+        t`me`,
       ).join(", "),
-    [thread.messages, thread.participantMessages, accountEmail],
+    [thread.messages, thread.participantMessages, accountEmail, t],
   );
 
   if (!message) return null;
@@ -122,7 +125,9 @@ export const ThreadRow = memo(function ThreadRow({
                 aria-hidden
                 className="size-3.5 shrink-0 text-muted-foreground"
               />
-              <span className="sr-only">Has attachment</span>
+              <span className="sr-only">
+                <Trans>Has attachment</Trans>
+              </span>
             </>
           ) : null}
           {sentMessageOpen ? (
@@ -131,6 +136,7 @@ export const ThreadRow = memo(function ThreadRow({
           <span className="text-muted-foreground text-xs">
             {formatShortDate(internalDateToDate(message.internalDate), {
               lowercase: true,
+              locale: i18n.locale,
             })}
           </span>
         </div>
@@ -169,23 +175,30 @@ export const ThreadRow = memo(function ThreadRow({
       rowRef={rowRef}
       selectionEnabled={selectionEnabled}
       snippet={snippet}
+      strings={{
+        draft: t`Draft`,
+        starredConversation: t`Starred conversation`,
+        selectConversation: (participants) =>
+          t`Select conversation with ${participants}`,
+      }}
       subject={getConversationSubject(thread.messages)}
     />
   );
 });
 
 function OtpCodeButton({ code }: { code: string }) {
+  const { t } = useLingui();
   return (
     <button
-      aria-label={`Copy code ${code}`}
+      aria-label={t`Copy code ${code}`}
       className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-background px-1.5 py-px font-medium text-foreground text-xs tabular-nums leading-4 hover:bg-muted"
       onClick={async (event) => {
         event.stopPropagation();
         try {
           await navigator.clipboard.writeText(code);
-          toastSuccess({ description: "Code copied" });
+          toastSuccess({ description: t`Code copied` });
         } catch {
-          toastError({ description: "Failed to copy code" });
+          toastError({ description: t`Failed to copy code` });
         }
       }}
       // Enter would otherwise bubble to the row and open the thread.
@@ -203,12 +216,13 @@ function AccountAvatar({
 }: {
   account: { email: string; image: string | null; name: string | null };
 }) {
+  const { t } = useLingui();
   const label = account.name || account.email;
   const initial = label.trim().at(0)?.toUpperCase() || "A";
 
   return (
     <Avatar
-      aria-label={`Inbox: ${label}`}
+      aria-label={t`Inbox: ${label}`}
       className="size-5"
       title={account.email}
     >

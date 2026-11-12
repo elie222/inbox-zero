@@ -168,7 +168,21 @@ export async function watchReplyHandoff(page: Page, replyText: string) {
       const state = window as unknown as ReplyHandoffWindow;
       state.__replyHandoff = { frames, raf: 0 };
       const sample = () => {
+        const selected = document.querySelector<HTMLElement>(
+          `${selector}[data-selected="true"]`,
+        );
+        const bar = document.querySelector<HTMLElement>(
+          '[data-testid="thread-selection-bar"]',
+        );
+        const rowBox = selected?.getBoundingClientRect();
+        const barBox = bar?.getBoundingClientRect();
         frames.push({
+          selectionAligned: Boolean(
+            rowBox &&
+              barBox &&
+              Math.abs(barBox.y - rowBox.y) < 1 &&
+              Math.abs(barBox.height - rowBox.height) < 1,
+          ),
           composer: Array.from(
             document.querySelectorAll('[contenteditable="true"]'),
           ).some((element) => element.textContent?.includes(text)),
@@ -212,6 +226,9 @@ export function expectSeamlessReplyHandoff(
     [],
   );
   expect(frames.at(-1)?.rows).toBe(rowsBefore + 1);
+  expect(
+    frames.slice(firstClosed).filter((frame) => !frame.selectionAligned),
+  ).toEqual([]);
 }
 
 export async function requestMailSync(page: Page) {
@@ -387,7 +404,11 @@ export async function readProviderAccessToken() {
   return token;
 }
 
-type ReplyHandoffFrame = { composer: boolean; rows: number };
+type ReplyHandoffFrame = {
+  composer: boolean;
+  rows: number;
+  selectionAligned: boolean;
+};
 
 type ReplyHandoffWindow = {
   __replyHandoff: { frames: ReplyHandoffFrame[]; raf: number };

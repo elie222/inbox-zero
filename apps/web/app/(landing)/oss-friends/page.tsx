@@ -11,6 +11,8 @@ import {
 import { Button } from "@/components/new-landing/common/Button";
 import { BlogHeader } from "@/components/layouts/BlogLayout";
 import { getBrandTitle } from "@/utils/branding";
+import { LinguiClientProvider } from "@/providers/LinguiClientProvider";
+import { getLandingMessages, initLandingLingui } from "@/utils/i18n/server";
 
 export const metadata: Metadata = {
   title: getBrandTitle("Open Source Friends"),
@@ -29,8 +31,11 @@ export default async function OSSFriendsPage() {
     const res = await fetch("https://formbricks.com/api/oss-friends");
     const data: { data: OSSFriend[] } = await res.json();
 
+    // The shared landing sections (CTA, footer) are translated components.
+    initLandingLingui("en");
+
     return (
-      <>
+      <LinguiClientProvider locale="en" messages={getLandingMessages("en")}>
         <BlogHeader />
 
         <div className="mx-auto mt-20 max-w-6xl pb-10">
@@ -63,7 +68,7 @@ export default async function OSSFriendsPage() {
 
         <FinalCTA />
         <Footer />
-      </>
+      </LinguiClientProvider>
     );
   } catch (error) {
     console.error(error);

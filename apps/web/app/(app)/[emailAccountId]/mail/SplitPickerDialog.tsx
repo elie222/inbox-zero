@@ -1,5 +1,7 @@
 "use client";
 
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useMemo, useRef, useState } from "react";
 import { Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
@@ -37,6 +39,7 @@ export function SplitPickerDialog({
   onClose: () => void;
   onApplied: (splitId: string) => void;
 }) {
+  const { t } = useLingui();
   const { emailAccountId, userEmail } = useAccount();
   // Loaded on open rather than with the list, since only this action needs it.
   const { data: sendAs, isLoading: isLoadingSendAs } =
@@ -66,7 +69,7 @@ export function SplitPickerDialog({
         senders,
       });
     } catch {
-      toast.error("Couldn't add senders. Please try again.");
+      toast.error(t`Couldn't add senders. Please try again.`);
       return;
     } finally {
       pending.current = false;
@@ -78,10 +81,11 @@ export function SplitPickerDialog({
       return;
     }
     const added = result?.data?.added ?? 0;
+    const splitName = split.name;
     toast.success(
       added
-        ? `Added ${pluralSenders(added)} to ${split.name}`
-        : `${split.name} already includes ${senderCount === 1 ? "this sender" : "these senders"}`,
+        ? t`Added ${plural(added, { one: "# sender", other: "# senders" })} to ${splitName}`
+        : t`${splitName} already includes ${plural(senderCount, { one: "this sender", other: "these senders" })}`,
     );
     onApplied(split.id);
   };
@@ -99,20 +103,24 @@ export function SplitPickerDialog({
         hideCloseButton
         onEscapeKeyDown={(event) => event.stopPropagation()}
       >
-        <DialogTitle className="sr-only">Add senders to split</DialogTitle>
+        <DialogTitle className="sr-only">
+          <Trans>Add senders to split</Trans>
+        </DialogTitle>
         <Command className="[&_[cmdk-input-wrapper]>svg]:hidden">
           <CommandInput
-            aria-label="Search splits"
+            aria-label={t`Search splits`}
             className="pr-8"
             disabled={isPending || isLoadingSendAs || !senderCount}
             placeholder={
               isLoadingSendAs || senderCount
-                ? `Add ${pluralSenders(senderCount)} to…`
-                : "No senders to add"
+                ? t`Add ${plural(senderCount, { one: "# sender", other: "# senders" })} to…`
+                : t`No senders to add`
             }
           />
           <CommandList aria-busy={isPending || isLoadingSendAs}>
-            <CommandEmpty>No matching splits.</CommandEmpty>
+            <CommandEmpty>
+              <Trans>No matching splits.</Trans>
+            </CommandEmpty>
             <CommandGroup>
               {splits.map((split) => {
                 const eligible = canAddSendersToSplit(split);
@@ -129,7 +137,7 @@ export function SplitPickerDialog({
                     <span className="flex-1 break-all">{split.name}</span>
                     {eligible ? null : (
                       <span className="shrink-0 text-muted-foreground text-xs">
-                        Matches all conditions
+                        <Trans>Matches all conditions</Trans>
                       </span>
                     )}
                   </CommandItem>
@@ -144,14 +152,12 @@ export function SplitPickerDialog({
             role="status"
           >
             <Loader2Icon aria-hidden className="size-4 animate-spin" />
-            <span className="sr-only">Adding senders…</span>
+            <span className="sr-only">
+              <Trans>Adding senders…</Trans>
+            </span>
           </div>
         )}
       </DialogContent>
     </Dialog>
   );
-}
-
-function pluralSenders(count: number) {
-  return count === 1 ? "1 sender" : `${count} senders`;
 }

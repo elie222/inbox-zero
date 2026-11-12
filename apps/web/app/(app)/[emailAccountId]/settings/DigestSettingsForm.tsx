@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { msg, plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
@@ -55,18 +57,18 @@ const digestSettingsSchema = z.object({
 type DigestSettingsFormValues = z.infer<typeof digestSettingsSchema>;
 
 const frequencies = [
-  { value: "daily", label: "Day" },
-  { value: "weekly", label: "Week" },
+  { value: "daily", label: msg`Day` },
+  { value: "weekly", label: msg`Week` },
 ];
 
 const daysOfWeek = [
-  { value: "0", label: "Sunday" },
-  { value: "1", label: "Monday" },
-  { value: "2", label: "Tuesday" },
-  { value: "3", label: "Wednesday" },
-  { value: "4", label: "Thursday" },
-  { value: "5", label: "Friday" },
-  { value: "6", label: "Saturday" },
+  { value: "0", label: msg`Sunday` },
+  { value: "1", label: msg`Monday` },
+  { value: "2", label: msg`Tuesday` },
+  { value: "3", label: msg`Wednesday` },
+  { value: "4", label: msg`Thursday` },
+  { value: "5", label: msg`Friday` },
+  { value: "6", label: msg`Saturday` },
 ];
 
 export function DigestSettingsForm({
@@ -134,6 +136,7 @@ function LoadedDigestSettingsForm({
   onSuccess?: () => void;
   showChannelsHint: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const previousServerSelection = useRef(getSelectedDigestItemIds(rules));
   const [selectedDigestItems, setSelectedDigestItems] = useState<Set<string>>(
     () => getSelectedDigestItemIds(rules),
@@ -160,6 +163,12 @@ function LoadedDigestSettingsForm({
   });
 
   const watchedValues = watch();
+  const selectedFrequency = frequencies.find(
+    (f) => f.value === watchedValues.schedule,
+  );
+  const selectedDayOfWeek = daysOfWeek.find(
+    (d) => d.value === watchedValues.dayOfWeek,
+  );
 
   useEffect(() => {
     const previousSelection = previousServerSelection.current;
@@ -182,7 +191,7 @@ function LoadedDigestSettingsForm({
     {
       onError: (error) => {
         toastError({
-          title: "Error updating digest items",
+          title: t`Error updating digest items`,
           description: getActionErrorMessage(error.error),
         });
       },
@@ -194,7 +203,7 @@ function LoadedDigestSettingsForm({
     {
       onError: (error) => {
         toastError({
-          title: "Error updating digest schedule",
+          title: t`Error updating digest schedule`,
           description: getActionErrorMessage(error.error),
         });
       },
@@ -274,19 +283,23 @@ function LoadedDigestSettingsForm({
             : null,
         );
 
-        toastSuccess({
-          description: estimatedDeliveryAt
-            ? `Saved. Next digest expected around ${formatDigestDeliveryTime(
-                estimatedDeliveryAt,
-                digestStatus.delivery.timezone,
-              )}.`
-            : "Digest settings saved.",
-        });
+        if (estimatedDeliveryAt) {
+          const deliveryTime = formatDigestDeliveryTime(
+            estimatedDeliveryAt,
+            digestStatus.delivery.timezone,
+            i18n.locale,
+          );
+          toastSuccess({
+            description: t`Saved. Next digest expected around ${deliveryTime}.`,
+          });
+        } else {
+          toastSuccess({ description: t`Digest settings saved.` });
+        }
         onSuccess?.();
       } catch {
         toastError({
-          title: "Error updating digest settings",
-          description: "An error occurred while saving your settings",
+          title: t`Error updating digest settings`,
+          description: t`An error occurred while saving your settings`,
         });
       }
     },
@@ -298,6 +311,8 @@ function LoadedDigestSettingsForm({
       mutateDigestStatus,
       digestStatus.delivery.timezone,
       onSuccess,
+      t,
+      i18n.locale,
     ],
   );
 
@@ -314,13 +329,15 @@ function LoadedDigestSettingsForm({
       <div className="space-y-6">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div>
-            <Label>What to include in the digest email</Label>
+            <Label>
+              <Trans>What to include in the digest email</Trans>
+            </Label>
             <MutedText className="mt-1">
-              Selected rules are combined into one digest email.
+              <Trans>Selected rules are combined into one digest email.</Trans>
             </MutedText>
             <div className="mt-3">
               <MultiSelectFilter
-                title="Digest Items"
+                title={t`Digest Items`}
                 options={digestOptions}
                 selectedValues={selectedDigestItems}
                 setSelectedValues={setSelectedDigestItems}
@@ -330,26 +347,28 @@ function LoadedDigestSettingsForm({
           </div>
 
           <div>
-            <Label>Send the digest email</Label>
+            <Label>
+              <Trans>Send the digest email</Trans>
+            </Label>
 
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
               <FormItem>
-                <Label htmlFor="frequency-select">Every</Label>
+                <Label htmlFor="frequency-select">
+                  <Trans>Every</Trans>
+                </Label>
                 <Select
                   value={watchedValues.schedule}
                   onValueChange={(val) => setValue("schedule", val)}
                 >
                   <SelectTrigger id="frequency-select">
                     {watchedValues.schedule
-                      ? frequencies.find(
-                          (f) => f.value === watchedValues.schedule,
-                        )?.label
-                      : "Select..."}
+                      ? selectedFrequency && i18n._(selectedFrequency.label)
+                      : t`Select...`}
                   </SelectTrigger>
                   <SelectContent>
                     {frequencies.map((f) => (
                       <SelectItem key={f.value} value={f.value}>
-                        {f.label}
+                        {i18n._(f.label)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -358,22 +377,22 @@ function LoadedDigestSettingsForm({
 
               {watchedValues.schedule !== "daily" && (
                 <FormItem>
-                  <Label htmlFor="dayofweek-select">on</Label>
+                  <Label htmlFor="dayofweek-select">
+                    <Trans>on</Trans>
+                  </Label>
                   <Select
                     value={watchedValues.dayOfWeek}
                     onValueChange={(val) => setValue("dayOfWeek", val)}
                   >
                     <SelectTrigger id="dayofweek-select">
                       {watchedValues.dayOfWeek
-                        ? daysOfWeek.find(
-                            (d) => d.value === watchedValues.dayOfWeek,
-                          )?.label
-                        : "Select..."}
+                        ? selectedDayOfWeek && i18n._(selectedDayOfWeek.label)
+                        : t`Select...`}
                     </SelectTrigger>
                     <SelectContent>
                       {daysOfWeek.map((d) => (
                         <SelectItem key={d.value} value={d.value}>
-                          {d.label}
+                          {i18n._(d.label)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -383,29 +402,32 @@ function LoadedDigestSettingsForm({
 
               <TimePicker
                 id="time-picker"
-                label="at"
+                label={t`at`}
                 value={watchedValues.time}
                 onChange={(value) => setValue("time", value)}
               />
             </div>
             <MutedText className="mt-2">
-              Usually sent within 5 minutes.
+              <Trans>Usually sent within 5 minutes.</Trans>
               {digestStatus.delivery.estimatedNextDeliveryAt && (
                 <>
                   {" "}
-                  Next delivery around{" "}
-                  {formatDigestDeliveryTime(
-                    new Date(digestStatus.delivery.estimatedNextDeliveryAt),
-                    digestStatus.delivery.timezone,
-                  )}
-                  .
+                  <Trans>
+                    Next delivery around{" "}
+                    {formatDigestDeliveryTime(
+                      new Date(digestStatus.delivery.estimatedNextDeliveryAt),
+                      digestStatus.delivery.timezone,
+                      i18n.locale,
+                    )}
+                    .
+                  </Trans>
                 </>
               )}
             </MutedText>
           </div>
 
           <Button type="submit" loading={isSubmitting} className="mt-4">
-            Save
+            <Trans>Save</Trans>
           </Button>
         </form>
 
@@ -433,19 +455,21 @@ function DigestDeliveryChannels({
   mutateDigestStatus: () => Promise<GetDigestStatusResponse | undefined>;
   showChannelsHint: boolean;
 }) {
+  const { t } = useLingui();
   const { data: account, isLoading, mutate } = useEmailAccountFull();
 
   const { execute } = useAction(
     updateDigestEmailDeliveryAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Settings saved" });
+        toastSuccess({ description: t`Settings saved` });
         mutate();
         mutateDigestStatus();
       },
       onError: (error) => {
         toastError({
-          description: getActionErrorMessage(error.error) ?? "Failed to update",
+          description:
+            getActionErrorMessage(error.error) ?? t`Failed to update`,
         });
       },
     },
@@ -454,7 +478,9 @@ function DigestDeliveryChannels({
   return (
     <div className="space-y-2 pt-2">
       <div className="flex items-center justify-between gap-3">
-        <Label>Send digest to email</Label>
+        <Label>
+          <Trans>Send digest to email</Trans>
+        </Label>
         <Toggle
           name="digestSendEmail"
           enabled={account?.digestSendEmail ?? true}
@@ -465,14 +491,16 @@ function DigestDeliveryChannels({
       <DigestDeliveryActivity digestStatus={digestStatus} />
       {showChannelsHint && (
         <MutedText>
-          Chat delivery:{" "}
-          <Link
-            href={prefixPath(emailAccountId, "/channels")}
-            className="text-foreground underline"
-          >
-            Configure in Channels
-          </Link>
-          .
+          <Trans>
+            Chat delivery:{" "}
+            <Link
+              href={prefixPath(emailAccountId, "/channels")}
+              className="text-foreground underline"
+            >
+              Configure in Channels
+            </Link>
+            .
+          </Trans>
         </MutedText>
       )}
     </div>
@@ -484,26 +512,30 @@ function DigestDeliveryActivity({
 }: {
   digestStatus: GetDigestStatusResponse | undefined;
 }) {
+  const { t, i18n } = useLingui();
   const { delivery } = digestStatus ?? {};
 
   if (!delivery) return null;
 
   const queuedLabel =
     delivery.queuedItemCount > 0
-      ? `${delivery.queuedItemCount} ${
-          delivery.queuedItemCount === 1 ? "email" : "emails"
-        } queued`
+      ? t`${plural(delivery.queuedItemCount, {
+          one: "# email queued",
+          other: "# emails queued",
+        })}`
       : null;
 
   const lastDeliveryLabel = delivery.lastDelivery
     ? delivery.lastDelivery.status === "SENT"
-      ? `Last sent ${formatDigestDeliveryTime(
+      ? t`Last sent ${formatDigestDeliveryTime(
           new Date(delivery.lastDelivery.occurredAt),
           delivery.timezone,
+          i18n.locale,
         )}`
-      : `Last delivery failed ${formatDigestDeliveryTime(
+      : t`Last delivery failed ${formatDigestDeliveryTime(
           new Date(delivery.lastDelivery.occurredAt),
           delivery.timezone,
+          i18n.locale,
         )}`
     : null;
 
@@ -521,6 +553,7 @@ function EmailPreview({
 }: {
   selectedDigestItems: Set<string>;
 }) {
+  const { t } = useLingui();
   const { data: rules } = useRules();
 
   const selectedDigestNames = Array.from(selectedDigestItems).map(
@@ -541,18 +574,22 @@ function EmailPreview({
 
   return (
     <div>
-      <Label>Preview</Label>
+      <Label>
+        <Trans>Preview</Trans>
+      </Label>
       <div className="mt-3 border rounded-lg overflow-hidden bg-slate-50">
         {selectedDigestNames.length > 0 && htmlContent ? (
           <iframe
-            title="Digest preview"
+            title={t`Digest preview`}
             sandbox=""
             className="w-full min-h-[700px] max-h-[700px] bg-white"
             srcDoc={htmlContent}
           />
         ) : (
           <div className="text-center text-slate-500 py-8">
-            <p>Select digest items to see a preview</p>
+            <p>
+              <Trans>Select digest items to see a preview</Trans>
+            </p>
           </div>
         )}
       </div>
@@ -616,8 +653,12 @@ function getSelectedDigestItemIds(rules: RulesResponse) {
   );
 }
 
-function formatDigestDeliveryTime(date: Date, timezone?: string | null) {
-  return new Intl.DateTimeFormat(undefined, {
+function formatDigestDeliveryTime(
+  date: Date,
+  timezone: string | null | undefined,
+  locale: string,
+) {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: timezone || undefined,

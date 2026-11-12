@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { MailIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
@@ -16,6 +17,7 @@ export function ViewEmailButton({
   className?: string;
   size?: "icon" | "xs" | "sm";
 }) {
+  const { t } = useLingui();
   const { provider } = useAccount();
   const { showEmail } = useDisplayedEmail();
 
@@ -24,7 +26,7 @@ export function ViewEmailButton({
   }
 
   return (
-    <Tooltip content="View email">
+    <Tooltip content={t`View email`}>
       <Button
         variant="outline"
         size={size || "icon"}
@@ -32,7 +34,9 @@ export function ViewEmailButton({
         className={className}
       >
         <MailIcon className="h-4 w-4" />
-        <span className="sr-only">View email</span>
+        <span className="sr-only">
+          <Trans>View email</Trans>
+        </span>
       </Button>
     </Tooltip>
   );

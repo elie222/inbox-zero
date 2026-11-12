@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { PenIcon, SparklesIcon } from "lucide-react";
 import sortBy from "lodash/sortBy";
+import { t } from "@lingui/core/macro";
 import prisma from "@/utils/prisma";
 import { ClientOnly } from "@/components/ClientOnly";
 import { GroupedTable } from "@/components/GroupedTable";
@@ -28,6 +29,7 @@ import { getCategorizationProgress } from "@/utils/redis/categorization-progress
 import { prefixPath } from "@/utils/path";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import { EmailStatsPreloader } from "@/components/EmailStatsPreloader";
+import { initLingui } from "@/utils/i18n/server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -38,6 +40,7 @@ export default async function CategoriesPage({
   params: Promise<{ emailAccountId: string }>;
 }) {
   const { emailAccountId } = await params;
+  const i18n = await initLingui();
   await checkUserOwnsEmailAccount({ emailAccountId });
 
   const [senders, categories, emailAccount, progress] = await Promise.all([
@@ -76,8 +79,12 @@ export default async function CategoriesPage({
         <Tabs defaultValue="categories">
           <TopBar className="items-center">
             <TabsList>
-              <TabsTrigger value="categories">Categories</TabsTrigger>
-              <TabsTrigger value="uncategorized">Uncategorized</TabsTrigger>
+              <TabsTrigger value="categories">
+                {t(i18n)`Categories`}
+              </TabsTrigger>
+              <TabsTrigger value="uncategorized">
+                {t(i18n)`Uncategorized`}
+              </TabsTrigger>
             </TabsList>
 
             <div className="flex items-center gap-2">
@@ -86,7 +93,7 @@ export default async function CategoriesPage({
                   children: (
                     <>
                       <SparklesIcon className="mr-2 size-4" />
-                      Bulk Categorize
+                      {t(i18n)`Bulk Categorize`}
                     </>
                   ),
                   variant: "outline",
@@ -97,7 +104,7 @@ export default async function CategoriesPage({
                   href={prefixPath(emailAccountId, "/smart-categories/setup")}
                 >
                   <PenIcon className="mr-2 size-4" />
-                  Edit
+                  {t(i18n)`Edit`}
                 </Link>
               </Button>
               <CreateCategoryButton />
@@ -108,10 +115,11 @@ export default async function CategoriesPage({
             {senders.length === 0 && (
               <Card className="m-4">
                 <CardHeader>
-                  <CardTitle>Categorize senders</CardTitle>
+                  <CardTitle>{t(i18n)`Categorize senders`}</CardTitle>
                   <CardDescription>
-                    Now that you have some categories, our AI can categorize
-                    senders.
+                    {t(
+                      i18n,
+                    )`Now that you have some categories, our AI can categorize senders.`}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

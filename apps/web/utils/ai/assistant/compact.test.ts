@@ -71,6 +71,27 @@ describe("chat compaction", () => {
     ).toEqual([originalSystemMessage]);
   });
 
+  it("attaches the chat's stored action totals to the summary", async () => {
+    mockGenerateText.mockResolvedValue({ text: "Archived newsletters." });
+    mockCreateGenerateText.mockReturnValue(mockGenerateText);
+
+    const result = await compactMessages({
+      messages: Array.from({ length: 7 }, (_, index) => ({
+        role: "user" as const,
+        content: `User message ${index}`,
+      })),
+      actionTotals: { threads_archived: 1595, threads_trashed: 12 },
+      user: getEmailAccount(),
+      logger: createTestLogger(),
+    });
+
+    expect(result.summary).toContain("Archived newsletters.");
+    expect(result.summary).toContain(
+      JSON.stringify({ threads_archived: 1595, threads_trashed: 12 }),
+    );
+    expect(JSON.stringify(result.compactedMessages[0])).toContain("1595");
+  });
+
   it("keeps recent history from a user message so no tool result loses its call", async () => {
     mockGenerateText.mockResolvedValue({ text: "Summary" });
     mockCreateGenerateText.mockReturnValue(mockGenerateText);

@@ -1,5 +1,6 @@
 import { useId, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,6 +24,7 @@ export function BookingLinkDialog({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const { t } = useLingui();
   const descriptionId = useId();
 
   return (
@@ -50,7 +52,7 @@ export function BookingLinkDialog({
             )}
           </div>
           <DialogClose asChild>
-            <Button variant="ghostMuted" size="icon2xs" aria-label="Close">
+            <Button variant="ghostMuted" size="icon2xs" aria-label={t`Close`}>
               <X className="size-4" />
             </Button>
           </DialogClose>
