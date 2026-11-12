@@ -9,7 +9,7 @@ import {
 const i18n = setupI18n({ locale: "en", messages: { en: {} } });
 
 describe("buildSnoozeCommandPalette", () => {
-  it("offers a short list of days and shows when each one lands", () => {
+  it("offers snooze presets and shows when each one lands", () => {
     const now = new Date(2026, 7, 18, 10);
     const commands = buildSnoozeCommandPalette({
       i18n,
@@ -21,11 +21,38 @@ describe("buildSnoozeCommandPalette", () => {
     expect(
       commands.map((command) => [command.label, command.description]),
     ).toEqual([
+      ["In 1 hour", "Tue, Aug 18 at 11:00 AM"],
+      ["In 3 hours", "Tue, Aug 18 at 1:00 PM"],
       ["Tomorrow", "Wed, Aug 19 at 9:00 AM"],
       ["End of week", "Fri, Aug 21 at 9:00 AM"],
       ["This weekend", "Sat, Aug 22 at 9:00 AM"],
       ["Next week", "Mon, Aug 24 at 9:00 AM"],
     ]);
+  });
+
+  it.each([
+    { label: "In 1 hour", hours: 1 },
+    { label: "In 3 hours", hours: 3 },
+  ])("snoozes for the full duration across midnight with $label", ({
+    label,
+    hours,
+  }) => {
+    const now = new Date(2026, 7, 18, 23, 45);
+    const onSnooze = vi.fn();
+    const commands = buildSnoozeCommandPalette({
+      i18n,
+      now,
+      onSnooze,
+      query: "",
+    });
+
+    const command = commands.find((command) => command.label === label);
+    expect(command).toBeDefined();
+    command?.action();
+    expect(onSnooze).toHaveBeenCalledWith(
+      new Date(now.getTime() + hours * 60 * 60 * 1000),
+    );
+    expect(now).toEqual(new Date(2026, 7, 18, 23, 45));
   });
 
   it("drops presets that have passed or would land on the same day", () => {
@@ -34,22 +61,30 @@ describe("buildSnoozeCommandPalette", () => {
 
     // Thursday: tomorrow is already Friday
     expect(presetIdsOn(new Date(2026, 7, 20, 10))).toEqual([
+      "in-1-hour",
+      "in-3-hours",
       "tomorrow",
       "this-weekend",
       "next-week",
     ]);
     // Friday: tomorrow is already the weekend
     expect(presetIdsOn(new Date(2026, 7, 21, 10))).toEqual([
+      "in-1-hour",
+      "in-3-hours",
       "tomorrow",
       "next-week",
     ]);
     // Saturday
     expect(presetIdsOn(new Date(2026, 7, 22, 10))).toEqual([
+      "in-1-hour",
+      "in-3-hours",
       "tomorrow",
       "next-week",
     ]);
     // Sunday: tomorrow is already next week
     expect(presetIdsOn(new Date(2026, 7, 23, 10))).toEqual([
+      "in-1-hour",
+      "in-3-hours",
       "tomorrow",
       "end-of-week",
     ]);
