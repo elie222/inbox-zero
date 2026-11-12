@@ -464,14 +464,17 @@ export function createReplyDraftWriter(
   const epoch = currentEpoch(identity.emailAccountId);
   const write = (content: ReplyDraftContent | null) => {
     const updatedAt = Date.now();
-    const unsaved: UnsavedReplyDraft | undefined = content
-      ? {
-          identity: pickIdentity(identity),
-          content,
-          updatedAt,
-          editId: randomUuid(),
-        }
-      : undefined;
+    // Nothing is kept for an account cleared since this writer opened, such as
+    // after sign-out; the write itself is refused below.
+    const unsaved: UnsavedReplyDraft | undefined =
+      content && currentEpoch(identity.emailAccountId) === epoch
+        ? {
+            identity: pickIdentity(identity),
+            content,
+            updatedAt,
+            editId: randomUuid(),
+          }
+        : undefined;
     if (unsaved) unsavedWrites.set(draftKey(identity), unsaved);
     else {
       // A discard isn't kept: replaying it could erase another tab's edits.

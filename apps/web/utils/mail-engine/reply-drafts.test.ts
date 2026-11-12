@@ -1223,6 +1223,19 @@ describe("drafts still saving when the page is left", () => {
     expect(localStorage.length).toBe(0);
   });
 
+  it("doesn't keep a reply written after its account's local mail was cleared", async () => {
+    const page = await loadPage({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    });
+    const writer = page.drafts.createReplyDraftWriter(replyIdentity);
+    page.drafts.clearLocalReplyDrafts("account");
+    writer.save({ ...content, composeMode: "reply" }).catch(() => {});
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(localStorage.length).toBe(0);
+  });
+
   it("recovers a kept reply when another kept entry is damaged", async () => {
     localStorage.setItem("inbox-zero:unsaved-reply-draft:broken", "{");
     const leaving = await loadPage({
