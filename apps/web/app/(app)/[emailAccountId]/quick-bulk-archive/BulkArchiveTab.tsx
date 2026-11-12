@@ -45,6 +45,7 @@ import type { CategorizedSendersResponse } from "@/app/api/user/categorize/sende
 const confidenceConfig = {
   high: {
     label: msg`Safe to Archive`,
+    reason: msg`Marketing / Promotional`,
     description: msg`Marketing emails and newsletters you likely don't need`,
     icon: MailXIcon,
     color: "text-green-600",
@@ -55,6 +56,7 @@ const confidenceConfig = {
   },
   medium: {
     label: msg`Probably Safe`,
+    reason: msg`Automated notification`,
     description: msg`Automated notifications and updates`,
     icon: BellOffIcon,
     color: "text-amber-600",
@@ -65,6 +67,7 @@ const confidenceConfig = {
   },
   low: {
     label: msg`Review Recommended`,
+    reason: msg`Other category`,
     description: msg`Senders that may need a closer look`,
     icon: MailOpenIcon,
     color: "text-blue-600",
@@ -494,6 +497,7 @@ function SenderRow({
   onToggleExpanded: () => void;
   userEmail: string;
 }) {
+  const { i18n } = useLingui();
   const status = useArchiveSenderStatus(emailAccountId, candidate.address);
 
   return (
@@ -530,7 +534,7 @@ function SenderRow({
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">
-            {candidate.reason}
+            {i18n._(confidenceConfig[candidate.confidence].reason)}
           </span>
           <ArchiveStatus status={status} />
           <ChevronDownIcon

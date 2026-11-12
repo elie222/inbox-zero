@@ -52,7 +52,7 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useLabels } from "@/hooks/useLabels";
-import { conditionsToString } from "@/utils/condition";
+import { conditionsToString } from "@/app/(app)/[emailAccountId]/assistant/condition-messages";
 import { TruncatedTooltipText } from "@/components/TruncatedTooltipText";
 import { getRuleConfig, getDefaultActions } from "@/utils/rule/consts";
 import {
@@ -70,7 +70,7 @@ export function Rules({
 }: {
   showAddRuleButton?: boolean;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const { data, isLoading, error, mutate } = useRules();
   const { setOpen } = useSidebar();
   const { setInput } = useChat();
@@ -273,7 +273,7 @@ export function Rules({
                       </TableCell>
                       <TableCell className="hidden sm:table-cell p-2 sm:p-4">
                         <TruncatedTooltipText
-                          text={conditionsToString(rule)}
+                          text={conditionsToString(rule, i18n)}
                           maxLength={50}
                           className="max-w-xs"
                         />

@@ -482,7 +482,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           textLength,
         });
         logger.flush().catch(() => undefined);
-        toastError({ description: ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE });
+        toastError({ description: getMaxTextLengthMessage(i18n) });
         throw new ChatInputValidationError();
       }
 
@@ -532,6 +532,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       context,
       ambientContext,
       emailAccountId,
+      i18n,
       setChatId,
     ],
   );
@@ -780,6 +781,8 @@ function getChatSendErrorMessage(error: unknown, i18n: I18n) {
     typeof serverMessage === "string" &&
     serverMessage.trim()
   ) {
+    if (serverMessage === ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE)
+      return getMaxTextLengthMessage(i18n);
     return serverMessage;
   }
   return i18n._(CHAT_SEND_FAILED_MESSAGE);
@@ -820,4 +823,9 @@ function getSplitInboxChange(
     if (splitId) shown = { toolCallId: part.toolCallId, splitId };
   }
   return changed ? { shown } : null;
+}
+
+function getMaxTextLengthMessage(i18n: I18n) {
+  const maxLength = i18n.number(ASSISTANT_CHAT_MAX_TEXT_LENGTH);
+  return i18n._(msg`Messages can be up to ${maxLength} characters.`);
 }

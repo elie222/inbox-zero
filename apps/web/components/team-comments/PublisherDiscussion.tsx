@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useEffect, useState } from "react";
 import { XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ export function PublisherDiscussion({
   emailAccountId: string;
   threadId: string;
 }) {
+  const { t } = useLingui();
   // Shared threads always show their comments; unshared ones stay hidden
   // until the composer is opened from the menu, command palette, or shortcut.
   const [open, setOpen] = useState(false);
@@ -92,8 +94,10 @@ export function PublisherDiscussion({
             hint={
               <>
                 <span>
-                  Comments are never sent as email. @mention a teammate to share
-                  this conversation.
+                  <Trans>
+                    Comments are never sent as email. @mention a teammate to
+                    share this conversation.
+                  </Trans>
                 </span>
                 <span className="flex shrink-0 items-center">
                   <ShareConversationDialog
@@ -106,7 +110,7 @@ export function PublisherDiscussion({
                   <Button
                     size="icon2xs"
                     variant="ghost"
-                    aria-label="Close comments"
+                    aria-label={t`Close comments`}
                     onClick={() => setOpen(false)}
                   >
                     <XIcon className="size-3.5" />

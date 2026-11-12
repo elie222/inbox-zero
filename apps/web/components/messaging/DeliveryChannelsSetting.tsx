@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { HashIcon, MailIcon, MessageCircleIcon, SendIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { SlackNotificationTargetSelect } from "@/components/SlackNotificationTargetSelect";
@@ -52,14 +53,16 @@ export function DeliveryChannelsSetting({
   title,
   description,
   purpose,
-  featureLabel,
+  slackDestinationHint,
+  directMessageHint,
   email,
   connectSlackCta,
 }: {
   title: string;
   description: string;
   purpose: MessagingFeatureRoutePurpose;
-  featureLabel: string;
+  slackDestinationHint: string;
+  directMessageHint: string;
   email?: EmailDeliveryProps;
   connectSlackCta: string;
 }) {
@@ -92,7 +95,9 @@ export function DeliveryChannelsSetting({
           {email && (
             <div className="flex items-center gap-3">
               <MailIcon className="h-5 w-5 text-muted-foreground" />
-              <div className="flex-1 text-sm font-medium">Email</div>
+              <div className="flex-1 text-sm font-medium">
+                <Trans>Email</Trans>
+              </div>
               <Toggle
                 name="emailDelivery"
                 enabled={email.enabled}
@@ -109,7 +114,8 @@ export function DeliveryChannelsSetting({
                 channel={channel}
                 emailAccountId={emailAccountId}
                 purpose={purpose}
-                featureLabel={featureLabel}
+                slackDestinationHint={slackDestinationHint}
+                directMessageHint={directMessageHint}
                 onUpdate={mutateChannels}
               />
             ))}
@@ -123,7 +129,7 @@ export function DeliveryChannelsSetting({
                 onClick={openSettings}
                 className="text-foreground underline"
               >
-                Connect Slack in Settings
+                <Trans>Connect Slack in Settings</Trans>
               </button>
             </MutedText>
           )}
@@ -137,7 +143,8 @@ function ChannelRow({
   channel,
   emailAccountId,
   purpose,
-  featureLabel,
+  slackDestinationHint,
+  directMessageHint,
   onUpdate,
 }: {
   channel: {
@@ -148,9 +155,11 @@ function ChannelRow({
   };
   emailAccountId: string;
   purpose: MessagingFeatureRoutePurpose;
-  featureLabel: string;
+  slackDestinationHint: string;
+  directMessageHint: string;
   onUpdate: () => void;
 }) {
+  const { t } = useLingui();
   const config = PROVIDER_CONFIG[channel.provider];
   const Icon = config.icon;
   const destination = getMessagingFeatureRouteSummary(
@@ -166,12 +175,12 @@ function ChannelRow({
     updateMessagingFeatureRouteAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Settings saved" });
+        toastSuccess({ description: t`Settings saved` });
         onUpdate();
       },
       onError: (error) => {
         toastError({
-          description: getActionErrorMessage(error.error) ?? "Failed to update",
+          description: getActionErrorMessage(error.error),
         });
       },
     },
@@ -193,21 +202,15 @@ function ChannelRow({
               isDm={destination.isDm}
               canSendAsDm={channel.canSendAsDm}
               onUpdate={onUpdate}
-              placeholder="Select destination"
+              placeholder={t`Select destination`}
               className="h-8 w-48 text-xs"
             />
-            <MutedText className="text-xs">
-              Pick where {featureLabel} should be delivered for this Slack
-              workspace.
-            </MutedText>
+            <MutedText className="text-xs">{slackDestinationHint}</MutedText>
           </div>
         ) : (
           <div className="space-y-1">
             <span className="text-sm font-medium">{config.name}</span>
-            <MutedText className="text-xs">
-              {featureLabel} will be sent to this connected app&apos;s direct
-              message destination.
-            </MutedText>
+            <MutedText className="text-xs">{directMessageHint}</MutedText>
           </div>
         )}
       </div>

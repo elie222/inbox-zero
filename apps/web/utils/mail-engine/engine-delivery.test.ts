@@ -1,3 +1,4 @@
+import { setupI18n } from "@lingui/core";
 import { describe, expect, it } from "vitest";
 import {
   canEditEngineSend,
@@ -6,6 +7,8 @@ import {
   engineSendReplyMessageId,
   shouldShowEngineDeliveryStatus,
 } from "./engine-delivery";
+
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
 
 describe("engine send delivery status", () => {
   it("keeps send commands for the matching conversation", () => {
@@ -58,10 +61,12 @@ describe("engine send delivery status", () => {
   });
 
   it("labels blocked and failed sends", () => {
-    expect(engineDeliveryLabel("blocked_auth", true)).toBe(
+    expect(engineDeliveryLabel("blocked_auth", true, i18n)).toBe(
       "Reconnect your account to send this reply",
     );
-    expect(engineDeliveryLabel("queued", false)).toBe("Waiting for connection");
+    expect(engineDeliveryLabel("queued", false, i18n)).toBe(
+      "Waiting for connection",
+    );
     expect(canEditEngineSend("queued", true)).toBe(true);
     expect(canEditEngineSend("executing", true)).toBe(false);
   });

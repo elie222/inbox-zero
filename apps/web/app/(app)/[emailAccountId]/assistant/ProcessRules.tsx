@@ -44,10 +44,7 @@ import { useRules } from "@/hooks/useRules";
 import { useInfiniteMessages } from "@/hooks/useMessages";
 import { usePremium } from "@/hooks/usePremium";
 import { hasTierAccess } from "@/utils/premium";
-import {
-  RERUN_MINIMUM_TIER,
-  RERUN_UPGRADE_MESSAGE,
-} from "@/utils/premium/rerun";
+import { RERUN_MINIMUM_TIER } from "@/utils/premium/rerun";
 import { Tooltip } from "@/components/Tooltip";
 
 type Message = MessagesResponse["messages"][number];
@@ -492,6 +489,7 @@ function RerunButton({
   testMode: boolean;
   onRun: (rerun?: boolean) => void;
 }) {
+  const { t } = useLingui();
   const button = (
     <Button
       variant="outline"
@@ -509,7 +507,9 @@ function RerunButton({
   if (canRerun) return button;
 
   return (
-    <Tooltip content={RERUN_UPGRADE_MESSAGE}>
+    <Tooltip
+      content={t`Re-processing emails you've already handled is available on the Professional plan.`}
+    >
       <span className="inline-flex cursor-not-allowed">{button}</span>
     </Tooltip>
   );

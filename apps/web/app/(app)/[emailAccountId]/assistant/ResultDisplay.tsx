@@ -6,7 +6,7 @@ import { msg } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
-import { conditionTypesToString } from "@/utils/condition";
+import { conditionTypesToString } from "@/app/(app)/[emailAccountId]/assistant/condition-messages";
 import {
   ActionType,
   ExecutedRuleStatus,
@@ -128,7 +128,7 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
         {rule ? (
           <>
             {rule.name}
-            <Badge color="blue">{conditionTypesToString(rule)}</Badge>
+            <Badge color="blue">{conditionTypesToString(rule, i18n)}</Badge>
           </>
         ) : (
           status === ExecutedRuleStatus.SKIPPED && <Trans>No match found</Trans>

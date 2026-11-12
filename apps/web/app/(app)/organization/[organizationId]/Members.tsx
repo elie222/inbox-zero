@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
+import { getDateFnsLocale } from "@/utils/i18n/date-fns-locale";
 import type { I18n, MessageDescriptor } from "@lingui/core";
 import { msg } from "@lingui/core/macro";
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
@@ -625,5 +626,8 @@ function formatRelativeDate(
 ) {
   if (!date) return i18n._(msg`unknown`);
 
-  return formatDistanceToNow(new Date(date), { addSuffix: true });
+  return formatDistanceToNow(new Date(date), {
+    addSuffix: true,
+    locale: getDateFnsLocale(i18n.locale),
+  });
 }

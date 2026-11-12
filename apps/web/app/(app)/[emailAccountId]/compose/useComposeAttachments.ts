@@ -16,6 +16,7 @@ import { toastError } from "@/components/Toast";
 import type { DraftAttachment } from "@/utils/email/types";
 import { randomUuid } from "@/utils/uuid";
 import type { ReplyingToEmail } from "./ComposeEmailForm";
+import { getComposeErrorMessage } from "./compose-error-messages";
 import {
   type ComposeAttachment,
   mergeDraftAttachments,
@@ -42,7 +43,7 @@ export function useComposeAttachments({
   isSubmitting: boolean;
   replyingToEmail?: ReplyingToEmail;
 }) {
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const {
     attachmentsRef,
     draftQueueKey,
@@ -108,10 +109,11 @@ export function useComposeAttachments({
         );
       },
       (error: unknown) => {
-        const description =
-          error instanceof Error
-            ? error.message
-            : t`Could not attach ${attachment.filename}.`;
+        const description = getComposeErrorMessage(
+          error,
+          i18n,
+          t`Could not attach ${attachment.filename}.`,
+        );
         toastError({ description });
         updateAttachments(
           attachmentsRef.current.map((item) =>
@@ -149,10 +151,11 @@ export function useComposeAttachments({
       },
       (error: unknown) => {
         toastError({
-          description:
-            error instanceof Error
-              ? error.message
-              : t`Could not remove ${attachment.filename}.`,
+          description: getComposeErrorMessage(
+            error,
+            i18n,
+            t`Could not remove ${attachment.filename}.`,
+          ),
         });
         updateAttachments([
           ...attachmentsRef.current,

@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useOpenedConversationAttachments } from "./OpenedConversationAttachments";
 import Image from "next/image";
 import { useEffect, useState, useRef } from "react";
@@ -29,7 +30,10 @@ import {
 
 const PREVIEW_MAX_BYTES = 50 * 1024 * 1024;
 
+type PreviewError = "too_large" | "unavailable" | "load_failed";
+
 export function EmailAttachments({ message }: { message: ThreadMessage }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const [isDownloading, setIsDownloading] = useState(false);
   const [previewingId, setPreviewingId] = useState<string>();
@@ -75,7 +79,7 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
       saveBlob(blob, filename);
     } catch {
       if (!signal.aborted)
-        toastError({ description: "Failed to download attachment" });
+        toastError({ description: t`Failed to download attachment` });
     } finally {
       setIsDownloading(false);
     }
@@ -107,7 +111,7 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
               <button
                 type="button"
                 className="absolute inset-0 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                aria-label={`Preview ${attachment.filename}`}
+                aria-label={t`Preview ${attachment.filename}`}
                 title={attachment.filename}
                 onClick={() => setPreviewingId(attachment.attachmentId)}
               />
@@ -138,8 +142,8 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
                   size="iconSm"
                   type="button"
                   className="relative"
-                  aria-label={`Download ${attachment.filename}`}
-                  title="Download attachment"
+                  aria-label={t`Download ${attachment.filename}`}
+                  title={t`Download attachment`}
                   disabled={!emailAccountId || isDownloading}
                   onClick={() =>
                     downloadAttachment({
@@ -189,8 +193,8 @@ function AttachmentPreviewDialogContent({
   const tooLarge = size > PREVIEW_MAX_BYTES;
   const [file, setFile] = useState<Blob>();
   const [preview, setPreview] = useState<{ url: string; type: string }>();
-  const [error, setError] = useState<string | undefined>(
-    tooLarge ? "This file is too large to preview." : undefined,
+  const [error, setError] = useState<PreviewError | undefined>(
+    tooLarge ? "too_large" : undefined,
   );
 
   useEffect(() => {
@@ -209,15 +213,14 @@ function AttachmentPreviewDialogContent({
         if (controller.signal.aborted) return;
         setFile(blob);
         if (!typed) {
-          setError("Preview isn't available for this file.");
+          setError("unavailable");
           return;
         }
         objectUrl = URL.createObjectURL(typed);
         setPreview({ url: objectUrl, type: typed.type });
       })
       .catch(() => {
-        if (!controller.signal.aborted)
-          setError("Couldn't load this attachment.");
+        if (!controller.signal.aborted) setError("load_failed");
       });
 
     return () => {
@@ -233,7 +236,7 @@ function AttachmentPreviewDialogContent({
           {filename}
         </DialogTitle>
         <DialogDescription className="sr-only">
-          Attachment preview
+          <Trans>Attachment preview</Trans>
         </DialogDescription>
         <Button
           variant="outline"
@@ -243,7 +246,7 @@ function AttachmentPreviewDialogContent({
           onClick={() => file && saveBlob(file, filename)}
         >
           <DownloadIcon className="mr-2 size-4" aria-hidden="true" />
-          Download
+          <Trans>Download</Trans>
         </Button>
       </div>
       <div className="relative flex min-h-0 flex-1 items-center justify-center bg-muted/40">
@@ -264,9 +267,22 @@ function AttachmentPreviewBody({
 }: {
   filename: string;
   preview?: { url: string; type: string };
-  error?: string;
+  error?: PreviewError;
 }) {
-  if (error) return <p className="text-muted-foreground text-sm">{error}</p>;
+  if (error)
+    return (
+      <p className="text-muted-foreground text-sm">
+        {error === "too_large" && (
+          <Trans>This file is too large to preview.</Trans>
+        )}
+        {error === "unavailable" && (
+          <Trans>Preview isn't available for this file.</Trans>
+        )}
+        {error === "load_failed" && (
+          <Trans>Couldn't load this attachment.</Trans>
+        )}
+      </p>
+    );
   if (!preview)
     return <Loader2 className="size-6 animate-spin text-muted-foreground" />;
   if (preview.type === "application/pdf")
