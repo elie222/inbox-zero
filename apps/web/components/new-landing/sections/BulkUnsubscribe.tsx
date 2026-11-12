@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Section,
   SectionContent,
@@ -10,16 +11,22 @@ import {
 } from "@/components/new-landing/common/Typography";
 
 export function BulkUnsubscribe() {
+  const { t } = useLingui();
+
   return (
     <Section>
       <SectionHeading>
-        Get to Inbox Zero fast.
-        <br />
-        Bulk unsubscribe from emails you never read.
+        <Trans>
+          Get to Inbox Zero fast.
+          <br />
+          Bulk unsubscribe from emails you never read.
+        </Trans>
       </SectionHeading>
       <SectionSubtitle>
-        See which emails you never read, and one-click unsubscribe and archive
-        them.
+        <Trans>
+          See which emails you never read, and one-click unsubscribe and archive
+          them.
+        </Trans>
       </SectionSubtitle>
       <SectionContent className="flex justify-center items-center">
         <CardWrapper
@@ -29,7 +36,7 @@ export function BulkUnsubscribe() {
         >
           <Image
             src="/images/new-landing/bulk-unsubscribe.png"
-            alt="bulk unsubscribe"
+            alt={t`bulk unsubscribe`}
             width={1000}
             height={1000}
           />
@@ -38,7 +45,7 @@ export function BulkUnsubscribe() {
           <CardWrapper padding="xs" rounded="md" className="block md:hidden">
             <Image
               src="/images/new-landing/bulk-unsubscribe-mobile.png"
-              alt="bulk unsubscribe"
+              alt={t`bulk unsubscribe`}
               width={1000}
               height={1000}
             />

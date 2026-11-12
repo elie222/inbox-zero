@@ -1,9 +1,10 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { CopyIcon, ExternalLinkIcon, PaletteIcon } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Logo as Wordmark } from "@/components/Logo";
+import { LandingLink } from "@/components/new-landing/LandingLink";
 import { toastError, toastSuccess } from "@/components/Toast";
 import {
   ContextMenu,
@@ -21,12 +22,13 @@ interface LogoProps {
 
 export function Logo({ variant = "default" }: LogoProps) {
   const router = useRouter();
+  const { t } = useLingui();
   const sizeClass = variant === "mobile" ? "h-4 w-auto" : "h-5 w-auto";
 
   const link = (
-    <Link href="/">
+    <LandingLink href="/">
       <Wordmark className={cn(sizeClass, "text-gray-900")} />
-    </Link>
+    </LandingLink>
   );
 
   if (!HAS_BRAND_KIT) return link;
@@ -37,23 +39,31 @@ export function Logo({ variant = "default" }: LogoProps) {
       <ContextMenuContent className="w-52">
         <ContextMenuItem onSelect={() => window.open("/", "_blank")}>
           <ExternalLinkIcon className="mr-2 size-4" />
-          Open Link in New Tab
+          <Trans>Open Link in New Tab</Trans>
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem onSelect={copyLogoSvg}>
+        <ContextMenuItem
+          onSelect={async () => {
+            if (await copyLogoSvg()) {
+              toastSuccess({ description: t`Logo copied as SVG` });
+            } else {
+              toastError({ description: t`Couldn't copy the logo` });
+            }
+          }}
+        >
           <CopyIcon className="mr-2 size-4" />
-          Copy Logo as SVG
+          <Trans>Copy Logo as SVG</Trans>
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => router.push("/brand")}>
           <PaletteIcon className="mr-2 size-4" />
-          Go to Brand Kit
+          <Trans>Go to Brand Kit</Trans>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
   );
 }
 
-async function copyLogoSvg() {
+async function copyLogoSvg(): Promise<boolean> {
   try {
     // Passing a promise keeps the user gesture alive in Safari while the SVG loads.
     const svg = fetch("/brand/inbox-zero-wordmark-dark.svg")
@@ -63,8 +73,8 @@ async function copyLogoSvg() {
       })
       .then((text) => new Blob([text], { type: "text/plain" }));
     await navigator.clipboard.write([new ClipboardItem({ "text/plain": svg })]);
-    toastSuccess({ description: "Logo copied as SVG" });
+    return true;
   } catch {
-    toastError({ description: "Couldn't copy the logo" });
+    return false;
   }
 }

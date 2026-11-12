@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useEffect, useState } from "react";
 import { Download, Monitor, Smartphone } from "lucide-react";
 import { BlurFade } from "@/components/new-landing/common/BlurFade";
@@ -38,6 +39,7 @@ export function DesktopDownloadCta({
   buttonSize?: "lg" | "xl";
   downloads: DesktopDownloadLinks | null;
 }) {
+  const { t } = useLingui();
   const [platform, setPlatform] =
     useState<DesktopClientPlatform>(DEFAULT_PLATFORM);
   const [mobileStore, setMobileStore] = useState<MobileStore | null>(null);
@@ -79,7 +81,9 @@ export function DesktopDownloadCta({
             <a href={mobileStore.href}>
               <span className="relative z-10 flex items-center gap-2">
                 <Smartphone className="size-4" />
-                {mobileStore.label}
+                {mobileStore.store === "app-store"
+                  ? t`Download on the App Store`
+                  : t`Get it on Google Play`}
               </span>
             </a>
           </Button>
@@ -92,7 +96,9 @@ export function DesktopDownloadCta({
                 ) : (
                   <Monitor className="size-4" />
                 )}
-                {ctas.primary.label}
+                {ctas.primary.kind === "mac"
+                  ? t`Download for Mac`
+                  : t`Download for Windows`}
               </span>
             </a>
           </Button>
@@ -101,14 +107,14 @@ export function DesktopDownloadCta({
             <a href={GITHUB_RELEASES_URL}>
               <span className="relative z-10 flex items-center gap-2">
                 <Download className="size-4" />
-                View desktop releases
+                <Trans>View desktop releases</Trans>
               </span>
             </a>
           </Button>
         )}
         <Button variant="secondary-two" size={buttonSize} asChild>
           <button type="button" onClick={() => scrollToSection("downloads")}>
-            Other platforms
+            <Trans>Other platforms</Trans>
           </button>
         </Button>
       </div>
@@ -116,14 +122,14 @@ export function DesktopDownloadCta({
   );
 }
 
-type MobileStore = { href: string; label: string };
+type MobileStore = { href: string; store: "app-store" | "google-play" };
 
 function detectMobileStore(userAgent: string): MobileStore | null {
   if (/iPhone|iPod/.test(userAgent)) {
-    return { href: "/ios", label: "Download on the App Store" };
+    return { href: "/ios", store: "app-store" };
   }
   if (/Android/.test(userAgent)) {
-    return { href: "/android", label: "Get it on Google Play" };
+    return { href: "/android", store: "google-play" };
   }
   return null;
 }
