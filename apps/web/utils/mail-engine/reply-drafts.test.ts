@@ -1023,6 +1023,106 @@ describe("drafts deleted from the mailbox", () => {
   });
 });
 
+describe("drafts still saving when the page is left", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    const storage = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      get length() {
+        return storage.size;
+      },
+      key: (index: number) => [...storage.keys()][index] ?? null,
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    });
+    vi.stubGlobal("window", new EventTarget());
+    vi.stubGlobal(
+      "document",
+      Object.assign(new EventTarget(), { visibilityState: "visible" }),
+    );
+    vi.stubGlobal("BroadcastChannel", undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it("brings back the last keystrokes after a reload cuts their save short", async () => {
+    const leaving = await loadPage({
+      // The engine's worker dies with the page before it answers.
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    });
+    const writer = leaving.drafts.createReplyDraftWriter(replyIdentity);
+    leaving.drafts.flushReplyDraftBeforeLeaving(() => {
+      writer.save({ ...content, composeMode: "reply" }).catch(() => {});
+    });
+    window.dispatchEvent(new Event("pagehide"));
+
+    vi.resetModules();
+    const engine = createRevisionCheckingClient();
+    const reloaded = await loadPage(engine);
+
+    expect(await reloaded.drafts.getReplyDraft(replyIdentity)).toMatchObject({
+      content: { draft: { editableHtml: "<p>My reply</p>" } },
+    });
+    expect(
+      await engine.readDraft({
+        accountId: "account",
+        draftId: replyIdentity.messageId,
+      }),
+    ).toMatchObject({ status: "found" });
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("keeps a newer save from another tab over a draft kept from a reload", async () => {
+    const engine = createRevisionCheckingClient();
+    const leaving = await loadPage({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    });
+    leaving.drafts
+      .createReplyDraftWriter(replyIdentity)
+      .save({ ...content, composeMode: "reply" })
+      .catch(() => {});
+    window.dispatchEvent(new Event("pagehide"));
+
+    vi.resetModules();
+    const otherTab = await loadPage(engine);
+    await otherTab.drafts.createReplyDraftWriter(replyIdentity).save({
+      ...content,
+      composeMode: "reply",
+      draft: { ...content.draft, editableHtml: "<p>Newer</p>" },
+    });
+
+    vi.resetModules();
+    const reloaded = await loadPage(engine);
+    expect(await reloaded.drafts.getReplyDraft(replyIdentity)).toMatchObject({
+      content: { draft: { editableHtml: "<p>Newer</p>" } },
+    });
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("drops drafts kept from a reload when the account's local mail is cleared", async () => {
+    const leaving = await loadPage({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    });
+    leaving.drafts
+      .createReplyDraftWriter(replyIdentity)
+      .save({ ...content, composeMode: "reply" })
+      .catch(() => {});
+    window.dispatchEvent(new Event("pagehide"));
+    expect(localStorage.length).toBe(1);
+
+    leaving.drafts.clearLocalReplyDrafts("account");
+
+    expect(localStorage.length).toBe(0);
+  });
+});
+
 async function saveDraftWithProvider() {
   await createReplyDraftWriter(identity).save({
     ...content,
@@ -1103,4 +1203,13 @@ function createRevisionCheckingClient() {
     },
   };
   return client;
+}
+
+async function loadPage(client: unknown) {
+  const [drafts, activeClient] = await Promise.all([
+    import("./reply-drafts"),
+    import("./active-client"),
+  ]);
+  activeClient.setActiveMailClient(client as never);
+  return { drafts };
 }

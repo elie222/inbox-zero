@@ -56,6 +56,11 @@ export type ReplyDraftIdentity = Pick<
 >;
 export type ReplyDraftMode = "reply" | "forward";
 type ReplyDraftScope = Pick<ReplyDraftIdentity, "emailAccountId" | "threadId">;
+type UnsavedReplyDraft = {
+  identity: ReplyDraftIdentity;
+  content: ReplyDraftContent | null;
+  updatedAt: number;
+};
 
 const drafts = new Map<string, StoredReplyDraft>();
 const pendingWrites = new Map<string, Promise<unknown>>();
@@ -72,6 +77,12 @@ const PRESENCE_REQUEST = "reply-draft-presence-request";
 const TAB_GONE = "reply-draft-tab-gone";
 const TAB_ID = randomUuid();
 const accountEpoch = new Map<string, number>();
+// The engine runs in this page's worker, so a save still on its way there
+// dies with the page. Leaving the page keeps those synchronously in
+// localStorage, and the next load saves them.
+const UNSAVED_DRAFT_KEY_PREFIX = "inbox-zero:unsaved-reply-draft:";
+const unsavedWrites = new Map<string, UnsavedReplyDraft>();
+const leaveFlushers = new Set<() => void>();
 const channel =
   typeof window !== "undefined" && typeof BroadcastChannel !== "undefined"
     ? new BroadcastChannel("inbox-zero-reply-drafts")
@@ -183,12 +194,28 @@ channel?.addEventListener("message", (event) => {
   for (const listener of listeners) listener(scope);
 });
 channel?.postMessage({ type: PRESENCE_REQUEST });
-if (channel) {
+if (typeof window !== "undefined") {
   window.addEventListener("pagehide", (event) => {
+    keepUnsavedReplyDrafts();
     // A page kept in the back/forward cache still holds its drafts.
     if (!event.persisted)
-      channel.postMessage({ type: TAB_GONE, tabId: TAB_ID });
+      channel?.postMessage({ type: TAB_GONE, tabId: TAB_ID });
   });
+  // Mobile browsers can discard a hidden page without a pagehide.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") keepUnsavedReplyDrafts();
+  });
+}
+
+/**
+ * Runs `flush` as the page is hidden or left, just before unsaved drafts are
+ * kept for the next load, so the composer's last keystrokes are among them.
+ */
+export function flushReplyDraftBeforeLeaving(flush: () => void) {
+  leaveFlushers.add(flush);
+  return () => {
+    leaveFlushers.delete(flush);
+  };
 }
 
 function announceLocalDrafts() {
@@ -254,6 +281,10 @@ export async function hydrateReplyDrafts(emailAccountId: string) {
       state,
     );
   }
+  for (const unsaved of readUnsavedReplyDrafts()) {
+    if (unsaved.identity.emailAccountId !== emailAccountId) continue;
+    saveUnsavedReplyDraft(unsaved, drafts.get(draftKey(unsaved.identity)));
+  }
 }
 
 export async function getReplyDraft(identity: ReplyDraftIdentity) {
@@ -261,11 +292,16 @@ export async function getReplyDraft(identity: ReplyDraftIdentity) {
   assertAccountEpoch(identity.emailAccountId);
   const local = drafts.get(draftKey(identity));
   if (local) return local;
+  let stored: StoredReplyDraft | undefined;
   try {
-    return await loadEngineReplyDraft(identity);
-  } catch {
-    return;
-  }
+    stored = await loadEngineReplyDraft(identity);
+  } catch {}
+  const unsaved = readUnsavedReplyDrafts().find(
+    (draft) => draftKey(draft.identity) === draftKey(identity),
+  );
+  if (!unsaved) return stored;
+  await saveUnsavedReplyDraft(unsaved, stored);
+  return drafts.get(draftKey(identity)) ?? stored;
 }
 
 export async function getReplyDraftForSession(
@@ -420,6 +456,12 @@ export function createReplyDraftWriter(
   let pending: Promise<unknown> = Promise.resolve();
   const epoch = currentEpoch(identity.emailAccountId);
   const write = (content: ReplyDraftContent | null) => {
+    const unsaved: UnsavedReplyDraft = {
+      identity: pickIdentity(identity),
+      content,
+      updatedAt: Date.now(),
+    };
+    unsavedWrites.set(draftKey(identity), unsaved);
     const operation = pending
       .catch(() => {})
       .then(async () => {
@@ -466,7 +508,7 @@ export function createReplyDraftWriter(
           ...identity,
           content: nextContent,
           revision: revision + 1,
-          updatedAt: Date.now(),
+          updatedAt: unsaved.updatedAt,
         });
         revision += 1;
         // The list marks the thread as a draft from this change, so it
@@ -474,8 +516,15 @@ export function createReplyDraftWriter(
         if (Boolean(previous?.content) !== Boolean(content)) {
           notifyReplyDraftChange(identity);
         }
-        await persistEngineReplyDraft(identity, nextContent).catch(() => {});
+        const persisted = await persistEngineReplyDraft(
+          identity,
+          nextContent,
+        ).catch(() => false);
+        if (persisted) forgetUnsavedReplyDraft(unsaved);
       });
+    // A write refused for a conflict or a cleared account isn't the user's
+    // latest copy to bring back.
+    operation.catch(() => forgetUnsavedReplyDraft(unsaved));
     pending = operation;
     const identityKey = draftKey(identity);
     pendingWrites.set(identityKey, operation);
@@ -592,9 +641,11 @@ export function clearLocalReplyDrafts(emailAccountId?: string) {
     for (const accountId of accountEpoch.keys()) {
       accountEpoch.set(accountId, currentEpoch(accountId) + 1);
     }
+    forgetUnsavedReplyDrafts();
     return;
   }
   accountEpoch.set(emailAccountId, currentEpoch(emailAccountId) + 1);
+  forgetUnsavedReplyDrafts(emailAccountId);
   for (const [key, draft] of drafts) {
     if (draft.emailAccountId !== emailAccountId) continue;
     drafts.delete(key);
@@ -734,7 +785,8 @@ async function persistEngineReplyDraft(
       accountId: identity.emailAccountId,
       draftId,
     });
-    if (current.status !== "found") return false;
+    // Nothing stored is already the cleared state.
+    if (current.status !== "found") return true;
     const cleared = await client.saveDraft({
       key: { accountId: identity.emailAccountId, draftId },
       expectedRevision: current.draftRevision,
@@ -864,5 +916,93 @@ function sentAttachments(clientState: string | undefined) {
     return Array.isArray(parsed.attachments) ? parsed.attachments : [];
   } catch {
     return [];
+  }
+}
+
+function pickIdentity(identity: ReplyDraftIdentity): ReplyDraftIdentity {
+  return {
+    emailAccountId: identity.emailAccountId,
+    threadId: identity.threadId,
+    messageId: identity.messageId,
+  };
+}
+
+function keepUnsavedReplyDrafts() {
+  for (const flush of leaveFlushers) flush();
+  for (const [key, unsaved] of unsavedWrites) {
+    try {
+      localStorage.setItem(
+        `${UNSAVED_DRAFT_KEY_PREFIX}${key}`,
+        JSON.stringify(unsaved),
+      );
+    } catch {}
+  }
+}
+
+function readUnsavedReplyDrafts() {
+  const unsaved: UnsavedReplyDraft[] = [];
+  try {
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (!key?.startsWith(UNSAVED_DRAFT_KEY_PREFIX)) continue;
+      const parsed = JSON.parse(
+        localStorage.getItem(key) ?? "null",
+      ) as UnsavedReplyDraft | null;
+      if (
+        typeof parsed?.identity?.emailAccountId === "string" &&
+        typeof parsed.identity.threadId === "string" &&
+        typeof parsed.identity.messageId === "string" &&
+        typeof parsed.updatedAt === "number"
+      )
+        unsaved.push(parsed);
+    }
+  } catch {}
+  return unsaved;
+}
+
+/** Saves a draft kept from a previous page unless the store holds a newer edit. */
+async function saveUnsavedReplyDraft(
+  unsaved: UnsavedReplyDraft,
+  stored: StoredReplyDraft | undefined,
+) {
+  if (unsaved.updatedAt <= (stored?.updatedAt ?? 0)) {
+    forgetUnsavedReplyDraft(unsaved);
+    return;
+  }
+  const writer = createReplyDraftWriter(
+    unsaved.identity,
+    stored?.revision ?? 0,
+  );
+  await (unsaved.content ? writer.save(unsaved.content) : writer.clear()).catch(
+    () => {},
+  );
+}
+
+function forgetUnsavedReplyDraft(unsaved: UnsavedReplyDraft) {
+  const key = draftKey(unsaved.identity);
+  if (unsavedWrites.get(key) === unsaved) unsavedWrites.delete(key);
+  try {
+    const storageKey = `${UNSAVED_DRAFT_KEY_PREFIX}${key}`;
+    const kept = JSON.parse(localStorage.getItem(storageKey) ?? "null") as {
+      updatedAt?: number;
+    } | null;
+    if (kept && (kept.updatedAt ?? 0) <= unsaved.updatedAt)
+      localStorage.removeItem(storageKey);
+  } catch {}
+}
+
+function forgetUnsavedReplyDrafts(emailAccountId?: string) {
+  for (const [key, unsaved] of unsavedWrites) {
+    if (!emailAccountId || unsaved.identity.emailAccountId === emailAccountId)
+      unsavedWrites.delete(key);
+  }
+  for (const unsaved of readUnsavedReplyDrafts()) {
+    if (emailAccountId && unsaved.identity.emailAccountId !== emailAccountId)
+      continue;
+    try {
+      localStorage.removeItem(
+        `${UNSAVED_DRAFT_KEY_PREFIX}${draftKey(unsaved.identity)}`,
+      );
+    } catch {}
   }
 }
