@@ -41,6 +41,7 @@
   "attachment-previews.spec.ts": [
     "components/email-list/EmailAttachments.tsx",
     "components/email-list/AttachmentPreview.tsx",
+    "components/email-list/attachment-file-type.ts",
     "components/email-list/OpenedConversationAttachments.tsx"
   ],
   "cached-settings.spec.ts": ["hooks/useMailSettings.ts"],

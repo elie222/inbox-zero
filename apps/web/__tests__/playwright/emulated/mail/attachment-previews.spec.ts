@@ -13,20 +13,20 @@ test("downloads opened attachment previews over the network", async ({
     conversations,
     "Reader Visual Message",
   ).click();
-  await expect(
-    page.getByText("reader-preview.png", { exact: true }),
-  ).toBeVisible();
+  const downloadButton = page.getByRole("button", {
+    name: "Download reader-preview.png",
+  });
+  await page
+    .getByRole("button", { name: "Preview reader-preview.png" })
+    .hover();
+  await expect(downloadButton).toBeVisible();
   const downloadRequest = page.waitForRequest(
     (request) =>
       request.method() === "GET" &&
       request.url().includes("/attachment-content"),
   );
   const download = page.waitForEvent("download");
-  await page
-    .getByText("reader-preview.png", { exact: true })
-    .locator("..")
-    .getByRole("button", { name: "Download" })
-    .click();
+  await downloadButton.click();
   const savedFile = await download;
   expect(savedFile.suggestedFilename()).toBe("reader-preview.png");
   expect(await savedFile.failure()).toBeNull();
