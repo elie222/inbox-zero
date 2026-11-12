@@ -106,14 +106,15 @@ async function sendAndVerifyAttachment(
   );
   await expect(sentConversation).toBeVisible({ timeout: 60_000 });
   await sentConversation.click();
-  const attachment = page.getByText(file.name, { exact: true });
-  await expect(attachment).toBeVisible({ timeout: 60_000 });
+  // Image tiles show only a thumbnail, so find the file by its download label.
+  const downloadButton = page.getByRole("button", {
+    name: `Download ${file.name}`,
+    exact: true,
+  });
+  await expect(downloadButton).toBeVisible({ timeout: 60_000 });
 
   const download = page.waitForEvent("download");
-  await attachment
-    .locator("..")
-    .getByRole("button", { name: "Download" })
-    .click();
+  await downloadButton.click();
   const savedFile = await download;
   const savedPath = await savedFile.path();
   expect(savedPath).not.toBeNull();
