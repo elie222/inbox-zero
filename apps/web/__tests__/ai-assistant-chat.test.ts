@@ -303,12 +303,14 @@ describe("aiProcessAssistantChat", () => {
         expect(args.stopWhen()).toBe(false);
 
         vi.advanceTimersByTime(toolBudgetMs - 1);
-        expect(
-          await args.prepareStep({ messages: baseMessages }),
-        ).toBeUndefined();
+        const toolStep = await args.prepareStep({ messages: baseMessages });
+        expect(toolStep.activeTools).toBeUndefined();
+        expect(toolStep.toolChoice).toBeUndefined();
 
         vi.advanceTimersByTime(1);
-        expect(await args.prepareStep({ messages: baseMessages })).toEqual({
+        expect(
+          await args.prepareStep({ messages: baseMessages }),
+        ).toMatchObject({
           activeTools: [],
           toolChoice: "none",
         });
@@ -857,13 +859,13 @@ describe("aiProcessAssistantChat", () => {
     expect(args.messages[3].content).toContain(
       "Memories from previous conversations:",
     );
-    expect(args.messages.at(-1)).toEqual({
+    expect(args.messages.at(-1)).toMatchObject({
       role: "user",
       content: "latest user message",
     });
   });
 
-  it("adds anthropic cache breakpoints to stable-prefix messages", async () => {
+  it("adds anthropic cache breakpoints to the system prompt, history, and latest message", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,
     });
@@ -884,13 +886,18 @@ describe("aiProcessAssistantChat", () => {
     });
 
     const args = mockToolCallAgentStream.mock.calls[0][0];
-    expect(args.messages[0].providerOptions?.anthropic?.cacheControl).toEqual({
-      type: "ephemeral",
-    });
-    expect(args.messages[2].providerOptions?.anthropic?.cacheControl).toEqual({
-      type: "ephemeral",
-    });
-    expect(args.messages.at(-1).providerOptions).toBeUndefined();
+    const cacheControls = args.messages.map(
+      (message: ModelMessage) =>
+        message.providerOptions?.anthropic?.cacheControl,
+    );
+    // OpenRouter ignores cache control on assistant messages, so history's
+    // breakpoint sits on the user message before the reply.
+    expect(cacheControls).toEqual([
+      { type: "ephemeral" },
+      { type: "ephemeral" },
+      undefined,
+      { type: "ephemeral" },
+    ]);
   });
 
   it("uses systemType (not rule name) to detect conversation status fix context", async () => {

@@ -29,7 +29,10 @@ export const mailScreenActionInputSchema = z.object({
 export type MailScreenAction =
   | { action: "select_threads"; threadIds: string[] }
   | { action: "open_thread"; threadId: string }
-  | { action: "search"; query: string };
+  | { action: "search"; query: string }
+  // Sent by the client after the assistant creates or edits a split, never by
+  // the model, so parseMailScreenAction doesn't accept it.
+  | { action: "show_split"; splitId: string; emailAccountId: string };
 
 /**
  * The browser applies an action as soon as the model emits it, before the

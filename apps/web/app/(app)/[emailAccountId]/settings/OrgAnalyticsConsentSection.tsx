@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { Switch } from "@/components/ui/switch";
@@ -22,6 +23,7 @@ export function OrgAnalyticsConsentSection({
 }: {
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
   const { data, isLoading, error, mutate } =
     useOrganizationMembership(emailAccountId);
 
@@ -29,13 +31,13 @@ export function OrgAnalyticsConsentSection({
     updateAnalyticsConsentAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Settings updated!" });
+        toastSuccess({ description: t`Settings updated!` });
       },
       onError: (error) => {
         mutate();
         toastError({
           description: getActionErrorMessage(error.error, {
-            prefix: "Failed to update settings",
+            prefix: t`Failed to update settings`,
           }),
         });
       },
@@ -70,9 +72,18 @@ export function OrgAnalyticsConsentSection({
           <ItemSeparator />
           <Item size="sm">
             <ItemContent>
-              <ItemTitle>Organization Analytics</ItemTitle>
+              <ItemTitle>
+                <Trans>Organization Analytics</Trans>
+              </ItemTitle>
               <ItemDescription>
-                {`Allow organization admins${data.organizationName ? ` from ${data.organizationName}` : ""} to view your usage`}
+                {data.organizationName ? (
+                  <Trans>
+                    Allow organization admins from {data.organizationName} to
+                    view your usage
+                  </Trans>
+                ) : (
+                  <Trans>Allow organization admins to view your usage</Trans>
+                )}
               </ItemDescription>
             </ItemContent>
             <ItemActions>

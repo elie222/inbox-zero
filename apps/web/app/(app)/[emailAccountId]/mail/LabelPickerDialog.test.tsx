@@ -13,11 +13,13 @@ import { LabelPickerDialog } from "./LabelPickerDialog";
 
 (globalThis as { React?: typeof React }).React = React;
 
-const { mockUseAccount, mockUseLabels, mockUseFolders } = vi.hoisted(() => ({
-  mockUseAccount: vi.fn(),
-  mockUseLabels: vi.fn(),
-  mockUseFolders: vi.fn(),
-}));
+const { mockUseAccount, mockUseLabels, mockUseFolders, mockUseLabelCounts } =
+  vi.hoisted(() => ({
+    mockUseAccount: vi.fn(),
+    mockUseLabels: vi.fn(),
+    mockUseFolders: vi.fn(),
+    mockUseLabelCounts: vi.fn(),
+  }));
 
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => mockUseAccount(),
@@ -26,6 +28,10 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
 vi.mock("@/hooks/useLabels", () => ({
   isLabelsKey: () => true,
   useLabels: () => mockUseLabels(),
+}));
+
+vi.mock("@/hooks/useLabelCounts", () => ({
+  useLabelCounts: () => mockUseLabelCounts(),
 }));
 
 vi.mock("@/hooks/useFolders", () => ({
@@ -59,6 +65,7 @@ if (!HTMLElement.prototype.scrollIntoView) {
 
 describe("LabelPickerDialog", () => {
   beforeEach(() => {
+    mockUseLabelCounts.mockReturnValue({ countsById: new Map() });
     mockUseLabels.mockReturnValue({
       userLabels: [{ id: "category-1", name: "Category One", type: "user" }],
       isLoading: false,
@@ -171,5 +178,68 @@ describe("LabelPickerDialog", () => {
       kind: "label",
       id: "category-1",
     });
+  });
+
+  it("lists labels in sidebar order with hidden labels last", () => {
+    mockUseAccount.mockReturnValue({
+      emailAccountId: "account-1",
+      provider: "google",
+    });
+    mockUseLabelCounts.mockReturnValue({
+      countsById: new Map([
+        [
+          "read-only",
+          {
+            id: "read-only",
+            name: "Newsletters",
+            kind: "label",
+            total: 4,
+            unread: 0,
+          },
+        ],
+      ]),
+    });
+    mockUseLabels.mockReturnValue({
+      userLabels: [
+        {
+          id: "hidden",
+          name: "Archive Later",
+          type: "user",
+          labelListVisibility: "labelHide",
+        },
+        { id: "work", name: "Work", type: "user" },
+        { id: "work-plus", name: "Work Plus", type: "user" },
+        { id: "work-child", name: "Work/Clients", type: "user" },
+        {
+          id: "read-only",
+          name: "Newsletters",
+          type: "user",
+          labelListVisibility: "labelShowIfUnread",
+        },
+        { id: "bracket", name: "[Superhuman]/Muted", type: "user" },
+      ],
+      isLoading: false,
+      error: undefined,
+      mutate: vi.fn(),
+    });
+
+    render(
+      <LabelPickerDialog
+        threadKeys={["thread-1"]}
+        onClose={vi.fn()}
+        onApply={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getAllByRole("option").map((option) => option.textContent),
+    ).toEqual([
+      "Work",
+      "Work/Clients",
+      "Work Plus",
+      "[Superhuman]/Muted",
+      "Archive Later",
+      "Newsletters",
+    ]);
   });
 });

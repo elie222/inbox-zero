@@ -16,6 +16,7 @@ export type MailboxWindowSnapshot = QuerySnapshot<MailboxView> & {
   canLoadMore: boolean;
   isLoadingMore: boolean;
   loadMore: () => Promise<void>;
+  refetch: () => void;
 };
 
 type LoadableMailboxHandle = QueryHandle<MailboxView> & {
@@ -64,7 +65,8 @@ export function useMailboxWindow(
     store.getSnapshot,
   );
   const loadMore = useCallback(() => store.loadMore(), [store]);
-  return { ...snapshot, loadMore };
+  const refetch = useCallback(() => store.refetch(), [store]);
+  return { ...snapshot, loadMore, refetch };
 }
 
 function createMailboxWindowStore(
@@ -78,8 +80,11 @@ function createMailboxWindowStore(
   const listeners = new Set<() => void>();
 
   const notify = () => {
+    const next = handle?.getSnapshot() ?? initialSnapshot;
     snapshot = withWindowState(
-      handle?.getSnapshot() ?? initialSnapshot,
+      next.data === null && snapshot.data
+        ? { ...next, data: snapshot.data, revision: snapshot.revision }
+        : next,
       handle,
       isLoadingMore,
     );
@@ -106,6 +111,15 @@ function createMailboxWindowStore(
         isLoadingMore = false;
         snapshot = withWindowState(initialSnapshot, null, false);
       };
+    },
+    refetch() {
+      if (!handle) return;
+      unsubscribeHandle?.();
+      handle.close();
+      isLoadingMore = false;
+      handle = createHandle();
+      unsubscribeHandle = handle.subscribe(notify);
+      notify();
     },
     async loadMore() {
       const currentHandle = handle;

@@ -1,3 +1,4 @@
+import { msg } from "@lingui/core/macro";
 import {
   parseSearchToken,
   tokenizeSearchQuery,
@@ -5,27 +6,27 @@ import {
 } from "@/utils/tokenize-search-query";
 
 export const DATE_WITHIN_OPTIONS = [
-  { value: "1d", name: "1 day", days: 1 },
-  { value: "3d", name: "3 days", days: 3 },
-  { value: "1w", name: "1 week", days: 7 },
-  { value: "2w", name: "2 weeks", days: 14 },
-  { value: "1m", name: "1 month", days: 30 },
-  { value: "2m", name: "2 months", days: 60 },
-  { value: "6m", name: "6 months", days: 180 },
-  { value: "1y", name: "1 year", days: 365 },
+  { value: "1d", name: msg`1 day`, days: 1 },
+  { value: "3d", name: msg`3 days`, days: 3 },
+  { value: "1w", name: msg`1 week`, days: 7 },
+  { value: "2w", name: msg`2 weeks`, days: 14 },
+  { value: "1m", name: msg`1 month`, days: 30 },
+  { value: "2m", name: msg`2 months`, days: 60 },
+  { value: "6m", name: msg`6 months`, days: 180 },
+  { value: "1y", name: msg`1 year`, days: 365 },
 ] as const;
 
 export type DateWithin = (typeof DATE_WITHIN_OPTIONS)[number]["value"];
 
 export const SEARCH_IN_OPTIONS = [
-  { value: "all", name: "All Mail" },
-  { value: "inbox", name: "Inbox" },
-  { value: "starred", name: "Starred" },
-  { value: "sent", name: "Sent Mail" },
-  { value: "drafts", name: "Drafts" },
-  { value: "spam", name: "Spam" },
-  { value: "trash", name: "Trash" },
-  { value: "anywhere", name: "Mail & Spam & Trash" },
+  { value: "all", name: msg`All Mail` },
+  { value: "inbox", name: msg`Inbox` },
+  { value: "starred", name: msg`Starred` },
+  { value: "sent", name: msg`Sent Mail` },
+  { value: "drafts", name: msg`Drafts` },
+  { value: "spam", name: msg`Spam` },
+  { value: "trash", name: msg`Trash` },
+  { value: "anywhere", name: msg`Mail & Spam & Trash` },
 ] as const;
 
 export type MailSearchFields = {

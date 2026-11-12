@@ -1,4 +1,6 @@
 import type { EmailEditorHandle } from "@inboxzero/email-editor/web";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import { type RefObject, useCallback, useRef, useState } from "react";
 import type { SubmitHandler } from "react-hook-form";
@@ -48,6 +50,7 @@ import {
 } from "./queued-reply";
 import { getReplyToEmailPayload } from "./reply-to-email-payload";
 import { resolveSendDraftId } from "./send-draft-reference";
+import { getComposeErrorMessage } from "./compose-error-messages";
 import {
   getEditableText,
   getSendWarnings,
@@ -112,6 +115,7 @@ export function useComposeSend({
   onClose?: (queuedOperationId?: string) => void;
   onRestore?: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId } = useAccount();
   const { showEmail } = useDisplayedEmail();
   const { mutate } = useSWRConfig();
@@ -160,7 +164,7 @@ export function useComposeSend({
         pendingRecipients: pendingRecipientsRef.current,
       });
       if (!recipients.to) {
-        toastError({ description: "Enter a valid recipient email address." });
+        toastError({ description: t`Enter a valid recipient email address.` });
         return;
       }
 
@@ -173,7 +177,7 @@ export function useComposeSend({
       );
       if (failedAttachment) {
         toastError({
-          description: `${failedAttachment.filename} isn't attached. Remove it or attach it again before sending.`,
+          description: t`${failedAttachment.filename} isn't attached. Remove it or attach it again before sending.`,
         });
         return;
       }
@@ -208,7 +212,7 @@ export function useComposeSend({
 
       const deliveryTimes = parseDeliveryTimes(sendAt, remindAt);
       if (!deliveryTimes.valid) {
-        setSubmissionError(deliveryTimes.error);
+        setSubmissionError(i18n._(deliveryTimes.error));
         return;
       }
 
@@ -286,7 +290,7 @@ export function useComposeSend({
           showSessionDrafts();
         };
         if (!scheduledThreadId)
-          toastSuccess({ description: "Email scheduled." });
+          toastSuccess({ description: t`Email scheduled.` });
         onClose?.();
       }
       const failSchedule = (description: string) => {
@@ -310,8 +314,7 @@ export function useComposeSend({
             );
         // The mailbox draft is what carries the files to the recipient.
         if (attachmentsRef.current.length && !enrichedData.providerDraftId) {
-          const description =
-            "Could not find this draft in your mailbox to send its attachments. Reopen it and try again.";
+          const description = t`Could not find this draft in your mailbox to send its attachments. Reopen it and try again.`;
           if (schedulesAtOnce) failSchedule(description);
           else toastError({ description });
           return;
@@ -319,7 +322,7 @@ export function useComposeSend({
         if (isInlineReply) {
           if (deliveryPath.current === "outbox" && (sendAt || remindAt)) {
             setSubmissionError(
-              "This reply was already submitted to the outbox. Check its delivery status before scheduling a new reply.",
+              t`This reply was already submitted to the outbox. Check its delivery status before scheduling a new reply.`,
             );
             return;
           }
@@ -365,8 +368,8 @@ export function useComposeSend({
             failSchedule(
               getActionErrorMessage(result ?? {}, {
                 prefix: scheduledThreadId
-                  ? "Could not schedule this reply"
-                  : "Could not schedule this email",
+                  ? t`Could not schedule this reply`
+                  : t`Could not schedule this email`,
               }),
             );
             return;
@@ -377,8 +380,7 @@ export function useComposeSend({
             await clearLocalDraft();
           } catch {
             toastError({
-              description:
-                "Reply scheduled, but its local draft copy could not be cleared.",
+              description: t`Reply scheduled, but its local draft copy could not be cleared.`,
             });
           }
           if (markDoneAfterSend) onMarkDone?.();
@@ -393,7 +395,7 @@ export function useComposeSend({
           );
           if (!schedulesAtOnce) {
             if (!scheduledThreadId)
-              toastSuccess({ description: "Email scheduled." });
+              toastSuccess({ description: t`Email scheduled.` });
             onClose?.();
           }
           refetch?.();
@@ -409,11 +411,10 @@ export function useComposeSend({
           requestId;
         if (!client) {
           setSubmissionError(
-            "Mail is still starting. Try sending again in a moment.",
+            t`Mail is still starting. Try sending again in a moment.`,
           );
           toastError({
-            description:
-              "Mail is still starting. Try sending again in a moment.",
+            description: t`Mail is still starting. Try sending again in a moment.`,
           });
           return;
         }
@@ -481,10 +482,11 @@ export function useComposeSend({
         } catch (error) {
           // biome-ignore lint/suspicious/noConsole: send failures stay visible in the browser console
           console.error(error);
-          const description =
-            error instanceof Error
-              ? error.message
-              : "Could not confirm this reply was queued. Check the thread delivery status before retrying.";
+          const description = getComposeErrorMessage(
+            error,
+            i18n,
+            t`Could not confirm this reply was queued. Check the thread delivery status before retrying.`,
+          );
           showDraftAgain();
           setSubmissionError(description);
           toastError({ description });
@@ -497,13 +499,14 @@ export function useComposeSend({
           } catch {
             toastError({
               description: isInlineReply
-                ? "Reply queued, but its local draft copy could not be cleared."
-                : "Email queued, but its local draft copy could not be cleared.",
+                ? t`Reply queued, but its local draft copy could not be cleared.`
+                : t`Email queued, but its local draft copy could not be cleared.`,
             });
           }
         };
         if (outcome.status === "held") {
           beginUndoSend({
+            i18n,
             client,
             operationId: outcome.mutationId,
             emailAccountId: selectedEmailAccountId,
@@ -530,6 +533,7 @@ export function useComposeSend({
                       ),
                     }
                   : { sent: false },
+                i18n,
               );
               if (settled.status === "cancelled" || settled.status === "failed")
                 showDraftAgain();
@@ -542,19 +546,20 @@ export function useComposeSend({
                 return;
               }
               if (settled.status === "failed" && settled.ownsNotification) {
-                toastError({ description: settled.error });
+                toastError({
+                  description: getComposeErrorMessage(settled.error, i18n),
+                });
               } else if (
                 settled.status === "uncertain" &&
                 settled.ownsNotification
               ) {
                 toastError({
-                  description:
-                    "This reply may have been sent. Check Sent before retrying.",
+                  description: t`This reply may have been sent. Check Sent before retrying.`,
                 });
               }
             })
             .catch(() =>
-              finishUndoSendToast(outcome.mutationId, { sent: false }),
+              finishUndoSendToast(outcome.mutationId, { sent: false }, i18n),
             );
           return;
         }
@@ -568,9 +573,9 @@ export function useComposeSend({
               outcome.threadId,
             );
             toastSuccess({
-              description: "Email sent!",
+              description: t`Email sent!`,
               action: viewSentEmail
-                ? { label: "View", onClick: viewSentEmail }
+                ? { label: t`View`, onClick: viewSentEmail }
                 : undefined,
             });
           }
@@ -580,34 +585,35 @@ export function useComposeSend({
         } else if (outcome.status === "queued") {
           if (!isInlineReply)
             toastSuccess({
-              description: getQueuedEmailDescription(outcome.reason),
+              description: i18n._(getQueuedEmailDescription(outcome.reason)),
             });
           if (markDoneAfterSend) onMarkDone?.();
           onClose?.();
         } else if (outcome.status === "uncertain") {
           if (outcome.ownsNotification) {
             toastError({
-              description:
-                "This reply may have been sent. Check Sent before retrying.",
+              description: t`This reply may have been sent. Check Sent before retrying.`,
             });
           }
           onClose?.();
         } else if (outcome.status === "failed" && outcome.ownsNotification) {
-          toastError({ description: outcome.error });
+          toastError({
+            description: getComposeErrorMessage(outcome.error, i18n),
+          });
         }
       } catch (error) {
         // biome-ignore lint/suspicious/noConsole: send failures stay visible in the browser console
         console.error(error);
         if (schedulesAtOnce) {
           failSchedule(
-            "Could not schedule this email. Check the thread status before trying again.",
+            t`Could not schedule this email. Check the thread status before trying again.`,
           );
           return;
         }
         setSubmissionError(
-          "Could not confirm delivery. Check the thread status before trying again.",
+          t`Could not confirm delivery. Check the thread status before trying again.`,
         );
-        toastError({ description: "There was an error sending the email :(" });
+        toastError({ description: t`There was an error sending the email :(` });
       } finally {
         if (!deliveryAccepted) resumeProviderAutosave();
       }
@@ -652,6 +658,8 @@ export function useComposeSend({
       pendingRecipientsRef,
       sendAndMarkDoneButtonRef,
       setSubmissionError,
+      t,
+      i18n,
     ],
   );
 
@@ -673,12 +681,12 @@ function getQueuedEmailDescription(
   reason: "offline" | "pending" | "blocked_auth",
 ) {
   if (reason === "offline") {
-    return "Email queued. It will send when you're back online.";
+    return msg`Email queued. It will send when you're back online.`;
   }
   if (reason === "blocked_auth") {
-    return "Email queued. Reconnect this account to send it.";
+    return msg`Email queued. Reconnect this account to send it.`;
   }
-  return "Email queued and will keep sending in the background.";
+  return msg`Email queued and will keep sending in the background.`;
 }
 
 /**

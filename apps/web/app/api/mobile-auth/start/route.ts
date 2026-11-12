@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { mobileAuthCodeChallengeSchema } from "@/utils/mobile-auth/pkce";
 import { withError } from "@/utils/middleware";
+import { MobileSocialAuthRateLimitError } from "@/utils/mobile-auth/rate-limit-error";
 import { startMobileSocialAuth } from "@/utils/mobile-auth/start-social";
 import { mobileAuthProviderSchema } from "@/utils/mobile-auth/providers";
 import { MOBILE_AUTH_RETURN_URL_MODES } from "@/utils/mobile-auth/url";
@@ -25,7 +26,12 @@ export const POST = withError("mobile-auth/start", async (request) => {
     provider: body.provider,
     codeChallenge: body.codeChallenge,
     returnUrlMode: body.returnUrlMode ?? "app-link",
+  }).catch((error: unknown) => {
+    if (error instanceof MobileSocialAuthRateLimitError)
+      return error.toResponse();
+    throw error;
   });
+  if (started instanceof Response) return started;
 
   const response: StartMobileAuthResponse = {
     authorizationURL: started.authorizationURL,

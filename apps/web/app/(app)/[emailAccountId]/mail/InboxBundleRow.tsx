@@ -2,6 +2,7 @@
 
 import { memo, useMemo, type Ref } from "react";
 import { ChevronDownIcon, LayersIcon } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { MailThreadRow } from "@inboxzero/mail-ui/MailThreadRow";
 import type { InboxBundle } from "@/app/(app)/[emailAccountId]/mail/inbox-bundles";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
@@ -45,17 +46,22 @@ export const InboxBundleRow = memo(function InboxBundleRow({
   onSelectRangeTo: (index: number) => void;
   rowRef?: Ref<HTMLDivElement>;
 }) {
+  const { t, i18n } = useLingui();
   const senders = useMemo(
     () =>
       // Deduplicated in recency order, so the newest senders are named first.
       [
         ...new Set(
           bundle.threads.flatMap((thread) =>
-            getThreadParticipantNames(thread.messages, userEmail),
+            getThreadParticipantNames(
+              [...(thread.participantMessages ?? []), ...thread.messages],
+              ("account" in thread ? thread.account?.email : null) ?? userEmail,
+              t`me`,
+            ),
           ),
         ),
       ],
-    [bundle.threads, userEmail],
+    [bundle.threads, userEmail, t],
   );
   const newest = bundle.threads[0];
   if (!newest) return null;
@@ -72,7 +78,10 @@ export const InboxBundleRow = memo(function InboxBundleRow({
       date={
         <span className="text-muted-foreground text-xs">
           {timestamp
-            ? formatShortDate(new Date(timestamp), { lowercase: true })
+            ? formatShortDate(new Date(timestamp), {
+                lowercase: true,
+                locale: i18n.locale,
+              })
             : null}
         </span>
       }
@@ -93,7 +102,7 @@ export const InboxBundleRow = memo(function InboxBundleRow({
       participantSummary={bundle.name}
       renderSelectionControl={({ ariaLabel, checked, onClick, visible }) => (
         <Checkbox
-          aria-label={ariaLabel.replace("conversation", "bundle")}
+          aria-label={ariaLabel}
           checked={checked}
           className={getMailRowCheckboxClassName(visible)}
           onClick={onClick}
@@ -102,6 +111,9 @@ export const InboxBundleRow = memo(function InboxBundleRow({
       rowRef={rowRef}
       selectionEnabled={selectionEnabled}
       snippet={getConversationSubject(newest.messages)}
+      strings={{
+        selectConversation: (bundleName) => t`Select bundle with ${bundleName}`,
+      }}
       subject={senders.join(", ")}
     />
   );
@@ -127,7 +139,9 @@ export function InboxBundleHeader({
       <LayersIcon aria-hidden className="size-3.5 text-primary" />
       <span className="font-medium text-foreground">{bundle.name}</span>
       <span>{bundle.threads.length}</span>
-      <span className="ml-auto">Collapse</span>
+      <span className="ml-auto">
+        <Trans>Collapse</Trans>
+      </span>
     </button>
   );
 }

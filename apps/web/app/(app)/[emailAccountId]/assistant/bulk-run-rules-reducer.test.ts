@@ -6,6 +6,9 @@ import {
   type BulkRunState,
 } from "./bulk-run-rules-reducer";
 import type { ThreadsResponse } from "@/app/api/threads/route";
+import { setupI18n } from "@lingui/core";
+
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
 
 // Helper to create mock threads
 function createMockThread(id: string): ThreadsResponse["threads"][number] {
@@ -428,7 +431,7 @@ describe("getProgressMessage", () => {
       status: "processing",
     };
 
-    const result = getProgressMessage(state, 0);
+    const result = getProgressMessage(state, 0, i18n);
 
     expect(result).toBeNull();
   });
@@ -440,7 +443,7 @@ describe("getProgressMessage", () => {
       processedThreadIds: new Set(["t1", "t2", "t3", "t4", "t5"]),
     };
 
-    const result = getProgressMessage(state, 3);
+    const result = getProgressMessage(state, 3, i18n);
 
     expect(result).toBe("Progress: 2/5 emails completed");
   });
@@ -453,7 +456,7 @@ describe("getProgressMessage", () => {
       stoppedCount: 3,
     };
 
-    const result = getProgressMessage(state, 0);
+    const result = getProgressMessage(state, 0, i18n);
 
     expect(result).toBe("Processed 3 emails");
   });
@@ -465,7 +468,7 @@ describe("getProgressMessage", () => {
       processedThreadIds: new Set(["t1", "t2", "t3", "t4", "t5"]),
     };
 
-    const result = getProgressMessage(state, 0);
+    const result = getProgressMessage(state, 0, i18n);
 
     expect(result).toBe("Processed 5 emails");
   });
@@ -477,7 +480,7 @@ describe("getProgressMessage", () => {
       processedThreadIds: new Set(["t1", "t2", "t3", "t4"]),
     };
 
-    const result = getProgressMessage(state, 2);
+    const result = getProgressMessage(state, 2, i18n);
 
     expect(result).toBe("Progress: 2/4 emails completed");
   });

@@ -132,6 +132,7 @@ RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
 # Cache mount persists between builds for incremental compilation
 RUN --mount=type=cache,target=/app/apps/web/.next/cache \
     cd apps/web && \
+    pnpm exec lingui extract-template && \
     ../../node_modules/.bin/next build --webpack && \
     ../../node_modules/.bin/serwist build serwist.config.mjs && \
     cd ../.. && \

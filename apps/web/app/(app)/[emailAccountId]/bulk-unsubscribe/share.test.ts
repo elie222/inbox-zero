@@ -1,3 +1,4 @@
+import { setupI18n } from "@lingui/core";
 import { describe, expect, it } from "vitest";
 import {
   buildCelebrationSubline,
@@ -7,10 +8,16 @@ import {
   projectYearlyEmails,
 } from "./share";
 
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
+
 describe("buildShareText", () => {
   it("includes the count and link", () => {
     expect(
-      buildShareText({ senderCount: 12, link: "https://www.getinboxzero.com" }),
+      buildShareText({
+        senderCount: 12,
+        link: "https://www.getinboxzero.com",
+        i18n,
+      }),
     ).toBe(
       "I just unsubscribed from 12 email lists with Inbox Zero. https://www.getinboxzero.com",
     );
@@ -18,7 +25,11 @@ describe("buildShareText", () => {
 
   it("uses singular wording for one sender", () => {
     expect(
-      buildShareText({ senderCount: 1, link: "https://www.getinboxzero.com" }),
+      buildShareText({
+        senderCount: 1,
+        link: "https://www.getinboxzero.com",
+        i18n,
+      }),
     ).toBe(
       "I just unsubscribed from 1 email list with Inbox Zero. https://www.getinboxzero.com",
     );
@@ -29,6 +40,7 @@ describe("buildShareText", () => {
       buildShareText({
         senderCount: 12,
         link: "https://www.getinboxzero.com",
+        i18n,
         yearlyEmails: 2400,
       }),
     ).toBe(
@@ -41,6 +53,7 @@ describe("buildShareText", () => {
       buildShareText({
         senderCount: 1,
         link: "https://www.getinboxzero.com",
+        i18n,
         yearlyEmails: 0,
       }),
     ).toBe(
@@ -50,7 +63,11 @@ describe("buildShareText", () => {
 });
 
 describe("share intent URLs", () => {
-  const params = { senderCount: 5, link: "https://example.com/?ref=abc123" };
+  const params = {
+    senderCount: 5,
+    link: "https://example.com/?ref=abc123",
+    i18n,
+  };
 
   it("builds an X intent URL with the encoded share text", () => {
     const url = buildXShareUrl(params);
@@ -108,7 +125,11 @@ describe("buildCelebrationSubline", () => {
     const to = new Date(2026, 5, 12);
     const from = new Date(2026, 2, 14); // 90 days earlier
     expect(
-      buildCelebrationSubline({ emailCount: 384, dateRange: { from, to } }),
+      buildCelebrationSubline({
+        emailCount: 384,
+        dateRange: { from, to },
+        i18n,
+      }),
     ).toBe("At their current pace, that's about 1,600 fewer emails a year.");
   });
 
@@ -116,18 +137,22 @@ describe("buildCelebrationSubline", () => {
     const from = new Date(2026, 0, 1);
     const to = new Date(2028, 8, 27); // 1000 days
     expect(
-      buildCelebrationSubline({ emailCount: 1, dateRange: { from, to } }),
+      buildCelebrationSubline({
+        emailCount: 1,
+        dateRange: { from, to },
+        i18n,
+      }),
     ).toBe("At their current pace, that's about 0 fewer emails a year.");
   });
 
   it("falls back to the raw count when no range is available", () => {
-    expect(buildCelebrationSubline({ emailCount: 1234 })).toBe(
+    expect(buildCelebrationSubline({ emailCount: 1234, i18n })).toBe(
       "That's 1,234 emails you won't get again.",
     );
   });
 
   it("handles a single past email", () => {
-    expect(buildCelebrationSubline({ emailCount: 1 })).toBe(
+    expect(buildCelebrationSubline({ emailCount: 1, i18n })).toBe(
       "That's 1 email you won't get again.",
     );
   });

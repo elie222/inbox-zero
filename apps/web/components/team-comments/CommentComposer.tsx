@@ -6,6 +6,7 @@ import {
   type ReactNode,
   useState,
 } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowUpIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AutosizeTextarea } from "@/components/ui/textarea";
@@ -37,6 +38,7 @@ export function CommentComposer({
     clientMutationId: string;
   }) => Promise<SubmitResult>;
 }) {
+  const { t, i18n } = useLingui();
   const [body, setBody] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
   const [highlighted, setHighlighted] = useState(0);
@@ -115,16 +117,16 @@ export function CommentComposer({
       }
     }
   };
+  const newlySharedNames = new Intl.ListFormat(i18n.locale, {
+    type: "conjunction",
+  }).format(newlyShared.map((candidate) => candidate.name));
   const notice = newlyShared.length ? (
     <span>
-      Sending will also share all past and future messages in this conversation
-      with{" "}
-      <span className="font-medium text-foreground">
-        {new Intl.ListFormat(undefined, { type: "conjunction" }).format(
-          newlyShared.map((candidate) => candidate.name),
-        )}
-      </span>
-      .
+      <Trans>
+        Sending will also share all past and future messages in this
+        conversation with{" "}
+        <span className="font-medium text-foreground">{newlySharedNames}</span>.
+      </Trans>
     </span>
   ) : (
     hint
@@ -141,7 +143,7 @@ export function CommentComposer({
           <div
             id="comment-mentions"
             role="listbox"
-            aria-label="Mention a teammate"
+            aria-label={t`Mention a teammate`}
             className="absolute bottom-full left-0 z-10 mb-1 w-64 rounded-md border bg-popover p-1 shadow-md"
           >
             {suggestions.map((candidate, index) => (
@@ -159,7 +161,7 @@ export function CommentComposer({
                 {candidate.name}
                 {!participantIds.includes(candidate.memberId) && (
                   <span className="text-muted-foreground text-xs">
-                    Not shared yet
+                    <Trans>Not shared yet</Trans>
                   </span>
                 )}
               </button>
@@ -168,7 +170,7 @@ export function CommentComposer({
         )}
         <div className="flex items-end gap-2 rounded-lg border bg-background py-1.5 pr-1.5 pl-3 transition-[box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
           <label className="sr-only" htmlFor="internal-comment">
-            Internal comment
+            <Trans>Internal comment</Trans>
           </label>
           <AutosizeTextarea
             id="internal-comment"
@@ -176,7 +178,7 @@ export function CommentComposer({
             minRows={1}
             maxRows={10}
             maxLength={10_000}
-            placeholder="Comment and @mention a teammate"
+            placeholder={t`Comment and @mention a teammate`}
             value={body}
             onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
               const next = event.target.value;
@@ -208,7 +210,7 @@ export function CommentComposer({
             className="rounded-full"
             variant={canSubmit ? "default" : "ghost"}
             disabled={!canSubmit}
-            aria-label={error ? "Retry comment" : "Post comment"}
+            aria-label={error ? t`Retry comment` : t`Post comment`}
             onClick={submit}
           >
             <ArrowUpIcon className="size-4" />
@@ -217,12 +219,12 @@ export function CommentComposer({
       </div>
       {!online && (
         <p className="px-1 text-muted-foreground text-xs" role="status">
-          Offline. Reconnect to post your comment.
+          <Trans>Offline. Reconnect to post your comment.</Trans>
         </p>
       )}
       {error && (
         <p className="px-1 text-destructive text-xs" role="alert">
-          {error} Your draft is saved here; retry when ready.
+          <Trans>{error} Your draft is saved here; retry when ready.</Trans>
         </p>
       )}
     </div>

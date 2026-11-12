@@ -87,6 +87,32 @@ describe("Other inbox membership", () => {
     ).toBe(false);
   });
 
+  it("matches a recipient split on To or Cc, by address or @domain", () => {
+    const split: MailSplit = {
+      ...important,
+      filters: [{ kind: "TO", value: "@rakazo.com" }],
+    };
+    const conversation = thread(["INBOX"]);
+    conversation.messages[0].headers.to = "Me <me@example.com>";
+    expect(threadMatchesSplit(conversation, split, now)).toBe(false);
+    conversation.messages[0].headers.cc = "Team <hello@rakazo.com>";
+    expect(threadMatchesSplit(conversation, split, now)).toBe(true);
+    conversation.messages[0].headers.cc = "x@notrakazo.com";
+    expect(threadMatchesSplit(conversation, split, now)).toBe(false);
+    conversation.messages[0].headers.to = "a@b.com, Security@Rakazo.com";
+    expect(threadMatchesSplit(conversation, split, now)).toBe(true);
+    const exact = (value: string) => ({
+      ...split,
+      filters: [{ kind: "TO" as const, value }],
+    });
+    expect(
+      threadMatchesSplit(conversation, exact("security@rakazo.com"), now),
+    ).toBe(true);
+    expect(threadMatchesSplit(conversation, exact("ty@rakazo.com"), now)).toBe(
+      false,
+    );
+  });
+
   it("matches sender, read state, category and age together", () => {
     const split: MailSplit = {
       ...important,

@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +31,7 @@ export function ToggleAllRulesSection({
 }: {
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
   const { data: rules, mutate } = useRules(emailAccountId);
 
   const hasEnabledRules = rules?.some((rule) => rule.enabled) ?? false;
@@ -39,7 +41,7 @@ export function ToggleAllRulesSection({
     toggleAllRulesAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "All rules disabled" });
+        toastSuccess({ description: t`All rules disabled` });
         mutate();
       },
       onError: (error) => {
@@ -55,30 +57,38 @@ export function ToggleAllRulesSection({
       <ItemSeparator />
       <Item size="sm">
         <ItemContent>
-          <ItemTitle>Disable All Rules</ItemTitle>
+          <ItemTitle>
+            <Trans>Disable All Rules</Trans>
+          </ItemTitle>
         </ItemContent>
         <ItemActions>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button size="sm" variant="outline" disabled={isExecuting}>
-                Disable All
+                <Trans>Disable All</Trans>
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Disable all rules?</AlertDialogTitle>
+                <AlertDialogTitle>
+                  <Trans>Disable all rules?</Trans>
+                </AlertDialogTitle>
                 <AlertDialogDescription>
-                  This will disable all AI rules for this account. You can
-                  re-enable individual rules from the Rules page.
+                  <Trans>
+                    This will disable all AI rules for this account. You can
+                    re-enable individual rules from the Rules page.
+                  </Trans>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel>
+                  <Trans>Cancel</Trans>
+                </AlertDialogCancel>
                 <AlertDialogAction
                   type="button"
                   onClick={() => execute({ enabled: false })}
                 >
-                  Disable All
+                  <Trans>Disable All</Trans>
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

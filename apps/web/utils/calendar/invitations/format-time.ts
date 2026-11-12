@@ -1,5 +1,6 @@
 import { TZDate } from "@date-fns/tz";
-import { format } from "date-fns/format";
+import type { Locale } from "date-fns";
+import { format as formatDate } from "date-fns/format";
 import { isSameDay } from "date-fns/isSameDay";
 import { parseISO } from "date-fns/parseISO";
 import { subDays } from "date-fns/subDays";
@@ -7,6 +8,14 @@ import { subDays } from "date-fns/subDays";
 const DAY = "EEEE, MMMM d, yyyy";
 const TIME = "h:mm a";
 const DAY_AND_TIME = "EEE, MMM d, yyyy, h:mm a";
+
+// Other languages use date-fns' localized patterns so day and month order
+// follow the language; English keeps the explicit patterns above.
+const LOCALIZED_PATTERNS: Record<string, string> = {
+  [DAY]: "PPPP",
+  [TIME]: "p",
+  [DAY_AND_TIME]: "PPp",
+};
 
 /**
  * Renders an invitation's time range for a viewer in `timeZone`.
@@ -22,7 +31,12 @@ export function formatInvitationTime(
     allDay,
   }: { start: string; end: string | null; allDay: boolean },
   timeZone: string,
+  locale?: Locale,
 ) {
+  const format = (date: Date, pattern: string) =>
+    locale
+      ? formatDate(date, LOCALIZED_PATTERNS[pattern], { locale })
+      : formatDate(date, pattern);
   const startDate = toViewerDate(start, timeZone);
   const endDate = end ? toViewerDate(end, timeZone) : null;
 

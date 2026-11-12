@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setupI18n } from "@lingui/core";
 import { onRun } from "./bulk-run";
 import { fetchWithAccount } from "@/utils/fetch";
 import { runAiRules } from "@/utils/queue/email-actions";
@@ -12,6 +13,8 @@ vi.mock("@/utils/error", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/error")>()),
   captureException: vi.fn(),
 }));
+
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -37,7 +40,12 @@ describe("bulk processing", () => {
     const complete = vi.fn();
     await onRun(
       "account-id",
-      { startDate: new Date(2025, 3, 1), rerun: true, generateDraftReplies },
+      {
+        i18n,
+        startDate: new Date(2025, 3, 1),
+        rerun: true,
+        generateDraftReplies,
+      },
       vi.fn(),
       complete,
     );
@@ -63,7 +71,7 @@ describe("bulk processing", () => {
 
     await onRun(
       "account-id",
-      { startDate: date, endDate: date },
+      { i18n, startDate: date, endDate: date },
       vi.fn(),
       complete,
     );
@@ -97,7 +105,7 @@ describe("bulk processing", () => {
 
     await onRun(
       "account-id",
-      { startDate: new Date(2025, 3, 1), includeRead },
+      { i18n, startDate: new Date(2025, 3, 1), includeRead },
       vi.fn(),
       complete,
     );
@@ -143,7 +151,7 @@ describe("bulk processing under provider rate limits", () => {
 
     await onRun(
       "account-id",
-      { startDate: new Date(2025, 3, 1) },
+      { i18n, startDate: new Date(2025, 3, 1) },
       onThreadsQueued,
       onComplete,
       onWaiting,
@@ -190,7 +198,7 @@ describe("bulk processing under provider rate limits", () => {
 
     await onRun(
       "account-id",
-      { startDate: new Date(2025, 3, 1) },
+      { i18n, startDate: new Date(2025, 3, 1) },
       vi.fn(),
       onComplete,
       vi.fn(),
@@ -212,7 +220,7 @@ describe("bulk processing under provider rate limits", () => {
 
     await onRun(
       "account-id",
-      { startDate: new Date(2025, 3, 1) },
+      { i18n, startDate: new Date(2025, 3, 1) },
       vi.fn(),
       onComplete,
     );

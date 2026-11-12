@@ -31,6 +31,11 @@ const hoisted = vi.hoisted(() => ({
   mockGetCategorizationStatusSnapshot: vi.fn((progress: unknown) =>
     buildStatusSnapshotFromProgress(progress),
   ),
+  mockValidateUserAndAiAccess: vi.fn(),
+}));
+
+vi.mock("@/utils/user/validate", () => ({
+  validateUserAndAiAccess: hoisted.mockValidateUserAndAiAccess,
 }));
 
 vi.mock("@/utils/categorize/senders/get-category-overview", () => ({
@@ -56,6 +61,10 @@ describe.runIf(shouldRunEval)(
     setupInboxWorkflowEval();
 
     beforeEach(() => {
+      // Drop *Once values a previous test queued but the model never used.
+      hoisted.mockGetCategoryOverview.mockReset();
+      hoisted.mockStartBulkCategorization.mockReset();
+      hoisted.mockArchiveCategory.mockReset();
       hoisted.mockGetCategoryOverview.mockResolvedValue(
         buildReadyCategoryOverview(),
       );

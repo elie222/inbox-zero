@@ -1,5 +1,7 @@
 "use client";
 
+import { plural } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
 import useSWR from "swr";
@@ -34,6 +36,7 @@ export function CleanupDraftsSection({
 }: {
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
   const { data, isLoading, error, mutate } =
     useSWR<GetDraftCleanupSettingsResponse>(
       emailAccountId
@@ -66,7 +69,7 @@ export function CleanupDraftsSection({
 
       setCleanupDaysInput(null);
       mutate({ draftCleanupDays: res.data.cleanupDays }, false);
-      toastSuccess({ description: "Draft cleanup settings updated." });
+      toastSuccess({ description: t`Draft cleanup settings updated.` });
     },
     onError: (error) => {
       setCleanupDaysInput(null);
@@ -83,15 +86,17 @@ export function CleanupDraftsSection({
         if (res.data) {
           setResult(res.data);
           if (res.data.deleted === 0 && res.data.skippedModified === 0) {
-            toastSuccess({ description: "No stale drafts found." });
+            toastSuccess({ description: t`No stale drafts found.` });
           } else if (res.data.deleted === 0) {
             toastSuccess({
-              description:
-                "All stale drafts were edited by you, so none were removed.",
+              description: t`All stale drafts were edited by you, so none were removed.`,
             });
           } else {
             toastSuccess({
-              description: `Cleaned up ${res.data.deleted} draft${res.data.deleted === 1 ? "" : "s"}.`,
+              description: t`Cleaned up ${plural(res.data.deleted, {
+                one: "# draft",
+                other: "# drafts",
+              })}.`,
             });
           }
         }
@@ -124,16 +129,21 @@ export function CleanupDraftsSection({
           <ItemSeparator />
           <Item size="sm">
             <ItemContent>
-              <ItemTitle>Auto-delete AI Drafts</ItemTitle>
+              <ItemTitle>
+                <Trans>Auto-delete AI Drafts</Trans>
+              </ItemTitle>
               <ItemDescription>
-                {`Only removes drafts created by ${BRAND_NAME} that have not been edited by you.`}
+                <Trans>
+                  Only removes drafts created by {BRAND_NAME} that have not been
+                  edited by you.
+                </Trans>
               </ItemDescription>
             </ItemContent>
             <ItemActions className="flex-wrap justify-end">
               {automaticCleanupEnabled ? (
                 <>
                   <Input
-                    aria-label="Draft cleanup age in days"
+                    aria-label={t`Draft cleanup age in days`}
                     className="h-8 w-24"
                     disabled={isUpdatingCleanupSettings}
                     max={MAX_AI_DRAFT_CLEANUP_DAYS}
@@ -145,7 +155,9 @@ export function CleanupDraftsSection({
                     type="number"
                     value={cleanupDaysInputValue}
                   />
-                  <span className="text-sm text-muted-foreground">days</span>
+                  <span className="text-sm text-muted-foreground">
+                    <Trans>days</Trans>
+                  </span>
                   <Button
                     size="sm"
                     variant="outline"
@@ -157,12 +169,12 @@ export function CleanupDraftsSection({
                     loading={isUpdatingCleanupSettings}
                     onClick={handleSaveCleanupDays}
                   >
-                    Save
+                    <Trans>Save</Trans>
                   </Button>
                 </>
               ) : null}
               <Switch
-                aria-label="Toggle automatic AI draft cleanup"
+                aria-label={t`Toggle automatic AI draft cleanup`}
                 checked={automaticCleanupEnabled}
                 disabled={isUpdatingCleanupSettings}
                 onCheckedChange={handleToggleAutomaticCleanup}
@@ -172,9 +184,16 @@ export function CleanupDraftsSection({
           <ItemSeparator />
           <Item size="sm">
             <ItemContent>
-              <ItemTitle>Delete Old AI Drafts</ItemTitle>
+              <ItemTitle>
+                <Trans>Delete Old AI Drafts</Trans>
+              </ItemTitle>
               <ItemDescription>
-                {`Remove unedited drafts created by ${BRAND_NAME} that are older than ${savedCleanupDays} days.`}
+                <Trans>
+                  Remove unedited drafts created by {BRAND_NAME} that are older
+                  than{" "}
+                  <Plural value={savedCleanupDays} one="# day" other="# days" />
+                  .
+                </Trans>
               </ItemDescription>
             </ItemContent>
             <ItemActions>
@@ -184,16 +203,18 @@ export function CleanupDraftsSection({
                 loading={isExecuting}
                 onClick={() => execute()}
               >
-                Delete old drafts
+                <Trans>Delete old drafts</Trans>
               </Button>
             </ItemActions>
           </Item>
           {result && result.deleted > 0 && result.skippedModified > 0 && (
             <div className="px-4 pb-2">
               <p className="text-xs text-muted-foreground">
-                {result.skippedModified} draft
-                {result.skippedModified === 1 ? " was" : "s were"} kept because
-                you edited {result.skippedModified === 1 ? "it" : "them"}
+                <Plural
+                  value={result.skippedModified}
+                  one="# draft was kept because you edited it"
+                  other="# drafts were kept because you edited them"
+                />
               </p>
             </div>
           )}

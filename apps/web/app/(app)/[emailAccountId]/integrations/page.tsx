@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "next/link";
 import { ListChecksIcon, PenLineIcon, ZapIcon } from "lucide-react";
 import { PageWrapper } from "@/components/PageWrapper";
@@ -28,6 +29,7 @@ import {
 } from "@/hooks/useFeatureFlags";
 
 export default function IntegrationsPage() {
+  const { t } = useLingui();
   const integrationsEnabled = useIntegrationsEnabled();
   const { tier, isLoading: isPremiumLoading } = usePremium();
 
@@ -44,8 +46,8 @@ export default function IntegrationsPage() {
       <PageWrapper>
         <div className="flex items-center justify-between gap-2">
           <PageHeader
-            title="Integrations"
-            description="Connect the tools you already use."
+            title={t`Integrations`}
+            description={t`Connect the tools you already use.`}
           />
         </div>
 
@@ -53,11 +55,13 @@ export default function IntegrationsPage() {
           <ActionCard
             variant="blue"
             icon={<ZapIcon className="h-5 w-5" />}
-            title="Integrations are not enabled"
-            description="This feature is in limited rollout. Join early access to enable integrations for your account."
+            title={t`Integrations are not enabled`}
+            description={t`This feature is in limited rollout. Join early access to enable integrations for your account.`}
             action={
               <Button asChild variant="outline">
-                <Link href="/early-access">Join Early Access</Link>
+                <Link href="/early-access">
+                  <Trans>Join Early Access</Trans>
+                </Link>
               </Button>
             }
           />
@@ -70,15 +74,17 @@ export default function IntegrationsPage() {
     <PageWrapper>
       <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
-          title="Integrations"
-          description="Connect the tools you already use."
+          title={t`Integrations`}
+          description={t`Connect the tools you already use.`}
         />
         {hasAccess && (
           <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:flex-nowrap">
             <AddCustomMcpServerDialog />
             <RequestAccessDialog
               trigger={
-                <Button variant="outline">Request an Integration</Button>
+                <Button variant="outline">
+                  <Trans>Request an Integration</Trans>
+                </Button>
               }
             />
           </div>
@@ -106,9 +112,13 @@ function Capabilities() {
           </FeatureIcon>
         </ItemMedia>
         <ItemContent>
-          <ItemTitle>Better drafts</ItemTitle>
+          <ItemTitle>
+            <Trans>Better drafts</Trans>
+          </ItemTitle>
           <ItemDescription>
-            Replies arrive knowing the sender's plan, tickets, and history.
+            <Trans>
+              Replies arrive knowing the sender's plan, tickets, and history.
+            </Trans>
           </ItemDescription>
         </ItemContent>
       </Item>
@@ -120,9 +130,11 @@ function Capabilities() {
             </FeatureIcon>
           </ItemMedia>
           <ItemContent>
-            <ItemTitle>Rule actions</ItemTitle>
+            <ItemTitle>
+              <Trans>Rule actions</Trans>
+            </ItemTitle>
             <ItemDescription>
-              Rules can write back, like adding a Todoist task.
+              <Trans>Rules can write back, like adding a Todoist task.</Trans>
             </ItemDescription>
           </ItemContent>
         </Item>

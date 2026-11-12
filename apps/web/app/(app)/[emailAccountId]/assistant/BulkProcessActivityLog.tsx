@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2Icon, LoaderIcon } from "lucide-react";
 import useSWR from "swr";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { BatchExecutedRulesResponse } from "@/app/api/user/executed-rules/batch/route";
 import type { ThreadsResponse } from "@/app/api/threads/route";
 import { Badge } from "@/components/Badge";
@@ -19,7 +20,7 @@ export function ActivityLog({
   entries,
   processingCount = 0,
   paused = false,
-  title = "Processing Activity",
+  title,
   loading = false,
 }: {
   entries: ActivityLogEntry[];
@@ -28,15 +29,18 @@ export function ActivityLog({
   title?: string;
   loading?: boolean;
 }) {
+  const { t } = useLingui();
   if (entries.length === 0 && !loading) return null;
 
   return (
     <div className="w-full min-w-0 rounded-lg border bg-muted overflow-hidden">
       <div className="flex items-center justify-between border-b px-3 py-2">
-        <h3 className="text-sm font-medium">{title}</h3>
+        <h3 className="text-sm font-medium">
+          {title ?? t`Processing Activity`}
+        </h3>
         {processingCount > 0 && !paused && (
           <span className="text-xs text-muted-foreground">
-            {processingCount} processing
+            <Trans>{processingCount} processing</Trans>
           </span>
         )}
       </div>
@@ -45,7 +49,7 @@ export function ActivityLog({
           {entries.length === 0 && loading && (
             <div className="flex items-center gap-2 px-2 py-3 text-xs text-muted-foreground">
               <LoaderIcon className="h-3.5 w-3.5 animate-spin" />
-              Fetching emails...
+              <Trans>Fetching emails...</Trans>
             </div>
           )}
           {entries.map((entry) => (
@@ -88,7 +92,9 @@ function ActivityLogRow({
               </Badge>
             )}
             {!entry.ruleName && isCompleted && (
-              <Badge color="yellow">No match</Badge>
+              <Badge color="yellow">
+                <Trans>No match</Trans>
+              </Badge>
             )}
           </span>
         </div>
@@ -127,6 +133,7 @@ export function BulkProcessActivityLog({
   paused: boolean;
   loading?: boolean;
 }) {
+  const { t } = useLingui();
   const [activityLog, setActivityLog] = useState<InternalActivityLogEntry[]>(
     [],
   );
@@ -185,8 +192,8 @@ export function BulkProcessActivityLog({
         newEntries.push({
           threadId: thread.id,
           messageId: message.id,
-          from: message.headers.from || "Unknown",
-          subject: message.headers.subject || "(No subject)",
+          from: message.headers.from || t`Unknown`,
+          subject: message.headers.subject || t`(No subject)`,
           status: executedRule ? "completed" : "processing",
           ruleName: executedRule?.rule?.name,
           timestamp: Date.now(),
@@ -199,7 +206,7 @@ export function BulkProcessActivityLog({
       if (newEntries.length === 0) return prev;
       return [...newEntries, ...prev].slice(0, 50); // Keep last 50
     });
-  }, [processedThreadIds, executedRulesData, threads]);
+  }, [processedThreadIds, executedRulesData, threads, t]);
 
   // Update existing entries when rules complete
   useEffect(() => {

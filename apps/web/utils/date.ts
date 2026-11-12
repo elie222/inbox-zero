@@ -1,3 +1,5 @@
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { format } from "date-fns/format";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { isSameDay } from "date-fns/isSameDay";
@@ -28,17 +30,20 @@ export const NINETY_DAYS_MINUTES = ONE_DAY_MINUTES * 90;
  * - If the date is this year, returns the date (e.g., "JUL 5").
  * - Otherwise includes the year (e.g., "JUL 5, 2024").
  * - Optionally returns the date part in lowercase (e.g., "jul 5").
+ * - Uses the runtime locale unless `locale` is given (pass the UI locale).
  */
 export function formatShortDate(
   date: Date,
-  options: { lowercase?: boolean } = {},
+  options: { lowercase?: boolean; locale?: string } = {},
 ) {
   const now = new Date();
 
-  if (isSameDay(date, now)) return shortDateFormatter("time").format(date);
+  if (isSameDay(date, now))
+    return shortDateFormatter("time", options.locale).format(date);
 
   const formattedDate = shortDateFormatter(
     isSameYear(date, now) ? "date" : "dateWithYear",
+    options.locale,
   ).format(date);
 
   return options.lowercase ? formattedDate : formattedDate.toUpperCase();
@@ -54,14 +59,34 @@ export function formatShortDate(
  * - A date ahead of today keeps its own day, so a sender with a skewed clock
  *   is never filed under a section that has already passed.
  */
-export function formatDateGroupLabel(date: Date, now: Date = new Date()) {
-  if (isSameDay(date, now)) return "Today";
-  if (isSameDay(date, subDays(now, 1))) return "Yesterday";
-  if (date > now) return format(date, "MMMM do, yyyy");
-  if (date >= startOfDay(subDays(now, 6))) return "Last 7 days";
-  if (isSameMonth(date, now)) return "Earlier this month";
-  if (isSameYear(date, now)) return format(date, "MMMM");
-  return format(date, "MMMM yyyy");
+export function formatDateGroupLabel(
+  date: Date,
+  i18n: I18n,
+  now: Date = new Date(),
+) {
+  if (isSameDay(date, now)) return i18n._(msg`Today`);
+  if (isSameDay(date, subDays(now, 1))) return i18n._(msg`Yesterday`);
+  if (date > now)
+    return formatGroupDate(date, i18n, {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  if (date >= startOfDay(subDays(now, 6))) return i18n._(msg`Last 7 days`);
+  if (isSameMonth(date, now)) return i18n._(msg`Earlier this month`);
+  if (isSameYear(date, now))
+    return formatGroupDate(date, i18n, { month: "long" });
+  return formatGroupDate(date, i18n, { month: "long", year: "numeric" });
+}
+
+export function formatDayAtTime(date: Date, i18n: I18n) {
+  const day = i18n.date(date, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  const time = i18n.date(date, { hour: "numeric", minute: "2-digit" });
+  return i18n._(msg`${day} at ${time}`);
 }
 
 export function dateToSeconds(date: Date) {
@@ -103,8 +128,8 @@ export function formatRelativeTimeForLLM(date: Date) {
 }
 
 // Format: Mar 18, 2025
-export function formatDateSimple(date: Date) {
-  return date.toLocaleDateString("en-US", {
+export function formatDateSimple(date: Date, locale = "en-US") {
+  return date.toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -276,16 +301,27 @@ const shortDateFormats = {
 } satisfies Record<string, Intl.DateTimeFormatOptions>;
 // Mail lists format a date per row on every render, and building an Intl
 // formatter each time dominated that cost.
-const shortDateFormatters = new Map<
-  keyof typeof shortDateFormats,
-  Intl.DateTimeFormat
->();
+const shortDateFormatters = new Map<string, Intl.DateTimeFormat>();
 
-function shortDateFormatter(kind: keyof typeof shortDateFormats) {
-  let formatter = shortDateFormatters.get(kind);
+function shortDateFormatter(
+  kind: keyof typeof shortDateFormats,
+  locale: string | undefined,
+) {
+  const key = `${locale ?? ""}:${kind}`;
+  let formatter = shortDateFormatters.get(key);
   if (!formatter) {
-    formatter = new Intl.DateTimeFormat(undefined, shortDateFormats[kind]);
-    shortDateFormatters.set(kind, formatter);
+    formatter = new Intl.DateTimeFormat(locale, shortDateFormats[kind]);
+    shortDateFormatters.set(key, formatter);
   }
   return formatter;
+}
+
+// Some locales write month names in lowercase, which reads oddly as a heading.
+function formatGroupDate(
+  date: Date,
+  i18n: I18n,
+  options: Intl.DateTimeFormatOptions,
+) {
+  const text = i18n.date(date, options);
+  return text.charAt(0).toLocaleUpperCase(i18n.locale) + text.slice(1);
 }

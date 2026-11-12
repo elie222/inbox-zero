@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { CheckIcon, SparklesIcon } from "lucide-react";
 import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { env } from "@/env";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/hooks/usePremium";
@@ -39,16 +40,19 @@ import { cn } from "@/utils";
 import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";
 import { captureException } from "@/utils/error";
 import { redirectToSafeUrl } from "@/utils/redirect";
+import { TIER_MESSAGES } from "@/app/(app)/premium/config-messages";
 
 export type PricingProps = {
   header?: React.ReactNode;
   showSkipUpgrade?: boolean;
+  showGoToApp?: boolean;
   className?: string;
   displayTiers?: Tier[];
 };
 
 export default function Pricing(props: PricingProps) {
   const posthog = usePostHog();
+  const { t } = useLingui();
   const { premium, isPremium, isLoading, error, data, canManageBilling } =
     usePremium();
   const hasTrackedPricingView = useRef(false);
@@ -70,6 +74,7 @@ export default function Pricing(props: PricingProps) {
       hasActiveAppleManagedSubscription,
   );
   const isLegacyStripePlan = shouldShowLegacyStripePricingNotice(premium);
+  const legacyTierName = getPremiumTierName(premium?.tier);
 
   const defaultFrequency = frequencies[1];
   const [chosenFrequency, setFrequency] = useState<
@@ -83,14 +88,14 @@ export default function Pricing(props: PricingProps) {
     <div className="mb-12">
       <div className="mx-auto max-w-2xl text-center lg:max-w-4xl">
         <h2 className="font-title text-base leading-7 text-blue-600">
-          Pricing
+          <Trans>Pricing</Trans>
         </h2>
         <p className="mt-2 font-title text-4xl text-gray-900 sm:text-5xl">
-          Try for free, affordable paid plans
+          <Trans>Try for free, affordable paid plans</Trans>
         </p>
       </div>
       <p className="mx-auto mt-6 max-w-2xl text-center text-lg leading-8 text-gray-600">
-        No hidden fees. Cancel anytime.
+        <Trans>No hidden fees. Cancel anytime.</Trans>
       </p>
     </div>
   );
@@ -129,20 +134,21 @@ export default function Pricing(props: PricingProps) {
   if (isLoggedIn && !canManageBilling) {
     const isPlanManagedElsewhere =
       data?.billingAccessDenial === "plan_managed_elsewhere";
+    const supportEmail = env.NEXT_PUBLIC_SUPPORT_EMAIL;
 
     return (
       <div className="mx-auto max-w-2xl px-6 py-12">
         {isPlanManagedElsewhere ? (
           <AlertBasic
             variant="blue"
-            title="Your plan is managed by another account"
-            description={`Your access comes from a plan someone else set up. To manage billing yourself, contact ${env.NEXT_PUBLIC_SUPPORT_EMAIL}.`}
+            title={t`Your plan is managed by another account`}
+            description={t`Your access comes from a plan someone else set up. To manage billing yourself, contact ${supportEmail}.`}
           />
         ) : (
           <AlertBasic
             variant="blue"
-            title="Billing access restricted"
-            description="Only organization owners and admins can manage billing."
+            title={t`Billing access restricted`}
+            description={t`Only organization owners and admins can manage billing.`}
           />
         )}
       </div>
@@ -161,34 +167,35 @@ export default function Pricing(props: PricingProps) {
         {header}
 
         {hasExistingSubscription && (
-          <div className="mb-8 mt-8 text-center">
+          <div className="mb-8 mt-8 flex flex-wrap justify-center gap-2">
             <ManageSubscription premium={premium ?? null} />
 
-            {userPremiumTier && (
-              <Button className="ml-2" asChild>
+            {/* Only pages without the app sidebar need a way back in. */}
+            {userPremiumTier && props.showGoToApp && (
+              <Button asChild>
                 <Link href="/setup">
                   <SparklesIcon className="mr-2 h-4 w-4" />
-                  Go to app
+                  <Trans>Go to app</Trans>
                 </Link>
               </Button>
             )}
 
             {hasActiveAppleManagedSubscription && (
-              <div className="mx-auto mt-4 max-w-2xl text-left">
+              <div className="mt-2 w-full max-w-2xl basis-full text-left">
                 <AlertBasic
                   variant="blue"
-                  title="Managed in the App Store"
-                  description="This subscription is billed by Apple. To change or cancel it, use your iPhone or iPad subscription settings."
+                  title={t`Managed in the App Store`}
+                  description={t`This subscription is billed by Apple. To change or cancel it, use your iPhone or iPad subscription settings.`}
                 />
               </div>
             )}
 
             {isLegacyStripePlan && (
-              <div className="mx-auto mt-4 max-w-2xl text-left">
+              <div className="mt-2 w-full max-w-2xl basis-full text-left">
                 <AlertBasic
                   variant="blue"
-                  title="Grandfathered pricing"
-                  description={`You're on a legacy ${getPremiumTierName(premium?.tier)} Stripe plan, and your price stays the same. The prices below are for new subscriptions.`}
+                  title={t`Grandfathered pricing`}
+                  description={t`You're on a legacy ${legacyTierName} Stripe plan, and your price stays the same. The prices below are for new subscriptions.`}
                 />
               </div>
             )}
@@ -208,7 +215,9 @@ export default function Pricing(props: PricingProps) {
           }}
         >
           <div className="ml-1">
-            <DiscountBadge>Save up to 20%</DiscountBadge>
+            <DiscountBadge>
+              <Trans>Save up to 20%</Trans>
+            </DiscountBadge>
           </div>
         </PricingFrequencyToggle>
 
@@ -273,18 +282,30 @@ function PriceTier({
   pricingSource: "welcome_upgrade" | "app_premium";
 }) {
   const posthog = usePostHog();
+  const { t, i18n } = useLingui();
   const [loading, setLoading] = useState(false);
+  const tierMessages = TIER_MESSAGES[tier.name];
+  const supportEmail = env.NEXT_PUBLIC_SUPPORT_EMAIL;
 
   const isCurrentPlan = tier.tiers[frequency.value] === userPremiumTier;
+  const discountPercent = tier.discount?.[frequency.value]?.toFixed(0);
   const hasActiveStripeSubscription =
     !!stripeSubscriptionId &&
     !!stripeSubscriptionStatus &&
-    ["active", "trialing"].includes(stripeSubscriptionStatus);
+    // A paused subscription is still open in Stripe, so plan changes go
+    // through the portal rather than a new checkout.
+    ["active", "trialing", "paused"].includes(stripeSubscriptionStatus);
 
-  function getCTAText() {
-    if (isCurrentPlan) return "Current plan";
-    if (userPremiumTier && !tier.ctaLink) return "Switch to this plan";
-    return tier.cta;
+  // `text` stays English for analytics; `label` is what the button shows.
+  function getCTA() {
+    if (isCurrentPlan) return { text: "Current plan", label: t`Current plan` };
+    if (userPremiumTier && !tier.ctaLink) {
+      return { text: "Switch to this plan", label: t`Switch to this plan` };
+    }
+    return {
+      text: tier.cta,
+      label: tierMessages ? i18n._(tierMessages.cta) : tier.cta,
+    };
   }
 
   return (
@@ -300,15 +321,19 @@ function PriceTier({
           >
             {tier.name}
           </h3>
-          {tier.mostPopular ? <DiscountBadge>Popular</DiscountBadge> : null}
+          {tier.mostPopular ? (
+            <DiscountBadge>
+              <Trans>Popular</Trans>
+            </DiscountBadge>
+          ) : null}
         </div>
         <p className="mt-4 text-sm leading-6 text-gray-600">
-          {tier.description}
+          {tierMessages ? i18n._(tierMessages.description) : tier.description}
         </p>
         <p className="mt-6 flex items-baseline gap-x-1">
           {tier.price[frequency.value] === 0 ? (
             <span className="text-4xl font-bold tracking-tight text-gray-900">
-              Let's talk
+              <Trans>Let's talk</Trans>
             </span>
           ) : (
             <>
@@ -316,7 +341,7 @@ function PriceTier({
                 {formatPrice(tier.price[frequency.value])}
               </span>
               <span className="text-sm font-semibold leading-6 text-gray-600">
-                /user
+                <Trans>/user</Trans>
               </span>
             </>
           )}
@@ -324,14 +349,16 @@ function PriceTier({
           {!!tier.discount?.[frequency.value] && (
             <DiscountBadge>
               <span className="tracking-wide">
-                SAVE {tier.discount[frequency.value].toFixed(0)}%
+                <Trans>SAVE {discountPercent}%</Trans>
               </span>
             </DiscountBadge>
           )}
         </p>
 
         <p className="mt-2 text-sm leading-6 text-gray-600">
-          {tier.price[frequency.value] ? frequency.priceSuffix : "\u00A0"}
+          {tier.price[frequency.value]
+            ? i18n._(frequency.priceSuffix)
+            : "\u00A0"}
         </p>
 
         {!!tier.price[frequency.value] && (
@@ -339,20 +366,26 @@ function PriceTier({
         )}
 
         <ul className="mt-8 space-y-3 text-sm leading-6 text-gray-600">
-          {tier.features.map((feature) => (
-            <li key={feature.text} className="flex gap-x-3">
-              <CheckIcon
-                className="h-6 w-5 flex-none text-blue-600"
-                aria-hidden="true"
-              />
-              <span className="flex items-center gap-2">
-                {feature.text}
-                {feature.tooltip && (
-                  <TooltipExplanation text={feature.tooltip} />
-                )}
-              </span>
-            </li>
-          ))}
+          {tier.features.map((feature) => {
+            const featureMessages = tierMessages?.features[feature.text];
+            const tooltip = featureMessages?.tooltip
+              ? i18n._(featureMessages.tooltip)
+              : feature.tooltip;
+            return (
+              <li key={feature.text} className="flex gap-x-3">
+                <CheckIcon
+                  className="h-6 w-5 flex-none text-blue-600"
+                  aria-hidden="true"
+                />
+                <span className="flex items-center gap-2">
+                  {featureMessages
+                    ? i18n._(featureMessages.text)
+                    : feature.text}
+                  {tooltip && <TooltipExplanation text={tooltip} />}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       </div>
 
@@ -369,7 +402,7 @@ function PriceTier({
             frequency: frequency.value,
             defaultFrequency: defaultFrequency.value,
             frequencySource,
-            cta: getCTAText(),
+            cta: getCTA().text,
             isCurrentPlan,
             isLoggedIn,
             hasExternalCta: Boolean(tier.ctaLink),
@@ -391,13 +424,13 @@ function PriceTier({
 
           async function load() {
             if (tier.tiers[frequency.value] === userPremiumTier) {
-              toast.info("You are already on this plan");
+              toast.info(t`You are already on this plan`);
               return;
             }
 
             if (hasActiveAppleManagedSubscription) {
               toast.info(
-                "This subscription is managed through the App Store. To change or cancel it, use your iPhone or iPad subscription settings.",
+                t`This subscription is managed through the App Store. To change or cancel it, use your iPhone or iPad subscription settings.`,
               );
               return;
             }
@@ -416,9 +449,9 @@ function PriceTier({
 
             if (!result?.data?.url || result?.serverError) {
               const description = hasActiveStripeSubscription
-                ? `We couldn't open the plan change page. Your subscription has not been changed. Please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`
+                ? t`We couldn't open the plan change page. Your subscription has not been changed. Please contact support at ${supportEmail}`
                 : result?.serverError ||
-                  `Error creating checkout session. Please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`;
+                  t`Error creating checkout session. Please contact support at ${supportEmail}`;
 
               captureException(new Error("Error opening Stripe billing flow"), {
                 extra: {
@@ -446,7 +479,7 @@ function PriceTier({
               description:
                 error instanceof Error
                   ? error.message
-                  : `Error creating checkout session. Please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
+                  : t`Error creating checkout session. Please contact support at ${supportEmail}`,
             });
           } finally {
             setLoading(false);
@@ -465,7 +498,7 @@ function PriceTier({
             <LoadingMiniSpinner />
           </div>
         ) : (
-          getCTAText()
+          getCTA().label
         )}
       </button>
     </div>
@@ -473,14 +506,19 @@ function PriceTier({
 }
 
 function ExtraAccountPricing({ price }: { price: number }) {
-  const extraAccountPrice = `${formatPrice(getExtraAccountPrice(price))}/mo`;
+  const { t } = useLingui();
+  const formattedPrice = formatPrice(getExtraAccountPrice(price));
+  const extraAccountPrice = t`${formattedPrice}/mo`;
 
   return (
     <p className="mt-1 flex items-center gap-2 text-sm leading-6 text-gray-600">
-      {INCLUDED_EMAIL_ACCOUNTS_PER_PERSON} email accounts included, then{" "}
-      {extraAccountPrice} each
+      <Plural
+        value={INCLUDED_EMAIL_ACCOUNTS_PER_PERSON}
+        one={`# email account included, then ${extraAccountPrice} each`}
+        other={`# email accounts included, then ${extraAccountPrice} each`}
+      />
       <TooltipExplanation
-        text={`Connect your personal and work email at no extra cost. Each extra email account is ${extraAccountPrice}. Each team member is billed as a separate user.`}
+        text={t`Connect your personal and work email at no extra cost. Each extra email account is ${extraAccountPrice}. Each team member is billed as a separate user.`}
       />
     </p>
   );

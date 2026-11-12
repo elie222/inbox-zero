@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FileTextIcon,
@@ -76,6 +77,7 @@ export function ActionAttachmentsField({
   attachmentSources: AttachmentSourceInput[];
   onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
 }) {
+  const { t, i18n } = useLingui();
   const { data: connectionsData } = useDriveConnections();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSourcesExpanded, setIsSourcesExpanded] = useState(false);
@@ -97,10 +99,13 @@ export function ActionAttachmentsField({
   return (
     <div className="border-t pt-3">
       <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">Attachments</span>
+        <span className="text-sm font-medium">
+          <Trans>Attachments</Trans>
+        </span>
         {isConnected && totalCount > 0 && (
           <Badge variant="secondary" className="tabular-nums">
             {formatAttachmentSourceCount(
+              i18n,
               allowAiSelectedSources ? [...value, ...attachmentSources] : value,
             )}
           </Badge>
@@ -112,7 +117,9 @@ export function ActionAttachmentsField({
           <HardDriveIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0">
             <p className="text-sm text-muted-foreground">
-              Connect your cloud storage to attach files to your emails.
+              <Trans>
+                Connect your cloud storage to attach files to your emails.
+              </Trans>
             </p>
             <Button
               asChild
@@ -120,7 +127,9 @@ export function ActionAttachmentsField({
               size="sm"
               className="mt-1 h-auto p-0 text-sm"
             >
-              <Link href={`/${emailAccountId}/drive`}>Connect Drive</Link>
+              <Link href={`/${emailAccountId}/drive`}>
+                <Trans>Connect Drive</Trans>
+              </Link>
             </Button>
           </div>
         </div>
@@ -133,11 +142,13 @@ export function ActionAttachmentsField({
             className="flex items-center gap-1.5 text-xs text-muted-foreground"
             onClick={() => hasAttachments && setIsExpanded(!isExpanded)}
           >
-            <span className="font-medium">Always attach</span>
+            <span className="font-medium">
+              <Trans>Always attach</Trans>
+            </span>
             {hasAttachments && (
               <>
                 <Badge variant="outline" className="text-[10px] px-1 py-0">
-                  {formatAttachmentSourceCount(value)}
+                  {formatAttachmentSourceCount(i18n, value)}
                 </Badge>
                 {isExpanded ? (
                   <ChevronDownIcon className="size-3" />
@@ -155,9 +166,9 @@ export function ActionAttachmentsField({
           <AttachmentSourcePickerDialog
             value={value}
             onChange={onChange}
-            triggerLabel="Select files"
-            title="Select files to always attach"
-            description="Choose files that this rule should always attach after you save."
+            triggerLabel={t`Select files`}
+            title={t`Select files to always attach`}
+            description={t`Choose files that this rule should always attach after you save.`}
             allowFolderSelection={false}
           />
         </div>
@@ -172,11 +183,13 @@ export function ActionAttachmentsField({
               hasAiSources && setIsSourcesExpanded(!isSourcesExpanded)
             }
           >
-            <span className="font-medium">AI-selected sources</span>
+            <span className="font-medium">
+              <Trans>AI-selected sources</Trans>
+            </span>
             {hasAiSources && (
               <>
                 <Badge variant="outline" className="text-[10px] px-1 py-0">
-                  {formatAttachmentSourceCount(attachmentSources)}
+                  {formatAttachmentSourceCount(i18n, attachmentSources)}
                 </Badge>
                 {isSourcesExpanded ? (
                   <ChevronDownIcon className="size-3" />
@@ -194,9 +207,9 @@ export function ActionAttachmentsField({
           <AttachmentSourcePickerDialog
             value={attachmentSources}
             onChange={onAttachmentSourcesChange}
-            triggerLabel="Select sources for AI"
-            title="Select sources for AI to search"
-            description="Choose files or folders the AI can search after you save."
+            triggerLabel={t`Select sources for AI`}
+            title={t`Select sources for AI to search`}
+            description={t`Choose files or folders the AI can search after you save.`}
             allowFolderSelection
           />
         </div>
@@ -268,10 +281,10 @@ function AttachmentSourcePickerDialog({
         />
         <DialogFooter>
           <Button type="button" variant="outline" onClick={cancelPicker}>
-            Cancel
+            <Trans>Cancel</Trans>
           </Button>
           <Button type="button" onClick={savePicker}>
-            Save
+            <Trans>Save</Trans>
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -337,9 +350,13 @@ function AttachmentPicker({
       {rootItems.length === 0 ? (
         <Empty className="rounded-md border p-6">
           <EmptyHeader>
-            <EmptyTitle>No Drive files found</EmptyTitle>
+            <EmptyTitle>
+              <Trans>No Drive files found</Trans>
+            </EmptyTitle>
             <EmptyDescription>
-              Make sure your Drive connection contains PDF files or folders.
+              <Trans>
+                Make sure your Drive connection contains PDF files or folders.
+              </Trans>
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -495,7 +512,7 @@ function AttachmentSourceNode({
             className="py-1 text-xs italic text-muted-foreground"
             style={{ paddingLeft: (level + 1) * 16 + 28 }}
           >
-            No PDFs found
+            <Trans>No PDFs found</Trans>
           </div>
         ) : null}
       </TreeNodeContent>
@@ -539,7 +556,7 @@ function SourceList({
             className="ml-2 shrink-0"
             onClick={() => onRemove(source)}
           >
-            Remove
+            <Trans>Remove</Trans>
           </Button>
         </div>
       ))}

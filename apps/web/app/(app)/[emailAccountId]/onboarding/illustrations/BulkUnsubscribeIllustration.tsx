@@ -1,5 +1,8 @@
 "use client";
 
+import type { MessageDescriptor } from "@lingui/core";
+import { msg, plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -15,7 +18,7 @@ import {
 
 const senders: {
   id: number;
-  name: string;
+  name: MessageDescriptor;
   color: string;
   icon: LucideIcon;
   rotate: number;
@@ -23,7 +26,7 @@ const senders: {
 }[] = [
   {
     id: 1,
-    name: "Daily Deals",
+    name: msg`Daily Deals`,
     color: "bg-red-100 text-red-600",
     icon: Tag,
     rotate: -3,
@@ -31,7 +34,7 @@ const senders: {
   },
   {
     id: 2,
-    name: "Newsletter",
+    name: msg`Newsletter`,
     color: "bg-orange-100 text-orange-600",
     icon: Newspaper,
     rotate: 2,
@@ -39,7 +42,7 @@ const senders: {
   },
   {
     id: 3,
-    name: "Promo Alert",
+    name: msg`Promo Alert`,
     color: "bg-yellow-100 text-yellow-600",
     icon: Megaphone,
     rotate: -1.5,
@@ -47,7 +50,7 @@ const senders: {
   },
   {
     id: 4,
-    name: "Weekly Digest",
+    name: msg`Weekly Digest`,
     color: "bg-purple-100 text-purple-600",
     icon: Calendar,
     rotate: 2.5,
@@ -55,7 +58,7 @@ const senders: {
   },
   {
     id: 5,
-    name: "Updates",
+    name: msg`Updates`,
     color: "bg-pink-100 text-pink-600",
     icon: Bell,
     rotate: -2,
@@ -64,6 +67,7 @@ const senders: {
 ];
 
 export function BulkUnsubscribeIllustration() {
+  const { i18n, t } = useLingui();
   const [stage, setStage] = useState(0);
 
   useEffect(() => {
@@ -87,7 +91,7 @@ export function BulkUnsubscribeIllustration() {
       <div className="relative z-10 flex h-[160px] w-[150px] flex-col rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-slate-800">
         <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-700">
           <div className="text-[10px] font-medium text-gray-600 dark:text-gray-300">
-            Inbox
+            <Trans>Inbox</Trans>
           </div>
         </div>
         <div className="relative flex-1 p-2">
@@ -120,7 +124,7 @@ export function BulkUnsubscribeIllustration() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[9px] font-medium text-gray-900 dark:text-gray-100">
-                    {email.name}
+                    {i18n._(email.name)}
                   </div>
                 </div>
               </motion.div>
@@ -174,7 +178,7 @@ export function BulkUnsubscribeIllustration() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[9px] font-medium text-gray-900 dark:text-gray-100">
-                  {email.name}
+                  {i18n._(email.name)}
                 </div>
               </div>
             </motion.div>
@@ -201,7 +205,7 @@ export function BulkUnsubscribeIllustration() {
       <div className="relative z-10 flex h-[160px] w-[150px] flex-col rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-slate-800">
         <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-700">
           <div className="text-[10px] font-medium text-gray-600 dark:text-gray-300">
-            Archived
+            <Trans>Archived</Trans>
           </div>
         </div>
         <motion.div
@@ -218,7 +222,7 @@ export function BulkUnsubscribeIllustration() {
             animate={{ scale: 1 }}
             className="text-[11px] font-medium text-gray-600 dark:text-gray-300"
           >
-            {archivedEmailCount} emails
+            {t`${plural(archivedEmailCount, { one: "# email", other: "# emails" })}`}
           </motion.div>
         </motion.div>
       </div>

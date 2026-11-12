@@ -1,5 +1,8 @@
 "use client";
 
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "next/link";
 import { useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
@@ -35,10 +38,12 @@ import {
 } from "@/utils/actions/follow-up-reminders.validation";
 import { toast } from "sonner";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { getEmailTerminology } from "@/utils/terminology";
 import { getGmailBasicSearchUrl } from "@/utils/url";
 import { FOLLOW_UP_LABEL } from "@/utils/label";
-import { isGoogleProvider } from "@/utils/email/provider-types";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 import { env } from "@/env";
 
 export function FollowUpRemindersSetting() {
@@ -50,6 +55,7 @@ export function FollowUpRemindersSetting() {
 }
 
 function FollowUpRemindersSettingContent() {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const { data, isLoading, mutate } = useEmailAccountFull();
 
@@ -63,7 +69,7 @@ function FollowUpRemindersSettingContent() {
       onError: (error) => {
         mutate();
         toastError({
-          description: error.error?.serverError ?? "Failed to update settings",
+          description: error.error?.serverError ?? t`Failed to update settings`,
         });
       },
     },
@@ -86,8 +92,8 @@ function FollowUpRemindersSettingContent() {
 
   return (
     <SettingCard
-      title="Follow-up reminders"
-      description="Label emails where you haven't heard back or haven't replied."
+      title={t`Follow-up reminders`}
+      description={t`Label emails where you haven't heard back or haven't replied.`}
       right={
         isLoading ? (
           <Skeleton className="h-5 w-9" />
@@ -97,7 +103,7 @@ function FollowUpRemindersSettingContent() {
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm">
-                    Configure
+                    <Trans>Configure</Trans>
                   </Button>
                 </DialogTrigger>
                 <FollowUpSettingsDialogContent
@@ -163,8 +169,8 @@ function FollowUpSettingsDialog({
   showChannelsHint: boolean;
   onSuccess: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const { provider } = useAccount();
-  const terminology = getEmailTerminology(provider);
   const autoDraftDisabled = env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED;
 
   const {
@@ -191,12 +197,12 @@ function FollowUpSettingsDialog({
     updateFollowUpSettingsAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Settings saved!" });
+        toastSuccess({ description: t`Settings saved!` });
         onSuccess();
       },
       onError: (error) => {
         toastError({
-          description: error.error?.serverError ?? "Failed to save settings",
+          description: error.error?.serverError ?? t`Failed to save settings`,
         });
       },
     },
@@ -206,16 +212,16 @@ function FollowUpSettingsDialog({
     scanFollowUpRemindersAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        showScanCompleteToast(provider, emailAddress);
+        showScanCompleteToast(provider, emailAddress, i18n);
       },
       onError: (error) => {
         const ranForMinutes = getScanElapsedMs() > 4 * 60 * 1000;
 
         if (ranForMinutes) {
-          showScanCompleteToast(provider, emailAddress);
+          showScanCompleteToast(provider, emailAddress, i18n);
         } else {
           toastError({
-            description: error.error?.serverError ?? "Failed to scan",
+            description: error.error?.serverError ?? t`Failed to scan`,
           });
         }
       },
@@ -239,13 +245,23 @@ function FollowUpSettingsDialog({
   return (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>Follow-up reminders</DialogTitle>
+        <DialogTitle>
+          <Trans>Follow-up reminders</Trans>
+        </DialogTitle>
         <DialogDescription>
-          Get reminded about conversations that need attention.
+          <Trans>Get reminded about conversations that need attention.</Trans>
           <br />
-          We'll add a <Badge color="blue">Follow-up</Badge>{" "}
-          {terminology.label.singular} so you can easily find them. Saturdays
-          and Sundays do not count.
+          {isMicrosoftProvider(provider) ? (
+            <Trans>
+              We'll add a <Badge color="blue">{FOLLOW_UP_LABEL}</Badge> category
+              so you can easily find them. Saturdays and Sundays do not count.
+            </Trans>
+          ) : (
+            <Trans>
+              We'll add a <Badge color="blue">{FOLLOW_UP_LABEL}</Badge> label so
+              you can easily find them. Saturdays and Sundays do not count.
+            </Trans>
+          )}
         </DialogDescription>
       </DialogHeader>
 
@@ -253,25 +269,25 @@ function FollowUpSettingsDialog({
         <Input
           type="number"
           name="followUpAwaitingReplyDays"
-          label="Remind me when they haven't replied after"
+          label={t`Remind me when they haven't replied after`}
           registerProps={register("followUpAwaitingReplyDays")}
           error={errors.followUpAwaitingReplyDays}
           min={0.001}
           max={90}
           step={0.001}
-          rightText="days"
+          rightText={t`days`}
         />
 
         <Input
           type="number"
           name="followUpNeedsReplyDays"
-          label="Remind me when I haven't replied after"
+          label={t`Remind me when I haven't replied after`}
           registerProps={register("followUpNeedsReplyDays")}
           error={errors.followUpNeedsReplyDays}
           min={0.001}
           max={90}
           step={0.001}
-          rightText="days"
+          rightText={t`days`}
         />
 
         {!autoDraftDisabled && (
@@ -281,10 +297,10 @@ function FollowUpSettingsDialog({
                 htmlFor="followUpAutoDraftEnabled"
                 className="block text-sm font-medium text-foreground"
               >
-                Auto-generate drafts
+                <Trans>Auto-generate drafts</Trans>
               </label>
               <p className="text-muted-foreground text-sm">
-                Draft a nudge when you haven't heard back.
+                <Trans>Draft a nudge when you haven't heard back.</Trans>
               </p>
             </div>
             <Toggle
@@ -297,7 +313,7 @@ function FollowUpSettingsDialog({
 
         <div className="flex items-center gap-2">
           <Button type="submit" size="sm" loading={isExecuting}>
-            Save
+            <Trans>Save</Trans>
           </Button>
           <Button
             type="button"
@@ -306,27 +322,28 @@ function FollowUpSettingsDialog({
             loading={isScanning}
             onClick={() => {
               startScanTiming();
-              toast.info("Scanning your emails...", {
-                description:
-                  "This may take a few minutes depending on how many emails need to be checked.",
+              toast.info(t`Scanning your emails...`, {
+                description: t`This may take a few minutes depending on how many emails need to be checked.`,
               });
               executeScan({});
             }}
           >
-            Find follow-ups
+            <Trans>Find follow-ups</Trans>
           </Button>
         </div>
 
         {showChannelsHint && (
           <MutedText>
-            Want pings in your chat app?{" "}
-            <Link
-              href={prefixPath(emailAccountId, "/channels")}
-              className="text-foreground underline"
-            >
-              Configure on the Channels page
-            </Link>
-            .
+            <Trans>
+              Want pings in your chat app?{" "}
+              <Link
+                href={prefixPath(emailAccountId, "/channels")}
+                className="text-foreground underline"
+              >
+                Configure on the Channels page
+              </Link>
+              .
+            </Trans>
           </MutedText>
         )}
       </form>
@@ -337,22 +354,25 @@ function FollowUpSettingsDialog({
 function showScanCompleteToast(
   provider: string | undefined,
   emailAddress: string,
+  i18n: I18n,
 ) {
   if (isGoogleProvider(provider)) {
     const searchUrl = getGmailBasicSearchUrl(
       emailAddress,
       `label:${FOLLOW_UP_LABEL}`,
     );
-    toast.success("Scan complete!", {
-      description: "View your follow-ups in Gmail.",
+    toast.success(i18n._(msg`Scan complete!`), {
+      description: i18n._(msg`View your follow-ups in Gmail.`),
       action: {
-        label: "View",
+        label: i18n._(msg`View`),
         onClick: () => window.open(searchUrl, "_blank"),
       },
     });
   } else {
-    toast.success("Scan complete!", {
-      description: `Look for the "${FOLLOW_UP_LABEL}" category in Outlook.`,
+    toast.success(i18n._(msg`Scan complete!`), {
+      description: i18n._(
+        msg`Look for the "${FOLLOW_UP_LABEL}" category in Outlook.`,
+      ),
     });
   }
 }

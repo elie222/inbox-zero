@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Dialog,
   DialogContent,
@@ -34,8 +35,9 @@ export function ExamplesDialog({
   open,
   onOpenChange,
 }: ExamplesDialogProps) {
+  const { t, i18n } = useLingui();
   const { provider } = useAccount();
-  const personas = getPersonas(provider);
+  const personas = getPersonas(provider, i18n);
   const [internalOpen, setInternalOpen] = useState(false);
   const [selectedExamples, setSelectedExamples] = useState<number[]>([]);
 
@@ -66,7 +68,8 @@ export function ExamplesDialog({
       const selectedRules = selectedExamples.map((index) =>
         convertMentionsToLabels(persona.promptArray[index]),
       );
-      const formattedPrompt = `Add the following rules:\n${selectedRules.map((rule) => `- ${rule}`).join("\n")}`;
+      const rulesList = selectedRules.map((rule) => `- ${rule}`).join("\n");
+      const formattedPrompt = `${t`Add the following rules:`}\n${rulesList}`;
       setInput(formattedPrompt);
     }
 
@@ -97,11 +100,17 @@ export function ExamplesDialog({
                 onClick={handleBackToPersonas}
               >
                 <ArrowLeftIcon className="size-4" />
-                <span className="sr-only">Back to personas</span>
+                <span className="sr-only">
+                  <Trans>Back to personas</Trans>
+                </span>
               </Button>
             )}
             <DialogTitle>
-              {selectedPersona ? "Choose examples" : "Choose persona"}
+              {selectedPersona ? (
+                <Trans>Choose examples</Trans>
+              ) : (
+                <Trans>Choose persona</Trans>
+              )}
             </DialogTitle>
           </div>
         </DialogHeader>
@@ -149,7 +158,7 @@ export function ExamplesDialog({
                   variant="default"
                 >
                   <PlusIcon className="size-4" />
-                  Add Selected ({selectedExamples.length})
+                  <Trans>Add Selected ({selectedExamples.length})</Trans>
                 </Button>
               </div>
             )}

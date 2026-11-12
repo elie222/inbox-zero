@@ -2,6 +2,9 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { ChevronRightIcon } from "lucide-react";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
 import { format, isToday, isYesterday } from "date-fns";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -26,6 +29,7 @@ import { ResultsDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDis
 type ExecutedRuleResult = GetExecutedRulesResponse["results"][number];
 
 export function History() {
+  const { t } = useLingui();
   const [page] = useQueryState("page", parseAsInteger.withDefault(1));
   const [ruleId] = useQueryState("ruleId", parseAsString.withDefault("all"));
 
@@ -60,11 +64,11 @@ export function History() {
             />
           ) : (
             <AlertBasic
-              title="No history"
+              title={t`No history`}
               description={
                 ruleId === "all"
-                  ? "No emails have been processed yet."
-                  : "No emails have been processed for this rule."
+                  ? t`No emails have been processed yet.`
+                  : t`No emails have been processed for this rule.`
               }
             />
           )}
@@ -87,6 +91,7 @@ function HistoryTable({
   messagesById: Record<string, ParsedMessage>;
   messagesLoading: boolean;
 }) {
+  const { i18n } = useLingui();
   const groups = useMemo(() => groupByDate(data), [data]);
 
   return (
@@ -100,7 +105,7 @@ function HistoryTable({
                   colSpan={2}
                   className="max-sm:block bg-muted/40 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                 >
-                  {formatDateGroupLabel(group.date)}
+                  {formatDateGroupLabel(group.date, i18n)}
                 </TableCell>
               </TableRow>
               {group.items.map((er) => (
@@ -133,6 +138,7 @@ function HistoryThread({
   message?: ParsedMessage;
   messagesLoading: boolean;
 }) {
+  const { t } = useLingui();
   const [expanded, setExpanded] = useState(false);
   return (
     <>
@@ -146,7 +152,7 @@ function HistoryThread({
               variant="ghost"
               size="iconSm"
               aria-label={
-                expanded ? "Collapse conversation" : "Expand conversation"
+                expanded ? t`Collapse conversation` : t`Expand conversation`
               }
               aria-expanded={expanded}
               onClick={() => setExpanded((value) => !value)}
@@ -223,10 +229,12 @@ function ThreadHistory({
                 disabled={page === 1}
                 onClick={() => setPage((value) => value - 1)}
               >
-                Previous messages
+                <Trans>Previous messages</Trans>
               </Button>
               <span className="text-sm text-muted-foreground">
-                Page {page} of {data.totalPages}
+                <Trans>
+                  Page {page} of {data.totalPages}
+                </Trans>
               </span>
               <Button
                 variant="outline"
@@ -234,7 +242,7 @@ function ThreadHistory({
                 disabled={page >= data.totalPages}
                 onClick={() => setPage((value) => value + 1)}
               >
-                Next messages
+                <Trans>Next messages</Trans>
               </Button>
             </div>
           )}
@@ -259,6 +267,7 @@ function HistoryMessageRow({
 }) {
   const { userEmail } = useAccount();
   const { setInput } = useChat();
+  const { i18n } = useLingui();
   const isMessageLoading = !message && messagesLoading;
   return (
     <TableRow className="max-sm:flex max-sm:flex-col">
@@ -276,18 +285,29 @@ function HistoryMessageRow({
             {messageCount === undefined &&
               result.executedRules[0]?.createdAt && (
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {format(
-                    new Date(result.executedRules[0].createdAt),
-                    "MMM d, yyyy, p",
-                  )}
+                  {i18n.date(new Date(result.executedRules[0].createdAt), {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
                 </div>
               )}
             <div className="mt-2 flex flex-wrap gap-2">
               {messageCount && messageCount > 1 ? (
-                <Badge color="blue">{messageCount} messages handled</Badge>
+                <Badge color="blue">
+                  <Plural
+                    value={messageCount}
+                    one="# message handled"
+                    other="# messages handled"
+                  />
+                </Badge>
               ) : null}
               {!result.executedRules[0]?.automated && (
-                <Badge color="yellow">Applied manually</Badge>
+                <Badge color="yellow">
+                  <Trans>Applied manually</Trans>
+                </Badge>
               )}
             </div>
           </div>
@@ -343,7 +363,9 @@ function EmailCell({
   }
 
   return (
-    <span className="text-sm text-muted-foreground">Email unavailable</span>
+    <span className="text-sm text-muted-foreground">
+      <Trans>Email unavailable</Trans>
+    </span>
   );
 }
 
@@ -373,7 +395,7 @@ function RuleCell({
         <Skeleton className="h-9 w-16" />
       ) : (
         <Button variant="outline" size="sm" disabled>
-          Fix
+          <Trans>Fix</Trans>
         </Button>
       )}
     </div>
@@ -407,12 +429,17 @@ function groupByDate(items: ExecutedRuleResult[]) {
   return groups;
 }
 
-function formatDateGroupLabel(date: Date | null) {
-  if (!date) return "Unknown date";
-  if (isToday(date)) return "Today";
-  if (isYesterday(date)) return "Yesterday";
+function formatDateGroupLabel(date: Date | null, i18n: I18n) {
+  if (!date) return i18n._(msg`Unknown date`);
+  if (isToday(date)) return i18n._(msg`Today`);
+  if (isYesterday(date)) return i18n._(msg`Yesterday`);
   if (date.getFullYear() === new Date().getFullYear()) {
-    return format(date, "EEEE, MMM d");
+    return i18n.date(date, { weekday: "long", month: "short", day: "numeric" });
   }
-  return format(date, "EEEE, MMM d, yyyy");
+  return i18n.date(date, {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }

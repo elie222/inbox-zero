@@ -229,7 +229,10 @@ function parseSrcsetCandidates(srcset: string) {
     while (index < srcset.length && !isAsciiWhitespace(srcset[index]))
       index += 1;
     const rawUrl = srcset.slice(urlStart, index);
-    const url = rawUrl.replace(/,+$/, "");
+    // A `/,+$/` regex backtracks quadratically on long comma runs.
+    let urlEnd = rawUrl.length;
+    while (urlEnd > 0 && rawUrl[urlEnd - 1] === ",") urlEnd -= 1;
+    const url = rawUrl.slice(0, urlEnd);
     let descriptor = "";
     if (url === rawUrl) {
       const descriptorStart = index;

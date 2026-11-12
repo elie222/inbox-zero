@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Table,
   TableBody,
@@ -37,6 +38,8 @@ export function BulkUnsubscribeDesktop({
   isSomeSelected: boolean;
   onToggleSelectAll: () => void;
 }) {
+  const { t } = useLingui();
+
   return (
     // Only let the header stick to the page once the widest rows fit (~800px);
     // narrower, e.g. with the chat sidebar open, the table keeps its own
@@ -54,7 +57,9 @@ export function BulkUnsubscribeDesktop({
             <TableHead className="w-10 pr-0">
               <ButtonCheckbox
                 label={
-                  isAllSelected ? "Deselect all senders" : "Select all senders"
+                  isAllSelected
+                    ? t`Deselect all senders`
+                    : t`Select all senders`
                 }
                 checked={isAllSelected}
                 indeterminate={isSomeSelected && !isAllSelected}
@@ -62,7 +67,9 @@ export function BulkUnsubscribeDesktop({
               />
             </TableHead>
             <TableHead className="pl-4">
-              <span className="text-sm font-medium">From</span>
+              <span className="text-sm font-medium">
+                <Trans>From</Trans>
+              </span>
             </TableHead>
             <TableHead className="w-[90px] whitespace-nowrap">
               <HeaderButton
@@ -72,7 +79,7 @@ export function BulkUnsubscribeDesktop({
                 }
                 onClick={() => onSort("emails")}
               >
-                Emails
+                <Trans>Emails</Trans>
               </HeaderButton>
             </TableHead>
             <TableHead className="w-[150px] whitespace-nowrap">
@@ -83,7 +90,7 @@ export function BulkUnsubscribeDesktop({
                 }
                 onClick={() => onSort("unread")}
               >
-                Read
+                <Trans>Read</Trans>
               </HeaderButton>
             </TableHead>
             <TableHead className="w-[300px]" />
@@ -112,7 +119,9 @@ export function BulkUnsubscribeRowDesktop({
   filter,
   readPercentage,
 }: RowProps) {
+  const { t } = useLingui();
   const isSuggested = isUnsubscribeSuggestion(item);
+  const senderName = item.fromName || item.name;
 
   return (
     <TableRow
@@ -137,7 +146,7 @@ export function BulkUnsubscribeRowDesktop({
     >
       <TableCell className="w-10 pr-0" data-cell="checkbox">
         <ButtonCheckbox
-          label={`Select ${item.fromName || item.name}`}
+          label={t`Select ${senderName}`}
           checked={checked}
           onChange={(shiftKey) => onToggleSelect?.(item.name, shiftKey)}
         />
@@ -157,10 +166,10 @@ export function BulkUnsubscribeRowDesktop({
           </div>
         </div>
       </TableCell>
-      <TableCell className="whitespace-nowrap" data-label="Emails">
+      <TableCell className="whitespace-nowrap" data-label={t`Emails`}>
         <span className="font-medium text-foreground/80">{item.value}</span>
       </TableCell>
-      <TableCell className="whitespace-nowrap" data-label="Read">
+      <TableCell className="whitespace-nowrap" data-label={t`Read`}>
         <div className="flex items-center gap-2">
           <Progress
             value={readPercentage}

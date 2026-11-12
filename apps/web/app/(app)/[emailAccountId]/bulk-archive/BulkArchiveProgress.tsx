@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { plural } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { ProgressPanel } from "@/components/ProgressPanel";
 import { useArchiveQueueProgress } from "@/store/archive-sender-queue";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -10,6 +12,7 @@ export function BulkArchiveProgress({
 }: {
   onComplete?: () => void;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const progress = useArchiveQueueProgress(emailAccountId);
   const totalItems = progress?.totalItems ?? 0;
@@ -36,19 +39,34 @@ export function BulkArchiveProgress({
     return null;
   }
 
-  const failedSuffix = failedItems ? ` ${failedItems} failed.` : "";
+  function getInProgressText() {
+    const current = Math.min(settledItems + 1, totalItems);
+    if (failedItems) {
+      return t`${plural(totalItems, {
+        one: `Archiving ${current} of # sender... ${failedItems} failed.`,
+        other: `Archiving ${current} of # senders... ${failedItems} failed.`,
+      })}`;
+    }
+    return t`${plural(totalItems, {
+      one: `Archiving ${current} of # sender...`,
+      other: `Archiving ${current} of # senders...`,
+    })}`;
+  }
 
   return (
     <ProgressPanel
       totalItems={totalItems}
       remainingItems={activeItems}
-      inProgressText={`Archiving ${Math.min(settledItems + 1, totalItems)} of ${totalItems} senders...${failedSuffix}`}
+      inProgressText={getInProgressText()}
       completedText={
         failedItems
-          ? `Archiving finished: ${completedItems} succeeded, ${failedItems} failed.`
-          : `Archiving complete! ${completedItems} senders processed!`
+          ? t`Archiving finished: ${completedItems} succeeded, ${failedItems} failed.`
+          : t`${plural(completedItems, {
+              one: "Archiving complete! # sender processed!",
+              other: "Archiving complete! # senders processed!",
+            })}`
       }
-      itemLabel="senders"
+      itemLabel={t`senders`}
     />
   );
 }

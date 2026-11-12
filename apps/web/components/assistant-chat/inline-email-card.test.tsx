@@ -15,6 +15,8 @@ import {
   InlineEmailList,
 } from "@/components/assistant-chat/inline-email-card";
 import { getEmailUrlForMessage } from "@/utils/url";
+import { createStore, Provider as JotaiProvider } from "jotai";
+import { mailPreviewAtom, mailScreenMountedAtom } from "@/store/mail-preview";
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -339,6 +341,65 @@ describe("InlineEmailCard", () => {
     );
 
     expect(screen.getByRole("button", { name: "More actions" })).toBeTruthy();
+  });
+
+  it("opens the email over the mail screen instead of inline when it's mounted", () => {
+    const store = createStore();
+    store.set(mailScreenMountedAtom, true);
+    mockUseThread.mockClear();
+
+    render(
+      <JotaiProvider store={store}>
+        <InlineEmailCard threadid="thread-1">Summary</InlineEmailCard>
+      </JotaiProvider>,
+    );
+    const card = screen.getByRole("button", { name: /Summary/ });
+
+    fireEvent.click(card);
+    expect(store.get(mailPreviewAtom)).toEqual({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+    });
+    expect(card.getAttribute("aria-current")).toBe("true");
+    expect(mockUseThread).not.toHaveBeenCalled();
+
+    fireEvent.click(card);
+    expect(store.get(mailPreviewAtom)).toBeNull();
+  });
+
+  it("doesn't open the email when an action is chosen from its menu", async () => {
+    const store = createStore();
+    store.set(mailScreenMountedAtom, true);
+
+    render(
+      <JotaiProvider store={store}>
+        <InlineEmailCard threadid="thread-1">Summary</InlineEmailCard>
+      </JotaiProvider>,
+    );
+    openMoreActions();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Archive" }));
+
+    await waitFor(() => expect(mockArchiveThreadAction).toHaveBeenCalled());
+    expect(store.get(mailPreviewAtom)).toBeNull();
+  });
+
+  it("numbers a card only inside an email list", () => {
+    const { unmount } = render(
+      <InlineEmailCard threadid="thread-1" index={3}>
+        Standalone
+      </InlineEmailCard>,
+    );
+    expect(screen.queryByText("3.")).toBeNull();
+    unmount();
+
+    render(
+      <InlineEmailList>
+        <InlineEmailCard threadid="thread-1" index={3}>
+          Listed
+        </InlineEmailCard>
+      </InlineEmailList>,
+    );
+    expect(screen.getByText("3.")).toBeTruthy();
   });
 
   it("shows the archive action even when action is none", async () => {

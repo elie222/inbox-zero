@@ -71,7 +71,6 @@ export function TabSelect<T extends string>({
                   setTimeout(() => {
                     analytics.captureAction("tab_selected", {
                       tab: id,
-                      tab_label: label,
                       has_href: Boolean(href),
                     });
                   }, 0);

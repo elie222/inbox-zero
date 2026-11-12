@@ -1,5 +1,7 @@
 "use client";
 
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -74,6 +76,7 @@ function sendMessageToExtension(message: {
 const EXTENSION_ID = env.NEXT_PUBLIC_TABS_EXTENSION_ID;
 
 export function SyncToExtensionSetting() {
+  const { t } = useLingui();
   const { data: rules } = useRules();
   const [open, setOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -104,7 +107,7 @@ export function SyncToExtensionSetting() {
 
   async function handleSync() {
     if (selectedTabs.length === 0) {
-      toast.info("No tabs selected");
+      toast.info(t`No tabs selected`);
       return;
     }
 
@@ -118,25 +121,33 @@ export function SyncToExtensionSetting() {
       });
 
       if (result.success && result.summary) {
+        const { enabled, created, skipped } = result.summary;
         const parts: string[] = [];
-        if (result.summary.enabled > 0)
-          parts.push(`${result.summary.enabled} enabled`);
-        if (result.summary.created > 0)
-          parts.push(`${result.summary.created} created`);
-        if (result.summary.skipped > 0)
-          parts.push(`${result.summary.skipped} already existed`);
-        toast.success(`Synced tabs to extension: ${parts.join(", ")}`);
+        if (enabled > 0)
+          parts.push(
+            t`${plural(enabled, { one: "# enabled", other: "# enabled" })}`,
+          );
+        if (created > 0)
+          parts.push(
+            t`${plural(created, { one: "# created", other: "# created" })}`,
+          );
+        if (skipped > 0)
+          parts.push(
+            t`${plural(skipped, { one: "# already existed", other: "# already existed" })}`,
+          );
+        const summary = parts.join(", ");
+        toast.success(t`Synced tabs to extension: ${summary}`);
       } else {
-        toast.error("Failed to sync tabs to extension");
+        toast.error(t`Failed to sync tabs to extension`);
       }
       setOpen(false);
     } catch (error) {
       if (error instanceof Error && error.message === "not_chrome") {
-        toast.error("Syncing to extension requires a Chromium browser");
+        toast.error(t`Syncing to extension requires a Chromium browser`);
       } else {
-        toast.error("Inbox Zero Tabs extension not found. Install it first.", {
+        toast.error(t`Inbox Zero Tabs extension not found. Install it first.`, {
           action: {
-            label: "Install",
+            label: t`Install`,
             onClick: () => window.open(EXTENSION_URL, "_blank"),
           },
         });
@@ -150,26 +161,28 @@ export function SyncToExtensionSetting() {
 
   return (
     <SettingCard
-      title="Sync to browser extension"
-      description="Sync your rules to the Inbox Zero Tabs browser extension. Each label rule becomes a tab in Gmail."
+      title={t`Sync to browser extension`}
+      description={t`Sync your rules to the Inbox Zero Tabs browser extension. Each label rule becomes a tab in Gmail.`}
       right={
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
-              Sync
+              <Trans>Sync</Trans>
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Sync tabs to extension</DialogTitle>
+              <DialogTitle>
+                <Trans>Sync tabs to extension</Trans>
+              </DialogTitle>
               <DialogDescription>
-                Select which label rules to sync as Gmail tabs.
+                <Trans>Select which label rules to sync as Gmail tabs.</Trans>
               </DialogDescription>
             </DialogHeader>
 
             {allTabs.length === 0 ? (
               <p className="py-4 text-sm text-muted-foreground">
-                No rules with label actions found.
+                <Trans>No rules with label actions found.</Trans>
               </p>
             ) : (
               <div className="space-y-2 py-2">
@@ -205,7 +218,7 @@ export function SyncToExtensionSetting() {
                 loading={isSyncing}
                 disabled={selectedTabs.length === 0}
               >
-                {`Sync ${selectedTabs.length} tab${selectedTabs.length === 1 ? "" : "s"}`}
+                {t`Sync ${plural(selectedTabs.length, { one: "# tab", other: "# tabs" })}`}
               </Button>
             </DialogFooter>
           </DialogContent>

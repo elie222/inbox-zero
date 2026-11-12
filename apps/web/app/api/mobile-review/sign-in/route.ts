@@ -9,7 +9,14 @@ const signInSchema = z.object({
 });
 
 export const POST = withError("mobile-review/sign-in", async (request) => {
-  const body = signInSchema.parse(await request.json());
+  let json: unknown;
+  try {
+    json = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const body = signInSchema.parse(json);
   const result = await createMobileReviewSession({
     code: body.code,
     email: body.email,

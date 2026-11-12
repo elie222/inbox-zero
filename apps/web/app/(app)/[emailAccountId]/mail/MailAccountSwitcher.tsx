@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { MailAccountSwitcherTrigger } from "@inboxzero/mail-ui/MailAccountSwitcherTrigger";
 import {
   memo,
@@ -65,6 +66,7 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
   /** Icon-only rail: the trigger shrinks to the account avatar. */
   collapsed?: boolean;
 }) {
+  const { t } = useLingui();
   const { data, mutate } = useAccounts();
   const { emailAccount } = useAccount();
   const [isSelectionOpen, setIsSelectionOpen] = useState(false);
@@ -87,18 +89,18 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
       mutate();
       if (!result || result.serverError || result.validationErrors) {
         toast.error(
-          getActionErrorMessage(result ?? {}, "Failed to save account order"),
+          getActionErrorMessage(result ?? {}, t`Failed to save account order`),
         );
       }
     },
-    [data, mutate],
+    [data, mutate, t],
   );
 
   if (!data) return null;
 
   const activeLabel = isAllAccounts
-    ? "All accounts"
-    : emailAccount?.name || emailAccount?.email || "Choose account";
+    ? t`All accounts`
+    : emailAccount?.name || emailAccount?.email || t`Choose account`;
   const activeEmail =
     !isAllAccounts && emailAccount?.name ? emailAccount.email : null;
   let activeIcon: ReactNode = null;
@@ -147,7 +149,9 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
                   onSelect={onSelectAll}
                 >
                   <AllAccountsIcon className="size-10" />
-                  <span className="flex-1 font-medium">All accounts</span>
+                  <span className="flex-1 font-medium">
+                    <Trans>All accounts</Trans>
+                  </span>
                   {isAllAccounts && <CurrentAccountCheck />}
                   {isDesktopApp && (
                     <Kbd className="shrink-0">
@@ -158,14 +162,16 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <DropdownMenuItem
-                      aria-label="Choose accounts"
+                      aria-label={t`Choose accounts`}
                       className="w-10 justify-center rounded-xl p-0 text-muted-foreground"
                       onSelect={() => setIsSelectionOpen(true)}
                     >
                       <SlidersHorizontalIcon />
                     </DropdownMenuItem>
                   </TooltipTrigger>
-                  <TooltipContent side="right">Choose accounts</TooltipContent>
+                  <TooltipContent side="right">
+                    <Trans>Choose accounts</Trans>
+                  </TooltipContent>
                 </Tooltip>
               </div>
               <DropdownMenuSeparator />
@@ -185,7 +191,7 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
                 <PlusIcon />
               </MenuItemIcon>
               <span className="font-medium text-muted-foreground">
-                Add or manage accounts
+                <Trans>Add or manage accounts</Trans>
               </span>
             </Link>
           </DropdownMenuItem>
@@ -196,7 +202,9 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
             <MenuItemIcon>
               <LogOutIcon />
             </MenuItemIcon>
-            <span className="font-medium text-muted-foreground">Sign out</span>
+            <span className="font-medium text-muted-foreground">
+              <Trans>Sign out</Trans>
+            </span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -364,7 +372,10 @@ function AccountItem({
 }
 
 function CurrentAccountCheck() {
-  return <CheckIcon aria-label="Current account" className="size-4 shrink-0" />;
+  const { t } = useLingui();
+  return (
+    <CheckIcon aria-label={t`Current account`} className="size-4 shrink-0" />
+  );
 }
 
 // Matches the account avatar width so every row's label lines up.

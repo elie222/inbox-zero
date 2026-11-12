@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { Trans, useLingui } from "@lingui/react/macro";
+import { env } from "@/env";
 import { useAction } from "next-safe-action/hooks";
 import { usePremium } from "@/hooks/usePremium";
 import {
   ManageSubscription,
   ViewInvoicesButton,
 } from "@/app/(app)/premium/ManageSubscription";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -22,20 +22,15 @@ import {
   ItemSeparator,
 } from "@/components/ui/item";
 import {
-  getBillingIntervalSwitch,
   getPremiumTierName,
   shouldShowLegacyStripePricingNotice,
 } from "@/app/(app)/premium/config";
 import { hasActiveAppleSubscription } from "@/utils/premium";
 import { getActionErrorMessage } from "@/utils/error";
-import type { PremiumTier } from "@/generated/prisma/enums";
-import {
-  getBillingPortalUrlAction,
-  updateStripeInvoiceEmailsAction,
-} from "@/utils/actions/premium";
-import { redirectToSafeUrl } from "@/utils/redirect";
+import { updateStripeInvoiceEmailsAction } from "@/utils/actions/premium";
 
 export function BillingSection() {
+  const { t } = useLingui();
   const {
     data,
     premium,
@@ -46,11 +41,6 @@ export function BillingSection() {
     canManageBilling,
   } = usePremium();
   const isLegacyStripePlan = shouldShowLegacyStripePricingNotice(premium);
-  const intervalSwitch =
-    premium?.stripeSubscriptionId &&
-    ["active", "trialing"].includes(premium.stripeSubscriptionStatus ?? "")
-      ? getBillingIntervalSwitch(premium.stripePriceId)
-      : null;
   const hasAppleSubscription = hasActiveAppleSubscription(
     premium?.appleExpiresAt || null,
     premium?.appleRevokedAt || null,
@@ -60,7 +50,7 @@ export function BillingSection() {
     onError: (error) => {
       toastError({
         description: getActionErrorMessage(error.error, {
-          prefix: "Failed to update invoice emails",
+          prefix: t`Failed to update invoice emails`,
         }),
       });
     },
@@ -92,29 +82,36 @@ export function BillingSection() {
       {premium && isPremium ? (
         <Item size="sm">
           <ItemContent>
-            <ItemTitle>{getPremiumTierName(tier)} plan</ItemTitle>
+            <ItemTitle>
+              <Trans>{getPremiumTierName(tier)} plan</Trans>
+            </ItemTitle>
             {hasAppleSubscription ? (
               <ItemDescription>
-                This subscription is billed through Apple. Manage or cancel it
-                from your iPhone or iPad subscription settings.
+                <Trans>
+                  This subscription is billed through Apple. Manage or cancel it
+                  from your iPhone or iPad subscription settings.
+                </Trans>
               </ItemDescription>
             ) : isLegacyStripePlan ? (
               <ItemDescription>
-                You&apos;re on grandfathered Stripe pricing. The current plan
-                prices shown elsewhere in the app are for new subscriptions.
+                <Trans>
+                  You&apos;re on grandfathered Stripe pricing. The current plan
+                  prices shown elsewhere in the app are for new subscriptions.
+                </Trans>
               </ItemDescription>
             ) : premium.stripeSubscriptionStatus === "trialing" ? (
-              <ItemDescription>Free trial</ItemDescription>
+              <ItemDescription>
+                <Trans>Free trial</Trans>
+              </ItemDescription>
             ) : null}
           </ItemContent>
           <ItemActions className="flex-wrap justify-end">
             {!hasAppleSubscription && (
               <Button asChild variant="outline" size="sm">
-                <Link href="/premium">Change plan</Link>
+                <Link href="/premium">
+                  <Trans>Change plan</Trans>
+                </Link>
               </Button>
-            )}
-            {intervalSwitch && !hasAppleSubscription && (
-              <SwitchBillingIntervalButton {...intervalSwitch} />
             )}
             <ManageSubscription premium={premium} compact />
             {!premium.stripeSubscriptionId &&
@@ -123,15 +120,44 @@ export function BillingSection() {
               )}
           </ItemActions>
         </Item>
+      ) : premium?.stripeSubscriptionStatus === "paused" ? (
+        <Item size="sm">
+          <ItemContent>
+            <ItemTitle>
+              <Trans>{getPremiumTierName(premium.tier)} plan</Trans>
+            </ItemTitle>
+            {/* Customers can't pause or resume in the Stripe portal, so a
+                paused subscription is resumed by support. */}
+            <ItemDescription>
+              <Trans>
+                Paused. Contact{" "}
+                <a
+                  href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
+                  className="underline"
+                >
+                  {env.NEXT_PUBLIC_SUPPORT_EMAIL}
+                </a>{" "}
+                to resume it.
+              </Trans>
+            </ItemDescription>
+          </ItemContent>
+          <ItemActions className="flex-wrap justify-end">
+            <ManageSubscription premium={premium} compact />
+          </ItemActions>
+        </Item>
       ) : (
         <Item size="sm">
           <ItemContent>
-            <ItemTitle>No active plan</ItemTitle>
+            <ItemTitle>
+              <Trans>No active plan</Trans>
+            </ItemTitle>
           </ItemContent>
           <ItemActions>
             {premium && <ViewInvoicesButton premium={premium} />}
             <Button asChild variant="outline" size="sm">
-              <Link href="/premium">Upgrade</Link>
+              <Link href="/premium">
+                <Trans>Upgrade</Trans>
+              </Link>
             </Button>
           </ItemActions>
         </Item>
@@ -142,14 +168,18 @@ export function BillingSection() {
           <ItemSeparator />
           <Item size="sm">
             <ItemContent>
-              <ItemTitle>Email paid invoices</ItemTitle>
+              <ItemTitle>
+                <Trans>Email paid invoices</Trans>
+              </ItemTitle>
               <ItemDescription>
-                Automatically send each Stripe invoice to the billing email.
+                <Trans>
+                  Automatically send each Stripe invoice to the billing email.
+                </Trans>
               </ItemDescription>
             </ItemContent>
             <ItemActions>
               <Switch
-                aria-label="Email paid Stripe invoices"
+                aria-label={t`Email paid Stripe invoices`}
                 checked={premium.stripeInvoiceEmailsEnabled}
                 disabled={isExecuting}
                 onCheckedChange={handleInvoiceEmailToggle}
@@ -161,52 +191,3 @@ export function BillingSection() {
     </LoadingContent>
   );
 }
-
-function SwitchBillingIntervalButton({
-  tier,
-  label,
-  description,
-}: {
-  tier: PremiumTier;
-  label: string;
-  description: string;
-}) {
-  const [loading, setLoading] = useState(false);
-
-  return (
-    <ConfirmDialog
-      trigger={
-        <Button variant="outline" size="sm" loading={loading}>
-          {label}
-        </Button>
-      }
-      title={`${label}?`}
-      description={description}
-      confirmText={label}
-      onConfirm={async () => {
-        setLoading(true);
-        try {
-          const result = await getBillingPortalUrlAction({ tier });
-          const url = result?.data?.url;
-          if (result?.serverError || !url) {
-            toastError({
-              description: getActionErrorMessage(
-                result ?? {},
-                SWITCH_INTERVAL_ERROR,
-              ),
-            });
-            return;
-          }
-          redirectToSafeUrl(url, { allowExternal: true });
-        } catch {
-          toastError({ description: SWITCH_INTERVAL_ERROR });
-        } finally {
-          setLoading(false);
-        }
-      }}
-    />
-  );
-}
-
-const SWITCH_INTERVAL_ERROR =
-  "We couldn't change your billing. Your subscription has not been changed.";

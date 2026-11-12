@@ -36,6 +36,10 @@ import {
   requiresSenderEmails,
 } from "@/utils/ai/assistant/manage-inbox-actions";
 import { hideToolErrorFromUser } from "@/utils/ai/assistant/tool-error-visibility";
+import {
+  addChatActionTotals,
+  type ChatActionTotals,
+} from "@/utils/ai/assistant/chat-action-totals";
 import { isThreadNotFoundError } from "@/utils/email/thread-not-found";
 import {
   type AutomaticUnsubscribeResult,
@@ -138,6 +142,7 @@ type InboxToolOptions = {
   emailAccountId: string;
   provider: string;
   logger: Logger;
+  chatId?: string;
 };
 
 type ProviderToolFactory = (options: InboxToolOptions) => unknown;
@@ -1112,7 +1117,21 @@ const buildManageInboxTool = ({
   ) => NormalizedManageInboxInput;
   taxonomy: ManageInboxTaxonomyConfig;
 }) => {
-  const { email, emailAccountId, provider, logger } = options;
+  const { email, emailAccountId, provider, logger, chatId } = options;
+
+  const withChatTotals = async <T extends object>(
+    result: T,
+    counts: ChatActionTotals,
+  ) => {
+    if (!chatId) return result;
+    try {
+      const totalsInThisChat = await addChatActionTotals({ chatId, counts });
+      return { ...result, totalsInThisChat };
+    } catch (error) {
+      logger.error("Failed to update chat action totals", { error });
+      return result;
+    }
+  };
 
   return tool({
     description:
@@ -1171,18 +1190,24 @@ const buildManageInboxTool = ({
                 emailAccountId,
               );
 
-            return {
-              success: failedSenders.length === 0,
-              action: originalAction,
-              sendersCount: normalizedFromEmails.length,
-              archivedMessagesCount,
-              senders: normalizedFromEmails,
-              successCount,
-              failedCount: failedSenders.length,
-              failedSenders,
-              autoUnsubscribeCount,
-              autoUnsubscribeAttemptedCount,
-            };
+            return withChatTotals(
+              {
+                success: failedSenders.length === 0,
+                action: originalAction,
+                sendersCount: normalizedFromEmails.length,
+                archivedMessagesCount,
+                senders: normalizedFromEmails,
+                successCount,
+                failedCount: failedSenders.length,
+                failedSenders,
+                autoUnsubscribeCount,
+                autoUnsubscribeAttemptedCount,
+              },
+              {
+                senders_unsubscribed: successCount,
+                sender_messages_archived: archivedMessagesCount,
+              },
+            );
           }
 
           const archivedMessagesCount =
@@ -1192,13 +1217,16 @@ const buildManageInboxTool = ({
               emailAccountId,
             );
 
-          return {
-            success: true,
-            action: originalAction,
-            sendersCount: normalizedFromEmails.length,
-            archivedMessagesCount,
-            senders: normalizedFromEmails,
-          };
+          return withChatTotals(
+            {
+              success: true,
+              action: originalAction,
+              sendersCount: normalizedFromEmails.length,
+              archivedMessagesCount,
+              senders: normalizedFromEmails,
+            },
+            { sender_messages_archived: archivedMessagesCount },
+          );
         }
 
         const threadIds = parsedInput.threadIds!;
@@ -1276,18 +1304,23 @@ const buildManageInboxTool = ({
         const successCount =
           threadActionResults.length - failedThreadIds.length;
 
-        return {
-          success: failedThreadIds.length === 0,
-          action: originalAction,
-          requestedCount: threadIds.length,
-          successCount,
-          failedCount: failedThreadIds.length,
-          failedThreadIds,
-          ...(resolvedThreadLabel && {
-            [taxonomy.resultKeys.id]: resolvedThreadLabel.labelId,
-            [taxonomy.resultKeys.name]: resolvedThreadLabel.labelName,
-          }),
-        };
+        return withChatTotals(
+          {
+            success: failedThreadIds.length === 0,
+            action: originalAction,
+            requestedCount: threadIds.length,
+            successCount,
+            failedCount: failedThreadIds.length,
+            failedThreadIds,
+            ...(resolvedThreadLabel && {
+              [taxonomy.resultKeys.id]: resolvedThreadLabel.labelId,
+              [taxonomy.resultKeys.name]: resolvedThreadLabel.labelName,
+            }),
+          },
+          {
+            [getThreadActionTotalKey(action, parsedInput.read)]: successCount,
+          },
+        );
       } catch (error) {
         logger.error("Failed to run inbox action", { error });
         return { error: "Failed to update emails" };
@@ -2087,3 +2120,21 @@ async function extractAttachmentText(
 
   return { text: "", truncated: false };
 }
+
+function getThreadActionTotalKey(
+  action: ManageInboxAction,
+  read: boolean | null | undefined,
+) {
+  if (action === "mark_read_threads") {
+    return read === false ? "threads_marked_unread" : "threads_marked_read";
+  }
+
+  return THREAD_ACTION_TOTAL_KEYS[action] ?? action;
+}
+
+const THREAD_ACTION_TOTAL_KEYS: Partial<Record<ManageInboxAction, string>> = {
+  archive_threads: "threads_archived",
+  trash_threads: "threads_trashed",
+  label_threads: "threads_labeled",
+  remove_label_threads: "threads_unlabeled",
+};

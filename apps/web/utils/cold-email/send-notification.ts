@@ -22,6 +22,7 @@ export async function sendColdEmailNotification({
   }
 
   const subject = formatReplySubject(originalSubject);
+  logger.trace("Sending cold email notification", { senderEmail });
 
   try {
     const result = await sendColdEmailNotificationViaResend({
@@ -36,7 +37,6 @@ export async function sendColdEmailNotification({
     });
 
     logger.info("Cold email notification sent", {
-      senderEmail,
       messageId: result.data?.id,
     });
 
@@ -44,7 +44,6 @@ export async function sendColdEmailNotification({
   } catch (error) {
     logger.error("Error sending cold email notification", {
       error,
-      senderEmail,
     });
     return {
       success: false,

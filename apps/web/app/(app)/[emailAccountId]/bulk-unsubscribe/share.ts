@@ -1,22 +1,35 @@
+import type { I18n } from "@lingui/core";
+import { msg, plural } from "@lingui/core/macro";
 import { differenceInDays } from "date-fns/differenceInDays";
 
 type ShareParams = {
   senderCount: number;
   link: string;
   yearlyEmails?: number | null;
+  i18n: I18n;
 };
 
 export function buildShareText({
   senderCount,
   link,
   yearlyEmails,
+  i18n,
 }: ShareParams): string {
-  const lists = senderCount === 1 ? "email list" : "email lists";
-  const base = `I just unsubscribed from ${senderCount} ${lists} with Inbox Zero`;
   if (yearlyEmails != null) {
-    return `${base} — that's ~${yearlyEmails.toLocaleString("en-US")} fewer emails a year. ${link}`;
+    const yearly = i18n.number(yearlyEmails);
+    return i18n._(
+      msg`I just unsubscribed from ${plural(senderCount, {
+        one: "# email list",
+        other: "# email lists",
+      })} with Inbox Zero — that's ~${yearly} fewer emails a year. ${link}`,
+    );
   }
-  return `${base}. ${link}`;
+  return i18n._(
+    msg`I just unsubscribed from ${plural(senderCount, {
+      one: "# email list",
+      other: "# email lists",
+    })} with Inbox Zero. ${link}`,
+  );
 }
 
 export function buildXShareUrl(params: ShareParams): string {
@@ -47,18 +60,30 @@ export function projectYearlyEmails({
 export function buildCelebrationSubline({
   emailCount,
   dateRange,
+  i18n,
 }: {
   emailCount: number;
   dateRange?: { from?: Date; to?: Date };
+  i18n: I18n;
 }): string {
   const yearlyEmails = projectYearlyEmails({ emailCount, dateRange });
   if (yearlyEmails != null) {
-    return `At their current pace, that's about ${yearlyEmails.toLocaleString("en-US")} fewer ${yearlyEmails === 1 ? "email" : "emails"} a year.`;
+    return i18n._(
+      msg`At their current pace, that's about ${plural(yearlyEmails, {
+        one: "# fewer email",
+        other: "# fewer emails",
+      })} a year.`,
+    );
   }
   if (emailCount > 0) {
-    return `That's ${emailCount.toLocaleString("en-US")} ${emailCount === 1 ? "email" : "emails"} you won't get again.`;
+    return i18n._(
+      msg`That's ${plural(emailCount, {
+        one: "# email",
+        other: "# emails",
+      })} you won't get again.`,
+    );
   }
-  return "Those senders won't reach your inbox again.";
+  return i18n._(msg`Those senders won't reach your inbox again.`);
 }
 
 function roundEstimate(value: number): number {

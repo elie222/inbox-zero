@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { ensureAllMailSplit } from "@/utils/split-inbox/initial-splits";
+import {
+  ensureAllMailSplit,
+  isDefaultAllMailSplit,
+} from "@/utils/split-inbox/initial-splits";
 
 describe("ensureAllMailSplit", () => {
   it("restores the unfiltered inbox when its tab was deleted", () => {
@@ -43,5 +46,23 @@ describe("ensureAllMailSplit", () => {
 
   it("keeps the inbox available with no saved splits", () => {
     expect(ensureAllMailSplit([])).toHaveLength(1);
+  });
+});
+
+describe("isDefaultAllMailSplit", () => {
+  it("recognizes the All tab created at signup by its name, not its id", () => {
+    expect(isDefaultAllMailSplit({ name: "All", filters: [] })).toBe(true);
+  });
+
+  it("leaves a renamed All tab and filtered tabs alone", () => {
+    expect(isDefaultAllMailSplit({ name: "Everything", filters: [] })).toBe(
+      false,
+    );
+    expect(
+      isDefaultAllMailSplit({
+        name: "All",
+        filters: [{ kind: "UNREAD" as const, value: null }],
+      }),
+    ).toBe(false);
   });
 });

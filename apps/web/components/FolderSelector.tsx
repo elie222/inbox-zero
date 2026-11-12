@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { WheelEvent } from "react";
 import { useState } from "react";
 import {
@@ -93,9 +94,10 @@ export function FolderSelector({
   isLoading,
   value,
   onChangeValue,
-  placeholder = "Select a folder...",
+  placeholder,
   error,
 }: FolderSelectorProps) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -212,7 +214,9 @@ export function FolderSelector({
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Loading folders...</span>
+                  <span>
+                    <Trans>Loading folders...</Trans>
+                  </span>
                 </>
               ) : value.id ? (
                 <div className="flex min-w-0 items-center gap-2">
@@ -222,7 +226,7 @@ export function FolderSelector({
                   </span>
                 </div>
               ) : (
-                placeholder
+                (placeholder ?? t`Select a folder...`)
               )}
             </div>
             <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
@@ -231,7 +235,7 @@ export function FolderSelector({
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
           <Command>
             <CommandInput
-              placeholder="Search folders..."
+              placeholder={t`Search folders...`}
               value={searchQuery}
               onValueChange={setSearchQuery}
             />
@@ -244,11 +248,15 @@ export function FolderSelector({
               {isLoading ? (
                 <div className="flex items-center justify-center py-6">
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  <span>Loading folders...</span>
+                  <span>
+                    <Trans>Loading folders...</Trans>
+                  </span>
                 </div>
               ) : (
                 <>
-                  <CommandEmpty>No folder found.</CommandEmpty>
+                  <CommandEmpty>
+                    <Trans>No folder found.</Trans>
+                  </CommandEmpty>
                   <CommandGroup>
                     {filteredFolders.map(({ folder, displayPath }) => (
                       <FolderItem
@@ -274,8 +282,8 @@ export function FolderSelector({
           size="icon2xs"
           className="absolute right-9 top-2 hover:bg-muted"
           onClick={() => onChangeValue({ name: "", id: "" })}
-          aria-label="Clear folder selection"
-          title="Clear folder selection"
+          aria-label={t`Clear folder selection`}
+          title={t`Clear folder selection`}
         >
           <X className="h-3 w-3" />
         </Button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +56,7 @@ export function RuleDialog({
   initialRule,
   editMode = true,
 }: RuleDialogProps) {
+  const { t } = useLingui();
   const handleSuccess = () => {
     onSuccess?.();
     onClose();
@@ -77,7 +79,7 @@ export function RuleDialog({
         aria-describedby={undefined}
       >
         <DialogHeader className={ruleId ? "sr-only" : ""}>
-          <DialogTitle>{ruleId ? "Edit Rule" : "Create Rule"}</DialogTitle>
+          <DialogTitle>{ruleId ? t`Edit Rule` : t`Create Rule`}</DialogTitle>
         </DialogHeader>
         <ErrorBoundary
           key={dialogContentKey}
@@ -137,15 +139,17 @@ function RuleDialogErrorState({ onClose }: { onClose: () => void }) {
   return (
     <div className="space-y-4 py-4">
       <p className="text-sm text-muted-foreground">
-        An error occurred while opening this rule. Please contact support at{" "}
-        <a href={`mailto:${SUPPORT_EMAIL}`} className="underline">
-          {SUPPORT_EMAIL}
-        </a>{" "}
-        if the problem persists.
+        <Trans>
+          An error occurred while opening this rule. Please contact support at{" "}
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="underline">
+            {SUPPORT_EMAIL}
+          </a>{" "}
+          if the problem persists.
+        </Trans>
       </p>
       <div className="flex justify-end">
         <Button type="button" onClick={onClose}>
-          Close
+          <Trans>Close</Trans>
         </Button>
       </div>
     </div>

@@ -1,10 +1,12 @@
 import groupBy from "lodash/groupBy";
 import sortBy from "lodash/sortBy";
-import { capitalCase } from "capital-case";
 import * as he from "he";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
-import { conditionTypesToString } from "@/utils/condition";
+import { conditionTypesToString } from "@/app/(app)/[emailAccountId]/assistant/condition-messages";
 import {
   ActionType,
   ExecutedRuleStatus,
@@ -45,7 +47,9 @@ export function ResultsDisplay({
       {sortedBatches.map(([date, batchResults], batchIndex) => (
         <div key={date}>
           {batchIndex === 1 && sortedBatches.length > 1 && (
-            <div className="my-1 text-xs text-muted-foreground">Previous:</div>
+            <div className="my-1 text-xs text-muted-foreground">
+              <Trans>Previous:</Trans>
+            </div>
           )}
           <div
             className={
@@ -75,6 +79,7 @@ function ResultDisplay({
   result: RunRulesResult;
   showFullContent?: boolean;
 }) {
+  const { i18n } = useLingui();
   const { rule, status } = result;
 
   if (showFullContent) {
@@ -97,8 +102,8 @@ function ResultDisplay({
         {rule
           ? rule.name
           : status === ExecutedRuleStatus.SKIPPED
-            ? "No match found"
-            : capitalCase(status)}
+            ? i18n._(msg`No match found`)
+            : i18n._(EXECUTED_RULE_STATUS_LABELS[status])}
         <EyeIcon className="ml-1.5 size-3.5 shrink-0 opacity-70" />
       </Badge>
     </HoverCard>
@@ -106,8 +111,9 @@ function ResultDisplay({
 }
 
 export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
+  const { i18n } = useLingui();
   const { rule, status, reason } = result;
-  const reasonDisplay = getRuleResultReasonDisplay(reason ?? "");
+  const reasonDisplay = getRuleResultReasonDisplay(reason ?? "", i18n);
   const skippedThreadRuleNames =
     result.selectionMetadata?.skippedThreadRuleNames ?? [];
   const learnedPatternExcludedRules =
@@ -122,10 +128,10 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
         {rule ? (
           <>
             {rule.name}
-            <Badge color="blue">{conditionTypesToString(rule)}</Badge>
+            <Badge color="blue">{conditionTypesToString(rule, i18n)}</Badge>
           </>
         ) : (
-          status === ExecutedRuleStatus.SKIPPED && "No match found"
+          status === ExecutedRuleStatus.SKIPPED && <Trans>No match found</Trans>
         )}
       </div>
       <div className="mt-2">
@@ -139,7 +145,7 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
               ruleDialog.onOpen({ ruleId: rule.id });
             }}
           >
-            View matching rule
+            <Trans>View matching rule</Trans>
           </Button>
         )}
       </div>
@@ -147,7 +153,9 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
       <div className="mt-2">
         {result.actionItems?.length ? (
           <>
-            <div className="font-medium text-sm mb-1">Actions:</div>
+            <div className="font-medium text-sm mb-1">
+              <Trans>Actions:</Trans>
+            </div>
             <RuleActions
               actions={
                 result.actionItems?.map((action) => ({
@@ -168,7 +176,9 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
             />
           </>
         ) : (
-          <div className="text-muted-foreground text-sm">No actions taken</div>
+          <div className="text-muted-foreground text-sm">
+            <Trans>No actions taken</Trans>
+          </div>
         )}
       </div>
 
@@ -190,7 +200,7 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
         reasonDisplay.actionFailureMessages.length > 0) && (
         <div className="mt-4 space-y-2 bg-muted p-2 rounded-md">
           <div className="font-medium text-sm">
-            Reason for choosing this rule:
+            <Trans>Reason for choosing this rule:</Trans>
           </div>
           {!!reasonDisplay.reason && (
             <MessageText className="whitespace-pre-wrap break-words">
@@ -199,7 +209,9 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
           )}
           {reasonDisplay.actionFailureMessages.length > 0 && (
             <div className="space-y-1">
-              <div className="font-medium text-sm">Action issues:</div>
+              <div className="font-medium text-sm">
+                <Trans>Action issues:</Trans>
+              </div>
               <ul className="list-disc space-y-1 pl-4 text-sm text-slate-700 dark:text-foreground">
                 {reasonDisplay.actionFailureMessages.map((message) => (
                   <li key={message} className="break-words">
@@ -225,14 +237,15 @@ function PrettyConditions({
     "from" | "to" | "subject" | "body" | "instructions" | "conditionalOperator"
   >;
 }) {
+  const { t } = useLingui();
   const conditions: { text: string; isInstructions?: boolean }[] = [];
 
   // Static conditions - grouped with commas
   const staticConditions: string[] = [];
-  if (rule.from) staticConditions.push(`From: ${rule.from}`);
-  if (rule.subject) staticConditions.push(`Subject: "${rule.subject}"`);
-  if (rule.to) staticConditions.push(`To: ${rule.to}`);
-  if (rule.body) staticConditions.push(`Body: "${rule.body}"`);
+  if (rule.from) staticConditions.push(t`From: ${rule.from}`);
+  if (rule.subject) staticConditions.push(t`Subject: "${rule.subject}"`);
+  if (rule.to) staticConditions.push(t`To: ${rule.to}`);
+  if (rule.body) staticConditions.push(t`Body: "${rule.body}"`);
   if (staticConditions.length)
     conditions.push({ text: staticConditions.join(", ") });
 
@@ -240,7 +253,7 @@ function PrettyConditions({
     conditions.push({ text: rule.instructions, isInstructions: true });
 
   const operator =
-    rule.conditionalOperator === LogicalOperator.AND ? "AND" : "OR";
+    rule.conditionalOperator === LogicalOperator.AND ? t`AND` : t`OR`;
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
@@ -266,7 +279,10 @@ function PrettyConditions({
   );
 }
 
-export function getRuleResultReasonDisplay(reason: string): {
+export function getRuleResultReasonDisplay(
+  reason: string,
+  i18n: I18n,
+): {
   reason: string;
   actionFailureMessages: string[];
 } {
@@ -281,7 +297,7 @@ export function getRuleResultReasonDisplay(reason: string): {
       actionFailureMessages.push(
         ...getActionFailureMessages(
           trimmedLine.slice("Action failures:".length),
-        ),
+        ).map((message) => i18n._(message)),
       );
     } else {
       reasonLines.push(trimmedLine);
@@ -357,7 +373,7 @@ function readTagName(value: string, start: number) {
   return tagName;
 }
 
-function getActionFailureMessages(failures: string): string[] {
+function getActionFailureMessages(failures: string): MessageDescriptor[] {
   return failures
     .split(",")
     .map((failure) => failure.trim())
@@ -373,57 +389,67 @@ function getActionFailureMessages(failures: string): string[] {
     });
 }
 
+const EXECUTED_RULE_STATUS_LABELS: Record<
+  ExecutedRuleStatus,
+  MessageDescriptor
+> = {
+  [ExecutedRuleStatus.APPLIED]: msg`Applied`,
+  [ExecutedRuleStatus.APPLYING]: msg`Applying`,
+  [ExecutedRuleStatus.REJECTED]: msg`Rejected`,
+  [ExecutedRuleStatus.PENDING]: msg`Pending`,
+  [ExecutedRuleStatus.SKIPPED]: msg`Skipped`,
+  [ExecutedRuleStatus.ERROR]: msg`Error`,
+};
+
 const ACTION_FAILURE_MESSAGES: Partial<
-  Record<ActionType, { fallback: string; codes: Record<string, string> }>
+  Record<
+    ActionType,
+    { fallback: MessageDescriptor; codes: Record<string, MessageDescriptor> }
+  >
 > = {
   [ActionType.DRAFT_MESSAGING_CHANNEL]: {
-    fallback: "The draft reply action could not be completed.",
+    fallback: msg`The draft reply action could not be completed.`,
     codes: {
-      MESSAGING_DELIVERY_FAILED:
-        "The draft reply could not be sent to the messaging channel.",
-      MISSING_MESSAGING_CHANNEL:
-        "The draft reply action needs a messaging channel.",
+      MESSAGING_DELIVERY_FAILED: msg`The draft reply could not be sent to the messaging channel.`,
+      MISSING_MESSAGING_CHANNEL: msg`The draft reply action needs a messaging channel.`,
     },
   },
   [ActionType.NOTIFY_MESSAGING_CHANNEL]: {
-    fallback: "The messaging channel notification could not be completed.",
+    fallback: msg`The messaging channel notification could not be completed.`,
     codes: {
-      MESSAGING_DELIVERY_FAILED:
-        "The messaging channel notification could not be sent.",
-      MISSING_MESSAGING_CHANNEL:
-        "The messaging channel notification needs a channel.",
+      MESSAGING_DELIVERY_FAILED: msg`The messaging channel notification could not be sent.`,
+      MISSING_MESSAGING_CHANNEL: msg`The messaging channel notification needs a channel.`,
     },
   },
   [ActionType.NOTIFY_SENDER]: {
-    fallback: "The sender notification could not be completed.",
+    fallback: msg`The sender notification could not be completed.`,
     codes: {
-      RESEND_NOT_CONFIGURED:
-        "The sender notification could not be sent because email sending is not configured.",
-      MISSING_SENDER_EMAIL:
-        "The sender notification could not be sent because the sender email could not be found.",
-      SEND_FAILED: "The sender notification could not be sent.",
+      RESEND_NOT_CONFIGURED: msg`The sender notification could not be sent because email sending is not configured.`,
+      MISSING_SENDER_EMAIL: msg`The sender notification could not be sent because the sender email could not be found.`,
+      SEND_FAILED: msg`The sender notification could not be sent.`,
     },
   },
   // Only the action type and error code survive in the stored reason, so this
   // copy stays integration-neutral. The executor records a message naming the
   // integration alongside it.
   [ActionType.INTEGRATION]: {
-    fallback: "The integration action could not be completed.",
+    fallback: msg`The integration action could not be completed.`,
     codes: {
-      INTEGRATION_NOT_CONNECTED:
-        "The integration isn't connected. Connect it on the Integrations page.",
-      MISSING_INTEGRATION_ARGS:
-        "The integration action could not run because a required field was empty.",
-      INTEGRATION_CALL_FAILED: "The integration action could not be completed.",
+      INTEGRATION_NOT_CONNECTED: msg`The integration isn't connected. Connect it on the Integrations page.`,
+      MISSING_INTEGRATION_ARGS: msg`The integration action could not run because a required field was empty.`,
+      INTEGRATION_CALL_FAILED: msg`The integration action could not be completed.`,
     },
   },
 };
 
-function getActionFailureMessage(actionType: string, errorCode: string) {
+function getActionFailureMessage(
+  actionType: string,
+  errorCode: string,
+): MessageDescriptor {
   const entry = Object.hasOwn(ACTION_FAILURE_MESSAGES, actionType)
     ? ACTION_FAILURE_MESSAGES[actionType as ActionType]
     : undefined;
-  if (!entry) return "An action could not be completed.";
+  if (!entry) return msg`An action could not be completed.`;
   return Object.hasOwn(entry.codes, errorCode)
     ? entry.codes[errorCode]
     : entry.fallback;

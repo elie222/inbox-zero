@@ -20,6 +20,7 @@ describe("getThreadParticipantNames", () => {
           }),
         ],
         "OWNER@example.com",
+        "me",
       ),
     ).toEqual(["Bah", "me"]);
   });
@@ -34,6 +35,7 @@ describe("getThreadParticipantNames", () => {
           }),
         ],
         "owner@example.com",
+        "me",
       ),
     ).toEqual(["Bah"]);
   });
@@ -53,6 +55,7 @@ describe("getThreadParticipantNames", () => {
           }),
         ],
         "owner@example.com",
+        "me",
       ),
     ).toEqual(["Bah"]);
   });
@@ -67,6 +70,7 @@ describe("getThreadParticipantNames", () => {
           }),
         ],
         "owner@example.com",
+        "me",
       ),
     ).toEqual(["Jordan", "Taylor"]);
   });
@@ -82,6 +86,7 @@ describe("getThreadParticipantNames", () => {
           }),
         ],
         "owner@example.com",
+        "me",
       ),
     ).toEqual(["Jordan"]);
   });

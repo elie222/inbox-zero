@@ -179,6 +179,23 @@ describe("Apple premium helpers", () => {
     ).toBe("STARTER_MONTHLY");
   });
 
+  it("does not treat paused Stripe subscriptions as premium", () => {
+    const paused = {
+      tier: "STARTER_MONTHLY" as const,
+      stripeSubscriptionStatus: "paused",
+      adminGrantExpiresAt: null,
+      adminGrantTier: null,
+      lemonSqueezyRenewsAt: null,
+      appleExpiresAt: null,
+      appleRevokedAt: null,
+      appleSubscriptionStatus: null,
+    };
+
+    expect(isPremiumRecord(paused)).toBe(false);
+    expect(isActivePremium(paused)).toBe(false);
+    expect(getUserTier(paused)).toBeNull();
+  });
+
   it("treats missing premium records as premium when bypass checks are enabled", () => {
     envMock.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = true;
 

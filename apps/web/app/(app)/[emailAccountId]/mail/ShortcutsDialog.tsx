@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useEffect, useState } from "react";
 import { useAtom } from "jotai";
 import { Kbd } from "@/components/Kbd";
@@ -13,6 +14,7 @@ import {
 import {
   formatShortcutKeys,
   getShortcutGroups,
+  SHORTCUT_GROUP_LABELS,
   type ShortcutScope,
 } from "@/lib/shortcuts/registry";
 import { shortcutsDialogOpenAtom } from "@/store/command-palette";
@@ -25,6 +27,7 @@ const SCOPES: readonly ShortcutScope[] = ["global", "mail"];
  * documented here without also being bound — or bound without being documented.
  */
 export function ShortcutsDialog() {
+  const { i18n } = useLingui();
   const [open, setOpen] = useAtom(shortcutsDialogOpenAtom);
   const [isDesktopApp, setIsDesktopApp] = useState(false);
   const groups = getShortcutGroups(SCOPES, { isDesktopApp });
@@ -37,21 +40,25 @@ export function ShortcutsDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Keyboard shortcuts</DialogTitle>
+          <DialogTitle>
+            <Trans>Keyboard shortcuts</Trans>
+          </DialogTitle>
           <DialogDescription>
-            Everything here works without the mouse.
+            <Trans>Everything here works without the mouse.</Trans>
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-6 sm:grid-cols-2">
           {groups.map(({ group, shortcuts }) => (
             <div key={group} className="flex flex-col gap-2">
-              <div className="text-xs font-semibold text-primary">{group}</div>
+              <div className="text-xs font-semibold text-primary">
+                {i18n._(SHORTCUT_GROUP_LABELS[group])}
+              </div>
               {shortcuts.map((shortcut) => (
                 <div key={shortcut.id} className="flex items-center gap-3">
                   <Kbd className="min-w-9">{formatShortcutKeys(shortcut)}</Kbd>
                   <span className="text-sm text-foreground">
-                    {shortcut.label}
+                    {i18n._(shortcut.label)}
                   </span>
                 </div>
               ))}

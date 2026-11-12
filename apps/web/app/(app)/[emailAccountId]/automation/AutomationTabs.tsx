@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useQueryState } from "nuqs";
+import { msg } from "@lingui/core/macro";
+import type { MessageDescriptor } from "@lingui/core";
+import { useLingui } from "@lingui/react/macro";
 import { TabSelect } from "@/components/TabSelect";
 import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
@@ -17,23 +20,24 @@ const defaultTab: AutomationTab = "rules";
 const tabOptions = [
   {
     id: "rules",
-    label: "Rules",
+    label: msg`Rules`,
   },
   {
     id: "test",
-    label: "Test",
+    label: msg`Test`,
   },
   {
     id: "history",
-    label: "History",
+    label: msg`History`,
   },
   {
     id: "settings",
-    label: "Settings",
+    label: msg`Settings`,
   },
-] satisfies { id: AutomationTab; label: string }[];
+] satisfies { id: AutomationTab; label: MessageDescriptor }[];
 
 export function AutomationTabs() {
+  const { i18n } = useLingui();
   const [tab, setTab] = useQueryState("tab", {
     defaultValue: defaultTab,
     history: "push",
@@ -52,7 +56,10 @@ export function AutomationTabs() {
     <>
       <div className="border-b border-neutral-200 pt-2">
         <TabSelect
-          options={tabOptions}
+          options={tabOptions.map((option) => ({
+            ...option,
+            label: i18n._(option.label),
+          }))}
           selected={selectedTab}
           onSelect={onSelect}
         />

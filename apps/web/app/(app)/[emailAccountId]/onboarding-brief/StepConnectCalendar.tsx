@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { Calendar, CheckIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { useCalendars } from "@/hooks/useCalendars";
@@ -25,10 +26,14 @@ export function StepConnectCalendar({ onNext }: { onNext: () => void }) {
       </div>
 
       <div className="text-center">
-        <PageHeading className="mt-4">Connect Your Calendar</PageHeading>
+        <PageHeading className="mt-4">
+          <Trans>Connect Your Calendar</Trans>
+        </PageHeading>
         <TypographyP className="mt-2 max-w-lg mx-auto">
-          We'll automatically detect your upcoming meetings with external guests
-          and prepare personalized briefings.
+          <Trans>
+            We'll automatically detect your upcoming meetings with external
+            guests and prepare personalized briefings.
+          </Trans>
         </TypographyP>
       </div>
 
@@ -37,10 +42,10 @@ export function StepConnectCalendar({ onNext }: { onNext: () => void }) {
           <>
             <div className="flex items-center gap-2 text-green-600 font-medium animate-in fade-in zoom-in duration-300">
               <CheckIcon className="h-5 w-5" />
-              Calendar Connected!
+              <Trans>Calendar Connected!</Trans>
             </div>
             <Button onClick={onNext} className="mt-2">
-              Continue
+              <Trans>Continue</Trans>
             </Button>
           </>
         ) : (
