@@ -1134,6 +1134,52 @@ describe("drafts still saving when the page is left", () => {
     expect(localStorage.length).toBe(0);
   });
 
+  it("keeps the last edit when the page's earlier save reached the engine after all", async () => {
+    const engine = createRevisionCheckingClient();
+    const leaving = await loadPage({
+      ...engine,
+      // The save lands, but the page is gone before the engine answers.
+      saveDraft: (input: Parameters<typeof engine.saveDraft>[0]) => {
+        engine.saveDraft(input);
+        return new Promise(() => {});
+      },
+    });
+    const writer = leaving.drafts.createReplyDraftWriter(replyIdentity);
+    const clock = vi.spyOn(Date, "now").mockReturnValue(1000);
+    writer.save({ ...content, composeMode: "reply" }).catch(() => {});
+    clock.mockReturnValue(2000);
+    writer
+      .save({
+        ...content,
+        composeMode: "reply",
+        draft: { ...content.draft, editableHtml: "<p>Last edit</p>" },
+      })
+      .catch(() => {});
+    clock.mockRestore();
+    await vi.waitFor(() => expect(engine.saveDraft).toHaveBeenCalled());
+    window.dispatchEvent(new Event("pagehide"));
+
+    vi.resetModules();
+    const reloaded = await loadPage(engine);
+
+    expect(await reloaded.drafts.getReplyDraft(replyIdentity)).toMatchObject({
+      content: { draft: { editableHtml: "<p>Last edit</p>" } },
+    });
+  });
+
+  it("doesn't bring back an edit discarded before its save finished", async () => {
+    const leaving = await loadPage({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    });
+    const writer = leaving.drafts.createReplyDraftWriter(replyIdentity);
+    writer.save({ ...content, composeMode: "reply" }).catch(() => {});
+    writer.clear().catch(() => {});
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(localStorage.length).toBe(0);
+  });
+
   it("recovers a kept reply when another kept entry is damaged", async () => {
     localStorage.setItem("inbox-zero:unsaved-reply-draft:broken", "{");
     const leaving = await loadPage({

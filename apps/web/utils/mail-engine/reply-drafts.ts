@@ -473,8 +473,12 @@ export function createReplyDraftWriter(
         }
       : undefined;
     if (unsaved) unsavedWrites.set(draftKey(identity), unsaved);
-    // A discard isn't kept: replaying it could erase another tab's edits.
-    else forgetKeptReplyDraft(identity);
+    else {
+      // A discard isn't kept: replaying it could erase another tab's edits.
+      // Nor is the edit it discards, which may not have reached the engine.
+      unsavedWrites.delete(draftKey(identity));
+      forgetKeptReplyDraft(identity);
+    }
     const operation = pending
       .catch(() => {})
       .then(async () => {
@@ -969,35 +973,44 @@ function keepUnsavedReplyDrafts() {
 }
 
 /**
- * Saves a draft kept from a previous page, but only onto the engine revision
- * it was made on: any save since, from this page or another tab, is at least
- * as current, so the kept copy is dropped.
+ * Saves a draft kept from a previous page onto the engine revision it was
+ * made on. If the engine has moved on, the kept edit still wins over an older
+ * one, such as this tab's earlier save that landed after all, but never over a
+ * newer edit or a discard.
  */
 async function recoverKeptReplyDraft(kept: KeptReplyDraft) {
   const client = getActiveMailClient();
-  if (!client) return;
+  // A draft already open here is what the user is editing now; its next
+  // save supersedes the kept copy.
+  if (!client || drafts.has(draftKey(kept.identity))) return;
   const { identity } = kept;
-  const key = draftKey(identity);
-  // A draft already open here is what the user is editing now.
-  if (drafts.has(key)) {
-    forgetKeptReplyDraft(identity);
-    return;
-  }
+  const key = {
+    accountId: identity.emailAccountId,
+    draftId: engineDraftId(identity),
+  };
   const epoch = currentEpoch(identity.emailAccountId);
+  let expectedRevision = kept.engineRevision;
   let saved: DraftSaveResult;
   try {
-    saved = await client.saveDraft({
-      key: {
-        accountId: identity.emailAccountId,
-        draftId: engineDraftId(identity),
-      },
-      expectedRevision: kept.engineRevision,
-      content: engineDraftContent(identity, kept.content, kept.updatedAt),
-    });
+    for (let attempt = 0; ; attempt += 1) {
+      saved = await client.saveDraft({
+        key,
+        expectedRevision,
+        content: engineDraftContent(identity, kept.content, kept.updatedAt),
+      });
+      if (saved.status !== "conflict" || attempt > 0) break;
+      const current = await client.readDraft(key);
+      if (current.status !== "found") break;
+      const state = parseReplyDraftState(current.content);
+      if (!state || state.updatedAt >= kept.updatedAt) break;
+      expectedRevision = current.draftRevision;
+    }
   } catch {
     return;
   }
-  forgetKeptReplyDraft(identity);
+  // A rejected save leaves the copy for a later load to try again.
+  if (saved.status !== "saved" && saved.status !== "conflict") return;
+  forgetKeptReplyDraft(identity, kept.editId);
   if (
     saved.status !== "saved" ||
     currentEpoch(identity.emailAccountId) !== epoch
@@ -1055,9 +1068,12 @@ function forgetUnsavedReplyDraft(unsaved: UnsavedReplyDraft) {
     forgetKeptReplyDraft(unsaved.identity);
 }
 
-function forgetKeptReplyDraft(identity: ReplyDraftIdentity) {
+/** With `editId`, only that edit's copy: another tab may have kept a later one. */
+function forgetKeptReplyDraft(identity: ReplyDraftIdentity, editId?: string) {
+  const storageKey = `${UNSAVED_DRAFT_KEY_PREFIX}${draftKey(identity)}`;
+  if (editId && readKeptReplyDraft(storageKey)?.editId !== editId) return;
   try {
-    localStorage.removeItem(`${UNSAVED_DRAFT_KEY_PREFIX}${draftKey(identity)}`);
+    localStorage.removeItem(storageKey);
   } catch {}
 }
 
