@@ -80,8 +80,12 @@ function ManageServiceWorker() {
         return;
       }
       cancelPendingUpdate?.();
+      if (!claimAutomaticReload()) {
+        cancelPendingUpdate = reloadAtNextSafeMoment(reloadForUpdate);
+        return;
+      }
       refreshing = true;
-      if (claimAutomaticReload()) window.location.reload();
+      window.location.reload();
     };
 
     // Wait for the new worker to control the page before reloading.

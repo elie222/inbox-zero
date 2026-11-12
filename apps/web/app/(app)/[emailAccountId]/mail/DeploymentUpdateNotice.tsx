@@ -37,6 +37,7 @@ export function DeploymentUpdateNotice() {
         notified = true;
         cancelPendingReload = reloadAtNextSafeMoment(() => {
           if (claimAutomaticReload()) window.location.reload();
+          else notified = false;
         });
       } catch {
         // Offline or mid-deploy; the next check will try again.

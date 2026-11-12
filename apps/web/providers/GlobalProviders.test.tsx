@@ -15,6 +15,7 @@ import { GlobalProviders } from "./GlobalProviders";
 import { SWRProvider } from "./SWRProvider";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { registerOpenComposer } from "@/utils/safe-reload";
+import { claimAutomaticReload } from "@/utils/automatic-reload";
 import { SKIP_WAITING } from "@/utils/offline/mail-cache";
 
 const serwistState = vi.hoisted(() => ({
@@ -41,6 +42,7 @@ vi.mock("sonner", () => ({ toast: { info: vi.fn() } }));
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
   vi.mocked(toast.info).mockClear();
   serwistState.serwist = undefined;
@@ -221,6 +223,23 @@ describe("service worker updates", () => {
       vi.useRealTimers();
     }
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a controller reload at a safe moment after the cooldown", async () => {
+    const { registration, serviceWorker, reload } = setUpDesktopUpdate();
+    vi.stubEnv("NEXT_DEPLOYMENT_ID", "previous-build");
+    expect(claimAutomaticReload()).toBe(true);
+    vi.stubEnv("NEXT_DEPLOYMENT_ID", "current-build");
+    const view = render(<GlobalProviders>mail</GlobalProviders>);
+    await waitFor(() => expect(registration.update).toHaveBeenCalled());
+    vi.useFakeTimers();
+    act(() => vi.advanceTimersByTime(3000));
+    act(() => serviceWorker.dispatchEvent(new Event("controllerchange")));
+    expect(reload).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(5 * 60_000));
+    serwistState.pathname += "/next";
+    view.rerender(<GlobalProviders>mail</GlobalProviders>);
+    expect(reload).toHaveBeenCalledOnce();
   });
 
   it("leaves a waiting worker alone in a browser tab", async () => {
