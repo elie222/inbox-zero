@@ -88,7 +88,7 @@ export async function deleteGroupItem({
   id: string;
   emailAccountId: string;
 }) {
-  await prisma.groupItem.delete({
+  await prisma.groupItem.deleteMany({
     where: { id, group: { emailAccountId } },
   });
 }

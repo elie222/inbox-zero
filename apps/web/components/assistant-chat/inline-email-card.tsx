@@ -53,6 +53,9 @@ import { useThread } from "@/hooks/useThread";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { SenderIcon } from "@/components/SenderIcon";
 import { useAtom, useAtomValue } from "jotai";
+import type { I18n } from "@lingui/core";
+import { msg, plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { mailPreviewAtom, mailScreenMountedAtom } from "@/store/mail-preview";
 
 type ActionState = "idle" | "loading" | "done";
@@ -73,6 +76,7 @@ type InlineEmailListState = {
 const InlineEmailListContext = createContext<InlineEmailListState | null>(null);
 
 export function InlineEmailList({ children }: { children?: ReactNode }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId } = useAccount();
   const inlineEmailActionContext = useInlineEmailActionContext();
   const [archiveAllState, setArchiveAllState] = useState<ActionState>("idle");
@@ -152,7 +156,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
       );
       const failedCount = results.filter((r) => r?.serverError).length;
       if (failedCount === results.length) {
-        toastError({ description: "Failed to archive emails" });
+        toastError({ description: t`Failed to archive emails` });
         setArchiveAllState("idle");
       } else if (failedCount > 0) {
         markArchived(successfulThreadIds);
@@ -161,7 +165,10 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
           successfulThreadIds,
         );
         toastSuccess({
-          description: `Archived ${results.length - failedCount} of ${results.length} emails`,
+          description: t`Archived ${results.length - failedCount} of ${plural(
+            results.length,
+            { one: "# email", other: "# emails" },
+          )}`,
         });
         setArchiveAllState("idle");
       } else {
@@ -171,12 +178,15 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
           successfulThreadIds,
         );
         toastSuccess({
-          description: `Archived ${remainingArchiveThreadIds.length} emails`,
+          description: t`Archived ${plural(remainingArchiveThreadIds.length, {
+            one: "# email",
+            other: "# emails",
+          })}`,
         });
         setArchiveAllState("done");
       }
     } catch {
-      toastError({ description: "Failed to archive emails" });
+      toastError({ description: t`Failed to archive emails` });
       setArchiveAllState("idle");
     }
   }
@@ -198,7 +208,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
       );
       const failedCount = results.filter((r) => r?.serverError).length;
       if (failedCount === results.length) {
-        toastError({ description: "Failed to mark emails as read" });
+        toastError({ description: t`Failed to mark emails as read` });
         setMarkReadState("idle");
       } else if (failedCount > 0) {
         markRead(successfulThreadIds);
@@ -206,8 +216,12 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
           "mark_read_threads",
           successfulThreadIds,
         );
+        const total = results.length;
         toastSuccess({
-          description: `Marked ${results.length - failedCount} of ${results.length} as read`,
+          description: t`Marked ${plural(total - failedCount, {
+            one: `# of ${total} as read`,
+            other: `# of ${total} as read`,
+          })}`,
         });
         setMarkReadState("idle");
       } else {
@@ -217,12 +231,15 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
           successfulThreadIds,
         );
         toastSuccess({
-          description: `Marked ${remainingReadThreadIds.length} as read`,
+          description: t`Marked ${plural(remainingReadThreadIds.length, {
+            one: "# as read",
+            other: "# as read",
+          })}`,
         });
         setMarkReadState("done");
       }
     } catch {
-      toastError({ description: "Failed to mark emails as read" });
+      toastError({ description: t`Failed to mark emails as read` });
       setMarkReadState("idle");
     }
   }
@@ -243,12 +260,15 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
           onClick={() => setCollapsed(false)}
         >
           <div className="min-w-0">
-            <div className="text-sm font-medium">Completed emails</div>
+            <div className="text-sm font-medium">
+              <Trans>Completed emails</Trans>
+            </div>
             <div className="text-xs text-muted-foreground">
               {formatCompletedSummary({
                 threadIds,
                 archivedThreadIds,
                 readThreadIds,
+                i18n,
               })}
             </div>
           </div>
@@ -259,7 +279,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
           {threadIds.length > 0 && (
             <div className="flex items-center justify-end gap-1 border-b px-3 py-1.5">
               <Tooltip
-                content={archiveAllDone ? "All archived" : "Archive all"}
+                content={archiveAllDone ? t`All archived` : t`Archive all`}
               >
                 <Button
                   variant="ghost"
@@ -271,7 +291,7 @@ export function InlineEmailList({ children }: { children?: ReactNode }) {
                 />
               </Tooltip>
               <Tooltip
-                content={markReadDone ? "All marked read" : "Mark all read"}
+                content={markReadDone ? t`All marked read` : t`Mark all read`}
               >
                 <Button
                   variant="ghost"
@@ -331,6 +351,7 @@ export function InlineEmailCard({
   const knownThreadIds = useKnownThreadIds();
   const listState = useContext(InlineEmailListContext);
   const inlineEmailActionContext = useInlineEmailActionContext();
+  const { t } = useLingui();
   const { emailAccountId, provider, userEmail } = useAccount();
   const [actionState, setActionState] = useState<ActionState>("idle");
   const [markReadState, setMarkReadState] = useState<ActionState>("idle");
@@ -381,10 +402,10 @@ export function InlineEmailCard({
       }
       listState?.markArchived([threadId]);
       inlineEmailActionContext?.queueAction("archive_threads", [threadId]);
-      toastSuccess({ description: "Archived" });
+      toastSuccess({ description: t`Archived` });
       setActionState("done");
     } catch {
-      toastError({ description: "Failed to archive" });
+      toastError({ description: t`Failed to archive` });
       setActionState("idle");
     }
   }
@@ -404,10 +425,10 @@ export function InlineEmailCard({
       }
       listState?.markRead([threadId]);
       inlineEmailActionContext?.queueAction("mark_read_threads", [threadId]);
-      toastSuccess({ description: "Marked as read" });
+      toastSuccess({ description: t`Marked as read` });
       setMarkReadState("done");
     } catch {
-      toastError({ description: "Failed to mark as read" });
+      toastError({ description: t`Failed to mark as read` });
       setMarkReadState("idle");
     }
   }
@@ -467,7 +488,7 @@ export function InlineEmailCard({
             <DropdownMenu>
               <DropdownMenuTrigger
                 className={iconButtonClass}
-                aria-label="More actions"
+                aria-label={t`More actions`}
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -488,7 +509,7 @@ export function InlineEmailCard({
                     ) : (
                       <ArchiveIcon className="mr-2 size-4" />
                     )}
-                    {isDone ? "Archived" : "Archive"}
+                    {isDone ? <Trans>Archived</Trans> : <Trans>Archive</Trans>}
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuItem
@@ -500,7 +521,11 @@ export function InlineEmailCard({
                   ) : (
                     <MailOpenIcon className="mr-2 size-4" />
                   )}
-                  {markReadComplete ? "Marked read" : "Mark as read"}
+                  {markReadComplete ? (
+                    <Trans>Marked read</Trans>
+                  ) : (
+                    <Trans>Mark as read</Trans>
+                  )}
                 </DropdownMenuItem>
                 {opensOnMailScreen ? null : (
                   <DropdownMenuItem
@@ -510,7 +535,11 @@ export function InlineEmailCard({
                     }}
                   >
                     <InfoIcon className="mr-2 size-4" />
-                    {showDetails ? "Hide details" : "Show details"}
+                    {showDetails ? (
+                      <Trans>Hide details</Trans>
+                    ) : (
+                      <Trans>Show details</Trans>
+                    )}
                   </DropdownMenuItem>
                 )}
                 {externalUrl ? (
@@ -521,7 +550,7 @@ export function InlineEmailCard({
                       rel="noopener noreferrer"
                     >
                       <ExternalLinkIcon className="mr-2 size-4" />
-                      Open in email
+                      <Trans>Open in email</Trans>
                     </a>
                   </DropdownMenuItem>
                 ) : null}
@@ -559,6 +588,7 @@ export function InlineEmailDetail({
 }) {
   const emailLookup = useEmailLookup();
   const knownThreadIds = useKnownThreadIds();
+  const { t } = useLingui();
   const { provider, userEmail } = useAccount();
   const threadId = resolveInlineEmailThreadId({ id, threadid, knownThreadIds });
   const meta = threadId ? emailLookup.get(threadId) : undefined;
@@ -575,7 +605,7 @@ export function InlineEmailDetail({
       <div className="flex items-center justify-between gap-3 border-b px-3 py-2">
         <div className="min-w-0">
           <div className="truncate text-sm font-medium">
-            {meta?.subject || "Email"}
+            {meta?.subject || t`Email`}
           </div>
           {meta ? (
             <div className="text-xs text-muted-foreground">
@@ -589,7 +619,7 @@ export function InlineEmailDetail({
           ) : null}
         </div>
         {externalUrl ? (
-          <Tooltip content="Open in email">
+          <Tooltip content={t`Open in email`}>
             <a
               href={externalUrl}
               target="_blank"
@@ -605,7 +635,7 @@ export function InlineEmailDetail({
         <EmailPreview threadId={threadId} compact />
       ) : (
         <div className="px-3 py-2 text-xs text-muted-foreground">
-          No email content found.
+          <Trans>No email content found.</Trans>
         </div>
       )}
     </div>
@@ -621,13 +651,15 @@ function InlineEmailCardBody({
   hasSummary: boolean;
   children?: ReactNode;
 }) {
+  const { t } = useLingui();
+
   if (!meta) {
     if (hasSummary) {
       return <span className="min-w-0 flex-1 truncate">{children}</span>;
     }
     return (
       <span className="min-w-0 flex-1 truncate text-muted-foreground">
-        Open email
+        <Trans>Open email</Trans>
       </span>
     );
   }
@@ -646,7 +678,7 @@ function InlineEmailCardBody({
           <div className="mt-0.5 text-sm text-foreground">{children}</div>
         ) : (
           <div className="mt-0.5 truncate text-[13px] text-muted-foreground">
-            {meta.subject || "(no subject)"}
+            {meta.subject || t`(no subject)`}
           </div>
         )}
       </div>
@@ -719,6 +751,7 @@ function EmailPreview({
   compact?: boolean;
   showDetails?: boolean;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { data, isLoading, error } = useThread({ id: threadId });
 
@@ -733,7 +766,7 @@ function EmailPreview({
   if (error) {
     return (
       <div className="px-3 py-2 text-xs text-muted-foreground">
-        Could not load email content: {error.error}
+        <Trans>Could not load email content: {error.error}</Trans>
       </div>
     );
   }
@@ -741,7 +774,7 @@ function EmailPreview({
   if (!data?.thread?.messages?.length) {
     return (
       <div className="px-3 py-2 text-xs text-muted-foreground">
-        No email content found.
+        <Trans>No email content found.</Trans>
       </div>
     );
   }
@@ -768,7 +801,7 @@ function EmailPreview({
           text={
             lastMessage.textPlain ||
             lastMessage.snippet ||
-            "No content available."
+            t`No content available.`
           }
         />
       )}
@@ -877,10 +910,12 @@ function formatCompletedSummary({
   threadIds,
   archivedThreadIds,
   readThreadIds,
+  i18n,
 }: {
   threadIds: string[];
   archivedThreadIds: Set<string>;
   readThreadIds: Set<string>;
+  i18n: I18n;
 }) {
   const archivedCount = threadIds.filter((threadId) =>
     archivedThreadIds.has(threadId),
@@ -890,15 +925,29 @@ function formatCompletedSummary({
       !archivedThreadIds.has(threadId) && readThreadIds.has(threadId),
   ).length;
 
-  const parts: string[] = [];
-
+  if (archivedCount > 0 && readOnlyCount > 0) {
+    return i18n._(
+      msg`${plural(archivedCount, {
+        one: "# archived",
+        other: "# archived",
+      })}, ${plural(readOnlyCount, {
+        one: "# marked read",
+        other: "# marked read",
+      })}`,
+    );
+  }
   if (archivedCount > 0) {
-    parts.push(`${archivedCount} archived`);
+    return i18n._(
+      msg`${plural(archivedCount, { one: "# archived", other: "# archived" })}`,
+    );
   }
-
   if (readOnlyCount > 0) {
-    parts.push(`${readOnlyCount} marked read`);
+    return i18n._(
+      msg`${plural(readOnlyCount, {
+        one: "# marked read",
+        other: "# marked read",
+      })}`,
+    );
   }
-
-  return parts.join(", ");
+  return "";
 }

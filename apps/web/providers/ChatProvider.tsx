@@ -1,6 +1,9 @@
 "use client";
 
 import { useChat as useAiChat } from "@ai-sdk/react";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { DefaultChatTransport } from "ai";
 import { parseAsString, useQueryState } from "nuqs";
 import {
@@ -45,10 +48,8 @@ import {
 
 const logger = createClientLogger("assistant-chat");
 
-const CHAT_SEND_FAILED_MESSAGE =
-  "We couldn't send your message. Please try again.";
-const CHAT_ACCOUNT_MISMATCH_MESSAGE =
-  "That chat belongs to another email account, so we started a new one. Send your message again.";
+const CHAT_SEND_FAILED_MESSAGE = msg`We couldn't send your message. Please try again.`;
+const CHAT_ACCOUNT_MISMATCH_MESSAGE = msg`That chat belongs to another email account, so we started a new one. Send your message again.`;
 
 export type Attachment = {
   id: string;
@@ -106,6 +107,7 @@ type ChatContextType = {
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export function ChatProvider({ children }: { children: React.ReactNode }) {
+  const { i18n } = useLingui();
   const { emailAccountId } = useAccount();
   const { mutate } = useSWRConfig();
 
@@ -293,7 +295,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setChatId(newChatId);
         showSendError({
           chatId: newChatId,
-          message: CHAT_ACCOUNT_MISMATCH_MESSAGE,
+          message: i18n._(CHAT_ACCOUNT_MISMATCH_MESSAGE),
           offerNewChat: false,
         });
         return;
@@ -307,7 +309,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       });
       showSendError({
         chatId: pendingRequest?.chatId ?? chatId ?? chat.id,
-        message: getChatSendErrorMessage(error),
+        message: getChatSendErrorMessage(error, i18n),
         offerNewChat: true,
       });
     },
@@ -623,7 +625,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         });
         showSendError({
           chatId: chatId ?? chat.id,
-          message: CHAT_SEND_FAILED_MESSAGE,
+          message: i18n._(CHAT_SEND_FAILED_MESSAGE),
           offerNewChat: true,
         });
       }
@@ -645,6 +647,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     chat.id,
     chatId,
     emailAccountId,
+    i18n,
     input,
     sendMessageParts,
     showSendError,
@@ -767,7 +770,7 @@ function isChatAccountMismatchError(error: unknown) {
   );
 }
 
-function getChatSendErrorMessage(error: unknown) {
+function getChatSendErrorMessage(error: unknown, i18n: I18n) {
   const statusCode = getErrorStatusCode(error);
   const serverMessage = getChatRequestErrorBody(error)?.error;
   // 4xx responses explain what the user can do; 5xx bodies are not for users.
@@ -779,7 +782,7 @@ function getChatSendErrorMessage(error: unknown) {
   ) {
     return serverMessage;
   }
-  return CHAT_SEND_FAILED_MESSAGE;
+  return i18n._(CHAT_SEND_FAILED_MESSAGE);
 }
 
 function getChatRequestErrorBody(

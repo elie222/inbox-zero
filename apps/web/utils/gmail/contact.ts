@@ -13,6 +13,7 @@ import {
 } from "@/utils/error";
 import { extractErrorInfo } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
+import { sleep } from "@/utils/sleep";
 
 const CONTACT_READ_MASK = "names,emailAddresses,photos";
 const PHOTO_READ_MASK = "emailAddresses,photos";
@@ -182,21 +183,42 @@ function isContactSourceDenied(error: unknown) {
 }
 
 async function searchSavedContacts(client: people_v1.People, query: string) {
-  const res = await client.people.searchContacts({
-    query,
-    readMask: CONTACT_READ_MASK,
-    pageSize: MAX_CONTACT_RESULTS,
-  });
+  // Google requires an empty-query warmup before searching its contact cache.
+  if (query) {
+    await client.people.searchContacts({
+      query: "",
+      readMask: CONTACT_READ_MASK,
+      pageSize: MAX_CONTACT_RESULTS,
+    });
+  }
+
+  const res = await withContactCacheRetry(() =>
+    client.people.searchContacts({
+      query,
+      readMask: CONTACT_READ_MASK,
+      pageSize: MAX_CONTACT_RESULTS,
+    }),
+  );
 
   return mapSearchResults(res.data.results);
 }
 
 async function searchOtherContacts(client: people_v1.People, query: string) {
-  const res = await client.otherContacts.search({
-    query,
-    readMask: CONTACT_READ_MASK,
-    pageSize: MAX_CONTACT_RESULTS,
-  });
+  if (query) {
+    await client.otherContacts.search({
+      query: "",
+      readMask: CONTACT_READ_MASK,
+      pageSize: MAX_CONTACT_RESULTS,
+    });
+  }
+
+  const res = await withContactCacheRetry(() =>
+    client.otherContacts.search({
+      query,
+      readMask: CONTACT_READ_MASK,
+      pageSize: MAX_CONTACT_RESULTS,
+    }),
+  );
 
   return mapSearchResults(res.data.results);
 }
@@ -246,4 +268,22 @@ async function listPeoplePages(
 // Google fills in a generated letter tile when a person has no photo.
 function getPhotoUrl(person: people_v1.Schema$Person) {
   return person.photos?.find((photo) => !photo.default)?.url ?? undefined;
+}
+
+async function withContactCacheRetry<T>(search: () => Promise<T>): Promise<T> {
+  try {
+    return await search();
+  } catch (error) {
+    const { status, googleErrorStatus, errorMessage } = extractErrorInfo(error);
+    if (
+      (status !== 400 && googleErrorStatus !== "FAILED_PRECONDITION") ||
+      !errorMessage.includes("cold cache data")
+    ) {
+      throw error;
+    }
+
+    // Google's lazy cache can still be rebuilding after the warmup returns.
+    await sleep(5000);
+    return search();
+  }
 }
