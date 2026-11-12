@@ -1,4 +1,4 @@
-import { describe, test, expect, afterAll } from "vitest";
+import { describe, test, expect, afterAll, vi } from "vitest";
 import { SystemType } from "@/generated/prisma/enums";
 import {
   describeEvalMatrix,
@@ -13,6 +13,14 @@ import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai eval/choose-rule
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/choose-rule
+
+// Classification evals exercise real models without publishing synthetic usage externally.
+vi.mock("@/utils/redis/usage", async (importActual) => ({
+  ...(await importActual<typeof import("@/utils/redis/usage")>()),
+  saveUsage: vi.fn(),
+}));
+
+vi.mock("@inboxzero/tinybird-ai-analytics", () => ({ publishAiCall: vi.fn() }));
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;

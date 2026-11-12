@@ -279,7 +279,7 @@ async function getAiResponseMultiRule({
 
   <guidelines>
   - If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
-  - Do not be greedy - only select rules that add meaningful context.
+  - Additional matches must capture distinct context or action, not restate the primary match at a broader level.
   - Be concise in your reasoning - avoid repetitive explanations.
   ${METADATA_GUIDELINE}
   </guidelines>
