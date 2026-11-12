@@ -471,6 +471,10 @@ msgstr "{errorCount, plural, one {Failed to send # invitation} other {Failed to 
 msgid "{executedRulesCount, plural, one {# assistant processed email} other {# assistant processed emails}}"
 msgstr "{executedRulesCount, plural, one {# assistant processed email} other {# assistant processed emails}}"
 
+#: components/email-list/EmailAttachments.tsx
+msgid "{failed} of {total} attachments failed to download"
+msgstr "{failed} of {total} attachments failed to download"
+
 #: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
 msgid "{failedCount, plural, one {Couldn't queue # of {total} as read} other {Couldn't queue # of {total} as read}}"
 msgstr "{failedCount, plural, one {Couldn't queue # of {total} as read} other {Couldn't queue # of {total} as read}}"
@@ -2106,7 +2110,7 @@ msgstr "Attach images"
 msgid "attachment"
 msgstr "attachment"
 
-#: components/email-list/EmailAttachments.tsx
+#: components/email-list/AttachmentPreview.tsx
 msgid "Attachment preview"
 msgstr "Attachment preview"
 
@@ -3314,6 +3318,7 @@ msgstr "Click to show all senders"
 #: app/(app)/[emailAccountId]/calendars/ConfigureBookingLinkDialog.tsx
 #: app/(app)/[emailAccountId]/calendars/CreateBookingLinkDialog.tsx
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+#: components/email-list/AttachmentPreview.tsx
 msgid "Close"
 msgstr "Close"
 
@@ -3975,7 +3980,7 @@ msgstr "Couldn't fully reverse {0, plural, one {# conversation} other {# convers
 msgid "Couldn't load public context"
 msgstr "Couldn't load public context"
 
-#: components/email-list/EmailAttachments.tsx
+#: components/email-list/AttachmentPreview.tsx
 msgid "Couldn't load this attachment."
 msgstr "Couldn't load this attachment."
 
@@ -4777,18 +4782,17 @@ msgid "Done"
 msgstr "Done"
 
 #: app/(app)/[emailAccountId]/mail/MessageSourceDialog.tsx
-#: components/email-list/EmailAttachments.tsx
+#: components/email-list/AttachmentPreview.tsx
 msgid "Download"
 msgstr "Download"
 
-#. placeholder {0}: attachment.filename
 #: components/email-list/EmailAttachments.tsx
-msgid "Download {0}"
-msgstr "Download {0}"
+msgid "Download {filename}"
+msgstr "Download {filename}"
 
 #: components/email-list/EmailAttachments.tsx
-msgid "Download attachment"
-msgstr "Download attachment"
+msgid "Download all"
+msgstr "Download all"
 
 #: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
 msgid "Download message"
@@ -9039,6 +9043,10 @@ msgstr "Next delivery around {0}."
 msgid "Next email from chat"
 msgstr "Next email from chat"
 
+#: components/email-list/AttachmentPreview.tsx
+msgid "Next image"
+msgstr "Next image"
+
 #: lib/shortcuts/registry.ts
 msgid "Next message"
 msgstr "Next message"
@@ -10278,16 +10286,15 @@ msgstr "Prevent credentials and card numbers from being sent to AI."
 msgid "Preview"
 msgstr "Preview"
 
-#. placeholder {0}: attachment.filename
 #: components/email-list/EmailAttachments.tsx
-msgid "Preview {0}"
-msgstr "Preview {0}"
+msgid "Preview {filename}"
+msgstr "Preview {filename}"
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
 msgid "Preview emails"
 msgstr "Preview emails"
 
-#: components/email-list/EmailAttachments.tsx
+#: components/email-list/AttachmentPreview.tsx
 msgid "Preview isn't available for this file."
 msgstr "Preview isn't available for this file."
 
@@ -10302,6 +10309,10 @@ msgstr "Preview with my recent emails"
 #: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
 msgid "Previous email from chat"
 msgstr "Previous email from chat"
+
+#: components/email-list/AttachmentPreview.tsx
+msgid "Previous image"
+msgstr "Previous image"
 
 #: lib/shortcuts/registry.ts
 msgid "Previous message"
@@ -13070,7 +13081,7 @@ msgstr "This feature is in limited rollout. Join early access to enable integrat
 msgid "This feature is not available during the free trial. Start your paid plan to use it."
 msgstr "This feature is not available during the free trial. Start your paid plan to use it."
 
-#: components/email-list/EmailAttachments.tsx
+#: components/email-list/AttachmentPreview.tsx
 msgid "This file is too large to preview."
 msgstr "This file is too large to preview."
 

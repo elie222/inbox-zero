@@ -471,6 +471,10 @@ msgstr "{errorCount, plural, one {Échec de l’envoi de # invitation} other {É
 msgid "{executedRulesCount, plural, one {# assistant processed email} other {# assistant processed emails}}"
 msgstr "{executedRulesCount, plural, one {# e-mail traité par l’assistant} other {# e-mails traités par l’assistant}}"
 
+#: components/email-list/EmailAttachments.tsx
+msgid "{failed} of {total} attachments failed to download"
+msgstr"Échec du téléchargement de {failed} pièces jointes sur {total}"
+
 #: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
 msgid "{failedCount, plural, one {Couldn't queue # of {total} as read} other {Couldn't queue # of {total} as read}}"
 msgstr "{failedCount, plural, one {Impossible de marquer # sur {total} comme lu} other {Impossible de marquer # sur {total} comme lus}}"
@@ -2106,7 +2110,7 @@ msgstr "Joindre des images"
 msgid "attachment"
 msgstr "pièce jointe"
 
-#: components/email-list/EmailAttachments.tsx
+#: components/email-list/AttachmentPreview.tsx
 msgid "Attachment preview"
 msgstr "Aperçu de la pièce jointe"
 
@@ -3314,6 +3318,7 @@ msgstr "Clique pour afficher tous les expéditeurs"
 #: app/(app)/[emailAccountId]/calendars/ConfigureBookingLinkDialog.tsx
 #: app/(app)/[emailAccountId]/calendars/CreateBookingLinkDialog.tsx
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
+#: components/email-list/AttachmentPreview.tsx
 msgid "Close"
 msgstr "Fermer"
 
@@ -3975,7 +3980,7 @@ msgstr "{0, plural, one {Impossible d’annuler complètement # conversation qui
 msgid "Couldn't load public context"
 msgstr "Impossible de charger le contexte public"
 
-#: components/email-list/EmailAttachments.tsx
+#: components/email-list/AttachmentPreview.tsx
 msgid "Couldn't load this attachment."
 msgstr "Impossible de charger cette pièce jointe."
 
@@ -4777,18 +4782,17 @@ msgid "Done"
 msgstr "Terminé"
 
 #: app/(app)/[emailAccountId]/mail/MessageSourceDialog.tsx
-#: components/email-list/EmailAttachments.tsx
+#: components/email-list/AttachmentPreview.tsx
 msgid "Download"
 msgstr "Télécharger"
 
-#. placeholder {0}: attachment.filename
 #: components/email-list/EmailAttachments.tsx
-msgid "Download {0}"
-msgstr "Télécharger {0}"
+msgid "Download {filename}"
+msgstr "Télécharger {filename}"
 
 #: components/email-list/EmailAttachments.tsx
-msgid "Download attachment"
-msgstr "Télécharger la pièce jointe"
+msgid "Download all"
+msgstr "Tout télécharger"
 
 #: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
 msgid "Download message"
@@ -9039,6 +9043,10 @@ msgstr "Prochain envoi vers {0}."
 msgid "Next email from chat"
 msgstr "E-mail suivant du chat"
 
+#: components/email-list/AttachmentPreview.tsx
+msgid "Next image"
+msgstr "Image suivante"
+
 #: lib/shortcuts/registry.ts
 msgid "Next message"
 msgstr "Message suivant"
@@ -10278,16 +10286,15 @@ msgstr "Empêche l'envoi d'identifiants et de numéros de carte à l'IA."
 msgid "Preview"
 msgstr "Aperçu"
 
-#. placeholder {0}: attachment.filename
 #: components/email-list/EmailAttachments.tsx
-msgid "Preview {0}"
-msgstr "Aperçu de {0}"
+msgid "Preview {filename}"
+msgstr "Aperçu de {filename}"
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/common.tsx
 msgid "Preview emails"
 msgstr "Prévisualiser les e-mails"
 
-#: components/email-list/EmailAttachments.tsx
+#: components/email-list/AttachmentPreview.tsx
 msgid "Preview isn't available for this file."
 msgstr "L’aperçu n’est pas disponible pour ce fichier."
 
@@ -10302,6 +10309,10 @@ msgstr "Aperçu avec mes e-mails récents"
 #: app/(app)/[emailAccountId]/mail/MailPreviewOverlay.tsx
 msgid "Previous email from chat"
 msgstr "E-mail précédent du chat"
+
+#: components/email-list/AttachmentPreview.tsx
+msgid "Previous image"
+msgstr "Image précédente"
 
 #: lib/shortcuts/registry.ts
 msgid "Previous message"
@@ -13070,7 +13081,7 @@ msgstr "Cette fonctionnalité est en déploiement limité. Rejoins l'accès anti
 msgid "This feature is not available during the free trial. Start your paid plan to use it."
 msgstr "Cette fonctionnalité n'est pas disponible pendant l'essai gratuit. Passe à ton forfait payant pour l'utiliser."
 
-#: components/email-list/EmailAttachments.tsx
+#: components/email-list/AttachmentPreview.tsx
 msgid "This file is too large to preview."
 msgstr "Ce fichier est trop volumineux pour l’aperçu."
 

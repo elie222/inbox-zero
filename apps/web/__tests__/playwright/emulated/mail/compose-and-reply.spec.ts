@@ -882,7 +882,9 @@ test("shows the files a forward carries", async ({ page }, testInfo) => {
   ).click();
   const sourceMessage = page
     .locator("[data-thread-message-id]")
-    .filter({ hasText: "reader-preview.png" })
+    .filter({
+      has: page.getByRole("button", { name: "Preview reader-preview.png" }),
+    })
     .last();
   await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
 
