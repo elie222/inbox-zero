@@ -3977,6 +3977,10 @@ msgstr "Couldn't add senders. Please try again."
 msgid "Couldn't apply label. Please try again."
 msgstr "Couldn't apply label. Please try again."
 
+#: app/(app)/[emailAccountId]/mail/use-engine-mail-threads.ts
+msgid "Couldn't complete this search."
+msgstr "Couldn't complete this search."
+
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
 #: components/email-list/ThreadDeliveryStatus.tsx
 #: utils/mail-engine/engine-delivery.ts
@@ -4003,6 +4007,10 @@ msgstr "Couldn't load public context"
 #: components/email-list/EmailAttachments.tsx
 msgid "Couldn't load this attachment."
 msgstr "Couldn't load this attachment."
+
+#: app/(app)/[emailAccountId]/mail/use-engine-mail-threads.ts
+msgid "Couldn't load this mailbox."
+msgstr "Couldn't load this mailbox."
 
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Couldn't move conversations. Please try again."
@@ -4052,6 +4060,10 @@ msgstr "Couldn't queue moving to inbox"
 #: app/(app)/[emailAccountId]/compose/undo-send.ts
 msgid "Couldn't reach the server to undo. Try again."
 msgstr "Couldn't reach the server to undo. Try again."
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Couldn't refresh search results. Showing previously loaded emails."
+msgstr "Couldn't refresh search results. Showing previously loaded emails."
 
 #: app/(app)/[emailAccountId]/mail/MailShell.tsx
 msgid "Couldn't remove label"
@@ -8319,6 +8331,10 @@ msgstr "Loading email…"
 msgid "Loading folders..."
 msgstr "Loading folders..."
 
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Loading mail…"
+msgstr "Loading mail…"
+
 #: app/(app)/[emailAccountId]/mail/ThreadReader.tsx
 msgid "Loading messages…"
 msgstr "Loading messages…"
@@ -11134,6 +11150,10 @@ msgstr "Retry"
 msgid "Retry comment"
 msgstr "Retry comment"
 
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Retry search"
+msgstr "Retry search"
+
 #: app/(app)/[emailAccountId]/mail/ScheduledEmailList.tsx
 #: components/email-list/ThreadDeliveryStatus.tsx
 msgid "Retry send"
@@ -11531,6 +11551,10 @@ msgstr "Searching for \"{query}\" on screen"
 #: components/assistant-chat/message-part.tsx
 msgid "Searching inbox..."
 msgstr "Searching inbox..."
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Searching mail…"
+msgstr "Searching mail…"
 
 #: components/assistant-chat/message-part.tsx
 msgid "Searching memories..."

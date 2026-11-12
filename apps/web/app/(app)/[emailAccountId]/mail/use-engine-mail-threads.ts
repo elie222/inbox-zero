@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import type {
@@ -34,6 +35,7 @@ export function useEngineMailThreads({
   predicate?: MailPredicate;
   enabled?: boolean;
 }) {
+  const { t } = useLingui();
   const client = useOptionalMailClient();
   const resolvedAccountIds = useMemo(
     () => accountIds ?? [emailAccountId],
@@ -90,11 +92,22 @@ export function useEngineMailThreads({
     );
   }, [accounts, client, enabled, mailbox.data?.conversations]);
 
+  let errorMessage: string | undefined;
+  if (mailbox.error) errorMessage = t`Couldn't load this mailbox.`;
+  else if (mailbox.data?.searchStatus === "error")
+    errorMessage = t`Couldn't complete this search.`;
+
   return {
     threads,
     searchError: undefined,
-    isLoading: enabled && Boolean(client) && mailbox.status === "loading",
-    error: mailboxQueryError(mailbox.error),
+    isLoading:
+      enabled &&
+      Boolean(client) &&
+      (mailbox.status === "loading" ||
+        mailbox.data?.searchStatus === "loading"),
+    error: errorMessage
+      ? { error: errorMessage, info: { error: errorMessage } }
+      : undefined,
     hasMore: mailbox.canLoadMore,
     isLoadingMore: mailbox.isLoadingMore,
     loadMore: mailbox.loadMore,
@@ -108,6 +121,8 @@ export function useEngineMailThreads({
     failedAccountIds,
     labelsByAccount: NO_LABELS_BY_ACCOUNT,
     refetch: async () => {
+      if (mailbox.error || mailbox.data?.searchStatus === "error")
+        mailbox.refetch();
       await client?.requestSync(resolvedAccountIds);
     },
   };
@@ -174,14 +189,4 @@ async function readFailedAccountIds(
     const accountId = accountIds[index];
     return diagnostic?.connection !== "ready" && accountId ? [accountId] : [];
   });
-}
-
-function mailboxQueryError(
-  error: { code: string } | null,
-): { error: string; info: { error: string } } | undefined {
-  if (!error) return;
-  return {
-    error: "Couldn't load this mailbox.",
-    info: { error: "Couldn't load this mailbox." },
-  };
 }

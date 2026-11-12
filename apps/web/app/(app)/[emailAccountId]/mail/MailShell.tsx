@@ -156,6 +156,8 @@ import { redirectToSafeUrl } from "@/utils/redirect";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
+import { ErrorDisplay } from "@/components/ErrorDisplay";
+import { Button } from "@/components/ui/button";
 import { useTeamCommentsAvailable } from "@/components/team-comments/use-team-comments-available";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
 import type { ThreadsQuery } from "@/utils/threads/validation";
@@ -558,12 +560,8 @@ export function MailShell() {
     previousSearchFocus.current = next;
     if (next.index !== focusedIndex) setFocusedIndex(next.index);
   }, [orderedIds, focusedIndex, searchQuery, searchViewIdentity]);
-  // Local reads answer fast, so the list stays blank while one is in flight
-  // rather than flashing a spinner.
   let emptyListMessage: ReactNode;
-  if (isLoading || !searchSettled) {
-    emptyListMessage = null;
-  } else if (isSyncing) {
+  if (isSyncing) {
     emptyListMessage = (
       <span className="inline-flex items-center gap-2">
         <LoadingMiniSpinner />
@@ -2144,41 +2142,90 @@ export function MailShell() {
                   {isScheduledView ? (
                     <ScheduledEmailList />
                   ) : (
-                    <LoadingContent
-                      loading={false}
-                      error={searchQuery ? undefined : error}
-                    >
-                      <ThreadList
-                        threads={threads}
-                        emptyMessage={emptyListMessage}
-                        layout={layout}
-                        expandedPreview={expandedPreview}
-                        userEmail={userEmail}
-                        userLabels={isAllAccounts ? NO_LABELS : userLabels}
-                        labelsByAccount={labelsByAccount}
-                        focusedIndex={clampedIndex}
-                        isSelected={selection.isSelected}
-                        selectedCount={selection.selectedCount}
-                        onOpenThread={openAt}
-                        onHoverThread={warmThread}
-                        onToggleSelect={selection.toggle}
-                        onSelectRangeTo={selection.selectRangeTo}
-                        showLoadMore={hasMore}
-                        isLoadingMore={isLoadingMore}
-                        onLoadMore={loadMore}
-                        showSentOpenStatus={
-                          scopeType === "sent" && !isAllAccounts
+                    <>
+                      {searchQuery && error && threads.length > 0 ? (
+                        <div
+                          role="alert"
+                          className="px-6 py-3 text-destructive text-sm"
+                        >
+                          <Trans>
+                            Couldn't refresh search results. Showing previously
+                            loaded emails.
+                          </Trans>
+                        </div>
+                      ) : null}
+                      <LoadingContent
+                        loading={
+                          !threads.length && (isLoading || !searchSettled)
                         }
-                        onScrolledChange={setIsListScrolled}
-                        rowBundles={rowBundles}
-                        onToggleBundle={collapseBundle}
-                        listKey={
-                          isAllAccounts
-                            ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
-                            : JSON.stringify(query)
+                        error={
+                          searchQuery && threads.length ? undefined : error
                         }
-                      />
-                    </LoadingContent>
+                        errorComponent={
+                          searchQuery && error && !threads.length ? (
+                            <div className="flex flex-col items-center pb-8">
+                              <ErrorDisplay error={error} />
+                              <Button
+                                variant="outline"
+                                onClick={() =>
+                                  refetchThreadList().catch(() =>
+                                    toast.error(error.error),
+                                  )
+                                }
+                              >
+                                <Trans>Retry search</Trans>
+                              </Button>
+                            </div>
+                          ) : undefined
+                        }
+                        loadingComponent={
+                          <div className="px-6 py-12 text-center text-muted-foreground text-sm">
+                            <span
+                              className="inline-flex items-center gap-2"
+                              role="status"
+                            >
+                              <LoadingMiniSpinner />
+                              {searchQuery ? (
+                                <Trans>Searching mail…</Trans>
+                              ) : (
+                                <Trans>Loading mail…</Trans>
+                              )}
+                            </span>
+                          </div>
+                        }
+                      >
+                        <ThreadList
+                          threads={threads}
+                          emptyMessage={emptyListMessage}
+                          layout={layout}
+                          expandedPreview={expandedPreview}
+                          userEmail={userEmail}
+                          userLabels={isAllAccounts ? NO_LABELS : userLabels}
+                          labelsByAccount={labelsByAccount}
+                          focusedIndex={clampedIndex}
+                          isSelected={selection.isSelected}
+                          selectedCount={selection.selectedCount}
+                          onOpenThread={openAt}
+                          onHoverThread={warmThread}
+                          onToggleSelect={selection.toggle}
+                          onSelectRangeTo={selection.selectRangeTo}
+                          showLoadMore={hasMore}
+                          isLoadingMore={isLoadingMore}
+                          onLoadMore={loadMore}
+                          showSentOpenStatus={
+                            scopeType === "sent" && !isAllAccounts
+                          }
+                          onScrolledChange={setIsListScrolled}
+                          rowBundles={rowBundles}
+                          onToggleBundle={collapseBundle}
+                          listKey={
+                            isAllAccounts
+                              ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
+                              : JSON.stringify(query)
+                          }
+                        />
+                      </LoadingContent>
+                    </>
                   )}
                 </MailPanelErrorBoundary>
               </div>
