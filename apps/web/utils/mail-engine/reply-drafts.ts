@@ -968,13 +968,14 @@ async function recoverKeptReplyDraft(kept: KeptReplyDraft) {
   };
   const epoch = currentEpoch(identity.emailAccountId);
   let expectedRevision = kept.engineRevision;
+  let content = kept.content;
   let saved: DraftSaveResult;
   try {
     for (let attempt = 0; ; attempt += 1) {
       saved = await client.saveDraft({
         key,
         expectedRevision,
-        content: engineDraftContent(identity, kept.content, kept.updatedAt),
+        content: engineDraftContent(identity, content, kept.updatedAt),
       });
       if (saved.status !== "conflict" || attempt > 0) break;
       const current = await client.readDraft(key);
@@ -983,6 +984,8 @@ async function recoverKeptReplyDraft(kept: KeptReplyDraft) {
       // An edit made in the same millisecond is no newer, and the kept one
       // came last from its page.
       if (!state || state.updatedAt > kept.updatedAt) break;
+      // Another tab may have saved the draft to the mailbox meanwhile.
+      content = withProviderReferences(content, state.content);
       expectedRevision = current.draftRevision;
     }
   } catch {
@@ -997,7 +1000,7 @@ async function recoverKeptReplyDraft(kept: KeptReplyDraft) {
   )
     return;
   restoreReplyDraft(identity, saved.draftRevision, {
-    content: kept.content,
+    content,
     sessionMessageId: identity.messageId,
     updatedAt: kept.updatedAt,
   });

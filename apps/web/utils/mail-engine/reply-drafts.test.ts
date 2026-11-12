@@ -1210,6 +1210,49 @@ describe("drafts still saving when the page is left", () => {
     });
   });
 
+  it("keeps a mailbox draft another tab saved the reply as before recovery", async () => {
+    const engine = createRevisionCheckingClient();
+    const edit = {
+      ...content,
+      composeMode: "reply" as const,
+      requestId: "compose-1",
+    };
+    const clock = vi.spyOn(Date, "now").mockReturnValue(2000);
+    const leaving = await loadPage({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    });
+    leaving.drafts
+      .createReplyDraftWriter(replyIdentity)
+      .save({
+        ...edit,
+        draft: { ...content.draft, editableHtml: "<p>Last edit</p>" },
+      })
+      .catch(() => {});
+    window.dispatchEvent(new Event("pagehide"));
+
+    vi.resetModules();
+    const otherTab = await loadPage(engine);
+    clock.mockReturnValue(1000);
+    await otherTab.drafts.createReplyDraftWriter(replyIdentity).save(edit);
+    await otherTab.drafts.updateReplyDraftProviderState(
+      replyIdentity,
+      "compose-1",
+      "provider-1",
+    );
+    clock.mockRestore();
+
+    vi.resetModules();
+    const reloaded = await loadPage(engine);
+
+    expect(await reloaded.drafts.getReplyDraft(replyIdentity)).toMatchObject({
+      content: {
+        providerDraftId: "provider-1",
+        draft: { editableHtml: "<p>Last edit</p>" },
+      },
+    });
+  });
+
   it("doesn't bring back an edit discarded before its save finished", async () => {
     const leaving = await loadPage({
       saveDraft: () => new Promise(() => {}),
