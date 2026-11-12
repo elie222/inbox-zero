@@ -646,6 +646,50 @@ describe("saveAiUsage", () => {
     );
   });
 
+  it("preserves a reported zero Perplexity cost despite positive token pricing", async () => {
+    const usage = languageModelUsage({
+      inputTokens: 1000,
+      outputTokens: 400,
+      totalTokens: 1400,
+    });
+    const estimatedCost = calculateUsageCost({
+      provider: "perplexity",
+      model: "sonar-pro",
+      usage,
+    });
+
+    expect(estimatedCost).toBeGreaterThan(0);
+
+    await saveAiUsage({
+      userId: "user-1",
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "perplexity",
+      model: "sonar-pro",
+      usage,
+      label: "assistant-chat",
+      providerReportedCost: 0,
+      providerCostSource: "perplexity_usage",
+    });
+
+    expect(publishAiCall).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cost: 0,
+        estimatedCost,
+        providerReportedCost: 0,
+      }),
+    );
+
+    expect(saveUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        emailAccountId: "email-account-1",
+        usage,
+        cost: 0,
+      }),
+    );
+  });
+
   it("keeps zero provider-reported cost when pricing is unavailable", async () => {
     const usage = languageModelUsage({
       inputTokens: 1000,

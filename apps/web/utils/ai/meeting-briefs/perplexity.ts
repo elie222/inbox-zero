@@ -74,7 +74,10 @@ export function createPerplexityResearchModel(apiKey: string): LanguageModelV4 {
         // The fast effort preset enables Perplexity's web search by default.
         body: JSON.stringify({
           effort: "fast",
-          instructions: instructions.join("\n\n"),
+          instructions: [
+            ...instructions,
+            "Use web_search to research this query. Ground factual claims in retrieved sources and include citations; state when reliable evidence is unavailable.",
+          ].join("\n\n"),
           input,
         }),
         signal: AbortSignal.any([

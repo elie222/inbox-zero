@@ -65,7 +65,8 @@ describe("Perplexity meeting research transport", () => {
     );
     expect(JSON.parse(fetchMock.mock.calls.at(-1)![1].body)).toEqual({
       effort: "fast",
-      instructions: "Existing hardened instructions",
+      instructions:
+        "Existing hardened instructions\n\nUse web_search to research this query. Ground factual claims in retrieved sources and include citations; state when reliable evidence is unavailable.",
       input: [
         {
           type: "message",
