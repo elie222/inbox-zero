@@ -418,6 +418,27 @@ describe("GmailProvider snapshot mutations", () => {
     });
   });
 
+  it("updates restored messages before rethrowing an untrash error", async () => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const untrash = vi
+      .fn()
+      .mockResolvedValueOnce({ data: {} })
+      .mockRejectedValueOnce(new Error("Gmail unavailable"))
+      .mockResolvedValueOnce({ data: {} });
+    const provider = new GmailProvider(
+      createGmailClient({ batchModify, untrash }),
+    );
+
+    await expect(
+      provider.untrashMessages(["one", "failed", "two"]),
+    ).rejects.toThrow("Gmail unavailable");
+
+    expect(batchModify).toHaveBeenCalledWith({
+      userId: "me",
+      requestBody: { ids: ["one", "two"], addLabelIds: [GmailLabel.INBOX] },
+    });
+  });
+
   it.each([
     true,
     false,

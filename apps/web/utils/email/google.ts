@@ -574,7 +574,7 @@ export class GmailProvider implements EmailProvider {
   }
 
   async untrashMessages(messageIds: string[]): Promise<void> {
-    const untrashedMessageIds = await mapWithConcurrency(
+    const results = await mapWithConcurrency(
       [...new Set(messageIds)],
       GMAIL_MESSAGE_WRITE_CONCURRENCY,
       async (messageId) => {
@@ -583,15 +583,22 @@ export class GmailProvider implements EmailProvider {
             userId: "me",
             id: messageId,
           });
-          return messageId;
+          return { status: "untrashed" as const, messageId };
         } catch (error) {
-          if (extractErrorInfo(error).status !== 404) throw error;
+          return extractErrorInfo(error).status === 404
+            ? { status: "missing" as const }
+            : { status: "failed" as const, error };
         }
       },
     );
     await this.unarchiveMessages(
-      untrashedMessageIds.filter((messageId) => messageId !== undefined),
+      results.flatMap((result) =>
+        result.status === "untrashed" ? [result.messageId] : [],
+      ),
     );
+
+    const failure = results.find((result) => result.status === "failed");
+    if (failure) throw failure.error;
   }
 
   async markMessagesStarredState(
