@@ -1,5 +1,8 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import {
+  ActionType,
+  ExecutedActionStatus,
+  ExecutedRuleStatus,
   GroupItemSource,
   GroupItemType,
   SystemType,
@@ -10,7 +13,6 @@ import { GMAIL_SYSTEM_LABELS, GmailLabel } from "@/utils/gmail/label";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { recordLabelRemovalLearning } from "@/utils/rule/record-label-removal-learning";
-import { findRuleByLabelId } from "@/utils/rule/classification-feedback";
 import { fetchSenderFromMessage } from "@/utils/webhook/google/fetch-sender-from-message";
 
 export async function handleLabelRemovedEvent(
@@ -116,18 +118,101 @@ async function learnFromRemovedLabel({
 }) {
   logger = logger.with({ labelId });
 
-  const rule = await findRuleByLabelId({ labelId, emailAccountId });
-
-  await recordLabelRemovalLearning({
-    sender,
-    ruleId: rule?.id,
-    systemType: rule?.systemType,
+  const rules = await findRulesThatAppliedLabel({
+    labelId,
     messageId,
-    threadId,
     emailAccountId,
-    isBulkRemoval,
-    logger,
   });
+
+  // A label the user added themselves, or one another rule shares, says
+  // nothing about whether this rule was wrong for this message.
+  if (rules.length === 0) {
+    logger.info("No rule applied the removed label to this message");
+    return;
+  }
+
+  for (const rule of rules) {
+    await recordLabelRemovalLearning({
+      sender,
+      ruleId: rule.id,
+      systemType: rule.systemType,
+      messageId,
+      threadId,
+      emailAccountId,
+      isBulkRemoval,
+      logger,
+    });
+  }
+}
+
+async function findRulesThatAppliedLabel({
+  labelId,
+  messageId,
+  emailAccountId,
+}: {
+  labelId: string;
+  messageId: string;
+  emailAccountId: string;
+}) {
+  const executedRules = await prisma.executedRule.findMany({
+    where: {
+      emailAccountId,
+      messageId,
+      // A run is marked ERROR when any action fails, even after its label
+      // was applied, so the label action's own status decides below.
+      status: { in: [ExecutedRuleStatus.APPLIED, ExecutedRuleStatus.ERROR] },
+      rule: { enabled: true },
+      actionItems: { some: { type: ActionType.LABEL } },
+    },
+    select: {
+      rule: {
+        select: {
+          id: true,
+          systemType: true,
+          actions: {
+            where: { type: ActionType.LABEL, labelId },
+            select: { label: true },
+          },
+        },
+      },
+      actionItems: {
+        where: { type: ActionType.LABEL },
+        select: { labelId: true, label: true, executionStatus: true },
+      },
+    },
+  });
+
+  const rules = new Map<
+    string,
+    { id: string; systemType: SystemType | null }
+  >();
+
+  for (const { rule, actionItems } of executedRules) {
+    if (!rule) continue;
+
+    // Older executed actions only stored the label name, so compare it with
+    // the name this rule uses for the removed label ID.
+    const removedLabelNames = new Set(
+      rule.actions.flatMap((action) => (action.label ? [action.label] : [])),
+    );
+
+    const appliedRemovedLabel = actionItems.some((action) => {
+      if (
+        action.executionStatus === ExecutedActionStatus.FAILED ||
+        action.executionStatus === ExecutedActionStatus.SKIPPED
+      ) {
+        return false;
+      }
+      if (action.labelId) return action.labelId === labelId;
+      return !!action.label && removedLabelNames.has(action.label);
+    });
+
+    if (appliedRemovedLabel) {
+      rules.set(rule.id, { id: rule.id, systemType: rule.systemType });
+    }
+  }
+
+  return [...rules.values()];
 }
 
 /**

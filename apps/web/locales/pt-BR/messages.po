@@ -473,7 +473,7 @@ msgstr "{executedRulesCount, plural, one {# e-mail processado pelo assistente} o
 
 #: components/email-list/EmailAttachments.tsx
 msgid "{failed} of {total} attachments failed to download"
-msgstr"Falha ao baixar {failed} de {total} anexos"
+msgstr "Falha ao baixar {failed} de {total} anexos"
 
 #: app/(app)/[emailAccountId]/mail/use-thread-actions.ts
 msgid "{failedCount, plural, one {Couldn't queue # of {total} as read} other {Couldn't queue # of {total} as read}}"
@@ -8063,6 +8063,10 @@ msgstr "Saiba como usar o Assistente Pessoal de IA para marcar, arquivar e muito
 msgid "Learn how to use the Bulk Unsubscribe to unsubscribe from and archive unwanted emails."
 msgstr "Saiba como usar o Cancelamento de inscrições em massa para cancelar inscrições e arquivar e-mails indesejados."
 
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "Learned from label removal"
+msgstr "Aprendido ao remover o marcador"
+
 #: app/(app)/[emailAccountId]/assistant/group/LearnedPatterns.tsx
 #: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting.tsx
@@ -10781,7 +10785,9 @@ msgid "Remove"
 msgstr "Remover"
 
 #. placeholder {0}: attachment.filename
+#. placeholder {0}: item.value
 #. placeholder {0}: participant.name
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
 #: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
 #: components/team-comments/ConversationParticipants.tsx
 msgid "Remove {0}"
@@ -12860,6 +12866,11 @@ msgstr "A gravação está sendo processada. As anotações vão aparecer aqui q
 msgid "The recording is there, but summarizing it kept failing. The transcript is still available below."
 msgstr "A gravação está disponível, mas o resumo continuou falhando. A transcrição ainda está disponível abaixo."
 
+#. placeholder {0}: item.value
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "The rule can match {0} again"
+msgstr "A regra pode voltar a corresponder a {0}"
+
 #: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
 #: components/assistant-chat/tools.tsx
 msgid "The rule has been deleted."
@@ -13602,9 +13613,15 @@ msgstr "Sem categoria"
 msgid "Understand what's filling up your inbox"
 msgstr "Entenda o que está lotando sua caixa de entrada"
 
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
 #: app/(app)/[emailAccountId]/clean/EmailFirehoseItem.tsx
 msgid "Undo"
 msgstr "Desfazer"
+
+#. placeholder {0}: item.value
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "Undo exclusion for {0}"
+msgstr "Desfazer a exclusão de {0}"
 
 #: lib/shortcuts/registry.ts
 msgid "Undo last action"
