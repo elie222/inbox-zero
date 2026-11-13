@@ -35,7 +35,7 @@ const optionalAiInstructionsSchema = z
 const optionalStaticFromSchema = z
   .string()
   .nullish()
-  .transform((v) => (v?.trim() ? v : null))
+  .transform((v) => v?.trim() || null)
   .refine((value) => !isInvalidStaticFromValue(value), {
     message: INVALID_STATIC_FROM_MESSAGE,
   })
@@ -44,11 +44,13 @@ const optionalStaticFromSchema = z
 const optionalStaticToSchema = z
   .string()
   .nullish()
+  .transform((v) => v?.trim() || null)
   .describe("The to email address to match");
 
 const optionalStaticSubjectSchema = z
   .string()
   .nullish()
+  .transform((v) => v?.trim() || null)
   .describe(
     "Subject-line text to match. Use this when the user explicitly asks to match the email subject. If the user describes email content, topic, meaning, or general keyword matching without naming the subject line, use aiInstructions instead.",
   );
@@ -73,8 +75,8 @@ const conditionSchema = z
       Boolean(
         condition.aiInstructions ||
           condition.static?.from ||
-          condition.static?.to?.trim() ||
-          condition.static?.subject?.trim(),
+          condition.static?.to ||
+          condition.static?.subject,
       ),
     {
       message:
@@ -258,7 +260,7 @@ function createActionFieldShape(
   integrationToolSpec: IntegrationToolSpec | undefined,
 ) {
   const shape: Record<string, z.ZodTypeAny> = {
-    label: trimmedStringField("LABEL: the label to apply."),
+    label: trimmedStringField("The label to apply. Required for LABEL."),
     to: trimmedStringField(
       "Recipient email address. Required for FORWARD and SEND_EMAIL.",
     ),
@@ -266,9 +268,13 @@ function createActionFieldShape(
     bcc: optionalStringField("Bcc email address."),
     subject: optionalStringField("Email subject."),
     content: optionalStringField("Email body."),
-    webhookUrl: trimmedStringField("CALL_WEBHOOK: the webhook URL."),
+    webhookUrl: trimmedStringField(
+      "The webhook URL. Required for CALL_WEBHOOK.",
+    ),
     ...(isMicrosoftProvider(provider) && {
-      folderName: trimmedStringField("MOVE_FOLDER: the folder name."),
+      folderName: trimmedStringField(
+        "The folder name. Required for MOVE_FOLDER.",
+      ),
     }),
   };
 

@@ -249,6 +249,37 @@ describe("createRuleSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("trims static conditions and rejects ones that are only whitespace", () => {
+    const withStatic = (staticCondition: Record<string, string>) => ({
+      name: "Invoices",
+      condition: {
+        conditionalOperator: null,
+        aiInstructions: null,
+        static: staticCondition,
+      },
+      actions: [
+        { type: ActionType.ARCHIVE, fields: null, delayInMinutes: null },
+      ],
+    });
+
+    const result = createRuleSchema(provider).parse(
+      withStatic({
+        subject: " invoices  ",
+        from: " @billing.example ",
+        to: "",
+      }),
+    );
+    expect(result.condition.static).toEqual({
+      subject: "invoices",
+      from: "@billing.example",
+      to: null,
+    });
+    expect(
+      createRuleSchema(provider).safeParse(withStatic({ subject: "   " }))
+        .success,
+    ).toBe(false);
+  });
+
   it("accepts ARCHIVE actions with an empty fields object", () => {
     const result = createRuleSchema(provider).safeParse({
       ...buildRule({
