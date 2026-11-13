@@ -3,6 +3,7 @@ import {
   captureAssistantChatToolCalls,
   getLastRuleActionsUpdate,
   hasActionType,
+  hasLabelAction,
   summarizeRecordedToolCalls,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
 import {
@@ -42,9 +43,12 @@ const ruleRows = buildDefaultSystemRuleRows(
       }
     : rule,
 );
-const toReplyRuleName = ruleRows.find(
+const toReplyRule = ruleRows.find(
   (rule) => rule.systemType === SystemType.TO_REPLY,
-)?.name;
+);
+const toReplyLabel = toReplyRule?.actions.find(
+  (action) => action.type === ActionType.LABEL,
+)?.label;
 
 const scenarios = [
   { name: "english", message: "Stop drafting replies for me." },
@@ -148,9 +152,10 @@ describe.runIf(shouldRunEval)("Eval: assistant chat stop drafting", () => {
           const updateCall = getLastRuleActionsUpdate(toolCalls);
           const pass =
             !!updateCall &&
-            updateCall.ruleName === toReplyRuleName &&
+            updateCall.ruleName === toReplyRule?.name &&
+            !!toReplyLabel &&
             !hasActionType(updateCall.actions, ActionType.DRAFT_EMAIL) &&
-            hasActionType(updateCall.actions, ActionType.LABEL) &&
+            hasLabelAction(updateCall.actions, toReplyLabel) &&
             !toolCalls.some(
               (toolCall) =>
                 toolCall.toolName === "updatePersonalInstructions" ||
