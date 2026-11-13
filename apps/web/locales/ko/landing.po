@@ -424,11 +424,11 @@ msgstr "이메일 서명 생성기"
 
 #: app/(landing)/home/FAQs.tsx
 msgid "Email us or post an issue on <0>GitHub</0>. We're happy to hear how we can improve your email experience."
-msgstr "이메일을 보내 주시거나 <0>GitHub</0>에 이슈를 남겨 주세요. 이메일 경험을 어떻게 개선할 수 있을지 기꺼이 들려 드릴게요."
+msgstr "이메일을 보내 주시거나 <0>GitHub</0>에 이슈를 남겨 주세요. 이메일 경험을 어떻게 개선할 수 있을지 의견을 들려주시면 기쁠 거예요."
 
 #: app/(landing)/home/FAQs.tsx
 msgid "Email us or post an issue on GitHub. We're happy to hear how we can improve your email experience."
-msgstr "이메일을 보내 주시거나 GitHub에 이슈를 남겨 주세요. 이메일 경험을 어떻게 개선할 수 있을지 기꺼이 들려 드릴게요."
+msgstr "이메일을 보내 주시거나 GitHub에 이슈를 남겨 주세요. 이메일 경험을 어떻게 개선할 수 있을지 의견을 들려주시면 기쁠 거예요."
 
 #: components/new-landing/HeaderLinks.tsx
 msgid "Enterprise"
