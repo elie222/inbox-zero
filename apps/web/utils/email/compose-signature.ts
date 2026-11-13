@@ -60,6 +60,8 @@ export async function getComposeSignature({
     emailAccount.includeSentWithSignature;
   return {
     signatureHtml,
+    // Aliases may inherit a saved signature, but not the provider's default.
+    savedSignatureHtml: emailAccount.signature ?? "",
     footerHtml: includeFooter
       ? renderSentWithFooterHtml(await getFooterLink(userId))
       : "",

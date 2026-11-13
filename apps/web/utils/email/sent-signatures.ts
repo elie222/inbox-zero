@@ -3,8 +3,9 @@ import type { EmailProvider } from "@/utils/email/types";
 import { getOwnSignatureHtml } from "@/utils/email/signature-normalization";
 import { stripBrandingSignatures } from "@/utils/referral/signature";
 
+export const MAX_SIGNATURE_SUGGESTIONS = 5;
+
 const SENT_MESSAGES_TO_SCAN = 30;
-const MAX_FOUND_SIGNATURES = 5;
 const BLANK_LINE = String.raw`\s|<div>(?:<br\s*/?>)?</div>|<br\s*/?>`;
 const EDGE_BLANK_LINES = new RegExp(
   `^(?:${BLANK_LINE})+|(?:${BLANK_LINE})+$`,
@@ -37,12 +38,11 @@ export async function findSentSignatures({
     else found.set(key, { html, count: 1 });
   }
 
-  return [...found.values()]
-    .sort((a, b) => b.count - a.count)
-    .slice(0, MAX_FOUND_SIGNATURES);
+  return [...found.values()].sort((a, b) => b.count - a.count);
 }
 
 // The same signature sent twice can differ in markup but not in its text.
 export function getSignatureKey(html: string) {
-  return load(html).text().replace(/\s+/g, " ").trim().toLowerCase();
+  const spaced = html.replace(/<(br|\/div|\/p|\/li|\/tr)\b[^>]*>/gi, "$& ");
+  return load(spaced).text().replace(/\s+/g, " ").trim().toLowerCase();
 }

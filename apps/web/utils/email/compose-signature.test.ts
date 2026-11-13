@@ -1,4 +1,6 @@
+// @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createInitialComposeContent } from "@/app/(app)/[emailAccountId]/compose/initial-compose-content";
 import prisma from "@/utils/__mocks__/prisma";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -49,6 +51,7 @@ describe("getComposeSignature", () => {
       }),
     ).toEqual({
       signatureHtml: "<div>Example Person</div>",
+      savedSignatureHtml: "<div>Example Person</div>",
       footerHtml:
         '<div>Sent with <a href="https://app.example.com/?ref=abc123">Inbox Zero</a></div>',
       signatures: [
@@ -89,7 +92,10 @@ describe("getComposeSignature", () => {
     ]);
   });
 
-  it("signs with the provider's default signature when none is saved", async () => {
+  it.each([
+    null,
+    "",
+  ])("signs with the provider default when saved=%s", async (signature) => {
     vi.mocked(createEmailProvider).mockResolvedValue(
       createMockEmailProvider({
         getSendAsAddresses: vi.fn().mockResolvedValue([
@@ -103,7 +109,7 @@ describe("getComposeSignature", () => {
       }),
     );
     prisma.emailAccount.findUnique.mockResolvedValue({
-      signature: null,
+      signature,
       includeSentWithSignature: false,
       account: { provider: "google" },
       emailSignatures: [],
@@ -125,6 +131,56 @@ describe("getComposeSignature", () => {
     ]);
   });
 
+  it.each([
+    { saved: "", alias: true, expected: "" },
+    { saved: null, alias: true, expected: "" },
+    { saved: null, alias: false, expected: "Provider default" },
+    { saved: "<p>Saved</p>", alias: true, expected: "Saved" },
+  ])("initializes compose with saved=$saved and alias=$alias", async ({
+    saved,
+    alias,
+    expected,
+  }) => {
+    const addresses = [
+      {
+        email: "sender@example.com",
+        isDefault: true,
+        signature: "<p>Provider default</p>",
+      },
+      { email: "alias@example.com", isDefault: false },
+    ];
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({
+        getSendAsAddresses: vi.fn().mockResolvedValue(addresses),
+      }),
+    );
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      signature: saved,
+      includeSentWithSignature: false,
+      account: { provider: "google" },
+      emailSignatures: [],
+    } as never);
+
+    const result = await getComposeSignature({
+      emailAccountId: "account",
+      userId: "user",
+      logger,
+    });
+    expect(result.savedSignatureHtml).toBe(saved ?? "");
+    const content = createInitialComposeContent({
+      initialAttachments: [],
+      initialSendAs: alias ? addresses[1] : addresses[0],
+      sendAsAddresses: addresses,
+      accountSignatureHtml: result.savedSignatureHtml,
+      defaultSignatureHtml: result.signatureHtml,
+      sentWithFooterHtml: result.footerHtml,
+    });
+    expect(
+      new DOMParser().parseFromString(content.draft.signatureHtml, "text/html")
+        .body.textContent,
+    ).toBe(expected);
+  });
+
   it("still answers without a signature when the provider lookup fails", async () => {
     vi.mocked(createEmailProvider).mockRejectedValue(new Error("expired"));
     prisma.emailAccount.findUnique.mockResolvedValue({
@@ -140,7 +196,12 @@ describe("getComposeSignature", () => {
         userId: "user",
         logger,
       }),
-    ).toEqual({ signatureHtml: "", footerHtml: "", signatures: [] });
+    ).toEqual({
+      signatureHtml: "",
+      savedSignatureHtml: "",
+      footerHtml: "",
+      signatures: [],
+    });
   });
 
   it("stops waiting for a provider that never answers", async () => {
@@ -162,6 +223,7 @@ describe("getComposeSignature", () => {
 
     expect(await result).toEqual({
       signatureHtml: "",
+      savedSignatureHtml: "",
       footerHtml: "",
       signatures: [],
     });
@@ -181,7 +243,12 @@ describe("getComposeSignature", () => {
         userId: "user",
         logger,
       }),
-    ).toEqual({ signatureHtml: "", footerHtml: "", signatures: [] });
+    ).toEqual({
+      signatureHtml: "",
+      savedSignatureHtml: "",
+      footerHtml: "",
+      signatures: [],
+    });
 
     mockedEnv.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE = true;
     prisma.emailAccount.findUnique.mockResolvedValue({

@@ -15,6 +15,7 @@ export function createInitialComposeContent({
   initialSendAs,
   sendAsAddresses,
   accountSignatureHtml,
+  defaultSignatureHtml,
   sentWithFooterHtml,
 }: {
   storedDraft?: StoredReplyDraft;
@@ -27,6 +28,7 @@ export function createInitialComposeContent({
   initialSendAs?: SendAsAddress;
   sendAsAddresses: SendAsAddress[];
   accountSignatureHtml: string;
+  defaultSignatureHtml?: string;
   sentWithFooterHtml: string;
 }) {
   // Copied because restoring marks the inline images the editor shows.
@@ -80,6 +82,7 @@ export function createInitialComposeContent({
         initialSendAs,
         sendAsAddresses,
         accountSignatureHtml,
+        defaultSignatureHtml,
       ) ??
       undefined,
   });
@@ -117,9 +120,13 @@ export function getSendAsSignatureHtml(
   address: SendAsAddress | undefined,
   addresses: SendAsAddress[],
   accountSignatureHtml: string,
+  defaultSignatureHtml?: string,
 ) {
   const sendAs = address ?? addresses.find((item) => item.isDefault);
-  if (sendAs?.isDefault) return accountSignatureHtml || sendAs.signature || "";
+  if (!sendAs || sendAs.isDefault)
+    return (
+      defaultSignatureHtml || accountSignatureHtml || sendAs?.signature || ""
+    );
   return sendAs?.signature || accountSignatureHtml;
 }
 
