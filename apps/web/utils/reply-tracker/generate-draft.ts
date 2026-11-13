@@ -41,7 +41,7 @@ const MAX_HISTORICAL_MESSAGES = 10;
 export type DraftGenerationResult = {
   attachments?: SelectedAttachment[];
   draft: string | null;
-  confidence: DraftReplyConfidence;
+  confidence: DraftReplyConfidence | null;
   attribution: DraftAttribution | null;
   draftContextMetadata?: DraftContextMetadata | null;
 };
@@ -85,15 +85,34 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
 ): Promise<DraftGenerationResult> {
   // Providers return chronological order; sort defensively since drafting
   // logic breaks silently if messages arrive out of order.
-  const threadMessages = testMessage
-    ? [testMessage]
-    : (await client.getThreadMessages(threadId)).sort(
-        sortByInternalDate("asc"),
-      );
+  const [threadMessages, sendAsEmails] = await Promise.all([
+    testMessage
+      ? [testMessage]
+      : client
+          .getThreadMessages(threadId)
+          .then((messages) => messages.sort(sortByInternalDate("asc"))),
+    getSendAsEmails({ client, userEmail: emailAccount.email, logger }),
+  ]);
+
+  const lastMessage = threadMessages.at(-1);
+  const skipReason =
+    lastMessage &&
+    getNoReplyNeededReason({
+      message: lastMessage,
+      userEmails: [emailAccount.email, ...sendAsEmails],
+      client,
+    });
+  if (skipReason) {
+    logger.info("Skipping draft: no reply needed from the user", {
+      skipReason,
+    });
+    return { draft: null, confidence: null, attribution: null };
+  }
 
   const { draft, confidence, attribution, attachments, draftContextMetadata } =
     await generateDraftContent(
       emailAccount,
+      sendAsEmails,
       threadMessages,
       client,
       logger,
@@ -128,6 +147,7 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
 
 async function generateDraftContent(
   emailAccount: EmailAccountWithAI,
+  sendAsEmails: string[],
   threadMessages: ParsedMessage[],
   emailProvider: EmailProvider,
   logger: Logger,
@@ -259,10 +279,13 @@ async function generateDraftContent(
   );
   // Other To/CC recipients, used for privacy filtering of meeting context:
   // only meetings where ALL recipients were attendees are included.
+  const userEmails = new Set(
+    [emailAccount.email, ...sendAsEmails].map((email) => email.toLowerCase()),
+  );
   const additionalRecipients = [
     ...extractEmailAddresses(lastMessage.headers.to),
     ...extractEmailAddresses(lastMessage.headers.cc ?? ""),
-  ].filter((email) => email.toLowerCase() !== emailAccount.email.toLowerCase());
+  ].filter((email) => !userEmails.has(email.toLowerCase()));
   const [
     knowledgeResult,
     replyMemorySelection,
@@ -401,6 +424,7 @@ async function generateDraftContent(
   const { reply, confidence, attribution } = await aiDraftReplyWithConfidence({
     messages,
     emailAccount: { ...emailAccount, bookingLinks: activeBookingLinks },
+    sendAsEmails,
     knowledgeBaseContent: knowledgeResult?.relevantContent || null,
     replyMemoryContent,
     emailHistorySummary,
@@ -498,4 +522,54 @@ async function generateDraftContent(
       ? { attachments: attachmentSelection.selectedAttachments }
       : {}),
   };
+}
+
+// The user's other addresses, so mail from or to an alias is treated as the
+// user's own. Outlook can't list aliases, so this is empty there.
+async function getSendAsEmails({
+  client,
+  userEmail,
+  logger,
+}: {
+  client: EmailProvider;
+  userEmail: string;
+  logger: Logger;
+}): Promise<string[]> {
+  try {
+    const addresses = await client.getSendAsAddresses();
+    return [
+      ...new Set(addresses.map((address) => address.email.toLowerCase())),
+    ].filter((email) => email !== userEmail.toLowerCase());
+  } catch (error) {
+    logger.warn("Failed to load send-as addresses for drafting", { error });
+    return [];
+  }
+}
+
+function getNoReplyNeededReason({
+  message,
+  userEmails,
+  client,
+}: {
+  message: ParsedMessage;
+  userEmails: string[];
+  client: EmailProvider;
+}): "sent_by_user" | "user_only_cc" | null {
+  const ownEmails = new Set(userEmails.map((email) => email.toLowerCase()));
+  const isOwn = (email: string) => ownEmails.has(email.toLowerCase());
+
+  if (
+    client.isSentMessage(message) ||
+    isOwn(extractEmailAddress(message.headers.from))
+  ) {
+    return "sent_by_user";
+  }
+
+  const addressedToUser = extractEmailAddresses(message.headers.to).some(isOwn);
+  const copiedUser = extractEmailAddresses(message.headers.cc ?? "").some(
+    isOwn,
+  );
+  if (copiedUser && !addressedToUser) return "user_only_cc";
+
+  return null;
 }
