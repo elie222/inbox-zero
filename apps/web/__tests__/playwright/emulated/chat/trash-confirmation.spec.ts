@@ -42,6 +42,69 @@ test("chat trashes emails only after the user confirms", async ({
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 1440, height: 900 });
 
+  await askChatToTrashCoupons(page);
+
+  const confirm = page.getByRole("button", { name: "Move to trash" });
+  await expect(confirm).toBeEnabled({ timeout: 90_000 });
+  await expect(page.getByText("Move 2 emails to trash")).toBeVisible();
+  await expect(page.getByText(SUBJECTS[0], { exact: false })).toBeVisible();
+
+  const token = await readProviderAccessToken();
+  for (const message of seeded) {
+    expect(await readLabelIds(page, token, message.id)).not.toContain("TRASH");
+  }
+  await capturePlaywrightCheckpoint(page, testInfo, "trash-1-pending");
+
+  await confirm.click();
+  await expect(page.getByText("Trashed emails")).toBeVisible({
+    timeout: 30_000,
+  });
+  for (const message of seeded) {
+    expect(await readLabelIds(page, token, message.id)).toContain("TRASH");
+  }
+  await capturePlaywrightCheckpoint(page, testInfo, "trash-2-confirmed");
+
+  // The confirmed state is saved, so a reload does not offer to trash again.
+  await page.reload();
+  await expect(page.getByText("Trashed emails")).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(page.getByRole("button", { name: "Move to trash" })).toHaveCount(
+    0,
+  );
+});
+
+test("cancelling the card leaves the mailbox untouched", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  await askChatToTrashCoupons(page);
+  await expect(page.getByRole("button", { name: "Move to trash" })).toBeEnabled(
+    { timeout: 90_000 },
+  );
+
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByText("Cancelled. Nothing changed.")).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "trash-3-cancelled");
+  await expect(page.getByRole("button", { name: "Move to trash" })).toHaveCount(
+    0,
+  );
+
+  const token = await readProviderAccessToken();
+  for (const message of seeded) {
+    expect(await readLabelIds(page, token, message.id)).toContain("INBOX");
+  }
+
+  // The cancelled state is saved, so a reload does not offer to trash again.
+  await page.reload();
+  await expect(page.getByText("Cancelled. Nothing changed.")).toBeVisible({
+    timeout: 60_000,
+  });
+});
+
+async function askChatToTrashCoupons(page: Page) {
   const marker = `trashdemo${Date.now().toString(36)}`;
   for (const [index, subject] of SUBJECTS.entries()) {
     await insertInboxMessage(page, {
@@ -73,36 +136,7 @@ test("chat trashes emails only after the user confirms", async ({
   const emailAccountId = await getEmailAccountId(page);
   await page.goto(`/${emailAccountId}/assistant`);
   await sendChatMessage(page, "Delete the coupon emails");
-
-  const confirm = page.getByRole("button", { name: "Move to trash" });
-  await expect(confirm).toBeEnabled({ timeout: 90_000 });
-  await expect(page.getByText("Move 2 emails to trash")).toBeVisible();
-  await expect(page.getByText(SUBJECTS[0], { exact: false })).toBeVisible();
-
-  const token = await readProviderAccessToken();
-  for (const message of seeded) {
-    expect(await readLabelIds(page, token, message.id)).not.toContain("TRASH");
-  }
-  await capturePlaywrightCheckpoint(page, testInfo, "trash-1-pending");
-
-  await confirm.click();
-  await expect(page.getByText("Trashed emails")).toBeVisible({
-    timeout: 30_000,
-  });
-  for (const message of seeded) {
-    expect(await readLabelIds(page, token, message.id)).toContain("TRASH");
-  }
-  await capturePlaywrightCheckpoint(page, testInfo, "trash-2-confirmed");
-
-  // The confirmed state is saved, so a reload does not offer to trash again.
-  await page.reload();
-  await expect(page.getByText("Trashed emails")).toBeVisible({
-    timeout: 60_000,
-  });
-  await expect(page.getByRole("button", { name: "Move to trash" })).toHaveCount(
-    0,
-  );
-});
+}
 
 async function insertInboxMessage(
   page: Page,

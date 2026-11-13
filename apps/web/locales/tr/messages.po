@@ -2633,6 +2633,10 @@ msgstr "Sesi iptal et"
 msgid "Cancelled"
 msgstr "İptal edildi"
 
+#: components/assistant-chat/tools.tsx
+msgid "Cancelled. Nothing changed."
+msgstr "İptal edildi. Hiçbir şey değişmedi."
+
 #: app/(app)/[emailAccountId]/meetings/recording-status.ts
 msgid "Cancelling"
 msgstr "İptal ediliyor"
@@ -3829,6 +3833,10 @@ msgstr "{filename} eklenemedi."
 #: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
 msgid "Could not attach {filename}. Try again."
 msgstr "{filename} eklenemedi. Tekrar deneyin."
+
+#: components/assistant-chat/tools.tsx
+msgid "Could not cancel. Try again."
+msgstr "İptal edilemedi. Tekrar deneyin."
 
 #: app/(app)/shared/[conversationId]/SharedConversationReader.tsx
 msgid "Could not check conversation access. Retry or refresh this page."

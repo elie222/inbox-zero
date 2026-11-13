@@ -2633,6 +2633,10 @@ msgstr "Spraak annuleren"
 msgid "Cancelled"
 msgstr "Geannuleerd"
 
+#: components/assistant-chat/tools.tsx
+msgid "Cancelled. Nothing changed."
+msgstr "Geannuleerd. Er is niets gewijzigd."
+
 #: app/(app)/[emailAccountId]/meetings/recording-status.ts
 msgid "Cancelling"
 msgstr "Annuleren"
@@ -3829,6 +3833,10 @@ msgstr "{filename} kon niet worden bijgevoegd."
 #: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
 msgid "Could not attach {filename}. Try again."
 msgstr "{filename} kon niet worden bijgevoegd. Probeer het opnieuw."
+
+#: components/assistant-chat/tools.tsx
+msgid "Could not cancel. Try again."
+msgstr "Annuleren mislukt. Probeer het opnieuw."
 
 #: app/(app)/shared/[conversationId]/SharedConversationReader.tsx
 msgid "Could not check conversation access. Retry or refresh this page."

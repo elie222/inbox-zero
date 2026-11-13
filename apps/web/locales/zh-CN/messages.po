@@ -2633,6 +2633,10 @@ msgstr "取消语音"
 msgid "Cancelled"
 msgstr "已取消"
 
+#: components/assistant-chat/tools.tsx
+msgid "Cancelled. Nothing changed."
+msgstr "已取消。未做任何更改。"
+
 #: app/(app)/[emailAccountId]/meetings/recording-status.ts
 msgid "Cancelling"
 msgstr "正在取消"
@@ -3829,6 +3833,10 @@ msgstr "无法添加附件 {filename}。"
 #: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
 msgid "Could not attach {filename}. Try again."
 msgstr "无法添加附件 {filename}。请重试。"
+
+#: components/assistant-chat/tools.tsx
+msgid "Could not cancel. Try again."
+msgstr "无法取消，请重试。"
 
 #: app/(app)/shared/[conversationId]/SharedConversationReader.tsx
 msgid "Could not check conversation access. Retry or refresh this page."

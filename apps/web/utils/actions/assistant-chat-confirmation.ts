@@ -701,6 +701,11 @@ export async function confirmAssistantTrashThreadsForAccount({
       lookup.output.confirmationResult
         ? lookup.output.confirmationResult
         : null,
+    validateLookup: (lookup) => {
+      if (lookup.output.confirmationState === "cancelled") {
+        throw new SafeError("This action was cancelled.");
+      }
+    },
     logPrefix: "Assistant trash confirmation",
     waitForPersistenceMs: waitForPersistence
       ? PENDING_ACTION_PERSIST_WAIT_MS
@@ -796,6 +801,64 @@ export async function confirmAssistantTrashThreadsForAccount({
     confirmationState: "confirmed" as const,
     confirmationResult,
   };
+}
+
+/** Records that the user declined a pending trash, so chat knows nothing moved. */
+export async function dismissAssistantTrashThreadsForAccount({
+  chatId,
+  chatMessageId,
+  toolCallId,
+  emailAccountId,
+  logger,
+}: {
+  chatId: string;
+  chatMessageId?: string;
+  toolCallId: string;
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  const findPart = (parts: unknown) =>
+    findPendingAssistantTrashThreadsPart({ parts, toolCallId });
+  const chatMessage = await findChatMessageForPendingAction({
+    chatId,
+    chatMessageId,
+    emailAccountId,
+    logger,
+    matchParts: (parts) => !!findPart(parts),
+    logPrefix: "Assistant trash dismissal",
+  });
+  const lookup = chatMessage ? findPart(chatMessage.parts) : null;
+  if (!chatMessage || !lookup) {
+    throw new SafeError("Pending trash action not found");
+  }
+
+  const state = lookup.output.confirmationState;
+  if (state === "cancelled") return { confirmationState: "cancelled" as const };
+  // Once a confirmation starts, some emails may already be in trash, so
+  // "nothing changed" would no longer be true.
+  if (state !== "pending") {
+    throw new SafeError("This action has already started.");
+  }
+
+  await persistConfirmedAssistantPart({
+    chatMessageId: chatMessage.id,
+    emailAccountId,
+    logger: logger.with({ chatMessageId: chatMessage.id, toolCallId }),
+    findPart,
+    isConfirmed: (current) => current.output.confirmationState === "cancelled",
+    buildParts: ({ parts, partIndex }) => {
+      if (findPart(parts)?.output.confirmationState !== "pending") {
+        throw new SafeError("This action has already started.");
+      }
+      return updateAssistantEmailPartOutput({
+        parts,
+        partIndex,
+        outputPatch: { confirmationState: "cancelled" },
+      });
+    },
+  });
+
+  return { confirmationState: "cancelled" as const };
 }
 
 async function executeAssistantEmailAction({

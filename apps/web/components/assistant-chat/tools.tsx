@@ -46,6 +46,7 @@ import {
   confirmAssistantEmailAction,
   confirmAssistantSaveMemory,
   confirmAssistantTrashThreads,
+  dismissAssistantTrashThreads,
 } from "@/utils/actions/assistant-chat";
 import type { PendingTrashThreadsToolOutput } from "@/utils/actions/assistant-chat.validation";
 import { isProcessingLeaseExpired } from "@/components/assistant-chat/bulk-inbox-action-card";
@@ -1071,10 +1072,22 @@ export function PendingTrashThreadsCard({
   const { emailAccountId } = useAccount();
   const { chatId } = useChat();
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isDismissing, setIsDismissing] = useState(false);
+  const [dismissed, setDismissed] = useState(
+    output.confirmationState === "cancelled",
+  );
   const [confirmedResult, setConfirmedResult] = useState(
     output.confirmationResult ?? null,
   );
   const { threadIds } = output.pendingAction;
+
+  if (dismissed) {
+    return (
+      <Card className="px-4 py-3 text-sm text-muted-foreground">
+        <Trans>Cancelled. Nothing changed.</Trans>
+      </Card>
+    );
+  }
 
   if (confirmedResult) {
     return (
@@ -1132,6 +1145,27 @@ export function PendingTrashThreadsCard({
     }
   };
 
+  const handleDismiss = async () => {
+    if (!chatId) return;
+    setIsDismissing(true);
+    try {
+      const result = await dismissAssistantTrashThreads(emailAccountId, {
+        chatId,
+        chatMessageId,
+        toolCallId,
+      });
+      if (result?.serverError) {
+        toastError({ description: result.serverError });
+        return;
+      }
+      setDismissed(true);
+    } catch {
+      toastError({ description: t`Could not cancel. Try again.` });
+    } finally {
+      setIsDismissing(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-start gap-3 space-y-0 border-b px-4 py-3.5">
@@ -1156,10 +1190,21 @@ export function PendingTrashThreadsCard({
         </CardContent>
       )}
 
-      <CardFooter className="justify-end border-t px-4 py-3">
+      <CardFooter className="justify-end gap-2 border-t px-4 py-3">
         <Button
+          variant="outline"
+          size="sm"
+          onClick={handleDismiss}
+          disabled={isDismissing || isConfirming || isProcessing}
+        >
+          <Trans>Cancel</Trans>
+        </Button>
+        <Button
+          variant="destructive"
           onClick={handleConfirm}
-          disabled={disableConfirm || isConfirming || isProcessing}
+          disabled={
+            disableConfirm || isConfirming || isProcessing || isDismissing
+          }
           size="sm"
           className="gap-2"
         >

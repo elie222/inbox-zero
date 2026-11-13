@@ -235,7 +235,12 @@ export const pendingTrashThreadsToolOutputSchema = z.object({
   success: z.literal(true),
   actionType: z.literal("trash_threads"),
   requiresConfirmation: z.literal(true),
-  confirmationState: z.enum(["pending", "processing", "confirmed"]),
+  confirmationState: z.enum([
+    "pending",
+    "processing",
+    "confirmed",
+    "cancelled",
+  ]),
   confirmationProcessingAt: z.string().optional(),
   pendingAction: z.object({
     threadIds: z.array(z.string().min(1)).min(1),
@@ -253,6 +258,8 @@ export type PendingTrashThreadsToolOutput = z.infer<
 >;
 
 export const confirmAssistantTrashThreadsBody = confirmAssistantActionBaseBody;
+
+export const dismissAssistantTrashThreadsBody = confirmAssistantActionBaseBody;
 
 export const cancelBulkInboxActionJobBody = z.object({
   jobId: z.string().min(1),

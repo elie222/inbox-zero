@@ -2633,6 +2633,10 @@ msgstr "음성 취소"
 msgid "Cancelled"
 msgstr "취소됨"
 
+#: components/assistant-chat/tools.tsx
+msgid "Cancelled. Nothing changed."
+msgstr "취소했어요. 아무것도 바뀌지 않았어요."
+
 #: app/(app)/[emailAccountId]/meetings/recording-status.ts
 msgid "Cancelling"
 msgstr "취소 중"
@@ -3829,6 +3833,10 @@ msgstr "{filename}을(를) 첨부하지 못했어요."
 #: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
 msgid "Could not attach {filename}. Try again."
 msgstr "{filename}을(를) 첨부하지 못했어요. 다시 시도해 주세요."
+
+#: components/assistant-chat/tools.tsx
+msgid "Could not cancel. Try again."
+msgstr "취소하지 못했어요. 다시 시도해 주세요."
 
 #: app/(app)/shared/[conversationId]/SharedConversationReader.tsx
 msgid "Could not check conversation access. Retry or refresh this page."

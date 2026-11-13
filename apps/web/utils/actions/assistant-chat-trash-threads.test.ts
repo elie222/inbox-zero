@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
-import { confirmAssistantTrashThreadsForAccount } from "@/utils/actions/assistant-chat-confirmation";
+import {
+  confirmAssistantTrashThreadsForAccount,
+  dismissAssistantTrashThreadsForAccount,
+} from "@/utils/actions/assistant-chat-confirmation";
 import { manageInboxTool } from "@/utils/ai/assistant/chat-inbox-tools";
 import { addChatActionTotals } from "@/utils/ai/assistant/chat-action-totals";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -117,6 +120,59 @@ describe("chat trash confirmation", () => {
     expect(result.confirmationResult?.successCount).toBe(2);
   });
 });
+
+describe("chat trash cancellation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    trashThread.mockResolvedValue(undefined);
+    vi.mocked(createEmailProvider).mockResolvedValue({ trashThread } as any);
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 });
+  });
+
+  it("marks a pending trash as cancelled without trashing anything", async () => {
+    mockChatMessage(await runTrashTool("web"));
+
+    const result = await dismiss();
+
+    expect(result.confirmationState).toBe("cancelled");
+    expect(trashThread).not.toHaveBeenCalled();
+    const savedParts = (
+      prisma.chatMessage.updateMany.mock.calls.at(-1)![0] as any
+    ).data.parts;
+    expect(savedParts[0].output.confirmationState).toBe("cancelled");
+  });
+
+  it("refuses to trash after the user cancelled", async () => {
+    mockChatMessage({
+      ...(await runTrashTool("web")),
+      confirmationState: "cancelled",
+    });
+
+    await expect(confirm()).rejects.toThrow("This action was cancelled.");
+    expect(trashThread).not.toHaveBeenCalled();
+  });
+
+  it("does not cancel once a confirmation has started", async () => {
+    mockChatMessage({
+      ...(await runTrashTool("web")),
+      confirmationState: "processing",
+      confirmationProcessingAt: new Date().toISOString(),
+    });
+
+    await expect(dismiss()).rejects.toThrow("This action has already started.");
+    expect(prisma.chatMessage.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+function dismiss() {
+  return dismissAssistantTrashThreadsForAccount({
+    chatId: "chat-1",
+    chatMessageId: "chat-message-1",
+    toolCallId: "tool-1",
+    emailAccountId: "ea_1",
+    logger,
+  });
+}
 
 async function runTrashTool(responseSurface: "web" | "messaging") {
   const toolInstance = manageInboxTool({

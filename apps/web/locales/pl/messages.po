@@ -2633,6 +2633,10 @@ msgstr "Anuluj głos"
 msgid "Cancelled"
 msgstr "Anulowano"
 
+#: components/assistant-chat/tools.tsx
+msgid "Cancelled. Nothing changed."
+msgstr "Anulowano. Nic nie zostało zmienione."
+
 #: app/(app)/[emailAccountId]/meetings/recording-status.ts
 msgid "Cancelling"
 msgstr "Anulowanie"
@@ -3829,6 +3833,10 @@ msgstr "Nie udało się dołączyć {filename}."
 #: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
 msgid "Could not attach {filename}. Try again."
 msgstr "Nie udało się dołączyć {filename}. Spróbuj ponownie."
+
+#: components/assistant-chat/tools.tsx
+msgid "Could not cancel. Try again."
+msgstr "Nie udało się anulować. Spróbuj ponownie."
 
 #: app/(app)/shared/[conversationId]/SharedConversationReader.tsx
 msgid "Could not check conversation access. Retry or refresh this page."
