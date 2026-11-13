@@ -22,6 +22,7 @@ import {
   pendingReplyEmailToolOutputSchema,
   pendingSaveMemoryToolOutputSchema,
   pendingSendEmailToolOutputSchema,
+  pendingTrashThreadsToolOutputSchema,
   type PendingForwardEmailToolOutput,
   type PendingReplyEmailToolOutput,
   type PendingSendEmailToolOutput,
@@ -32,11 +33,15 @@ import {
 } from "@/utils/ai/assistant/tools/rules/shared";
 import { createRule } from "@/utils/rule/rule";
 import { enqueueBulkInboxActionChunk } from "@/utils/bulk-inbox-action/enqueue";
+import { trashChatThreads } from "@/utils/ai/assistant/chat-inbox-tools";
+import { addChatActionTotals } from "@/utils/ai/assistant/chat-action-totals";
 
 const CONFIRMATION_IN_PROGRESS_ERROR =
   "Email action confirmation already in progress";
 const BULK_INBOX_ACTION_CONFIRMATION_IN_PROGRESS_ERROR =
   "Bulk action confirmation already in progress";
+const TRASH_THREADS_CONFIRMATION_IN_PROGRESS_ERROR =
+  "Trash confirmation already in progress";
 const SAVE_MEMORY_CONFIRMATION_IN_PROGRESS_ERROR =
   "Memory save confirmation already in progress";
 const CONFIRMATION_PERSIST_MAX_ATTEMPTS = 3;
@@ -665,6 +670,206 @@ export async function dismissAssistantBulkInboxActionForAccount({
   return { confirmationState: "cancelled" as const };
 }
 
+export async function confirmAssistantTrashThreadsForAccount({
+  chatId,
+  chatMessageId,
+  toolCallId,
+  waitForPersistence,
+  emailAccountId,
+  provider,
+  logger,
+}: {
+  chatId: string;
+  chatMessageId?: string;
+  toolCallId: string;
+  waitForPersistence?: boolean;
+  emailAccountId: string;
+  provider: string;
+  logger: Logger;
+}) {
+  const findPart = (parts: unknown) =>
+    findPendingAssistantTrashThreadsPart({ parts, toolCallId });
+
+  const reservation = await reservePendingAssistantPart({
+    chatId,
+    chatMessageId,
+    emailAccountId,
+    logger,
+    findPart,
+    getConfirmed: (lookup) =>
+      lookup.output.confirmationState === "confirmed" &&
+      lookup.output.confirmationResult
+        ? lookup.output.confirmationResult
+        : null,
+    validateLookup: (lookup) => {
+      if (lookup.output.confirmationState === "cancelled") {
+        throw new SafeError("This action was cancelled.");
+      }
+    },
+    logPrefix: "Assistant trash confirmation",
+    waitForPersistenceMs: waitForPersistence
+      ? PENDING_ACTION_PERSIST_WAIT_MS
+      : undefined,
+    inProgressError: TRASH_THREADS_CONFIRMATION_IN_PROGRESS_ERROR,
+    onMessageNotFound: () => {
+      throw new SafeError("Chat message not found");
+    },
+    onPartNotFound: () => {
+      throw new SafeError("Pending trash action not found");
+    },
+    onRaceMessageNotFound: () => {
+      throw new SafeError("Chat message not found");
+    },
+  });
+
+  if (reservation.status === "confirmed") {
+    return {
+      success: true,
+      confirmationState: "confirmed" as const,
+      confirmationResult: reservation.value,
+    };
+  }
+
+  const { threadIds } = reservation.lookup.output.pendingAction;
+
+  let trashResult: Awaited<ReturnType<typeof trashChatThreads>>;
+  try {
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { email: true },
+    });
+    if (!emailAccount) throw new Error("Email account not found");
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
+      logger,
+    });
+    trashResult = await trashChatThreads({
+      emailProvider,
+      threadIds,
+      email: emailAccount.email,
+    });
+    // Nothing moved, so the card stays pending and can be confirmed again.
+    if (trashResult.successCount === 0) {
+      throw new Error("No threads were moved to trash");
+    }
+  } catch (error) {
+    await clearPendingPartProcessing({
+      chatMessageId: reservation.chatMessageId,
+      emailAccountId,
+      findPart,
+    }).catch((processingError) => {
+      logger.error("Failed to clear processing state for trash", {
+        error: processingError,
+      });
+    });
+    logger.error("Failed to confirm assistant trash", { error });
+    throw new SafeError("Couldn't move these emails to trash. Try again.");
+  }
+
+  const confirmationResult = {
+    ...trashResult,
+    confirmedAt: new Date().toISOString(),
+  };
+
+  let savedByThisRequest: boolean;
+  try {
+    savedByThisRequest = await persistConfirmedAssistantPart({
+      chatMessageId: reservation.chatMessageId,
+      emailAccountId,
+      logger: logger.with({ chatMessageId: reservation.chatMessageId }),
+      findPart,
+      isConfirmed: (lookup) => lookup.output.confirmationState === "confirmed",
+      buildParts: ({ parts, partIndex }) =>
+        updateAssistantEmailPartOutput({
+          parts,
+          partIndex,
+          outputPatch: { confirmationState: "confirmed", confirmationResult },
+        }),
+    });
+  } catch (error) {
+    logger.error("Failed to persist confirmed assistant trash", { error });
+    throw new SafeError(
+      "Emails were moved to trash but confirmation state could not be saved. Please refresh.",
+    );
+  }
+
+  // Counted only by the request that saved the result, so a retry or an
+  // overlapping confirmation can't count the same trash twice.
+  if (savedByThisRequest) {
+    await addChatActionTotals({
+      chatId,
+      counts: { threads_trashed: trashResult.successCount },
+    }).catch((error: unknown) => {
+      logger.error("Failed to update chat action totals", { error });
+    });
+  }
+
+  return {
+    success: true,
+    confirmationState: "confirmed" as const,
+    confirmationResult,
+  };
+}
+
+/** Records that the user declined a pending trash, so chat knows nothing moved. */
+export async function dismissAssistantTrashThreadsForAccount({
+  chatId,
+  chatMessageId,
+  toolCallId,
+  emailAccountId,
+  logger,
+}: {
+  chatId: string;
+  chatMessageId?: string;
+  toolCallId: string;
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  const findPart = (parts: unknown) =>
+    findPendingAssistantTrashThreadsPart({ parts, toolCallId });
+  const chatMessage = await findChatMessageForPendingAction({
+    chatId,
+    chatMessageId,
+    emailAccountId,
+    logger,
+    matchParts: (parts) => !!findPart(parts),
+    logPrefix: "Assistant trash dismissal",
+  });
+  const lookup = chatMessage ? findPart(chatMessage.parts) : null;
+  if (!chatMessage || !lookup) {
+    throw new SafeError("Pending trash action not found");
+  }
+
+  const state = lookup.output.confirmationState;
+  if (state === "cancelled") return { confirmationState: "cancelled" as const };
+  // Once a confirmation starts, some emails may already be in trash, so
+  // "nothing changed" would no longer be true.
+  if (state !== "pending") {
+    throw new SafeError("This action has already started.");
+  }
+
+  await persistConfirmedAssistantPart({
+    chatMessageId: chatMessage.id,
+    emailAccountId,
+    logger: logger.with({ chatMessageId: chatMessage.id, toolCallId }),
+    findPart,
+    isConfirmed: (current) => current.output.confirmationState === "cancelled",
+    buildParts: ({ parts, partIndex }) => {
+      if (findPart(parts)?.output.confirmationState !== "pending") {
+        throw new SafeError("This action has already started.");
+      }
+      return updateAssistantEmailPartOutput({
+        parts,
+        partIndex,
+        outputPatch: { confirmationState: "cancelled" },
+      });
+    },
+  });
+
+  return { confirmationState: "cancelled" as const };
+}
+
 async function executeAssistantEmailAction({
   output,
   emailProvider,
@@ -942,6 +1147,33 @@ function findPendingAssistantBulkInboxActionPart({
     const parsed = pendingBulkInboxActionToolOutputSchema.safeParse(
       part.output,
     );
+    if (!parsed.success) return null;
+
+    return { index, output: parsed.data, parts };
+  }
+
+  return null;
+}
+
+function findPendingAssistantTrashThreadsPart({
+  parts,
+  toolCallId,
+}: {
+  parts: unknown;
+  toolCallId: string;
+}) {
+  if (!Array.isArray(parts)) return null;
+
+  for (const [index, part] of parts.entries()) {
+    if (
+      !isRecord(part) ||
+      part.type !== "tool-manageInbox" ||
+      part.toolCallId !== toolCallId
+    ) {
+      continue;
+    }
+
+    const parsed = pendingTrashThreadsToolOutputSchema.safeParse(part.output);
     if (!parsed.success) return null;
 
     return { index, output: parsed.data, parts };
@@ -1919,7 +2151,7 @@ async function persistConfirmedAssistantPart<
       }
 
       if (isConfirmed?.(lookup)) {
-        return;
+        return false;
       }
 
       const updatedParts = buildParts({
@@ -1937,7 +2169,7 @@ async function persistConfirmedAssistantPart<
       });
 
       if (persisted.count === 1) {
-        return;
+        return true;
       }
 
       logger.warn("Assistant confirmation persistence lost update race", {

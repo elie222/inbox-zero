@@ -144,6 +144,7 @@ type InboxToolOptions = {
   provider: string;
   logger: Logger;
   chatId?: string;
+  responseSurface?: "web" | "messaging";
 };
 
 type ProviderToolFactory = (options: InboxToolOptions) => unknown;
@@ -977,7 +978,7 @@ const outlookManageInboxInputSchema = z
     action: z
       .enum(outlookManageInboxActions)
       .describe(
-        "Outlook inbox action. archive_threads archives selected threads; trash_threads moves selected threads to trash; categorize_threads applies an existing category; remove_category_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
+        "Outlook inbox action. archive_threads archives selected threads; trash_threads asks the user to confirm moving selected threads to trash; categorize_threads applies an existing category; remove_category_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
       ),
     threadIds: threadIdsSchema
       .optional()
@@ -1017,7 +1018,7 @@ const gmailManageInboxInputSchema = z
     action: z
       .enum(manageInboxActions)
       .describe(
-        "Gmail inbox action. archive_threads archives selected threads; trash_threads moves selected threads to trash; label_threads applies an existing label; remove_label_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
+        "Gmail inbox action. archive_threads archives selected threads; trash_threads asks the user to confirm moving selected threads to trash; label_threads applies an existing label; remove_label_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
       ),
     threadIds: threadIdsSchema
       .optional()
@@ -1118,7 +1119,8 @@ const buildManageInboxTool = ({
   ) => NormalizedManageInboxInput;
   taxonomy: ManageInboxTaxonomyConfig;
 }) => {
-  const { email, emailAccountId, provider, logger, chatId } = options;
+  const { email, emailAccountId, provider, logger, chatId, responseSurface } =
+    options;
 
   const withChatTotals = async <T extends object>(
     result: T,
@@ -1144,6 +1146,28 @@ const buildManageInboxTool = ({
       const parsedInput = normalizeInput(input as Record<string, unknown>);
       const { action, labelName, originalAction } = parsedInput;
       const isSenderAction = requiresSenderEmails(action);
+
+      // Chat never trashes on its own: the user confirms on a card first.
+      if (action === "trash_threads") {
+        if (responseSurface === "messaging") {
+          return {
+            error:
+              "Nothing was trashed. Trashing needs a confirmation that is only available in the Inbox Zero web app.",
+          };
+        }
+        const threadIds = parsedInput.threadIds!;
+        return {
+          success: true,
+          action: originalAction,
+          actionType: "trash_threads" as const,
+          requiresConfirmation: true as const,
+          confirmationState: "pending" as const,
+          requestedCount: threadIds.length,
+          pendingAction: { threadIds },
+          nextStep:
+            "Nothing is trashed yet. The user confirms on the card before anything moves to trash.",
+        };
+      }
 
       try {
         const emailProvider = await createEmailProvider({
@@ -1276,8 +1300,6 @@ const buildManageInboxTool = ({
                 email,
                 resolvedArchiveLabelId,
               );
-            } else if (action === "trash_threads") {
-              await emailProvider.trashThread(threadId, email, "user");
             } else if (action === "label_threads") {
               await applyLabelToThread({
                 emailProvider,
@@ -1764,6 +1786,30 @@ function createLabelLookupMap(labels: Array<{ id: string; name: string }>) {
     ["inbox", "Inbox"],
     ["unread", "Unread"],
   ] as const);
+}
+
+export async function trashChatThreads({
+  emailProvider,
+  threadIds,
+  email,
+}: {
+  emailProvider: EmailProvider;
+  threadIds: string[];
+  email: string;
+}) {
+  const results = await runThreadActionsInParallel({
+    threadIds,
+    emailProvider,
+    concurrency: THREAD_ACTION_CONCURRENCY,
+    runAction: (threadId) => emailProvider.trashThread(threadId, email, "user"),
+  });
+  const failedThreadIds = results
+    .filter((result) => !result.success)
+    .map((result) => result.threadId);
+  return {
+    successCount: results.length - failedThreadIds.length,
+    failedThreadIds,
+  };
 }
 
 async function runThreadActionsInParallel({

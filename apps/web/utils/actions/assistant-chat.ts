@@ -9,6 +9,8 @@ import {
   confirmAssistantCreateRuleBody,
   confirmAssistantEmailActionBody,
   confirmAssistantSaveMemoryBody,
+  confirmAssistantTrashThreadsBody,
+  dismissAssistantTrashThreadsBody,
 } from "./assistant-chat.validation";
 import {
   confirmAssistantBulkInboxActionForAccount,
@@ -16,6 +18,8 @@ import {
   confirmAssistantCreateRuleForAccount,
   confirmAssistantEmailActionForAccount,
   confirmAssistantSaveMemoryForAccount,
+  confirmAssistantTrashThreadsForAccount,
+  dismissAssistantTrashThreadsForAccount,
 } from "./assistant-chat-confirmation";
 
 export const confirmAssistantEmailAction = actionClient
@@ -109,6 +113,42 @@ export const dismissAssistantBulkInboxAction = actionClient
       parsedInput: { chatId, chatMessageId, toolCallId },
     }) =>
       dismissAssistantBulkInboxActionForAccount({
+        chatId,
+        chatMessageId,
+        toolCallId,
+        emailAccountId,
+        logger,
+      }),
+  );
+
+export const confirmAssistantTrashThreads = actionClient
+  .metadata({ name: "confirmAssistantTrashThreads" })
+  .inputSchema(confirmAssistantTrashThreadsBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { chatId, chatMessageId, toolCallId },
+    }) =>
+      confirmAssistantTrashThreadsForAccount({
+        chatId,
+        chatMessageId,
+        toolCallId,
+        waitForPersistence: true,
+        emailAccountId,
+        provider,
+        logger,
+      }),
+  );
+
+export const dismissAssistantTrashThreads = actionClient
+  .metadata({ name: "dismissAssistantTrashThreads" })
+  .inputSchema(dismissAssistantTrashThreadsBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { chatId, chatMessageId, toolCallId },
+    }) =>
+      dismissAssistantTrashThreadsForAccount({
         chatId,
         chatMessageId,
         toolCallId,

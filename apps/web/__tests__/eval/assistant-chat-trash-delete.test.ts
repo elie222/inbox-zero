@@ -443,12 +443,42 @@ async function evaluateScenario(
       const hasExactCount =
         isTrash &&
         manageCall.threadIds?.length === expectation.threadIds.length;
+      // Trashing all of a sender's mail as a bulk job also waits for the
+      // user to confirm, so it is an equally valid way to prepare the trash.
+      const expectedSenders = getSendersForThreads(expectation.threadIds);
+      const preparedBulkTrash = result.toolCalls.some(
+        (toolCall) =>
+          toolCall.toolName === "bulkManageInbox" &&
+          isManageInboxInput(toolCall.input) &&
+          toolCall.input.action === "trash_threads" &&
+          targetsExpectedSender(toolCall.input, expectedSenders),
+      );
+
+      const callSummary = manageCall
+        ? `manageInbox(action=${manageCall.action}, threadIds=${JSON.stringify(manageCall.threadIds)})`
+        : result.actual;
+      if (
+        !(isTrash && hasExpectedThreads && hasExactCount) &&
+        !preparedBulkTrash
+      ) {
+        return { pass: false, actual: callSummary };
+      }
+
+      const pendingJudge = await judgeEvalOutput({
+        input: prompt,
+        output: result.finalText,
+        expected:
+          "The assistant presents the trash as waiting for the user's confirmation in the app, without claiming the emails were already deleted or trashed.",
+        criterion: {
+          name: "Trash left pending for user confirmation",
+          description:
+            "Chat never trashes email on its own. The reply must make clear the emails have not been trashed yet and need the user to confirm. It fails if it states or implies the emails are already deleted or in the trash.",
+        },
+      });
 
       return {
-        pass: isTrash && hasExpectedThreads && hasExactCount,
-        actual: manageCall
-          ? `manageInbox(action=${manageCall.action}, threadIds=${JSON.stringify(manageCall.threadIds)})`
-          : result.actual,
+        pass: pendingJudge.pass,
+        actual: `${callSummary} | ${formatSemanticJudgeActual(result.finalText, pendingJudge)}`,
       };
     }
 
@@ -546,6 +576,23 @@ function summarizeToolCall(toolCall: RecordedToolCall) {
   }
 
   return toolCall.toolName;
+}
+
+function getSendersForThreads(threadIds: string[]) {
+  return [...spamMessages, ...marketingMessages]
+    .filter((message) => threadIds.includes(message.threadId))
+    .map((message) => message.headers.from.toLowerCase());
+}
+
+// A bulk trash must target an expected sender, not some other search.
+function targetsExpectedSender(input: unknown, senders: string[]) {
+  const { query, fromEmail } = input as { query?: string; fromEmail?: string };
+  const target = (fromEmail || query || "").toLowerCase();
+  return (
+    senders.length > 0 &&
+    target.length > 0 &&
+    senders.some((sender) => target.includes(sender))
+  );
 }
 
 function getDefaultLabels() {

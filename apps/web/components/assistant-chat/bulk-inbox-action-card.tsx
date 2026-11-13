@@ -323,7 +323,7 @@ export function BulkInboxActionCard({
   );
 }
 
-function isProcessingLeaseExpired(processingAt?: string) {
+export function isProcessingLeaseExpired(processingAt?: string) {
   if (!processingAt) return false;
   const startedAt = Date.parse(processingAt);
   return (

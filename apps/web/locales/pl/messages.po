@@ -221,6 +221,11 @@ msgstr "{0, plural, one {Oznaczono rozmowę jako spam} few {Oznaczono # rozmowy 
 msgid "{0, plural, one {Marked as unread} other {Marked # conversations as unread}}"
 msgstr "{0, plural, one {Oznaczono rozmowę jako nieprzeczytaną} few {Oznaczono # rozmowy jako nieprzeczytane} many {Oznaczono # rozmów jako nieprzeczytane} other {Oznaczono # rozmowy jako nieprzeczytane}}"
 
+#. placeholder {0}: threadIds.length
+#: components/assistant-chat/tools.tsx
+msgid "{0, plural, one {Move # email to trash} other {Move # emails to trash}}"
+msgstr "{0, plural, one {Przenieś # e-mail do kosza} few {Przenieś # e-maile do kosza} many {Przenieś # e-maili do kosza} other {Przenieś # e-maila do kosza}}"
+
 #. placeholder {0}: open.openCount
 #: components/email-list/SentMessageOpenStatus.tsx
 msgid "{0, plural, one {Opened # time · Last opened {lastOpened}} other {Opened # times · Last opened {lastOpened}}}"
@@ -2628,6 +2633,10 @@ msgstr "Anuluj głos"
 msgid "Cancelled"
 msgstr "Anulowano"
 
+#: components/assistant-chat/tools.tsx
+msgid "Cancelled. Nothing changed."
+msgstr "Anulowano. Nic nie zostało zmienione."
+
 #: app/(app)/[emailAccountId]/meetings/recording-status.ts
 msgid "Cancelling"
 msgstr "Anulowanie"
@@ -3825,6 +3834,10 @@ msgstr "Nie udało się dołączyć {filename}."
 msgid "Could not attach {filename}. Try again."
 msgstr "Nie udało się dołączyć {filename}. Spróbuj ponownie."
 
+#: components/assistant-chat/tools.tsx
+msgid "Could not cancel. Try again."
+msgstr "Nie udało się anulować. Spróbuj ponownie."
+
 #: app/(app)/shared/[conversationId]/SharedConversationReader.tsx
 msgid "Could not check conversation access. Retry or refresh this page."
 msgstr "Nie udało się sprawdzić dostępu do rozmowy. Spróbuj ponownie lub odśwież tę stronę."
@@ -3886,6 +3899,10 @@ msgstr "Nie udało się wczytać treści e-maila: {0}"
 #: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
 msgid "Could not load the draft's attachments."
 msgstr "Nie udało się wczytać załączników wersji roboczej."
+
+#: components/assistant-chat/tools.tsx
+msgid "Could not move these emails to trash."
+msgstr "Nie udało się przenieść tych e-maili do kosza."
 
 #: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
 msgid "Could not queue this email. Try again."
@@ -8859,6 +8876,10 @@ msgstr "Przenieś do skrzynki odbiorczej"
 msgid "Move to review"
 msgstr "Przenieś do przeglądu"
 
+#: components/assistant-chat/tools.tsx
+msgid "Move to trash"
+msgstr "Przenieś do kosza"
+
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Move to…"
 msgstr "Przenieś do…"
@@ -8876,6 +8897,10 @@ msgstr "Przeniesiono do {folderName}"
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Moving to review {count, plural, one {# sender} other {# senders}}..."
 msgstr "Przenoszenie do przeglądu {count, plural, one {# nadawcy} few {# nadawców} many {# nadawców} other {# nadawcy}}..."
+
+#: components/assistant-chat/tools.tsx
+msgid "Moving to trash..."
+msgstr "Przenoszenie do kosza..."
 
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Moving…"
@@ -10074,6 +10099,10 @@ msgid "Pending confirmation"
 msgstr "Oczekuje na potwierdzenie"
 
 #: components/assistant-chat/tools.tsx
+msgid "Pending confirmation. Nothing has moved yet."
+msgstr "Oczekuje na potwierdzenie. Nic jeszcze nie zostało przeniesione."
+
+#: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
 msgstr "Oczekuje na usunięcie"
 
@@ -10276,6 +10305,10 @@ msgstr "Przygotowywanie do usunięcia reguły „{0}”..."
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing to delete rule \"{ruleName}\"..."
 msgstr "Przygotowywanie do usunięcia reguły „{ruleName}”..."
+
+#: components/assistant-chat/message-part.tsx
+msgid "Preparing to move emails to trash..."
+msgstr "Przygotowywanie przeniesienia e-maili do kosza..."
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
 msgid "Preset"

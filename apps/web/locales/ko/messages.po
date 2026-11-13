@@ -221,6 +221,11 @@ msgstr "{0, plural, one {스팸으로 표시했어요} other {대화 #개를 스
 msgid "{0, plural, one {Marked as unread} other {Marked # conversations as unread}}"
 msgstr "{0, plural, one {읽지 않음으로 표시했어요} other {대화 #개를 읽지 않음으로 표시했어요}}"
 
+#. placeholder {0}: threadIds.length
+#: components/assistant-chat/tools.tsx
+msgid "{0, plural, one {Move # email to trash} other {Move # emails to trash}}"
+msgstr "{0, plural, one {이메일 #개를 휴지통으로 이동} other {이메일 #개를 휴지통으로 이동}}"
+
 #. placeholder {0}: open.openCount
 #: components/email-list/SentMessageOpenStatus.tsx
 msgid "{0, plural, one {Opened # time · Last opened {lastOpened}} other {Opened # times · Last opened {lastOpened}}}"
@@ -2628,6 +2633,10 @@ msgstr "음성 취소"
 msgid "Cancelled"
 msgstr "취소됨"
 
+#: components/assistant-chat/tools.tsx
+msgid "Cancelled. Nothing changed."
+msgstr "취소했어요. 아무것도 바뀌지 않았어요."
+
 #: app/(app)/[emailAccountId]/meetings/recording-status.ts
 msgid "Cancelling"
 msgstr "취소 중"
@@ -3825,6 +3834,10 @@ msgstr "{filename}을(를) 첨부하지 못했어요."
 msgid "Could not attach {filename}. Try again."
 msgstr "{filename}을(를) 첨부하지 못했어요. 다시 시도해 주세요."
 
+#: components/assistant-chat/tools.tsx
+msgid "Could not cancel. Try again."
+msgstr "취소하지 못했어요. 다시 시도해 주세요."
+
 #: app/(app)/shared/[conversationId]/SharedConversationReader.tsx
 msgid "Could not check conversation access. Retry or refresh this page."
 msgstr "대화 접근 권한을 확인하지 못했어요. 다시 시도하거나 페이지를 새로고침해 주세요."
@@ -3886,6 +3899,10 @@ msgstr "이메일 내용을 불러오지 못했어요: {0}"
 #: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
 msgid "Could not load the draft's attachments."
 msgstr "초안의 첨부 파일을 불러오지 못했어요."
+
+#: components/assistant-chat/tools.tsx
+msgid "Could not move these emails to trash."
+msgstr "이 이메일들을 휴지통으로 옮기지 못했어요."
 
 #: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
 msgid "Could not queue this email. Try again."
@@ -8859,6 +8876,10 @@ msgstr "받은편지함으로 이동"
 msgid "Move to review"
 msgstr "검토로 이동"
 
+#: components/assistant-chat/tools.tsx
+msgid "Move to trash"
+msgstr "휴지통으로 이동"
+
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Move to…"
 msgstr "이동…"
@@ -8876,6 +8897,10 @@ msgstr "{folderName}(으)로 이동했어요"
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Moving to review {count, plural, one {# sender} other {# senders}}..."
 msgstr "발신자 {count, plural, other {#명}}을 검토로 이동하는 중..."
+
+#: components/assistant-chat/tools.tsx
+msgid "Moving to trash..."
+msgstr "휴지통으로 옮기는 중..."
 
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Moving…"
@@ -10074,6 +10099,10 @@ msgid "Pending confirmation"
 msgstr "확인 대기 중"
 
 #: components/assistant-chat/tools.tsx
+msgid "Pending confirmation. Nothing has moved yet."
+msgstr "확인 대기 중이에요. 아직 아무것도 옮기지 않았어요."
+
+#: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
 msgstr "삭제 대기 중"
 
@@ -10276,6 +10305,10 @@ msgstr "규칙 \"{0}\" 삭제를 준비하는 중..."
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing to delete rule \"{ruleName}\"..."
 msgstr "규칙 \"{ruleName}\" 삭제를 준비하는 중..."
+
+#: components/assistant-chat/message-part.tsx
+msgid "Preparing to move emails to trash..."
+msgstr "이메일을 휴지통으로 옮길 준비 중..."
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
 msgid "Preset"

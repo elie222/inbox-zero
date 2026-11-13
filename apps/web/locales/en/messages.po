@@ -221,6 +221,11 @@ msgstr "{0, plural, one {Marked as spam} other {Marked # conversations as spam}}
 msgid "{0, plural, one {Marked as unread} other {Marked # conversations as unread}}"
 msgstr "{0, plural, one {Marked as unread} other {Marked # conversations as unread}}"
 
+#. placeholder {0}: threadIds.length
+#: components/assistant-chat/tools.tsx
+msgid "{0, plural, one {Move # email to trash} other {Move # emails to trash}}"
+msgstr "{0, plural, one {Move # email to trash} other {Move # emails to trash}}"
+
 #. placeholder {0}: open.openCount
 #: components/email-list/SentMessageOpenStatus.tsx
 msgid "{0, plural, one {Opened # time · Last opened {lastOpened}} other {Opened # times · Last opened {lastOpened}}}"
@@ -2616,6 +2621,10 @@ msgstr "Cancel voice"
 msgid "Cancelled"
 msgstr "Cancelled"
 
+#: components/assistant-chat/tools.tsx
+msgid "Cancelled. Nothing changed."
+msgstr "Cancelled. Nothing changed."
+
 #: app/(app)/[emailAccountId]/meetings/recording-status.ts
 msgid "Cancelling"
 msgstr "Cancelling"
@@ -3813,6 +3822,10 @@ msgstr "Could not attach {filename}."
 msgid "Could not attach {filename}. Try again."
 msgstr "Could not attach {filename}. Try again."
 
+#: components/assistant-chat/tools.tsx
+msgid "Could not cancel. Try again."
+msgstr "Could not cancel. Try again."
+
 #: app/(app)/shared/[conversationId]/SharedConversationReader.tsx
 msgid "Could not check conversation access. Retry or refresh this page."
 msgstr "Could not check conversation access. Retry or refresh this page."
@@ -3874,6 +3887,10 @@ msgstr "Could not load email content: {0}"
 #: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
 msgid "Could not load the draft's attachments."
 msgstr "Could not load the draft's attachments."
+
+#: components/assistant-chat/tools.tsx
+msgid "Could not move these emails to trash."
+msgstr "Could not move these emails to trash."
 
 #: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
 msgid "Could not queue this email. Try again."
@@ -8866,6 +8883,10 @@ msgstr "Move to inbox"
 msgid "Move to review"
 msgstr "Move to review"
 
+#: components/assistant-chat/tools.tsx
+msgid "Move to trash"
+msgstr "Move to trash"
+
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Move to…"
 msgstr "Move to…"
@@ -8883,6 +8904,10 @@ msgstr "Moved to {folderName}"
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Moving to review {count, plural, one {# sender} other {# senders}}..."
 msgstr "Moving to review {count, plural, one {# sender} other {# senders}}..."
+
+#: components/assistant-chat/tools.tsx
+msgid "Moving to trash..."
+msgstr "Moving to trash..."
 
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Moving…"
@@ -10081,6 +10106,10 @@ msgid "Pending confirmation"
 msgstr "Pending confirmation"
 
 #: components/assistant-chat/tools.tsx
+msgid "Pending confirmation. Nothing has moved yet."
+msgstr "Pending confirmation. Nothing has moved yet."
+
+#: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
 msgstr "Pending deletion"
 
@@ -10283,6 +10312,10 @@ msgstr "Preparing to delete rule \"{0}\"..."
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing to delete rule \"{ruleName}\"..."
 msgstr "Preparing to delete rule \"{ruleName}\"..."
+
+#: components/assistant-chat/message-part.tsx
+msgid "Preparing to move emails to trash..."
+msgstr "Preparing to move emails to trash..."
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
 msgid "Preset"

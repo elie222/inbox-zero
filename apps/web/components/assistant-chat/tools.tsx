@@ -1,5 +1,5 @@
 import type { ChangeEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryState } from "nuqs";
 import type { I18n, MessageDescriptor } from "@lingui/core";
 import { msg, plural } from "@lingui/core/macro";
@@ -45,7 +45,14 @@ import {
   confirmAssistantCreateRule,
   confirmAssistantEmailAction,
   confirmAssistantSaveMemory,
+  confirmAssistantTrashThreads,
+  dismissAssistantTrashThreads,
 } from "@/utils/actions/assistant-chat";
+import {
+  ASSISTANT_CONFIRMATION_PROCESSING_LEASE_MS,
+  type PendingTrashThreadsToolOutput,
+} from "@/utils/actions/assistant-chat.validation";
+import { isProcessingLeaseExpired } from "@/components/assistant-chat/bulk-inbox-action-card";
 import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
 import { deleteMailSplitAction } from "@/utils/actions/mail-split";
 import { useMailSettings } from "@/hooks/useMailSettings";
@@ -1048,6 +1055,196 @@ export function PendingCreateRulePreviewCard({
       onConfirm={() => {}}
       riskMessages={riskMessages}
     />
+  );
+}
+
+export function PendingTrashThreadsCard({
+  output,
+  chatMessageId,
+  toolCallId,
+  threadLookup,
+  disableConfirm,
+}: {
+  output: PendingTrashThreadsToolOutput;
+  chatMessageId: string;
+  toolCallId: string;
+  threadLookup: ThreadLookup;
+  disableConfirm: boolean;
+}) {
+  const { t } = useLingui();
+  const { emailAccountId } = useAccount();
+  const { chatId } = useChat();
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isDismissing, setIsDismissing] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const [localResult, setLocalResult] = useState<
+    PendingTrashThreadsToolOutput["confirmationResult"] | null
+  >(null);
+  const [, setLeaseCheck] = useState(0);
+  const { threadIds } = output.pendingAction;
+  const confirmedResult = localResult ?? output.confirmationResult ?? null;
+  const processingAt =
+    output.confirmationState === "processing"
+      ? output.confirmationProcessingAt
+      : undefined;
+
+  // Re-render when an unfinished confirmation's lease runs out, so it can be
+  // retried without a reload.
+  useEffect(() => {
+    if (!processingAt) return;
+    const remaining =
+      Date.parse(processingAt) +
+      ASSISTANT_CONFIRMATION_PROCESSING_LEASE_MS -
+      Date.now();
+    if (!(remaining > 0)) return;
+    const timer = setTimeout(() => setLeaseCheck((n) => n + 1), remaining);
+    return () => clearTimeout(timer);
+  }, [processingAt]);
+
+  if (dismissed || output.confirmationState === "cancelled") {
+    return (
+      <Card className="px-4 py-3 text-sm text-muted-foreground">
+        <Trans>Cancelled. Nothing changed.</Trans>
+      </Card>
+    );
+  }
+
+  if (confirmedResult) {
+    return (
+      <ManageInboxResult
+        input={{ action: "trash_threads" }}
+        output={{
+          action: "trash_threads",
+          requestedCount: threadIds.length,
+          successCount: confirmedResult.successCount,
+          failedCount: confirmedResult.failedThreadIds.length,
+        }}
+        threadIds={threadIds}
+        threadLookup={threadLookup}
+      />
+    );
+  }
+
+  // A confirmation that never finished can be retried once its lease runs out.
+  const isProcessing =
+    output.confirmationState === "processing" &&
+    !isProcessingLeaseExpired(output.confirmationProcessingAt);
+  const threads = threadIds
+    .map((threadId) => {
+      const thread = threadLookup.get(threadId);
+      return thread ? { threadId, ...thread } : undefined;
+    })
+    .filter(isDefined);
+
+  const handleConfirm = async () => {
+    if (!chatId) {
+      toastError({ description: t`Could not move these emails to trash.` });
+      return;
+    }
+
+    setIsConfirming(true);
+    try {
+      const result = await confirmAssistantTrashThreads(emailAccountId, {
+        chatId,
+        chatMessageId,
+        toolCallId,
+      });
+      const confirmationResult = result?.data?.confirmationResult;
+      if (result?.serverError || !confirmationResult) {
+        toastError({
+          description:
+            result?.serverError || t`Could not move these emails to trash.`,
+        });
+        return;
+      }
+      setLocalResult(confirmationResult);
+    } catch {
+      toastError({ description: t`Could not move these emails to trash.` });
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  const handleDismiss = async () => {
+    if (!chatId) return;
+    setIsDismissing(true);
+    try {
+      const result = await dismissAssistantTrashThreads(emailAccountId, {
+        chatId,
+        chatMessageId,
+        toolCallId,
+      });
+      if (result?.serverError) {
+        toastError({ description: result.serverError });
+        return;
+      }
+      setDismissed(true);
+    } catch {
+      toastError({ description: t`Could not cancel. Try again.` });
+    } finally {
+      setIsDismissing(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0 border-b px-4 py-3.5">
+        <TrashIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-medium">
+            <Plural
+              value={threadIds.length}
+              one="Move # email to trash"
+              other="Move # emails to trash"
+            />
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {isConfirming || isProcessing ? (
+              <Trans>Moving to trash...</Trans>
+            ) : (
+              <Trans>Pending confirmation. Nothing has moved yet.</Trans>
+            )}
+          </p>
+        </div>
+      </CardHeader>
+
+      {threads.length > 0 && (
+        <CardContent className="p-0">
+          <ToolEmailRows emails={threads} />
+        </CardContent>
+      )}
+
+      <CardFooter className="justify-end gap-2 border-t px-4 py-3">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleDismiss}
+          disabled={
+            disableConfirm || isDismissing || isConfirming || isProcessing
+          }
+        >
+          <Trans>Cancel</Trans>
+        </Button>
+        <Button
+          variant="destructive"
+          onClick={handleConfirm}
+          disabled={
+            disableConfirm || isConfirming || isProcessing || isDismissing
+          }
+          size="sm"
+          className="gap-2"
+        >
+          {isConfirming || isProcessing ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              <Trans>Moving to trash...</Trans>
+            </>
+          ) : (
+            <Trans>Move to trash</Trans>
+          )}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }
 
