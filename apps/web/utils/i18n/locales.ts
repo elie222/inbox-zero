@@ -1,4 +1,17 @@
-export const LOCALES = ["en", "es", "fr", "de", "pt-BR"] as const;
+export const LOCALES = [
+  "en",
+  "es",
+  "fr",
+  "de",
+  "pt-BR",
+  "it",
+  "nl",
+  "pl",
+  "tr",
+  "ja",
+  "ko",
+  "zh-CN",
+] as const;
 
 export type Locale = (typeof LOCALES)[number];
 
@@ -13,6 +26,13 @@ export const LOCALE_LABELS: Record<Locale, string> = {
   fr: "Français",
   de: "Deutsch",
   "pt-BR": "Português (Brasil)",
+  it: "Italiano",
+  nl: "Nederlands",
+  pl: "Polski",
+  tr: "Türkçe",
+  ja: "日本語",
+  ko: "한국어",
+  "zh-CN": "简体中文",
 };
 
 export function toLocale(value: string | null | undefined): Locale {

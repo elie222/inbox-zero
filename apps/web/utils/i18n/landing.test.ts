@@ -53,6 +53,13 @@ describe("getLandingAlternates", () => {
         fr: "/fr/pricing",
         de: "/de/pricing",
         "pt-BR": "/pt-BR/pricing",
+        it: "/it/pricing",
+        nl: "/nl/pricing",
+        pl: "/pl/pricing",
+        tr: "/tr/pricing",
+        ja: "/ja/pricing",
+        ko: "/ko/pricing",
+        "zh-CN": "/zh-CN/pricing",
       },
     });
   });

@@ -16,7 +16,20 @@ const LANDING_SOURCES = [
 
 export default defineConfig({
   sourceLocale: "en",
-  locales: ["en", "es", "fr", "de", "pt-BR"],
+  locales: [
+    "en",
+    "es",
+    "fr",
+    "de",
+    "pt-BR",
+    "it",
+    "nl",
+    "pl",
+    "tr",
+    "ja",
+    "ko",
+    "zh-CN",
+  ],
   catalogs: [
     {
       path: "<rootDir>/locales/{locale}/messages",
