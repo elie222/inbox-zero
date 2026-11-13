@@ -440,6 +440,7 @@ export class GmailProvider implements EmailProvider {
 
   async untrashThread(threadId: string): Promise<void> {
     await untrashThread({ gmail: this.client, threadId });
+    await unarchiveThread({ gmail: this.client, threadId });
   }
 
   async bulkArchiveThreads(
@@ -573,7 +574,7 @@ export class GmailProvider implements EmailProvider {
   }
 
   async untrashMessages(messageIds: string[]): Promise<void> {
-    await mapWithConcurrency(
+    const untrashedMessageIds = await mapWithConcurrency(
       [...new Set(messageIds)],
       GMAIL_MESSAGE_WRITE_CONCURRENCY,
       async (messageId) => {
@@ -582,10 +583,14 @@ export class GmailProvider implements EmailProvider {
             userId: "me",
             id: messageId,
           });
+          return messageId;
         } catch (error) {
           if (extractErrorInfo(error).status !== 404) throw error;
         }
       },
+    );
+    await this.unarchiveMessages(
+      untrashedMessageIds.filter((messageId) => messageId !== undefined),
     );
   }
 
