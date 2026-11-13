@@ -39,7 +39,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger
-        aria-label={t`Language`}
+        aria-label={`${t`Language`} (${LOCALE_LABELS[currentLocale]})`}
         className={cn(
           "flex items-center gap-1.5 rounded-md text-sm leading-6 text-gray-500 outline-none hover:text-gray-900 focus-visible:ring-2 focus-visible:ring-gray-300 data-[state=open]:text-gray-900",
           className,
