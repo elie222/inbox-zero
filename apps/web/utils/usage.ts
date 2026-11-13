@@ -84,6 +84,7 @@ export async function saveAiUsage({
         estimatedCost,
         providerReportedCost,
         providerUpstreamInferenceCost,
+        providerCostSource,
       });
   const inputTokens = usage.inputTokens ?? 0;
   const outputTokens = usage.outputTokens ?? 0;
@@ -257,11 +258,18 @@ function getPlatformCost({
   estimatedCost,
   providerReportedCost,
   providerUpstreamInferenceCost,
+  providerCostSource,
 }: {
   estimatedCost: number;
   providerReportedCost?: number;
   providerUpstreamInferenceCost?: number;
+  providerCostSource?: string;
 }) {
+  if (
+    providerCostSource === "perplexity_usage" &&
+    isNonNegativeFiniteNumber(providerReportedCost)
+  )
+    return providerReportedCost;
   if (isPositiveFiniteNumber(providerReportedCost)) {
     return providerReportedCost;
   }
