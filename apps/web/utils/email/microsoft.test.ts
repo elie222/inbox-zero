@@ -1181,6 +1181,35 @@ describe("OutlookProvider reply history", () => {
 });
 
 describe("OutlookProvider.getThreadsWithQuery", () => {
+  it("includes Bcc-only sent recipients only when requested", async () => {
+    const message = createMessage({
+      id: "sent-bcc",
+      conversationId: "bcc-thread",
+      parentFolderId: "sent-folder-id",
+    });
+    message.toRecipients = [
+      { emailAddress: { address: "other@elsewhere.example" } },
+    ];
+    message.bccRecipients = [
+      { emailAddress: { address: "CONTACT@OUTSIDE.EXAMPLE" } },
+    ];
+    const client = createMockOutlookClient([], {
+      folderIdCache: { sentitems: "sent-folder-id" },
+      responsesByApiPath: {
+        "/me/mailFolders/sentitems/messages": () => ({ value: [message] }),
+      },
+    });
+    const provider = new OutlookProvider(client);
+    const query = { type: "sent", toEmail: "contact@outside.example" };
+
+    expect((await provider.getThreadsWithQuery({ query })).threads).toEqual([]);
+    const result = await provider.getThreadsWithQuery({
+      query,
+      includeBccRecipients: true,
+    });
+    expect(result.threads.map(({ id }) => id)).toEqual(["bcc-thread"]);
+  });
+
   it("pages domain filters without dropping inbox, unread, or date constraints", async () => {
     const next =
       "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=domain";

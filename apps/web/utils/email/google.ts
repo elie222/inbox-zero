@@ -1862,6 +1862,7 @@ export class GmailProvider implements EmailProvider {
     maxResults?: number;
     pageToken?: string;
     messageFormat?: "full" | "metadata";
+    includeBccRecipients?: boolean;
   }): Promise<{
     threads: EmailThread[];
     nextPageToken?: string;
@@ -1890,7 +1891,9 @@ export class GmailProvider implements EmailProvider {
           // Gmail doesn't match "to:@domain", only the bare domain, which is
           // looser, so domain matches are narrowed again below.
           const recipient = toEmail.trim().replace(/^@/, "");
-          queryParts.push(`{to:${recipient} cc:${recipient}}`);
+          queryParts.push(
+            `{to:${recipient} cc:${recipient}${options.includeBccRecipients ? ` bcc:${recipient}` : ""}}`,
+          );
         }
 
         if (after) {
@@ -1999,6 +2002,13 @@ export class GmailProvider implements EmailProvider {
                   !matchesRecipientFilter(
                     message.headers,
                     recipientDomainFilter,
+                  ) &&
+                  !(
+                    options.includeBccRecipients &&
+                    matchesRecipientFilter(
+                      { to: message.headers.bcc },
+                      recipientDomainFilter,
+                    )
                   )
                 )
                   return false;

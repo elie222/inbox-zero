@@ -394,6 +394,7 @@ export interface EmailProvider {
     maxResults?: number;
     pageToken?: string;
     messageFormat?: "full" | "metadata";
+    includeBccRecipients?: boolean;
     // Outlook metadata pages otherwise make an extra Graph request per thread
     // to fill participantMessages for mail list rows.
     skipParticipantMessages?: boolean;

@@ -18,6 +18,7 @@ export async function hasUserSentEmail({
     const result = await provider.getThreadsWithQuery({
       query: { type: "sent", toEmail: sender },
       maxResults: 10,
+      includeBccRecipients: true,
       pageToken,
     });
 

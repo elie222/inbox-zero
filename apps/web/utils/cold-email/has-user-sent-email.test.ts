@@ -52,13 +52,19 @@ describe("hasUserSentEmail", () => {
     expect(isRuleGeneratedMessage).not.toHaveBeenCalled();
   });
 
-  it("recognizes a recipient in Cc with different casing", async () => {
+  it.each([
+    "cc",
+    "bcc",
+  ] as const)("recognizes a recipient in %s with different casing", async (header) => {
     const thread = getThread();
     thread.messages[0].headers.to = "other@outside.example";
-    thread.messages[0].headers.cc = "Contact <CONTACT@OUTSIDE.EXAMPLE>";
+    thread.messages[0].headers[header] = "Contact <CONTACT@OUTSIDE.EXAMPLE>";
     provider.getThreadsWithQuery.mockResolvedValue({ threads: [thread] });
 
     expect(await hasUserSentEmail(options)).toBe(true);
+    expect(provider.getThreadsWithQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ includeBccRecipients: true }),
+    );
   });
 
   it("bounds recovery instead of trusting a long history of automatic replies", async () => {

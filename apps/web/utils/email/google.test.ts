@@ -722,6 +722,45 @@ describe("GmailProvider.getSentMessageIds", () => {
 });
 
 describe("GmailProvider.getThreadsWithQuery", () => {
+  it("includes Bcc-only sent recipients only when requested", async () => {
+    const list = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValue({ threads: [{ id: "bcc-thread" }] });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch").mockResolvedValue([
+      {
+        id: "bcc-thread",
+        messages: [
+          {
+            id: "sent-bcc",
+            labelIds: ["SENT"],
+            payload: {
+              headers: [
+                { name: "To", value: "other@elsewhere.example" },
+                { name: "Bcc", value: "Contact <contact@outside.example>" },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+    const oauth = new auth.OAuth2();
+    oauth.setCredentials({ access_token: "access-token" });
+    const provider = new GmailProvider(new gmail_v1.Gmail({ auth: oauth }));
+    const query = { type: "sent", toEmail: "@outside.example" };
+
+    expect((await provider.getThreadsWithQuery({ query })).threads).toEqual([]);
+    const result = await provider.getThreadsWithQuery({
+      query,
+      includeBccRecipients: true,
+    });
+    expect(result.threads.map(({ id }) => id)).toEqual(["bcc-thread"]);
+    expect(list).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        q: "{to:outside.example cc:outside.example bcc:outside.example}",
+      }),
+    );
+  });
+
   it("filters domain candidates on the same inbox message and continues paging", async () => {
     const list = vi
       .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
