@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { GaxiosError } from "gaxios";
 import { createTestLogger } from "@/__tests__/helpers";
 
 const envMock = vi.hoisted(() => ({
@@ -19,6 +20,65 @@ describe("searchContacts", () => {
 
   beforeEach(() => {
     envMock.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED = true;
+  });
+
+  it.each([
+    ["saved", "response"],
+    ["other", "response"],
+    ["saved", "cause"],
+    ["other", "cause"],
+  ] as const)("recovers a cold %s source with Google details in the %s", async (source, shape) => {
+    vi.useFakeTimers();
+    const details = {
+      code: 400,
+      status: "FAILED_PRECONDITION",
+      message: "Request failed due to cold cache data",
+    };
+    const error =
+      shape === "cause"
+        ? new GaxiosError(
+            "Bad Request",
+            {
+              url: new URL("https://people.googleapis.com"),
+              headers: new Headers(),
+            },
+            undefined,
+            details,
+          )
+        : Object.assign(new Error("Bad Request"), {
+            response: { status: 400, data: { error: details } },
+          });
+    const cold = vi
+      .fn()
+      .mockResolvedValueOnce({ data: { results: [] } })
+      .mockRejectedValueOnce(error)
+      .mockResolvedValueOnce({
+        data: {
+          results: [
+            { person: { emailAddresses: [{ value: "found@example.com" }] } },
+          ],
+        },
+      });
+    const { client, searchContactsMock, searchOtherContactsMock } =
+      createPeopleClient({
+        ...(source === "saved"
+          ? { searchContactsMock: cold }
+          : { searchOtherContactsMock: cold }),
+      });
+    const pending = searchContacts(client, "contact", createTestLogger());
+    const assertion = expect(pending).resolves.toEqual([
+      expect.objectContaining({ emailAddress: "found@example.com" }),
+    ]);
+    await vi.advanceTimersByTimeAsync(5000);
+    await assertion;
+    expect(cold.mock.calls.map(([params]) => params.query)).toEqual([
+      "",
+      "contact",
+      "contact",
+    ]);
+    expect(
+      source === "saved" ? searchOtherContactsMock : searchContactsMock,
+    ).toHaveBeenCalledTimes(2);
   });
 
   it("maps all usable Google contact addresses to compose suggestions", async () => {

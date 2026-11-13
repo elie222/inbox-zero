@@ -274,10 +274,14 @@ async function withContactCacheRetry<T>(search: () => Promise<T>): Promise<T> {
   try {
     return await search();
   } catch (error) {
-    const { status, googleErrorStatus, errorMessage } = extractErrorInfo(error);
+    const { status, googleErrorStatus, errorMessage, googleErrorMessage } =
+      extractErrorInfo(error);
     if (
       (status !== 400 && googleErrorStatus !== "FAILED_PRECONDITION") ||
-      !errorMessage.includes("cold cache data")
+      ![errorMessage, googleErrorMessage].some(
+        (message) =>
+          typeof message === "string" && message.includes("cold cache data"),
+      )
     ) {
       throw error;
     }
