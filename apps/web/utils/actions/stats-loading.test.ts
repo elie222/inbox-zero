@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger, getMockMessage } from "@/__tests__/helpers";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import prisma from "@/utils/__mocks__/prisma";
-import { loadEmails } from "./stats-loading";
+import { Prisma } from "@/generated/prisma/client";
+import { SafeError } from "@/utils/error";
+import { loadEmails, saveBatch } from "./stats-loading";
 
 vi.mock("@/utils/prisma");
 
@@ -42,5 +44,43 @@ describe("loadEmails", () => {
       hasMoreAfter: true,
       hasMoreBefore: true,
     });
+  });
+});
+
+describe("saveBatch account deletion", () => {
+  it.each([
+    false,
+    true,
+  ])("only treats a foreign key failure as expected if the account was deleted (exists: %s)", async (exists) => {
+    const error = new Prisma.PrismaClientKnownRequestError(
+      "Foreign key violation",
+      {
+        code: "P2010",
+        clientVersion: "test",
+        meta: { code: "23503" },
+      },
+    );
+    prisma.$executeRaw.mockRejectedValueOnce(error);
+    prisma.emailAccount.findUnique.mockResolvedValueOnce(
+      exists ? ({ id: "account-1" } as never) : null,
+    );
+
+    const result = saveBatch({
+      emailAccountId: "account-1",
+      emailProvider: createMockEmailProvider({
+        getMessagesWithPagination: vi.fn().mockResolvedValue({
+          messages: [{ ...getMockMessage(), internalDate: "1700000000000" }],
+        }),
+      }),
+      logger: createTestLogger(),
+      before: undefined,
+      after: undefined,
+    });
+
+    if (exists) await expect(result).rejects.toBe(error);
+    else
+      await expect(result).rejects.toMatchObject(
+        new SafeError("Email account not found", 404),
+      );
   });
 });
