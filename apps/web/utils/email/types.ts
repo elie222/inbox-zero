@@ -516,10 +516,6 @@ export interface EmailProvider {
   ): Promise<void>;
   unarchiveMessages(messageIds: string[]): Promise<void>;
   unarchiveThread(threadId: string): Promise<void>;
-  /**
-   * Restores a trashed thread, to undo `trashThread`. Gmail puts it back under
-   * its pre-trash labels; Outlook has no such record and moves it to the inbox.
-   */
   untrashMessages(messageIds: string[]): Promise<void>;
   untrashThread(threadId: string): Promise<void>;
   unwatchEmails(subscriptionId?: string): Promise<void>;
