@@ -363,20 +363,14 @@ describe.runIf(shouldRunEval)(
                   messages,
                 });
 
-                const startCall = getFirstToolCallIndex(
-                  toolCalls,
-                  "startSenderCategorization",
-                );
-                const firstSearchCall = getFirstToolCallIndex(
-                  toolCalls,
-                  "searchInbox",
-                );
                 const statusCalls =
                   getSenderCategorizationStatusCalls(toolCalls);
                 const pass =
-                  startCall >= 0 &&
-                  (firstSearchCall < 0 || firstSearchCall > startCall) &&
+                  hasToolCall(toolCalls, "startSenderCategorization") &&
                   !hasToolCall(toolCalls, "manageSenderCategory") &&
+                  !hasToolCall(toolCalls, "searchInbox") &&
+                  !hasToolCall(toolCalls, "manageInbox") &&
+                  !hasToolCall(toolCalls, "bulkManageInbox") &&
                   statusCalls.length <= 3 &&
                   statusCalls.every(
                     (toolCall) => toolCall.input.waitMs <= 1500,
