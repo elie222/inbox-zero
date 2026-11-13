@@ -450,6 +450,30 @@ Ines`,
     }),
   },
   {
+    name: "first-time buyer asking for help completing enrollment",
+    category: "prospect",
+    expected: false,
+    email: getEmail({
+      from: "Mira Chen <mira@outside.example>",
+      subject: "Joining the design workshop",
+      content:
+        "Hi, I found your workshop through a friend's post and would like to enroll. The checkout won't accept my card for the 600 euro registration. Could you send an invoice or another way to pay? I haven't attended one of your sessions before.",
+      date,
+    }),
+  },
+  {
+    name: "first-time buyer inquiry in Spanish",
+    category: "prospect",
+    expected: false,
+    email: getEmail({
+      from: "Lucia Perez <lucia@outside.example>",
+      subject: "Inscripción al taller",
+      content:
+        "Hola, encontré su taller de fotografía y quiero reservar dos plazas. No consigo completar el pago en la web. ¿Me podrían indicar otra forma de pagar? Sería nuestra primera vez asistiendo.",
+      date,
+    }),
+  },
+  {
     name: "investor asking to learn more",
     category: "investor",
     expected: false,
