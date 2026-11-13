@@ -355,7 +355,7 @@ export const startSenderCategorizationTool = ({
 }) =>
   tool({
     description:
-      "Start sender categorization for the current account. This creates default categories if needed, enables automatic sender categorization, queues uncategorized senders for AI categorization, and returns current progress. Use this only when category cleanup is needed and getSenderCategoryOverview shows category coverage is not ready. After starting, poll getSenderCategorizationStatus only briefly before deciding whether cleanup can continue. Safe to call again: if a run is already active, it returns the existing run instead of starting a duplicate job.",
+      "Start sender categorization for the current account. This creates default categories if needed, turns on automatic sender categorization as a lasting setting, queues uncategorized senders for AI categorization, and returns current progress. Use this only when category cleanup is needed and getSenderCategoryOverview shows category coverage is not ready. Unless the user explicitly asked to categorize their senders, offer to start it and wait for their confirmation before calling this. After starting, poll getSenderCategorizationStatus only briefly before deciding whether cleanup can continue. Safe to call again: if a run is already active, it returns the existing run instead of starting a duplicate job.",
     inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({ tool: "start_sender_categorization", email, logger });
