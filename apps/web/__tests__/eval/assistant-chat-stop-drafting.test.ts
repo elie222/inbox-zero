@@ -49,6 +49,11 @@ const toReplyRule = ruleRows.find(
 const toReplyLabel = toReplyRule?.actions.find(
   (action) => action.type === ActionType.LABEL,
 )?.label;
+const allowedActionTypes = new Set(
+  toReplyRule?.actions
+    .map((action) => action.type)
+    .filter((type) => type !== ActionType.DRAFT_EMAIL),
+);
 
 const scenarios = [
   { name: "english", message: "Stop drafting replies for me." },
@@ -156,6 +161,9 @@ describe.runIf(shouldRunEval)("Eval: assistant chat stop drafting", () => {
             !!toReplyLabel &&
             !hasActionType(updateCall.actions, ActionType.DRAFT_EMAIL) &&
             hasLabelAction(updateCall.actions, toReplyLabel) &&
+            updateCall.actions.every((action) =>
+              allowedActionTypes.has(action.type),
+            ) &&
             !toolCalls.some(
               (toolCall) =>
                 toolCall.toolName === "updatePersonalInstructions" ||
