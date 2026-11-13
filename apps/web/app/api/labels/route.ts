@@ -24,26 +24,18 @@ export const GET = withEmailProvider(
   async (request) => {
     const { emailProvider } = request;
 
-    try {
-      // Hidden labels are included so the client can honour Gmail's visibility
-      // settings itself, and still offer a way back to a hidden label.
-      const labels = await emailProvider.getLabels({ includeHidden: true });
-      // Map to unified format
-      const unifiedLabels: UnifiedLabel[] = (labels || []).map((label) => ({
-        id: label.id,
-        name: label.name,
-        type: label.type,
-        color: label.color,
-        labelListVisibility: label.labelListVisibility,
-        messageListVisibility: label.messageListVisibility,
-      }));
-      return NextResponse.json({ labels: unifiedLabels });
-    } catch (error) {
-      request.logger.error("Error fetching labels", {
-        error,
-      });
-      return NextResponse.json({ labels: [] }, { status: 500 });
-    }
+    // Hidden labels are included so the client can honour Gmail's visibility
+    // settings itself, and still offer a way back to a hidden label.
+    const labels = await emailProvider.getLabels({ includeHidden: true });
+    const unifiedLabels: UnifiedLabel[] = (labels || []).map((label) => ({
+      id: label.id,
+      name: label.name,
+      type: label.type,
+      color: label.color,
+      labelListVisibility: label.labelListVisibility,
+      messageListVisibility: label.messageListVisibility,
+    }));
+    return NextResponse.json({ labels: unifiedLabels });
   },
   { requestTiming: {} },
 );
