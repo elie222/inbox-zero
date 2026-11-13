@@ -749,6 +749,62 @@ describe("processHistoryForUser - authentication failures", () => {
     expect(await response.json()).toEqual({ ok: true });
   });
 
+  it("marks incomplete history for catch-up without a prior rate limit and retries the wider window", async () => {
+    vi.mocked(getGmailHistoryCatchUp).mockResolvedValue(null);
+    vi.mocked(markGmailHistoryCatchUp).mockImplementation(async () => {
+      vi.mocked(getGmailHistoryCatchUp).mockResolvedValue("new-catch-up-token");
+    });
+    vi.mocked(getHistory).mockResolvedValue({
+      history: [
+        {
+          id: "1500",
+          messagesAdded: [
+            {
+              message: {
+                id: "message-1",
+                threadId: "thread-1",
+                labelIds: ["INBOX"],
+              },
+            },
+          ],
+        },
+      ],
+    });
+    vi.mocked(processHistoryItem).mockRejectedValueOnce(
+      new SafeError("No refresh token"),
+    );
+
+    await processHistoryForUser(
+      { emailAddress: "user@example.com", historyId: 2000 },
+      {},
+      logger,
+    );
+
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
+    expect(clearGmailHistoryCatchUp).not.toHaveBeenCalled();
+    vi.mocked(processHistoryItem).mockResolvedValue(undefined);
+    await processHistoryForUser(
+      { emailAddress: "user@example.com", historyId: 6000 },
+      {},
+      logger,
+    );
+
+    expect(getHistory).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ startHistoryId: "1000" }),
+      expect.anything(),
+    );
+    expect(markGmailHistoryCatchUp).toHaveBeenCalledWith(
+      "account-123",
+      expect.anything(),
+    );
+    expect(clearGmailHistoryCatchUp).toHaveBeenCalledWith(
+      expect.objectContaining({ token: "new-catch-up-token" }),
+    );
+    vi.mocked(getGmailHistoryCatchUp).mockResolvedValue(null);
+    vi.mocked(markGmailHistoryCatchUp).mockResolvedValue(undefined);
+  });
+
   it("does not disconnect accounts for transient Gmail API failures", async () => {
     vi.mocked(getHistory).mockRejectedValueOnce(
       new Error("Service unavailable"),
