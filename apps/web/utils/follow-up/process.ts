@@ -14,6 +14,7 @@ import {
 } from "@/utils/follow-up/send-follow-up-notification";
 import { parseFollowUpNotificationDeliveries } from "@/utils/follow-up/notification-deliveries";
 import { ThreadTrackerType, SystemType } from "@/generated/prisma/enums";
+import { isDraftRepliesEnabled } from "@/utils/rule/draft-replies";
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import type { Logger } from "@/utils/logger";
@@ -232,9 +233,7 @@ export async function processAccountFollowUps({
   await processFollowUpsForType({
     systemType: SystemType.AWAITING_REPLY,
     thresholdDays: emailAccount.followUpAwaitingReplyDays,
-    generateDraft:
-      emailAccount.followUpAutoDraftEnabled &&
-      !env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED,
+    generateDraft: await shouldGenerateFollowUpDrafts(emailAccount),
     emailAccount,
     provider,
     providerName,
@@ -936,4 +935,23 @@ async function getNotificationMessage({
     logger.warn("Failed to fetch follow-up notification body", { error });
     return message;
   }
+}
+
+async function shouldGenerateFollowUpDrafts(
+  emailAccount: FollowUpReminderAccount,
+) {
+  if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) return false;
+  if (!emailAccount.followUpAutoDraftEnabled) return false;
+
+  const toReplyRule = await prisma.rule.findUnique({
+    where: {
+      emailAccountId_systemType: {
+        emailAccountId: emailAccount.id,
+        systemType: SystemType.TO_REPLY,
+      },
+    },
+    select: { enabled: true, actions: { select: { type: true } } },
+  });
+
+  return isDraftRepliesEnabled(toReplyRule);
 }

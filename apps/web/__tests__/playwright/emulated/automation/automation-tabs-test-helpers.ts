@@ -12,6 +12,7 @@ type AutomationAccountSettings = {
   about: string | null;
   allowHiddenAiDraftLinks: boolean;
   draftReplyConfidence: string;
+  followUpAutoDraftEnabled: boolean;
   includeReferralSignature: boolean;
   multiRuleSelectionEnabled: boolean;
   sensitiveDataPolicy: string | null;
@@ -193,6 +194,7 @@ export async function seedAutomationSettings(emailAccountId: string) {
       `SELECT about,
               "allowHiddenAiDraftLinks",
               "draftReplyConfidence"::text,
+              "followUpAutoDraftEnabled",
               "includeReferralSignature",
               "multiRuleSelectionEnabled",
               "sensitiveDataPolicy",
@@ -332,6 +334,7 @@ export async function cleanupAutomationSettings({
            "sensitiveDataPolicy" = $7,
            "draftReplyConfidence" = $8::"DraftReplyConfidence",
            "allowHiddenAiDraftLinks" = $9,
+           "followUpAutoDraftEnabled" = $10,
            "updatedAt" = CURRENT_TIMESTAMP
        WHERE id = $1`,
       [
@@ -344,6 +347,7 @@ export async function cleanupAutomationSettings({
         previousAccountSettings.sensitiveDataPolicy,
         previousAccountSettings.draftReplyConfidence,
         previousAccountSettings.allowHiddenAiDraftLinks,
+        previousAccountSettings.followUpAutoDraftEnabled,
       ],
     );
   });
@@ -378,10 +382,16 @@ export async function getAutomationSettingsState(emailAccountId: string) {
        ORDER BY a.type::text`,
       [emailAccountId],
     );
+    const toReplyRule = await client.query<{ enabled: boolean }>(
+      `SELECT enabled FROM "Rule"
+       WHERE "emailAccountId" = $1 AND "systemType" = 'TO_REPLY'`,
+      [emailAccountId],
+    );
 
     return {
       ...accountResult.rows[0],
       draftActionTypes: draftActions.rows.map((row) => row.type),
+      toReplyRuleEnabled: toReplyRule.rows[0]?.enabled ?? null,
     };
   });
 }

@@ -2172,10 +2172,6 @@ msgstr "Künftige E-Mails automatisch archivieren"
 msgid "Auto categorize"
 msgstr "Automatisch kategorisieren"
 
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
-msgid "Auto draft replies"
-msgstr "Antworten automatisch entwerfen"
-
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
 msgid "Auto-archive"
 msgstr "Automatisch archivieren"
@@ -2210,10 +2206,6 @@ msgstr "Anhänge automatisch ablegen"
 msgid "Auto-filing started!"
 msgstr "Automatische Ablage gestartet!"
 
-#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Auto-generate drafts"
-msgstr "Entwürfe automatisch erstellen"
-
 #: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
 msgid "Automated notification"
 msgstr "Automatische Benachrichtigung"
@@ -2237,10 +2229,6 @@ msgstr "Absender automatisch für Massenarchivierung und den KI-Assistenten kate
 #: app/(app)/[emailAccountId]/smart-categories/setup/SmartCategoriesOnboarding.tsx
 msgid "Automatically categorize who emails you for better inbox management and smarter automation."
 msgstr "Kategorisiere automatisch, wer dir schreibt – für einen besser verwalteten Posteingang und smartere Automatisierung."
-
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
-msgid "Automatically draft replies written in your tone to emails needing a reply."
-msgstr "Entwirf automatisch Antworten in deinem Ton für E-Mails, die eine Antwort brauchen."
 
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Automatically send each Stripe invoice to the billing email."
@@ -4814,10 +4802,6 @@ msgstr "Entwurf"
 msgid "Draft a follow-up email"
 msgstr "Nachfass-E-Mail entwerfen"
 
-#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Draft a nudge when you haven't heard back."
-msgstr "Entwirf eine Erinnerung, wenn du keine Antwort bekommen hast."
-
 #: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
 msgid "Draft a reply for every email, even when uncertain."
 msgstr "Für jede E-Mail eine Antwort entwerfen, auch wenn unsicher."
@@ -4842,6 +4826,10 @@ msgstr "Entwurfssicherheit aktualisiert"
 msgid "Draft content (optional)"
 msgstr "Entwurfsinhalt (optional)"
 
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Draft follow-up emails"
+msgstr "Nachfass-E-Mails entwerfen"
+
 #: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
 msgid "Draft knowledge base"
 msgstr "Wissensdatenbank für Entwürfe"
@@ -4851,9 +4839,14 @@ msgid "Draft ready"
 msgstr "Entwurf bereit"
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "Draft replies"
 msgstr "Antworten entwerfen"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+msgid "Draft replies in your tone to emails that need a reply. Turning this off keeps the To Reply label."
+msgstr "Entwirft Antworten in Ihrem Ton auf E-Mails, die eine Antwort brauchen. Wenn Sie das ausschalten, bleibt das Label To Reply erhalten."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Draft replies to customer questions using our help docs"
@@ -6012,6 +6005,9 @@ msgid "Failed to save account order"
 msgstr "Kontoreihenfolge konnte nicht gespeichert werden"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Failed to save follow-up settings"
+msgstr "Nachfass-Einstellungen konnten nicht gespeichert werden"
+
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 #: app/(app)/[emailAccountId]/briefs/page.tsx
 #: app/(app)/[emailAccountId]/meetings/MeetingRecorderSettingsDialog.tsx
@@ -6023,8 +6019,8 @@ msgid "Failed to save signature"
 msgstr "Signatur konnte nicht gespeichert werden"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Failed to scan"
-msgstr "Scan fehlgeschlagen"
+msgid "Failed to scan for follow-ups"
+msgstr "Nachfassen konnte nicht gesucht werden"
 
 #: app/(app)/[emailAccountId]/briefs/UpcomingMeetings.tsx
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
@@ -6119,6 +6115,14 @@ msgstr "Dokumentationsseiten konnten nicht aktualisiert werden"
 msgid "Failed to update draft confidence"
 msgstr "Entwurfssicherheit konnte nicht aktualisiert werden"
 
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+msgid "Failed to update draft replies"
+msgstr "Antwortentwürfe konnten nicht aktualisiert werden"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Failed to update follow-up reminders"
+msgstr "Nachfass-Erinnerungen konnten nicht aktualisiert werden"
+
 #: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
 msgid "Failed to update hidden AI draft links setting"
 msgstr "Einstellung für ausgeblendete KI-Entwurfslinks konnte nicht aktualisiert werden"
@@ -6157,7 +6161,6 @@ msgid "Failed to update setting"
 msgstr "Einstellung konnte nicht aktualisiert werden"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DigestSetting.tsx
-#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
 #: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
 #: app/(app)/organization/[organizationId]/OrgAnalyticsConsentBanner.tsx
@@ -7873,8 +7876,12 @@ msgid "Label emails from Stripe as @[Stripe] and archive them"
 msgstr "Labele E-Mails von Stripe als @[Stripe] und archiviere sie"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Label emails where you haven't heard back or haven't replied."
-msgstr "Labele E-Mails, auf die du keine Antwort erhalten oder die du nicht beantwortet hast."
+msgid "Label emails where you haven't heard back or haven't replied, and draft a nudge when you haven't heard back."
+msgstr "Markiert E-Mails, auf die Sie keine Antwort erhalten oder nicht geantwortet haben, und entwirft eine Nachfass-Mail, wenn keine Antwort kam."
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Label emails where you haven't heard back or haven't replied. Does not draft emails."
+msgstr "Markiert E-Mails, auf die Sie keine Antwort erhalten oder nicht geantwortet haben. Entwirft keine E-Mails."
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Label emails with feedback from customers about our product as @[Customer Feedback]"
@@ -12995,16 +13002,10 @@ msgstr "Beim Verschieben der E-Mails in den Papierkorb ist ein Fehler aufgetrete
 msgid "There was an error updating the rule."
 msgstr "Beim Aktualisieren der Regel ist ein Fehler aufgetreten."
 
-#. placeholder {0}: error.message
 #. placeholder {0}: result.serverError || ""
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "There was an error: {0}"
 msgstr "Es ist ein Fehler aufgetreten: {0}"
-
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
-msgid "There was an error: Unknown error"
-msgstr "Es ist ein Fehler aufgetreten: Unbekannter Fehler"
 
 #. placeholder {0}: warning.placeholder
 #: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
@@ -13521,6 +13522,10 @@ msgstr "Tab ausschalten"
 msgid "Turn off the {0} split"
 msgstr "Tab {0} ausschalten"
 
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Turn on Draft replies to use this."
+msgstr "Schalten Sie Antworten entwerfen ein, um das zu nutzen."
+
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Turn on split"
 msgstr "Tab einschalten"
@@ -13649,6 +13654,8 @@ msgid "Unknown date"
 msgstr "Unbekanntes Datum"
 
 #: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 #: app/(app)/[emailAccountId]/integrations/IntegrationRow.tsx
@@ -14560,6 +14567,10 @@ msgstr "Sollen aufgeräumte E-Mails archiviert oder als gelesen markiert werden?
 #: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
 msgid "Write a message…"
 msgstr "Nachricht schreiben…"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Write a nudge draft when you haven't heard back."
+msgstr "Entwirft eine Nachfass-Mail, wenn keine Antwort kam."
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"

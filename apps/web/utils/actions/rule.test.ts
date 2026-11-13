@@ -92,7 +92,7 @@ describe("enableDraftRepliesAction", () => {
     });
   });
 
-  it("disables the existing to-reply rule when draft replies are turned off", async () => {
+  it("keeps the to-reply rule labelling when draft replies are turned off", async () => {
     (
       prisma.emailAccount.findUnique as ReturnType<typeof vi.fn>
     ).mockResolvedValue({
@@ -104,27 +104,33 @@ describe("enableDraftRepliesAction", () => {
       id: "rule-1",
       enabled: true,
       systemType: SystemType.TO_REPLY,
-      actions: [{ type: ActionType.DRAFT_EMAIL }],
+      actions: [{ type: ActionType.LABEL }, { type: ActionType.DRAFT_EMAIL }],
     } as never);
 
-    setRuleEnabledMock.mockResolvedValue({
-      id: "rule-1",
-      enabled: false,
-      actions: [{ type: ActionType.DRAFT_EMAIL }],
+    await enableDraftRepliesAction("ea_1" as never, { enable: false } as never);
+
+    expect(setRuleEnabledMock).not.toHaveBeenCalled();
+    expect(prisma.action.deleteMany).toHaveBeenCalledWith({
+      where: {
+        rule: { emailAccountId: "ea_1", systemType: SystemType.TO_REPLY },
+        type: ActionType.DRAFT_EMAIL,
+      },
+    });
+  });
+
+  it("turns off follow-up drafting when draft replies are turned off", async () => {
+    (
+      prisma.emailAccount.findUnique as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
     });
 
     await enableDraftRepliesAction("ea_1" as never, { enable: false } as never);
 
-    expect(setRuleEnabledMock).toHaveBeenCalledWith({
-      ruleId: "rule-1",
-      emailAccountId: "ea_1",
-      enabled: false,
-    });
-    expect(prisma.action.deleteMany).toHaveBeenCalledWith({
-      where: {
-        ruleId: "rule-1",
-        type: ActionType.DRAFT_EMAIL,
-      },
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+      where: { id: "ea_1" },
+      data: { followUpAutoDraftEnabled: false },
     });
   });
 });

@@ -2172,10 +2172,6 @@ msgstr "Archiver automatiquement les futurs e-mails"
 msgid "Auto categorize"
 msgstr "Catégoriser automatiquement"
 
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
-msgid "Auto draft replies"
-msgstr "Rédiger automatiquement des brouillons de réponse"
-
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
 msgid "Auto-archive"
 msgstr "Archivage automatique"
@@ -2210,10 +2206,6 @@ msgstr "Classer automatiquement les pièces jointes"
 msgid "Auto-filing started!"
 msgstr "Classement automatique lancé !"
 
-#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Auto-generate drafts"
-msgstr "Générer automatiquement des brouillons"
-
 #: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
 msgid "Automated notification"
 msgstr "Notification automatique"
@@ -2237,10 +2229,6 @@ msgstr "Catégorise automatiquement les expéditeurs pour l’archivage groupé 
 #: app/(app)/[emailAccountId]/smart-categories/setup/SmartCategoriesOnboarding.tsx
 msgid "Automatically categorize who emails you for better inbox management and smarter automation."
 msgstr "Catégorise automatiquement les personnes qui t’écrivent pour mieux gérer ta boîte de réception et automatiser plus intelligemment."
-
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
-msgid "Automatically draft replies written in your tone to emails needing a reply."
-msgstr "Rédige automatiquement, dans ton style, des brouillons de réponse aux e-mails qui en nécessitent une."
 
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Automatically send each Stripe invoice to the billing email."
@@ -4814,10 +4802,6 @@ msgstr "Brouillon"
 msgid "Draft a follow-up email"
 msgstr "Rédiger un e-mail de relance"
 
-#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Draft a nudge when you haven't heard back."
-msgstr "Rédige une relance quand tu n’as pas eu de réponse."
-
 #: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
 msgid "Draft a reply for every email, even when uncertain."
 msgstr "Rédige une réponse pour chaque e-mail, même en cas de doute."
@@ -4842,6 +4826,10 @@ msgstr "Confiance du brouillon mise à jour"
 msgid "Draft content (optional)"
 msgstr "Contenu du brouillon (facultatif)"
 
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Draft follow-up emails"
+msgstr "Rédiger des e-mails de relance"
+
 #: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
 msgid "Draft knowledge base"
 msgstr "Base de connaissances pour les brouillons"
@@ -4851,9 +4839,14 @@ msgid "Draft ready"
 msgstr "Brouillon prêt"
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "Draft replies"
 msgstr "Brouillons de réponse"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+msgid "Draft replies in your tone to emails that need a reply. Turning this off keeps the To Reply label."
+msgstr "Rédige des brouillons de réponse dans votre ton pour les e-mails qui attendent une réponse. Le désactiver conserve le libellé To Reply."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Draft replies to customer questions using our help docs"
@@ -6012,6 +6005,9 @@ msgid "Failed to save account order"
 msgstr "Impossible d’enregistrer l’ordre des comptes"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Failed to save follow-up settings"
+msgstr "Impossible d’enregistrer les paramètres de relance"
+
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 #: app/(app)/[emailAccountId]/briefs/page.tsx
 #: app/(app)/[emailAccountId]/meetings/MeetingRecorderSettingsDialog.tsx
@@ -6023,8 +6019,8 @@ msgid "Failed to save signature"
 msgstr "Impossible d’enregistrer la signature"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Failed to scan"
-msgstr "Impossible d’analyser"
+msgid "Failed to scan for follow-ups"
+msgstr "Impossible de rechercher les relances"
 
 #: app/(app)/[emailAccountId]/briefs/UpcomingMeetings.tsx
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
@@ -6119,6 +6115,14 @@ msgstr "Impossible de mettre à jour les sites de documentation"
 msgid "Failed to update draft confidence"
 msgstr "Impossible de mettre à jour la confiance du brouillon"
 
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+msgid "Failed to update draft replies"
+msgstr "Impossible de mettre à jour les brouillons de réponse"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Failed to update follow-up reminders"
+msgstr "Impossible de mettre à jour les rappels de relance"
+
 #: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
 msgid "Failed to update hidden AI draft links setting"
 msgstr "Impossible de mettre à jour le paramètre des liens masqués dans les brouillons IA"
@@ -6157,7 +6161,6 @@ msgid "Failed to update setting"
 msgstr "Impossible de mettre à jour le paramètre"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DigestSetting.tsx
-#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
 #: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
 #: app/(app)/organization/[organizationId]/OrgAnalyticsConsentBanner.tsx
@@ -7873,8 +7876,12 @@ msgid "Label emails from Stripe as @[Stripe] and archive them"
 msgstr "Libelle les e-mails de Stripe avec @[Stripe] et archive-les"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Label emails where you haven't heard back or haven't replied."
-msgstr "Libelle les e-mails auxquels tu n'as pas eu de réponse ou auxquels tu n'as pas répondu."
+msgid "Label emails where you haven't heard back or haven't replied, and draft a nudge when you haven't heard back."
+msgstr "Étiquette les e-mails sans réponse de votre part ou de votre interlocuteur, et rédige une relance quand on ne vous a pas répondu."
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Label emails where you haven't heard back or haven't replied. Does not draft emails."
+msgstr "Étiquette les e-mails sans réponse de votre part ou de votre interlocuteur. Ne rédige aucun e-mail."
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Label emails with feedback from customers about our product as @[Customer Feedback]"
@@ -12995,16 +13002,10 @@ msgstr "Une erreur s'est produite lors de la mise à la corbeille des e-mails"
 msgid "There was an error updating the rule."
 msgstr "Une erreur s'est produite lors de la mise à jour de la règle."
 
-#. placeholder {0}: error.message
 #. placeholder {0}: result.serverError || ""
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "There was an error: {0}"
 msgstr "Une erreur s'est produite : {0}"
-
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
-msgid "There was an error: Unknown error"
-msgstr "Une erreur s'est produite : erreur inconnue"
 
 #. placeholder {0}: warning.placeholder
 #: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
@@ -13521,6 +13522,10 @@ msgstr "Désactiver l'onglet"
 msgid "Turn off the {0} split"
 msgstr "Désactiver l'onglet {0}"
 
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Turn on Draft replies to use this."
+msgstr "Activez Brouillons de réponse pour utiliser cette option."
+
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Turn on split"
 msgstr "Activer l'onglet"
@@ -13649,6 +13654,8 @@ msgid "Unknown date"
 msgstr "Date inconnue"
 
 #: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 #: app/(app)/[emailAccountId]/integrations/IntegrationRow.tsx
@@ -14560,6 +14567,10 @@ msgstr "Veux-tu que les e-mails nettoyés soient archivés ou marqués comme lus
 #: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
 msgid "Write a message…"
 msgstr "Écris un message…"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Write a nudge draft when you haven't heard back."
+msgstr "Rédige un brouillon de relance quand on ne vous a pas répondu."
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"
