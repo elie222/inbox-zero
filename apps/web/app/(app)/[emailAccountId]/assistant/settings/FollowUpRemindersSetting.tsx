@@ -67,8 +67,9 @@ function FollowUpRemindersSettingContent() {
   const enabled =
     data?.followUpAwaitingReplyDays !== null ||
     data?.followUpNeedsReplyDays !== null;
+  // Nudge drafts are only written for awaiting-reply reminders.
   const draftsFollowUps =
-    enabled &&
+    data?.followUpAwaitingReplyDays != null &&
     draftRepliesEnabled &&
     !!data?.followUpAutoDraftEnabled &&
     !env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED;
