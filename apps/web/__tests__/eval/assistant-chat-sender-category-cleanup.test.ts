@@ -15,6 +15,10 @@ import { getStableMessageCacheKey } from "@/__tests__/eval/message-cache-key";
 import { describeEvalMatrix } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { getMockMessage } from "@/__tests__/helpers";
+import {
+  formatSemanticJudgeActual,
+  judgeEvalOutput,
+} from "@/__tests__/eval/semantic-judge";
 
 // pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-sender-category-cleanup.test.ts
 // Multi-model: EVAL_MODELS=all pnpm --filter inbox-zero-ai test-ai __tests__/eval/assistant-chat-sender-category-cleanup.test.ts
@@ -241,13 +245,82 @@ describe.runIf(shouldRunEval)(
         );
 
         test.each(inboxWorkflowProviders)(
-          "missing category coverage starts categorization before any search fallback [$label]",
+          "missing category coverage asks before starting categorization [$label]",
           async ({ provider, label }) => {
-            const testName = `missing coverage starts categorization before fallback (${label})`;
+            const testName = `missing coverage asks before starting categorization (${label})`;
             const messages = [
               {
                 role: "user" as const,
                 content: "Archive the Newsletters category.",
+              },
+            ];
+            const unreadyCategoryOverview = buildUnreadyCategoryOverview();
+
+            const record = await evalReporter.recordCached(
+              {
+                testName,
+                model: model.label,
+                cacheKeyParts: [
+                  { model, provider, label, messages, unreadyCategoryOverview },
+                ],
+              },
+              async () => {
+                hoisted.mockGetCategoryOverview.mockResolvedValue(
+                  unreadyCategoryOverview,
+                );
+
+                const { toolCalls, actual, finalText } = await runAssistantChat(
+                  {
+                    emailAccount: cloneEmailAccountForProvider(
+                      emailAccount,
+                      provider,
+                    ),
+                    messages,
+                  },
+                );
+
+                const followsSafeToolPath =
+                  hasToolCall(toolCalls, "getSenderCategoryOverview") &&
+                  !hasToolCall(toolCalls, "startSenderCategorization") &&
+                  !hasToolCall(toolCalls, "manageSenderCategory") &&
+                  !hasToolCall(toolCalls, "manageInbox") &&
+                  !hasToolCall(toolCalls, "bulkManageInbox");
+                const judgeResult = followsSafeToolPath
+                  ? await judgeEvalOutput({
+                      input: messages[0].content,
+                      output: finalText,
+                      expected:
+                        "Explains that sender categories are not set up yet, so there is no Newsletters category to archive, and clearly offers to start sender categorization, asking the user to confirm first. It does not claim categorization already started or that anything was archived.",
+                      criterion: {
+                        name: "Asks before starting sender categorization",
+                        description:
+                          "The reply must make a clear offer to start sender categorization and wait for the user's go-ahead, without claiming it already started or that mail was archived.",
+                      },
+                    })
+                  : null;
+
+                return {
+                  pass: followsSafeToolPath && !!judgeResult?.pass,
+                  actual: judgeResult
+                    ? `${actual} | ${formatSemanticJudgeActual(finalText, judgeResult)}`
+                    : actual,
+                };
+              },
+            );
+
+            expect(record.pass, record.actual).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test.each(inboxWorkflowProviders)(
+          "explicit categorize request starts categorization without a second confirmation [$label]",
+          async ({ provider, label }) => {
+            const testName = `explicit categorize request starts categorization (${label})`;
+            const messages = [
+              {
+                role: "user" as const,
+                content: "Categorize my senders.",
               },
             ];
             const unreadyCategoryOverview = buildUnreadyCategoryOverview();
@@ -275,7 +348,7 @@ describe.runIf(shouldRunEval)(
                 hoisted.mockGetCategoryOverview.mockResolvedValue(
                   unreadyCategoryOverview,
                 );
-                hoisted.mockStartBulkCategorization.mockResolvedValueOnce(
+                hoisted.mockStartBulkCategorization.mockResolvedValue(
                   startCategorizationResult,
                 );
                 hoisted.mockGetCategorizationProgress.mockResolvedValue(
@@ -290,36 +363,24 @@ describe.runIf(shouldRunEval)(
                   messages,
                 });
 
-                const overviewCall = getFirstToolCallIndex(
-                  toolCalls,
-                  "getSenderCategoryOverview",
-                );
                 const startCall = getFirstToolCallIndex(
                   toolCalls,
                   "startSenderCategorization",
                 );
-                const statusCalls =
-                  getSenderCategorizationStatusCalls(toolCalls);
                 const firstSearchCall = getFirstToolCallIndex(
                   toolCalls,
                   "searchInbox",
                 );
-                const lastStatusCall = getLastToolCallIndex(
-                  toolCalls,
-                  "getSenderCategorizationStatus",
-                );
+                const statusCalls =
+                  getSenderCategorizationStatusCalls(toolCalls);
                 const pass =
-                  overviewCall >= 0 &&
-                  startCall > overviewCall &&
+                  startCall >= 0 &&
+                  (firstSearchCall < 0 || firstSearchCall > startCall) &&
                   !hasToolCall(toolCalls, "manageSenderCategory") &&
                   statusCalls.length <= 3 &&
                   statusCalls.every(
                     (toolCall) => toolCall.input.waitMs <= 1500,
-                  ) &&
-                  (firstSearchCall < 0 ||
-                    (firstSearchCall > startCall &&
-                      (lastStatusCall < 0 ||
-                        firstSearchCall > lastStatusCall)));
+                  );
 
                 return {
                   pass,
@@ -360,16 +421,6 @@ function getFirstToolCallIndex(
   toolName: string,
 ) {
   return toolCalls.findIndex((toolCall) => toolCall.toolName === toolName);
-}
-
-function getLastToolCallIndex(toolCalls: RecordedToolCall[], toolName: string) {
-  for (let index = toolCalls.length - 1; index >= 0; index -= 1) {
-    if (toolCalls[index]?.toolName === toolName) {
-      return index;
-    }
-  }
-
-  return -1;
 }
 
 function usesSenderCategoryExecutionPath(toolCalls: RecordedToolCall[]) {
