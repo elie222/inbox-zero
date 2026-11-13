@@ -54,6 +54,18 @@ describe("ThreadReader", () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the conversation mounted when a background refresh fails", () => {
+    renderReader({
+      messages: [createMessage("message-1", "Reply in progress", ["INBOX"])],
+      error: { info: { error: "Temporary refresh failure" }, status: 503 },
+      refetch: vi.fn(),
+    });
+    expect(
+      screen.getByRole("heading", { name: "Reply in progress" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
   it("titles the thread from its shown messages, not a draft hidden for a pending send", () => {
     const showDraftAgain = hideSendingDraftMessages("account-1", ["draft-1"]);
     try {
