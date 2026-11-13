@@ -162,6 +162,7 @@ const createMockClient = (): EmailProvider =>
     isSentMessage: vi.fn((message: ParsedMessage) =>
       message.labelIds?.includes("SENT"),
     ),
+    getSendAsAddresses: vi.fn().mockResolvedValue([]),
   }) as EmailProvider;
 
 const createMockEmailAccountSettings = (
@@ -1114,6 +1115,162 @@ reason: Matched the requested property packet
     );
   });
 });
+
+describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold - who the user is", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getReplyWithConfidence).mockResolvedValue(null);
+    vi.mocked(aiDraftReplyWithConfidence).mockResolvedValue({
+      reply: "Draft reply",
+      confidence: DraftReplyConfidence.HIGH_CONFIDENCE,
+    });
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+      createMockEmailAccountSettings(),
+    );
+  });
+
+  it("does not draft when the user sent the latest message in the thread", async () => {
+    const result = await generateForThread([
+      createMockMessage(),
+      {
+        ...createMockMessage(),
+        id: "msg-2",
+        internalDate: "1704070800000",
+        labelIds: ["SENT"],
+        headers: {
+          ...createMockMessage().headers,
+          from: "user@example.com",
+          to: "sender@example.com",
+        },
+      },
+    ]);
+
+    expect(result.draft).toBeNull();
+    expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
+  });
+
+  it("does not draft when one of the user's send-as aliases wrote the latest message", async () => {
+    const result = await generateForThread(
+      [
+        createMockMessage(),
+        {
+          ...createMockMessage(),
+          id: "msg-2",
+          internalDate: "1704070800000",
+          headers: {
+            ...createMockMessage().headers,
+            from: "User Alias <alias@example.org>",
+            to: "sender@example.com",
+          },
+        },
+      ],
+      [
+        { email: "user@example.com", isDefault: true },
+        { email: "Alias@example.org", isDefault: false },
+      ],
+    );
+
+    expect(result.draft).toBeNull();
+    expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
+  });
+
+  it("does not draft when the user is only copied on the latest message", async () => {
+    const result = await generateForThread([
+      {
+        ...createMockMessage(),
+        headers: {
+          ...createMockMessage().headers,
+          to: "Colleague <colleague@example.com>",
+          cc: "User <user@example.com>",
+        },
+      },
+    ]);
+
+    expect(result.draft).toBeNull();
+    expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
+  });
+
+  it("does not draft when only the user's alias is copied", async () => {
+    const result = await generateForThread(
+      [
+        {
+          ...createMockMessage(),
+          headers: {
+            ...createMockMessage().headers,
+            to: "colleague@example.com",
+            cc: "alias@example.org",
+          },
+        },
+      ],
+      [{ email: "alias@example.org", isDefault: false }],
+    );
+
+    expect(result.draft).toBeNull();
+    expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
+  });
+
+  it("drafts mail addressed to an alias and tells the drafter about the alias", async () => {
+    const result = await generateForThread(
+      [
+        {
+          ...createMockMessage(),
+          headers: {
+            ...createMockMessage().headers,
+            to: "alias@example.org",
+            cc: "user@example.com, colleague@example.com",
+          },
+        },
+      ],
+      [
+        { email: "user@example.com", isDefault: true },
+        { email: "alias@example.org", isDefault: false },
+      ],
+    );
+
+    expect(result.draft).not.toBeNull();
+    const [draftArgs] = vi.mocked(aiDraftReplyWithConfidence).mock.calls[0]!;
+    expect(draftArgs.sendAsEmails).toEqual(["alias@example.org"]);
+  });
+
+  it("still drafts when the send-as addresses cannot be loaded", async () => {
+    const client = createMockClient();
+    vi.mocked(client.getSendAsAddresses).mockRejectedValue(
+      new Error("insufficient scope"),
+    );
+    vi.mocked(client.getThreadMessages).mockResolvedValue([
+      createMockMessage(),
+    ]);
+
+    const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
+      createMockEmailAccount(),
+      "thread-1",
+      client,
+      undefined,
+      logger,
+      DraftReplyConfidence.ALL_EMAILS,
+    );
+
+    expect(result.draft).not.toBeNull();
+  });
+});
+
+async function generateForThread(
+  threadMessages: ParsedMessage[],
+  sendAsAddresses: { email: string; isDefault: boolean }[] = [],
+) {
+  const client = createMockClient();
+  vi.mocked(client.getThreadMessages).mockResolvedValue(threadMessages);
+  vi.mocked(client.getSendAsAddresses).mockResolvedValue(sendAsAddresses);
+
+  return fetchMessagesAndGenerateDraftWithConfidenceThreshold(
+    createMockEmailAccount(),
+    "thread-1",
+    client,
+    undefined,
+    logger,
+    DraftReplyConfidence.ALL_EMAILS,
+  );
+}
 
 function createDraftContextMetadata(): DraftContextMetadata {
   return {
