@@ -9,6 +9,7 @@ import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/reply-tracker/conversation-status-config";
 import { getRuleConfig } from "@/utils/rule/consts";
 import { getEmail, getRule } from "@/__tests__/helpers";
+import { colleagueWorkMailCases } from "@/__tests__/eval/colleague-work-mail-cases";
 import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai eval/choose-rule
@@ -705,6 +706,9 @@ const testCases = [
     expectedRule: "Receipt",
   },
 
+  // --- Colleague work mail vs automated notifications ---
+  ...colleagueWorkMailCases,
+
   // --- Marketing disguised as personal outreach ---
   // These have List-Unsubscribe headers and personal tone, designed to test
   // whether the AI correctly identifies them as marketing despite the friendly language.
@@ -849,6 +853,51 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
       );
     }
   });
+
+  // Accounts with conversation tracking off get no Conversations rule, so a
+  // colleague's mail must fall through to no match rather than Notification.
+  describeEvalMatrix(
+    "choose-rule without conversation tracking",
+    (model, emailAccount) => {
+      const rulesWithoutConversations = rules.filter(
+        (rule) => rule !== conversations,
+      );
+
+      for (const tc of colleagueWorkMailCases) {
+        const expected = [tc.expectedRule].flat();
+        const acceptable = expected.includes("Conversations")
+          ? [...expected.filter((rule) => rule !== "Conversations"), "no match"]
+          : expected;
+        const testName = `without conversations: ${tc.email.from} / ${tc.email.subject} → ${acceptable.join(" | ")}`;
+        test(
+          testName,
+          async () => {
+            const result = await aiChooseRule({
+              email: tc.email,
+              rules: rulesWithoutConversations,
+              emailAccount,
+              logger,
+            });
+            const primaryRule = result.rules.find((r) => r.isPrimary);
+            const actual =
+              primaryRule?.rule.name ??
+              result.rules[0]?.rule.name ??
+              "no match";
+
+            evalReporter.record({
+              testName,
+              model: model.label,
+              pass: acceptable.includes(actual),
+              expected: acceptable.join(" | "),
+              actual,
+            });
+            expect(acceptable).toContain(actual);
+          },
+          TIMEOUT,
+        );
+      }
+    },
+  );
 
   describeEvalMatrix(
     "promotional boundary",

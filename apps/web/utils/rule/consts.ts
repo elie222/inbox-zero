@@ -137,7 +137,11 @@ const ruleConfig: Record<
   },
   [SystemType.NOTIFICATION]: {
     name: "Notification",
-    instructions: "Notifications: Alerts, status updates, or system messages",
+    instructions:
+      "Notifications: Alerts, status updates, or system messages sent automatically by a platform or service. A message a person wrote and sent to me, like a colleague's status update, is not a notification.",
+    previousInstructions: [
+      "Notifications: Alerts, status updates, or system messages",
+    ],
     label: "Notification",
     runOnThreads: false,
     categoryAction: "label",
