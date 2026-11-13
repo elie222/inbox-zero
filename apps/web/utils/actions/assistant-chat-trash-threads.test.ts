@@ -102,6 +102,33 @@ describe("chat trash confirmation", () => {
     });
   });
 
+  it("keeps the card retryable when no thread could be trashed", async () => {
+    mockChatMessage(await runTrashTool("web"));
+    trashThread.mockRejectedValue(new Error("provider down"));
+
+    await expect(confirm()).rejects.toThrow(
+      "Couldn't move these emails to trash.",
+    );
+
+    expect(addChatActionTotals).not.toHaveBeenCalled();
+    const savedStates = prisma.chatMessage.updateMany.mock.calls.map(
+      ([args]: any) => args.data.parts[0].output.confirmationState,
+    );
+    expect(savedStates).not.toContain("confirmed");
+  });
+
+  it("does not count totals when the confirmed result can't be saved", async () => {
+    mockChatMessage(await runTrashTool("web"));
+    // The reservation succeeds, then every attempt to save the result loses.
+    prisma.chatMessage.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValue({ count: 0 });
+
+    await expect(confirm()).rejects.toThrow();
+
+    expect(addChatActionTotals).not.toHaveBeenCalled();
+  });
+
   it("does not trash again when the action was already confirmed", async () => {
     const pending = await runTrashTool("web");
     mockChatMessage({

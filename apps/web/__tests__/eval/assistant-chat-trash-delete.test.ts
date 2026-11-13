@@ -445,11 +445,13 @@ async function evaluateScenario(
         manageCall.threadIds?.length === expectation.threadIds.length;
       // Trashing all of a sender's mail as a bulk job also waits for the
       // user to confirm, so it is an equally valid way to prepare the trash.
+      const expectedSenders = getSendersForThreads(expectation.threadIds);
       const preparedBulkTrash = result.toolCalls.some(
         (toolCall) =>
           toolCall.toolName === "bulkManageInbox" &&
           isManageInboxInput(toolCall.input) &&
-          toolCall.input.action === "trash_threads",
+          toolCall.input.action === "trash_threads" &&
+          targetsExpectedSender(toolCall.input, expectedSenders),
       );
 
       const callSummary = manageCall
@@ -574,6 +576,23 @@ function summarizeToolCall(toolCall: RecordedToolCall) {
   }
 
   return toolCall.toolName;
+}
+
+function getSendersForThreads(threadIds: string[]) {
+  return [...spamMessages, ...marketingMessages]
+    .filter((message) => threadIds.includes(message.threadId))
+    .map((message) => message.headers.from.toLowerCase());
+}
+
+// A bulk trash must target an expected sender, not some other search.
+function targetsExpectedSender(input: unknown, senders: string[]) {
+  const { query, fromEmail } = input as { query?: string; fromEmail?: string };
+  const target = (fromEmail || query || "").toLowerCase();
+  return (
+    senders.length > 0 &&
+    target.length > 0 &&
+    senders.some((sender) => target.includes(sender))
+  );
 }
 
 function getDefaultLabels() {

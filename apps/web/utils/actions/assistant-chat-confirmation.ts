@@ -749,6 +749,10 @@ export async function confirmAssistantTrashThreadsForAccount({
       threadIds,
       email: emailAccount.email,
     });
+    // Nothing moved, so the card stays pending and can be confirmed again.
+    if (trashResult.successCount === 0) {
+      throw new Error("No threads were moved to trash");
+    }
   } catch (error) {
     await clearPendingPartProcessing({
       chatMessageId: reservation.chatMessageId,
@@ -762,13 +766,6 @@ export async function confirmAssistantTrashThreadsForAccount({
     logger.error("Failed to confirm assistant trash", { error });
     throw new SafeError("Couldn't move these emails to trash. Try again.");
   }
-
-  await addChatActionTotals({
-    chatId,
-    counts: { threads_trashed: trashResult.successCount },
-  }).catch((error: unknown) => {
-    logger.error("Failed to update chat action totals", { error });
-  });
 
   const confirmationResult = {
     ...trashResult,
@@ -795,6 +792,14 @@ export async function confirmAssistantTrashThreadsForAccount({
       "Emails were moved to trash but confirmation state could not be saved. Please refresh.",
     );
   }
+
+  // Counted only once the result is saved, so a retry can't count twice.
+  await addChatActionTotals({
+    chatId,
+    counts: { threads_trashed: trashResult.successCount },
+  }).catch((error: unknown) => {
+    logger.error("Failed to update chat action totals", { error });
+  });
 
   return {
     success: true,

@@ -1,5 +1,5 @@
 import type { ChangeEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryState } from "nuqs";
 import type { I18n, MessageDescriptor } from "@lingui/core";
 import { msg, plural } from "@lingui/core/macro";
@@ -48,7 +48,10 @@ import {
   confirmAssistantTrashThreads,
   dismissAssistantTrashThreads,
 } from "@/utils/actions/assistant-chat";
-import type { PendingTrashThreadsToolOutput } from "@/utils/actions/assistant-chat.validation";
+import {
+  ASSISTANT_CONFIRMATION_PROCESSING_LEASE_MS,
+  type PendingTrashThreadsToolOutput,
+} from "@/utils/actions/assistant-chat.validation";
 import { isProcessingLeaseExpired } from "@/components/assistant-chat/bulk-inbox-action-card";
 import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
 import { deleteMailSplitAction } from "@/utils/actions/mail-split";
@@ -1073,15 +1076,32 @@ export function PendingTrashThreadsCard({
   const { chatId } = useChat();
   const [isConfirming, setIsConfirming] = useState(false);
   const [isDismissing, setIsDismissing] = useState(false);
-  const [dismissed, setDismissed] = useState(
-    output.confirmationState === "cancelled",
-  );
-  const [confirmedResult, setConfirmedResult] = useState(
-    output.confirmationResult ?? null,
-  );
+  const [dismissed, setDismissed] = useState(false);
+  const [localResult, setLocalResult] = useState<
+    PendingTrashThreadsToolOutput["confirmationResult"] | null
+  >(null);
+  const [, setLeaseCheck] = useState(0);
   const { threadIds } = output.pendingAction;
+  const confirmedResult = localResult ?? output.confirmationResult ?? null;
+  const processingAt =
+    output.confirmationState === "processing"
+      ? output.confirmationProcessingAt
+      : undefined;
 
-  if (dismissed) {
+  // Re-render when an unfinished confirmation's lease runs out, so it can be
+  // retried without a reload.
+  useEffect(() => {
+    if (!processingAt) return;
+    const remaining =
+      Date.parse(processingAt) +
+      ASSISTANT_CONFIRMATION_PROCESSING_LEASE_MS -
+      Date.now();
+    if (!(remaining > 0)) return;
+    const timer = setTimeout(() => setLeaseCheck((n) => n + 1), remaining);
+    return () => clearTimeout(timer);
+  }, [processingAt]);
+
+  if (dismissed || output.confirmationState === "cancelled") {
     return (
       <Card className="px-4 py-3 text-sm text-muted-foreground">
         <Trans>Cancelled. Nothing changed.</Trans>
@@ -1137,7 +1157,7 @@ export function PendingTrashThreadsCard({
         });
         return;
       }
-      setConfirmedResult(confirmationResult);
+      setLocalResult(confirmationResult);
     } catch {
       toastError({ description: t`Could not move these emails to trash.` });
     } finally {
@@ -1179,7 +1199,11 @@ export function PendingTrashThreadsCard({
             />
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            <Trans>Pending confirmation. Nothing has moved yet.</Trans>
+            {isProcessing ? (
+              <Trans>Moving to trash...</Trans>
+            ) : (
+              <Trans>Pending confirmation. Nothing has moved yet.</Trans>
+            )}
           </p>
         </div>
       </CardHeader>
@@ -1195,7 +1219,9 @@ export function PendingTrashThreadsCard({
           variant="outline"
           size="sm"
           onClick={handleDismiss}
-          disabled={isDismissing || isConfirming || isProcessing}
+          disabled={
+            disableConfirm || isDismissing || isConfirming || isProcessing
+          }
         >
           <Trans>Cancel</Trans>
         </Button>
