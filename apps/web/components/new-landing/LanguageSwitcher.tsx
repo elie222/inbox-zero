@@ -17,10 +17,11 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   const { t, i18n } = useLingui();
   const pathname = usePathname();
   const { path } = parseLandingPathname(pathname);
-  // Signed-in visitors see the home page at /home, because next.config sends
-  // them from "/" to the app. English keeps them on /home.
+  // The English home page links to /home: next.config sends signed-in
+  // visitors from "/" to the app, and /home shows them the same page.
   const translatedPath = path === "/home" ? "/" : path;
   if (!isLocalizedLandingPath(translatedPath)) return null;
+  const englishHomeHref = i18n.locale === DEFAULT_LOCALE ? path : "/home";
 
   return (
     <nav
@@ -30,10 +31,11 @@ export function LanguageSwitcher({ className }: { className?: string }) {
       {LOCALES.map((locale) => (
         <Link
           key={locale}
-          href={localizeLandingHref(
-            locale === DEFAULT_LOCALE ? path : translatedPath,
-            locale,
-          )}
+          href={
+            locale === DEFAULT_LOCALE && translatedPath === "/"
+              ? englishHomeHref
+              : localizeLandingHref(translatedPath, locale)
+          }
           hrefLang={locale}
           lang={locale}
           prefetch={false}
