@@ -188,6 +188,7 @@ type LlmFallbackFailureCategory =
   | "network"
   | "rate_limit"
   | "server_error"
+  | "validation"
   | "unknown";
 
 type LlmFallbackFailure = {
@@ -1450,6 +1451,7 @@ function getLlmFallbackFailureCategory(
   error: unknown,
 ): LlmFallbackFailureCategory {
   if (isContentFilterRefusal(error)) return "content_filter";
+  if (isStructuredOutputValidationError(error)) return "validation";
 
   const errorInfo = extractLLMErrorInfo(error);
   if (
@@ -1464,6 +1466,15 @@ function getLlmFallbackFailureCategory(
   return "unknown";
 }
 
+function isStructuredOutputValidationError(error: unknown): boolean {
+  const unwrappedError = (error as { error?: unknown })?.error ?? error;
+  return (
+    TypeValidationError.isInstance(unwrappedError) ||
+    (NoObjectGeneratedError.isInstance(unwrappedError) &&
+      TypeValidationError.isInstance(unwrappedError.cause))
+  );
+}
+
 function shouldFallbackToNextModel(error: unknown): boolean {
   const unwrappedError = (error as { error?: unknown })?.error ?? error;
 
@@ -1472,6 +1483,8 @@ function shouldFallbackToNextModel(error: unknown): boolean {
   }
 
   if (isContentFilterRefusal(error)) return true;
+
+  if (isStructuredOutputValidationError(error)) return true;
 
   if (
     APICallError.isInstance(unwrappedError) &&
