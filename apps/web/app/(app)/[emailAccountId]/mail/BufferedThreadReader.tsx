@@ -38,6 +38,12 @@ export function BufferedThreadReader({
   const preparing =
     visibleKey !== threadKey && children.props.threadId !== null;
   useLayoutEffect(() => {
+    // The deadline only bounds opening a different thread. Replacing this
+    // snapshot during a refresh would unmount a reply already being edited.
+    if (visibleKey === threadKey) {
+      if (dataReady) visibleContent.current = children;
+      return;
+    }
     if (readinessDeadline.current?.key !== threadKey) {
       readinessDeadline.current = {
         key: threadKey,
@@ -78,7 +84,7 @@ export function BufferedThreadReader({
       cancelAnimationFrame(frame);
       clearTimeout(timeout);
     };
-  }, [children, onReady, dataReady, threadKey]);
+  }, [children, onReady, dataReady, threadKey, visibleKey]);
 
   const current = {
     key: threadKey,

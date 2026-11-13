@@ -147,7 +147,12 @@ export function ThreadReader({
     ? undefined
     : translation?.subject;
 
-  if (error || (!headerMessage && !localAvailability)) {
+  // A failed refresh must not tear down a conversation and its active reply
+  // when we already have messages to display.
+  if (
+    (error && messages.length === 0) ||
+    (!headerMessage && !localAvailability)
+  ) {
     return (
       <div
         className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 px-6 py-16 text-center"
