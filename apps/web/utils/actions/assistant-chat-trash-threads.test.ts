@@ -129,6 +129,28 @@ describe("chat trash confirmation", () => {
     expect(addChatActionTotals).not.toHaveBeenCalled();
   });
 
+  it("does not count totals when an overlapping confirmation saved first", async () => {
+    const pending = await runTrashTool("web");
+    const confirmedOutput = {
+      ...pending,
+      confirmationState: "confirmed",
+      confirmationResult: {
+        successCount: 2,
+        failedThreadIds: [],
+        confirmedAt: "2026-11-13T00:00:00.000Z",
+      },
+    };
+    // This request reserves the pending action, then finds it already saved.
+    prisma.chatMessage.findFirst
+      .mockResolvedValueOnce(chatMessageWith(pending) as any)
+      .mockResolvedValue(chatMessageWith(confirmedOutput) as any);
+
+    await confirm();
+
+    expect(trashThread).toHaveBeenCalledTimes(2);
+    expect(addChatActionTotals).not.toHaveBeenCalled();
+  });
+
   it("does not trash again when the action was already confirmed", async () => {
     const pending = await runTrashTool("web");
     mockChatMessage({
@@ -228,7 +250,13 @@ function confirm() {
 }
 
 function mockChatMessage(output: unknown) {
-  prisma.chatMessage.findFirst.mockResolvedValue({
+  prisma.chatMessage.findFirst.mockResolvedValue(
+    chatMessageWith(output) as any,
+  );
+}
+
+function chatMessageWith(output: unknown) {
+  return {
     id: "chat-message-1",
     chatId: "chat-1",
     updatedAt: new Date("2026-11-13T00:00:00.000Z"),
@@ -241,5 +269,5 @@ function mockChatMessage(output: unknown) {
         output,
       },
     ],
-  } as any);
+  };
 }

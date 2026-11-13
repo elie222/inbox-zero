@@ -1199,7 +1199,7 @@ export function PendingTrashThreadsCard({
             />
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            {isProcessing ? (
+            {isConfirming || isProcessing ? (
               <Trans>Moving to trash...</Trans>
             ) : (
               <Trans>Pending confirmation. Nothing has moved yet.</Trans>

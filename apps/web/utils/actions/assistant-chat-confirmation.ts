@@ -772,8 +772,9 @@ export async function confirmAssistantTrashThreadsForAccount({
     confirmedAt: new Date().toISOString(),
   };
 
+  let savedByThisRequest: boolean;
   try {
-    await persistConfirmedAssistantPart({
+    savedByThisRequest = await persistConfirmedAssistantPart({
       chatMessageId: reservation.chatMessageId,
       emailAccountId,
       logger: logger.with({ chatMessageId: reservation.chatMessageId }),
@@ -793,13 +794,16 @@ export async function confirmAssistantTrashThreadsForAccount({
     );
   }
 
-  // Counted only once the result is saved, so a retry can't count twice.
-  await addChatActionTotals({
-    chatId,
-    counts: { threads_trashed: trashResult.successCount },
-  }).catch((error: unknown) => {
-    logger.error("Failed to update chat action totals", { error });
-  });
+  // Counted only by the request that saved the result, so a retry or an
+  // overlapping confirmation can't count the same trash twice.
+  if (savedByThisRequest) {
+    await addChatActionTotals({
+      chatId,
+      counts: { threads_trashed: trashResult.successCount },
+    }).catch((error: unknown) => {
+      logger.error("Failed to update chat action totals", { error });
+    });
+  }
 
   return {
     success: true,
@@ -2147,7 +2151,7 @@ async function persistConfirmedAssistantPart<
       }
 
       if (isConfirmed?.(lookup)) {
-        return;
+        return false;
       }
 
       const updatedParts = buildParts({
@@ -2165,7 +2169,7 @@ async function persistConfirmedAssistantPart<
       });
 
       if (persisted.count === 1) {
-        return;
+        return true;
       }
 
       logger.warn("Assistant confirmation persistence lost update race", {
