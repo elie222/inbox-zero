@@ -109,6 +109,30 @@ describe.runIf(isAiTest)("aiPromptToSplitFilters", () => {
   );
 
   it(
+    "turns mail sent to a domain into a To condition",
+    async () => {
+      const result = await build("mail sent to rakazo.com");
+
+      expect(result.filters).toEqual([
+        { kind: MailSplitFilterKind.TO, value: "@rakazo.com" },
+      ]);
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "turns a sender domain into a From condition",
+    async () => {
+      const result = await build("anything from stripe.com");
+
+      expect(result.filters).toEqual([
+        { kind: MailSplitFilterKind.FROM, value: "@stripe.com" },
+      ]);
+    },
+    TIMEOUT,
+  );
+
+  it(
     "returns nothing rather than guessing at a topic no condition covers",
     async () => {
       const result = await build("flight itineraries and travel bookings");

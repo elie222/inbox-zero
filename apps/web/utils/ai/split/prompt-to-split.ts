@@ -8,6 +8,7 @@ import {
   MAX_SPLIT_FILTERS,
   type MailSplitFilterDraft,
 } from "@/utils/split-inbox/split-filters";
+import { senderFilterSchema } from "@/utils/split-inbox/sender-filter";
 import { OLDER_THAN_OPTIONS } from "@/utils/split-inbox/split-query";
 
 export type SplitPromptOption = {
@@ -42,6 +43,7 @@ const promptToSplitSchema = z.object({
             "LABEL",
             "CATEGORY",
             "FROM",
+            "TO",
             "OLDER_THAN",
           ])
           .describe("Which kind of condition this row is"),
@@ -51,11 +53,11 @@ const promptToSplitSchema = z.object({
           .describe(
             "For LABEL and CATEGORY: the id of one of the listed options. Null for every other kind.",
           ),
-        sender: z
+        address: z
           .string()
           .nullable()
           .describe(
-            "For FROM: the sender's email address. Null for every other kind.",
+            "For FROM and TO: an email address, or @domain.com for a whole domain. Null for every other kind.",
           ),
         age: z
           .string()
@@ -96,12 +98,13 @@ Condition kinds:
 ${supportsStarred ? "- STARRED — mail the reader starred" : "- STARRED is unavailable for this account. Do not return this condition."}
 - LABEL — one of the reader's labels, chosen by optionId from <options>
 - CATEGORY — one of the provider categories, chosen by optionId from <options>
-- FROM — a sender's email address
+- FROM — mail from an email address or @domain.com
+- TO — mail sent to an email address or @domain.com, in To or Cc
 - OLDER_THAN — mail older than 3d, 1w or 1m
 
 Instructions:
 - Match LABEL and CATEGORY options by their everyday meaning, including descriptions of the mail that belongs in them; the reader need not use the exact label name. Use a clear semantic fit, but never invent an id or select an unrelated option just to return something.
-- For a sender the description names, use FROM with the address. <senders> lists people the reader corresponds with; use one of those addresses when the description names a person, otherwise use an explicit email address from the description. Do not guess addresses or use bare domains.
+- For a sender the description names, use FROM; for a recipient, use TO. <senders> lists people the reader corresponds with; use one of those addresses when the description names a person, otherwise use an explicit email address or domain from the description. Write a domain as @domain.com. Do not guess addresses.
 - Return an empty list of conditions when the description names something none of these kinds can express. An empty list is a better answer than a wrong filter.
 - Set matchAll false only when the description asks for alternatives ("X or Y"). Default to true.
 - The name must describe everything the split will show, not just one condition.`;
@@ -179,10 +182,14 @@ function toFilters(
           },
         ];
       }
-      case "FROM": {
-        const sender = condition.sender?.trim();
-        if (!sender || !z.email().safeParse(sender).success) return [];
-        return [{ kind: MailSplitFilterKind.FROM, value: sender }];
+      case "FROM":
+      case "TO": {
+        const address = condition.address?.trim().toLowerCase();
+        if (!address) return [];
+        // Models sometimes drop the @ from a bare domain.
+        const value = address.includes("@") ? address : `@${address}`;
+        if (!senderFilterSchema.safeParse(value).success) return [];
+        return [{ kind: MailSplitFilterKind[condition.kind], value }];
       }
       case "OLDER_THAN": {
         const age = condition.age?.trim() ?? "";
