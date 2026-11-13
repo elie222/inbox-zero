@@ -1,5 +1,8 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import {
+  ActionType,
+  ExecutedActionStatus,
+  ExecutedRuleStatus,
   GroupItemSource,
   GroupItemType,
   SystemType,
@@ -10,7 +13,6 @@ import { GMAIL_SYSTEM_LABELS, GmailLabel } from "@/utils/gmail/label";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { recordLabelRemovalLearning } from "@/utils/rule/record-label-removal-learning";
-import { findRuleByLabelId } from "@/utils/rule/classification-feedback";
 import { fetchSenderFromMessage } from "@/utils/webhook/google/fetch-sender-from-message";
 
 export async function handleLabelRemovedEvent(
@@ -116,18 +118,113 @@ async function learnFromRemovedLabel({
 }) {
   logger = logger.with({ labelId });
 
-  const rule = await findRuleByLabelId({ labelId, emailAccountId });
-
-  await recordLabelRemovalLearning({
-    sender,
-    ruleId: rule?.id,
-    systemType: rule?.systemType,
+  const rules = await findRulesThatAppliedLabel({
+    labelId,
     messageId,
-    threadId,
     emailAccountId,
-    isBulkRemoval,
-    logger,
   });
+
+  // A label the user added themselves, or one another rule shares, says
+  // nothing about whether this rule was wrong for this message.
+  if (rules.length === 0) {
+    logger.info("No rule applied the removed label to this message");
+    return;
+  }
+
+  for (const rule of rules) {
+    try {
+      await recordLabelRemovalLearning({
+        sender,
+        ruleId: rule.id,
+        systemType: rule.systemType,
+        messageId,
+        threadId,
+        emailAccountId,
+        isBulkRemoval,
+        logger,
+      });
+    } catch (error) {
+      logger.error("Error recording label removal for rule", {
+        error,
+        ruleId: rule.id,
+      });
+    }
+  }
+}
+
+async function findRulesThatAppliedLabel({
+  labelId,
+  messageId,
+  emailAccountId,
+}: {
+  labelId: string;
+  messageId: string;
+  emailAccountId: string;
+}) {
+  const executedRules = await prisma.executedRule.findMany({
+    where: {
+      emailAccountId,
+      messageId,
+      // A run is marked ERROR when any action fails, even after its label
+      // was applied, so the label action's own status decides below.
+      status: { in: [ExecutedRuleStatus.APPLIED, ExecutedRuleStatus.ERROR] },
+      rule: { enabled: true },
+      actionItems: { some: { type: ActionType.LABEL } },
+    },
+    select: {
+      status: true,
+      rule: {
+        select: {
+          id: true,
+          systemType: true,
+          actions: {
+            where: { type: ActionType.LABEL, labelId },
+            select: { label: true },
+          },
+        },
+      },
+      actionItems: {
+        where: { type: ActionType.LABEL },
+        select: { labelId: true, label: true, executionStatus: true },
+      },
+    },
+  });
+
+  const rules = new Map<
+    string,
+    { id: string; systemType: SystemType | null }
+  >();
+
+  for (const { status, rule, actionItems } of executedRules) {
+    if (!rule) continue;
+
+    // Older executed actions stored only the label name, and a stale label ID
+    // can be replaced when labelling, so also match the name this rule now
+    // uses for the removed label ID.
+    const removedLabelNames = new Set(
+      rule.actions.flatMap((action) => (action.label ? [action.label] : [])),
+    );
+
+    const appliedRemovedLabel = actionItems.some((action) => {
+      // Actions after a failing one never run and keep a null status, so
+      // only an APPLIED run vouches for an action without a recorded status.
+      const labelWasApplied =
+        action.executionStatus === ExecutedActionStatus.SUCCEEDED ||
+        (action.executionStatus === null &&
+          status === ExecutedRuleStatus.APPLIED);
+      if (!labelWasApplied) return false;
+      return (
+        action.labelId === labelId ||
+        (!!action.label && removedLabelNames.has(action.label))
+      );
+    });
+
+    if (appliedRemovedLabel) {
+      rules.set(rule.id, { id: rule.id, systemType: rule.systemType });
+    }
+  }
+
+  return [...rules.values()];
 }
 
 /**

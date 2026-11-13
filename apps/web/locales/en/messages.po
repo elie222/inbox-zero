@@ -8063,6 +8063,10 @@ msgstr "Learn how to use the AI Personal Assistant to automatically label, archi
 msgid "Learn how to use the Bulk Unsubscribe to unsubscribe from and archive unwanted emails."
 msgstr "Learn how to use the Bulk Unsubscribe to unsubscribe from and archive unwanted emails."
 
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "Learned from label removal"
+msgstr "Learned from label removal"
+
 #: app/(app)/[emailAccountId]/assistant/group/LearnedPatterns.tsx
 #: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
 #: app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting.tsx
@@ -10781,7 +10785,9 @@ msgid "Remove"
 msgstr "Remove"
 
 #. placeholder {0}: attachment.filename
+#. placeholder {0}: item.value
 #. placeholder {0}: participant.name
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
 #: app/(app)/[emailAccountId]/compose/ComposeAttachmentList.tsx
 #: components/team-comments/ConversationParticipants.tsx
 msgid "Remove {0}"
@@ -12860,6 +12866,11 @@ msgstr "The recording is being processed. Notes will appear here when they are r
 msgid "The recording is there, but summarizing it kept failing. The transcript is still available below."
 msgstr "The recording is there, but summarizing it kept failing. The transcript is still available below."
 
+#. placeholder {0}: item.value
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "The rule can match {0} again"
+msgstr "The rule can match {0} again"
+
 #: app/(app)/[emailAccountId]/assistant/RuleForm.tsx
 #: components/assistant-chat/tools.tsx
 msgid "The rule has been deleted."
@@ -13602,9 +13613,15 @@ msgstr "Uncategorized"
 msgid "Understand what's filling up your inbox"
 msgstr "Understand what's filling up your inbox"
 
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
 #: app/(app)/[emailAccountId]/clean/EmailFirehoseItem.tsx
 msgid "Undo"
 msgstr "Undo"
+
+#. placeholder {0}: item.value
+#: app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns.tsx
+msgid "Undo exclusion for {0}"
+msgstr "Undo exclusion for {0}"
 
 #: lib/shortcuts/registry.ts
 msgid "Undo last action"

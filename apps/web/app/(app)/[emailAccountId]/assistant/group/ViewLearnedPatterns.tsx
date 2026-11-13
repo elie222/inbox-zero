@@ -3,7 +3,7 @@
 import useSWR, { type KeyedMutator } from "swr";
 import sortBy from "lodash/sortBy";
 import groupBy from "lodash/groupBy";
-import { PlusIcon, TrashIcon } from "lucide-react";
+import { PlusIcon, TrashIcon, Undo2Icon } from "lucide-react";
 import {
   useState,
   useCallback,
@@ -32,7 +32,7 @@ import {
   addGroupItemAction,
   deleteGroupItemAction,
 } from "@/utils/actions/group";
-import { GroupItemType } from "@/generated/prisma/enums";
+import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
 import type { GroupItem } from "@/generated/prisma/client";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
@@ -295,6 +295,8 @@ function GroupItemList({
           const twoMinutesAgo = new Date(Date.now() - 1000 * 60 * 2);
           const isCreatedRecently = new Date(item.createdAt) > twoMinutesAgo;
           const isUpdatedRecently = new Date(item.updatedAt) > twoMinutesAgo;
+          const isLearnedFromLabelRemoval =
+            item.exclude && item.source === GroupItemSource.LABEL_REMOVED;
 
           return (
             <TableRow key={item.id}>
@@ -309,6 +311,11 @@ function GroupItemList({
 
                   <div className="break-all">
                     <GroupItemDisplay item={item} />
+                    {isLearnedFromLabelRemoval && (
+                      <Badge variant="muted" size="sm" className="ml-2">
+                        <Trans>Learned from label removal</Trans>
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </TableCell>
@@ -323,7 +330,12 @@ function GroupItemList({
 
                 <Button
                   variant="outline"
-                  size="icon"
+                  size={isLearnedFromLabelRemoval ? "sm" : "icon"}
+                  aria-label={
+                    isLearnedFromLabelRemoval
+                      ? t`Undo exclusion for ${item.value}`
+                      : t`Remove ${item.value}`
+                  }
                   onClick={async () => {
                     const result = await deleteGroupItemAction(emailAccountId, {
                       id: item.id,
@@ -334,13 +346,22 @@ function GroupItemList({
                       });
                     } else {
                       toastSuccess({
-                        description: t`Removed learned pattern!`,
+                        description: isLearnedFromLabelRemoval
+                          ? t`The rule can match ${item.value} again`
+                          : t`Removed learned pattern!`,
                       });
                       mutate();
                     }
                   }}
                 >
-                  <TrashIcon className="size-4" />
+                  {isLearnedFromLabelRemoval ? (
+                    <>
+                      <Undo2Icon className="mr-1.5 size-4" />
+                      <Trans>Undo</Trans>
+                    </>
+                  ) : (
+                    <TrashIcon className="size-4" />
+                  )}
                 </Button>
               </TableCell>
             </TableRow>
