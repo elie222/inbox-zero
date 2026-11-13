@@ -65,7 +65,7 @@ import { guardChatTools } from "@/utils/ai/assistant/chat-tool-guards";
 
 export const maxDuration = 800;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 21;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 22;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 720_000,
   messaging: 60_000,
@@ -350,7 +350,6 @@ export async function aiProcessAssistantChat({
         }
       : {}),
 
-    // Progressive disclosure groups (registered but not active by default)
     ...(calendarConnection.state === "connected"
       ? { getCalendarEvents: getCalendarEventsTool(toolOptions) }
       : {}),
@@ -691,7 +690,7 @@ function getEmailCapabilitiesPolicy({
     "- These pending actions are app-side confirmations, not provider Drafts-folder saves.",
     '- When the user asks to "draft" an email or reply, use sendEmail, replyEmail, or forwardEmail. The pending-action confirmation flow acts as the draft.',
     "- Write replyEmail content in the language of the email being replied to (its new body, not quoted history), not the chat language, unless the user explicitly requests another language. Apply the same rule to any note text you add with forwardEmail.",
-    '- When the user asks to forward an existing email, activate "forward" and use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.',
+    "- When the user asks to forward an existing email, use forwardEmail with a messageId from searchInbox results. Do not recreate forwards with sendEmail.",
     "- When the user asks to reply to an existing email, use replyEmail with a messageId from searchInbox results. Do not recreate replies with sendEmail.",
     "- Chat-uploaded files are not available as outgoing email attachments. If the user asks to send, forward, or attach a file from chat, explain that this is unsupported and do not call sendEmail, replyEmail, or forwardEmail for that file.",
     "- Only send emails when the user clearly asks to send now.",
