@@ -220,7 +220,7 @@ model EmailAccount {
 
   followUpAwaitingReplyDays Float?
   followUpNeedsReplyDays    Float?
-  followUpAutoDraftEnabled  Boolean @default(true)
+  followUpAutoDraftEnabled  Boolean @default(false)
 
   digestSendEmail     Boolean   @default(true)
   digestSchedule      Schedule?

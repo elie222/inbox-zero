@@ -189,6 +189,24 @@ export const enableDraftRepliesAction = actionClient
     }) => {
       if (env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED && enable) return;
 
+      // Turning drafts off must not stop To Reply labelling, so the rule stays
+      // enabled and only its draft action goes. Follow-up drafts stop too.
+      if (!enable) {
+        await prisma.$transaction([
+          prisma.action.deleteMany({
+            where: {
+              rule: { emailAccountId, systemType: SystemType.TO_REPLY },
+              type: ActionType.DRAFT_EMAIL,
+            },
+          }),
+          prisma.emailAccount.update({
+            where: { id: emailAccountId },
+            data: { followUpAutoDraftEnabled: false },
+          }),
+        ]);
+        return;
+      }
+
       const existingRule = await prisma.rule.findUnique({
         where: {
           emailAccountId_systemType: {
@@ -199,48 +217,35 @@ export const enableDraftRepliesAction = actionClient
         include: { actions: true },
       });
 
-      if (!existingRule && !enable) {
-        return;
-      }
-
       const rule = existingRule
-        ? existingRule.enabled === enable
+        ? existingRule.enabled
           ? existingRule
           : await setRuleEnabled({
               ruleId: existingRule.id,
               emailAccountId,
-              enabled: enable,
+              enabled: true,
             })
         : await toggleRule({
             emailAccountId,
-            enabled: enable,
+            enabled: true,
             systemType: SystemType.TO_REPLY,
             provider,
             ruleId: undefined,
             logger,
           });
 
-      if (enable) {
-        const alreadyDraftingReplies = rule.actions.find(
-          (a) => a.type === ActionType.DRAFT_EMAIL,
-        );
-        if (!alreadyDraftingReplies) {
-          await prisma.action.create({
-            data: addActionOwnershipToInput(
-              {
-                ruleId: rule.id,
-                type: ActionType.DRAFT_EMAIL,
-              },
-              emailAccountId,
-            ),
-          });
-        }
-      } else {
-        await prisma.action.deleteMany({
-          where: {
-            ruleId: rule.id,
-            type: ActionType.DRAFT_EMAIL,
-          },
+      const alreadyDraftingReplies = rule.actions.some(
+        (a) => a.type === ActionType.DRAFT_EMAIL,
+      );
+      if (!alreadyDraftingReplies) {
+        await prisma.action.create({
+          data: addActionOwnershipToInput(
+            {
+              ruleId: rule.id,
+              type: ActionType.DRAFT_EMAIL,
+            },
+            emailAccountId,
+          ),
         });
       }
     },

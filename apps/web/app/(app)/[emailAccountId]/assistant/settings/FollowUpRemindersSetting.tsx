@@ -33,6 +33,7 @@ import {
   scanFollowUpRemindersAction,
 } from "@/utils/actions/follow-up-reminders";
 import {
+  type SaveFollowUpSettingsBody,
   type SaveFollowUpSettingsFormInput,
   DEFAULT_FOLLOW_UP_DAYS,
 } from "@/utils/actions/follow-up-reminders.validation";
@@ -44,7 +45,9 @@ import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
+import { getActionErrorMessage } from "@/utils/error";
 import { env } from "@/env";
+import { useDraftReplies } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftReplies";
 
 export function FollowUpRemindersSetting() {
   const isFeatureEnabled = useFollowUpRemindersEnabled();
@@ -59,9 +62,16 @@ function FollowUpRemindersSettingContent() {
   const [open, setOpen] = useState(false);
   const { data, isLoading, mutate } = useEmailAccountFull();
 
+  const { enabled: draftRepliesEnabled } = useDraftReplies();
+
   const enabled =
     data?.followUpAwaitingReplyDays !== null ||
     data?.followUpNeedsReplyDays !== null;
+  const draftsFollowUps =
+    enabled &&
+    draftRepliesEnabled &&
+    !!data?.followUpAutoDraftEnabled &&
+    !env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED;
 
   const { execute: executeToggle } = useAction(
     toggleFollowUpRemindersAction.bind(null, data?.id ?? ""),
@@ -69,7 +79,8 @@ function FollowUpRemindersSettingContent() {
       onError: (error) => {
         mutate();
         toastError({
-          description: error.error?.serverError ?? t`Failed to update settings`,
+          title: t`Failed to update follow-up reminders`,
+          description: getActionErrorMessage(error.error, t`Unknown error`),
         });
       },
     },
@@ -93,7 +104,11 @@ function FollowUpRemindersSettingContent() {
   return (
     <SettingCard
       title={t`Follow-up reminders`}
-      description={t`Label emails where you haven't heard back or haven't replied.`}
+      description={
+        draftsFollowUps
+          ? t`Label emails where you haven't heard back or haven't replied, and draft a nudge when you haven't heard back.`
+          : t`Label emails where you haven't heard back or haven't replied. Does not draft emails.`
+      }
       right={
         isLoading ? (
           <Skeleton className="h-5 w-9" />
@@ -135,7 +150,7 @@ export function FollowUpSettingsDialogContent({
   onSuccess: () => void;
   showChannelsHint?: boolean;
 }) {
-  const { data } = useEmailAccountFull();
+  const { data, mutate } = useEmailAccountFull();
 
   if (!data) return null;
 
@@ -145,9 +160,12 @@ export function FollowUpSettingsDialogContent({
       emailAddress={data.email ?? ""}
       followUpAwaitingReplyDays={data.followUpAwaitingReplyDays}
       followUpNeedsReplyDays={data.followUpNeedsReplyDays}
-      followUpAutoDraftEnabled={data.followUpAutoDraftEnabled ?? true}
+      followUpAutoDraftEnabled={data.followUpAutoDraftEnabled ?? false}
       showChannelsHint={showChannelsHint}
-      onSuccess={onSuccess}
+      onSuccess={(saved) => {
+        mutate({ ...data, ...saved });
+        onSuccess();
+      }}
     />
   );
 }
@@ -167,9 +185,10 @@ function FollowUpSettingsDialog({
   followUpNeedsReplyDays: number | null | undefined;
   followUpAutoDraftEnabled: boolean;
   showChannelsHint: boolean;
-  onSuccess: () => void;
+  onSuccess: (saved: SaveFollowUpSettingsBody) => void;
 }) {
   const { t, i18n } = useLingui();
+  const { enabled: draftRepliesEnabled } = useDraftReplies();
   const { provider } = useAccount();
   const autoDraftDisabled = env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED;
 
@@ -196,13 +215,14 @@ function FollowUpSettingsDialog({
   const { execute, isExecuting } = useAction(
     updateFollowUpSettingsAction.bind(null, emailAccountId),
     {
-      onSuccess: () => {
+      onSuccess: ({ input }) => {
         toastSuccess({ description: t`Settings saved!` });
-        onSuccess();
+        onSuccess(input);
       },
       onError: (error) => {
         toastError({
-          description: error.error?.serverError ?? t`Failed to save settings`,
+          title: t`Failed to save follow-up settings`,
+          description: getActionErrorMessage(error.error, t`Unknown error`),
         });
       },
     },
@@ -221,7 +241,8 @@ function FollowUpSettingsDialog({
           showScanCompleteToast(provider, emailAddress, i18n);
         } else {
           toastError({
-            description: error.error?.serverError ?? t`Failed to scan`,
+            title: t`Failed to scan for follow-ups`,
+            description: getActionErrorMessage(error.error, t`Unknown error`),
           });
         }
       },
@@ -297,15 +318,23 @@ function FollowUpSettingsDialog({
                 htmlFor="followUpAutoDraftEnabled"
                 className="block text-sm font-medium text-foreground"
               >
-                <Trans>Auto-generate drafts</Trans>
+                <Trans>Draft follow-up emails</Trans>
               </label>
               <p className="text-muted-foreground text-sm">
-                <Trans>Draft a nudge when you haven't heard back.</Trans>
+                {draftRepliesEnabled ? (
+                  <Trans>
+                    Write a nudge draft when you haven't heard back.
+                  </Trans>
+                ) : (
+                  <Trans>Turn on Draft replies to use this.</Trans>
+                )}
               </p>
             </div>
             <Toggle
               name="followUpAutoDraftEnabled"
-              enabled={autoDraftValue}
+              ariaLabel={t`Draft follow-up emails`}
+              enabled={draftRepliesEnabled && autoDraftValue}
+              disabled={!draftRepliesEnabled}
               onChange={(value) => setValue("followUpAutoDraftEnabled", value)}
             />
           </div>

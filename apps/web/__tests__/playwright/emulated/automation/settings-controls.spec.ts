@@ -34,7 +34,7 @@ test("persists personalization, drafting, and advanced settings", async ({
   ).toHaveAttribute("data-selected", "true");
 
   for (const heading of [
-    "Auto draft replies",
+    "Draft replies",
     "Draft confidence",
     "Writing style",
     "Personal instructions",
