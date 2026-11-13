@@ -1,3 +1,4 @@
+import { addMinutes } from "date-fns/addMinutes";
 import { subMinutes } from "date-fns/subMinutes";
 import type { Prisma } from "@/generated/prisma/client";
 import {
@@ -125,10 +126,11 @@ export async function cleanupLegacyLabelRemovalExclusions({
   return stats;
 }
 
-// Mirrors recordLabelRemovalLearning: an exclusion needs a removal of another
+// Replays recordLabelRemovalLearning: an exclusion needs a removal of another
 // message from the same sender before the 15-minute window of a later removal
-// that was not part of a sweep. Every removal counts towards a sweep, as it
-// does when learning.
+// that was not part of a sweep. Feedback does not record whether a removal was
+// in a bulk batch, and concurrent handlers can see rows inserted just after
+// theirs, so sweep rows are counted on both sides of the later removal.
 export function wouldLearnExclusionToday({
   sender,
   ruleRemovals,
@@ -147,12 +149,15 @@ export function wouldLearnExclusionToday({
       BULK_LABEL_REMOVAL_WINDOW_MINUTES,
     );
 
-    const recentRemovals = ruleRemovals.filter(
+    const windowEnd = addMinutes(
+      later.createdAt,
+      BULK_LABEL_REMOVAL_WINDOW_MINUTES,
+    );
+    const nearbyRemovals = ruleRemovals.filter(
       (removal) =>
-        removal.createdAt >= windowStart &&
-        removal.createdAt <= later.createdAt,
+        removal.createdAt >= windowStart && removal.createdAt <= windowEnd,
     ).length;
-    if (recentRemovals >= BULK_LABEL_REMOVAL_THRESHOLD) return false;
+    if (nearbyRemovals >= BULK_LABEL_REMOVAL_THRESHOLD) return false;
 
     return senderRemovals.some(
       (earlier) =>

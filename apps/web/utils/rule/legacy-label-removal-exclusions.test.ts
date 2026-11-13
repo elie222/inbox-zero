@@ -87,6 +87,23 @@ describe("wouldLearnExclusionToday", () => {
     ).toBe(false);
   });
 
+  it("is false when the later removal started a sweep", () => {
+    const sweep = Array.from({ length: 9 }, (_, i) =>
+      removal(`s${i}@example.com`, `sweep-${i}`, 61),
+    );
+
+    expect(
+      wouldLearnExclusionToday({
+        sender: "a@example.com",
+        ruleRemovals: [
+          removal("a@example.com", "m1", 0),
+          removal("a@example.com", "m2", 60),
+          ...sweep,
+        ],
+      }),
+    ).toBe(false);
+  });
+
   it("is false when the later removal was part of a sweep", () => {
     const sweep = Array.from({ length: 9 }, (_, i) =>
       removal(`s${i}@example.com`, `sweep-${i}`, 55),
