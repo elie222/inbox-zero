@@ -15,12 +15,14 @@ const CONTESTABLE_REASONS = new Set([
 ]);
 
 export async function contestStripeDisputeIfClear({
-  dispute,
+  disputeId,
   logger: parentLogger,
 }: {
-  dispute: Stripe.Dispute;
+  disputeId: string;
   logger: Logger;
 }) {
+  // Fetched fresh: a retried webhook still carries the original status.
+  const dispute = await getStripe().disputes.retrieve(disputeId);
   const logger = parentLogger.with({
     disputeId: dispute.id,
     disputeReason: dispute.reason,
@@ -118,7 +120,7 @@ export function buildDisputeEvidence({
 
   const usageLines = [
     facts.lastActiveAt && facts.lastActiveAt > facts.chargedAt
-      ? `Last signed in to the app on ${formatDate(facts.lastActiveAt)}, after the charge.`
+      ? `Used the app while signed in on ${formatDate(facts.lastActiveAt)}, after the charge.`
       : null,
     facts.assistantMessagesSinceCharge > 0
       ? `Sent ${facts.assistantMessagesSinceCharge} message(s) to the in-app AI assistant since the charge.`
@@ -143,7 +145,7 @@ export function buildDisputeEvidence({
     access_activity_log: [
       `Account email: ${facts.customerEmail ?? "unknown"}`,
       `Charge date: ${facts.chargedAt.toISOString()}`,
-      `Last app sign-in: ${facts.lastActiveAt?.toISOString() ?? "unknown"}`,
+      `Last signed-in app visit: ${facts.lastActiveAt?.toISOString() ?? "unknown"}`,
       `AI assistant messages sent since charge: ${facts.assistantMessagesSinceCharge}`,
     ].join("\n"),
     cancellation_policy_disclosure: `Customers can cancel at any time from ${baseUrl}/premium via "Manage subscription". Canceling stops future renewals. Terms: ${baseUrl}/terms`,
@@ -173,6 +175,10 @@ async function getDisputeFacts(
   const invoice = invoicePayments.data[0]?.invoice;
   if (!invoice || typeof invoice === "string" || invoice.deleted) return null;
 
+  // Initial and upgrade payments are left for manual review; the evidence
+  // argues the charge was a scheduled renewal.
+  if (invoice.billing_reason !== "subscription_cycle") return null;
+
   const subscriptionId = normalizeStripeId(
     invoice.parent?.subscription_details?.subscription ?? null,
   );
@@ -181,11 +187,13 @@ async function getDisputeFacts(
 
   const chargedAt = fromStripeTimestamp(charge.created);
 
-  const [subscription, premium] = await Promise.all([
+  const [subscription, customer, premium] = await Promise.all([
     stripe.subscriptions.retrieve(subscriptionId),
+    stripe.customers.retrieve(customerId),
     prisma.premium.findUnique({
       where: { stripeCustomerId: customerId },
       select: {
+        stripeSubscriptionId: true,
         stripeCanceledAt: true,
         stripeCancellationInitiatedAt: true,
         users: { select: { id: true, email: true, lastLogin: true } },
@@ -193,18 +201,37 @@ async function getDisputeFacts(
     }),
   ]);
 
-  const users = premium?.users ?? [];
-  const assistantMessagesSinceCharge = users.length
+  const customerEmail =
+    charge.billing_details.email ??
+    (customer.deleted ? null : customer.email) ??
+    null;
+
+  // Only the paying customer's own activity counts; on shared plans other
+  // members may have joined after the charge.
+  const payer = customerEmail
+    ? premium?.users.find(
+        (user) => user.email.toLowerCase() === customerEmail.toLowerCase(),
+      )
+    : undefined;
+
+  const assistantMessagesSinceCharge = payer
     ? await prisma.chatMessage.count({
         where: {
           role: "user",
           createdAt: { gt: chargedAt },
-          chat: { emailAccount: { userId: { in: users.map((u) => u.id) } } },
+          chat: { emailAccount: { userId: payer.id } },
         },
       })
     : 0;
 
-  const linePeriod = invoice.lines.data[0]?.period;
+  // Our cancellation timestamps describe whichever subscription is current.
+  const premiumCancellation =
+    premium?.stripeSubscriptionId === subscriptionId ? premium : null;
+
+  const linePeriod = invoice.lines.data.find((line) => {
+    const details = line.parent?.subscription_item_details;
+    return details?.subscription === subscriptionId && !details.proration;
+  })?.period;
 
   return {
     chargedAt,
@@ -216,15 +243,15 @@ async function getDisputeFacts(
         }
       : null,
     cancellationRequestedAt: earliestDate([
-      premium?.stripeCancellationInitiatedAt,
-      premium?.stripeCanceledAt,
+      premiumCancellation?.stripeCancellationInitiatedAt,
+      premiumCancellation?.stripeCanceledAt,
       subscription.canceled_at
         ? fromStripeTimestamp(subscription.canceled_at)
         : null,
     ]),
     refunded: charge.amount_refunded > 0,
-    customerEmail: charge.billing_details.email ?? users[0]?.email ?? null,
-    lastActiveAt: latestDate(users.map((user) => user.lastLogin)),
+    customerEmail,
+    lastActiveAt: payer?.lastLogin ?? null,
     assistantMessagesSinceCharge,
   };
 }
@@ -232,11 +259,6 @@ async function getDisputeFacts(
 function earliestDate(dates: Array<Date | null | undefined>) {
   const times = dates.filter((d): d is Date => !!d).map((d) => d.getTime());
   return times.length ? new Date(Math.min(...times)) : null;
-}
-
-function latestDate(dates: Array<Date | null | undefined>) {
-  const times = dates.filter((d): d is Date => !!d).map((d) => d.getTime());
-  return times.length ? new Date(Math.max(...times)) : null;
 }
 
 function fromStripeTimestamp(seconds: number) {

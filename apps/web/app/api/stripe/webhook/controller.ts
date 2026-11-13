@@ -61,7 +61,10 @@ const allowedEvents: Stripe.Event.Type[] = [
 export async function processEvent(event: Stripe.Event, logger: Logger) {
   // Disputes carry no customer and need none of the billing syncs below.
   if (event.type === "charge.dispute.created") {
-    await contestStripeDisputeIfClear({ dispute: event.data.object, logger });
+    await contestStripeDisputeIfClear({
+      disputeId: event.data.object.id,
+      logger,
+    });
     return;
   }
 
