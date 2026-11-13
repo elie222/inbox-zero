@@ -319,6 +319,7 @@ describe("process-label-removed-event", () => {
         }),
         // Legacy run stored only a label name that is not the removed label.
         {
+          status: "APPLIED",
           rule: {
             id: "rule-legacy",
             systemType: SystemType.NEWSLETTER,
@@ -342,6 +343,7 @@ describe("process-label-removed-event", () => {
     it("credits a legacy run by the label name the rule uses for the removed label", async () => {
       vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
         {
+          status: "APPLIED",
           rule: {
             id: "rule-legacy",
             systemType: SystemType.NEWSLETTER,
@@ -367,6 +369,7 @@ describe("process-label-removed-event", () => {
     it("credits a run whose stored label ID was replaced when labelling", async () => {
       vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
         {
+          status: "APPLIED",
           rule: {
             id: "rule-replaced-id",
             systemType: SystemType.NEWSLETTER,
@@ -423,6 +426,53 @@ describe("process-label-removed-event", () => {
       expect(saveClassificationFeedback).toHaveBeenCalledTimes(1);
       expect(saveClassificationFeedback).toHaveBeenCalledWith(
         expect.objectContaining({ ruleId: "rule-label-ok" }),
+      );
+    });
+
+    it("does not credit a label action that never ran in an errored run", async () => {
+      vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
+        {
+          ...executedRuleRow({
+            rule: { id: "rule-errored", systemType: SystemType.NEWSLETTER },
+            labelId: "label-2",
+            executionStatus: null,
+          }),
+          status: "ERROR",
+        },
+      ] as any);
+
+      const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
+        "label-2",
+      ]);
+
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
+
+      expect(saveClassificationFeedback).not.toHaveBeenCalled();
+    });
+
+    it("still credits other rules when recording one rule fails", async () => {
+      vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
+        executedRuleRow({
+          rule: { id: "rule-throws", systemType: SystemType.NEWSLETTER },
+          labelId: "label-2",
+        }),
+        executedRuleRow({
+          rule: { id: "rule-ok", systemType: SystemType.MARKETING },
+          labelId: "label-2",
+        }),
+      ] as any);
+      vi.mocked(saveClassificationFeedback).mockRejectedValueOnce(
+        new Error("db down"),
+      );
+
+      const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
+        "label-2",
+      ]);
+
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
+
+      expect(saveClassificationFeedback).toHaveBeenCalledWith(
+        expect.objectContaining({ ruleId: "rule-ok" }),
       );
     });
 
@@ -580,6 +630,7 @@ function mockRulesThatAppliedLabel(
   // the rule uses for it.
   vi.mocked(prisma.executedRule.findMany).mockResolvedValue(
     rules.map((rule) => ({
+      status: "APPLIED",
       rule: { ...rule, actions: [{ label: "Rule label" }] },
       actionItems: [
         { labelId: null, label: "Rule label", executionStatus: null },
@@ -598,6 +649,7 @@ function executedRuleRow({
   executionStatus?: string | null;
 }) {
   return {
+    status: "APPLIED",
     rule: { ...rule, actions: [] },
     actionItems: [{ labelId, label: null, executionStatus }],
   };

@@ -214,6 +214,7 @@ describe("processHistoryForUser - 404 Handling", () => {
     } as any);
     vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
       {
+        status: "APPLIED",
         rule: {
           id: "rule-newsletter",
           systemType: SystemType.NEWSLETTER,

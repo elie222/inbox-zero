@@ -4,6 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import {
   ActionType,
   ClassificationFeedbackEventType,
+  ExecutedActionStatus,
   ExecutedRuleStatus,
   GroupItemSource,
   GroupItemType,
@@ -189,8 +190,21 @@ async function getRemovalsByRule(ruleIds: string[]) {
     where: {
       ruleId: { in: uniqueRuleIds },
       messageId: { in: [...new Set(feedback.map((f) => f.messageId))] },
-      status: { in: [ExecutedRuleStatus.APPLIED, ExecutedRuleStatus.ERROR] },
-      actionItems: { some: { type: ActionType.LABEL } },
+      OR: [
+        {
+          status: ExecutedRuleStatus.APPLIED,
+          actionItems: { some: { type: ActionType.LABEL } },
+        },
+        {
+          status: ExecutedRuleStatus.ERROR,
+          actionItems: {
+            some: {
+              type: ActionType.LABEL,
+              executionStatus: ExecutedActionStatus.SUCCEEDED,
+            },
+          },
+        },
+      ],
     },
     select: { ruleId: true, messageId: true },
   });

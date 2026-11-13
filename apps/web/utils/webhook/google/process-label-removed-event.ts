@@ -132,16 +132,23 @@ async function learnFromRemovedLabel({
   }
 
   for (const rule of rules) {
-    await recordLabelRemovalLearning({
-      sender,
-      ruleId: rule.id,
-      systemType: rule.systemType,
-      messageId,
-      threadId,
-      emailAccountId,
-      isBulkRemoval,
-      logger,
-    });
+    try {
+      await recordLabelRemovalLearning({
+        sender,
+        ruleId: rule.id,
+        systemType: rule.systemType,
+        messageId,
+        threadId,
+        emailAccountId,
+        isBulkRemoval,
+        logger,
+      });
+    } catch (error) {
+      logger.error("Error recording label removal for rule", {
+        error,
+        ruleId: rule.id,
+      });
+    }
   }
 }
 
@@ -165,6 +172,7 @@ async function findRulesThatAppliedLabel({
       actionItems: { some: { type: ActionType.LABEL } },
     },
     select: {
+      status: true,
       rule: {
         select: {
           id: true,
@@ -187,7 +195,7 @@ async function findRulesThatAppliedLabel({
     { id: string; systemType: SystemType | null }
   >();
 
-  for (const { rule, actionItems } of executedRules) {
+  for (const { status, rule, actionItems } of executedRules) {
     if (!rule) continue;
 
     // Older executed actions stored only the label name, and a stale label ID
@@ -198,12 +206,13 @@ async function findRulesThatAppliedLabel({
     );
 
     const appliedRemovedLabel = actionItems.some((action) => {
-      if (
-        action.executionStatus === ExecutedActionStatus.FAILED ||
-        action.executionStatus === ExecutedActionStatus.SKIPPED
-      ) {
-        return false;
-      }
+      // Actions after a failing one never run and keep a null status, so
+      // only an APPLIED run vouches for an action without a recorded status.
+      const labelWasApplied =
+        action.executionStatus === ExecutedActionStatus.SUCCEEDED ||
+        (action.executionStatus === null &&
+          status === ExecutedRuleStatus.APPLIED);
+      if (!labelWasApplied) return false;
       return (
         action.labelId === labelId ||
         (!!action.label && removedLabelNames.has(action.label))
