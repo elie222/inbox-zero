@@ -48,6 +48,37 @@ describe("loadEmails", () => {
 });
 
 describe("saveBatch account deletion", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it.each([
+    {},
+    { driverAdapterError: null },
+    { driverAdapterError: { cause: null } },
+    { driverAdapterError: { cause: { originalCode: "23505" } } },
+  ])("preserves raw-query errors with unrelated or missing adapter metadata: %j", async (meta) => {
+    const error = new Prisma.PrismaClientKnownRequestError("Raw query failed", {
+      code: "P2010",
+      clientVersion: "test",
+      meta,
+    });
+    prisma.$executeRaw.mockRejectedValueOnce(error);
+
+    await expect(
+      saveBatch({
+        emailAccountId: "account-1",
+        emailProvider: createMockEmailProvider({
+          getMessagesWithPagination: vi.fn().mockResolvedValue({
+            messages: [{ ...getMockMessage(), internalDate: "1700000000000" }],
+          }),
+        }),
+        logger: createTestLogger(),
+        before: undefined,
+        after: undefined,
+      }),
+    ).rejects.toBe(error);
+    expect(prisma.emailAccount.findUnique).not.toHaveBeenCalled();
+  });
+
   it.each([
     false,
     true,
@@ -57,7 +88,14 @@ describe("saveBatch account deletion", () => {
       {
         code: "P2010",
         clientVersion: "test",
-        meta: { code: "23503" },
+        meta: {
+          driverAdapterError: {
+            cause: {
+              kind: "ForeignKeyConstraintViolation",
+              originalCode: "23503",
+            },
+          },
+        },
       },
     );
     prisma.$executeRaw.mockRejectedValueOnce(error);

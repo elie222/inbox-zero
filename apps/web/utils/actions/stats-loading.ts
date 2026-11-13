@@ -220,11 +220,7 @@ export async function saveBatch({
     await saveEmailMessages(emailsToSave);
   } catch (error) {
     // Fetching a page can outlive deletion of the account and its saved stats.
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2010" &&
-      error.meta?.code === "23503"
-    ) {
+    if (isRawQueryForeignKeyError(error)) {
       const account = await prisma.emailAccount.findUnique({
         where: { id: emailAccountId },
         select: { id: true },
@@ -333,4 +329,28 @@ function mergeUnsubscribeSources({
   if (headerLinks.includes(normalizedHtmlLink)) return listUnsubscribeHeader;
 
   return `${listUnsubscribeHeader}, <${normalizedHtmlLink}>`;
+}
+
+function isRawQueryForeignKeyError(error: unknown) {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== "P2010"
+  )
+    return false;
+
+  const adapterError = error.meta?.driverAdapterError;
+  if (
+    typeof adapterError !== "object" ||
+    adapterError === null ||
+    !("cause" in adapterError)
+  )
+    return false;
+
+  const cause = adapterError.cause;
+  return (
+    typeof cause === "object" &&
+    cause !== null &&
+    "originalCode" in cause &&
+    cause.originalCode === "23503"
+  );
 }
