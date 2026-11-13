@@ -45,7 +45,10 @@ import {
   confirmAssistantCreateRule,
   confirmAssistantEmailAction,
   confirmAssistantSaveMemory,
+  confirmAssistantTrashThreads,
 } from "@/utils/actions/assistant-chat";
+import type { PendingTrashThreadsToolOutput } from "@/utils/actions/assistant-chat.validation";
+import { isProcessingLeaseExpired } from "@/components/assistant-chat/bulk-inbox-action-card";
 import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
 import { deleteMailSplitAction } from "@/utils/actions/mail-split";
 import { useMailSettings } from "@/hooks/useMailSettings";
@@ -1048,6 +1051,129 @@ export function PendingCreateRulePreviewCard({
       onConfirm={() => {}}
       riskMessages={riskMessages}
     />
+  );
+}
+
+export function PendingTrashThreadsCard({
+  output,
+  chatMessageId,
+  toolCallId,
+  threadLookup,
+  disableConfirm,
+}: {
+  output: PendingTrashThreadsToolOutput;
+  chatMessageId: string;
+  toolCallId: string;
+  threadLookup: ThreadLookup;
+  disableConfirm: boolean;
+}) {
+  const { t } = useLingui();
+  const { emailAccountId } = useAccount();
+  const { chatId } = useChat();
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [confirmedResult, setConfirmedResult] = useState(
+    output.confirmationResult ?? null,
+  );
+  const { threadIds } = output.pendingAction;
+
+  if (confirmedResult) {
+    return (
+      <ManageInboxResult
+        input={{ action: "trash_threads" }}
+        output={{
+          action: "trash_threads",
+          requestedCount: threadIds.length,
+          successCount: confirmedResult.successCount,
+          failedCount: confirmedResult.failedThreadIds.length,
+        }}
+        threadIds={threadIds}
+        threadLookup={threadLookup}
+      />
+    );
+  }
+
+  // A confirmation that never finished can be retried once its lease runs out.
+  const isProcessing =
+    output.confirmationState === "processing" &&
+    !isProcessingLeaseExpired(output.confirmationProcessingAt);
+  const threads = threadIds
+    .map((threadId) => {
+      const thread = threadLookup.get(threadId);
+      return thread ? { threadId, ...thread } : undefined;
+    })
+    .filter(isDefined);
+
+  const handleConfirm = async () => {
+    if (!chatId) {
+      toastError({ description: t`Could not move these emails to trash.` });
+      return;
+    }
+
+    setIsConfirming(true);
+    try {
+      const result = await confirmAssistantTrashThreads(emailAccountId, {
+        chatId,
+        chatMessageId,
+        toolCallId,
+      });
+      const confirmationResult = result?.data?.confirmationResult;
+      if (result?.serverError || !confirmationResult) {
+        toastError({
+          description:
+            result?.serverError || t`Could not move these emails to trash.`,
+        });
+        return;
+      }
+      setConfirmedResult(confirmationResult);
+    } catch {
+      toastError({ description: t`Could not move these emails to trash.` });
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0 border-b px-4 py-3.5">
+        <TrashIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-medium">
+            <Plural
+              value={threadIds.length}
+              one="Move # email to trash"
+              other="Move # emails to trash"
+            />
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            <Trans>Pending confirmation. Nothing has moved yet.</Trans>
+          </p>
+        </div>
+      </CardHeader>
+
+      {threads.length > 0 && (
+        <CardContent className="p-0">
+          <ToolEmailRows emails={threads} />
+        </CardContent>
+      )}
+
+      <CardFooter className="justify-end border-t px-4 py-3">
+        <Button
+          onClick={handleConfirm}
+          disabled={disableConfirm || isConfirming || isProcessing}
+          size="sm"
+          className="gap-2"
+        >
+          {isConfirming || isProcessing ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              <Trans>Moving to trash...</Trans>
+            </>
+          ) : (
+            <Trans>Move to trash</Trans>
+          )}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }
 

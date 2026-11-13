@@ -221,6 +221,11 @@ msgstr "{0, plural, one {Marqué comme spam} other {# conversations marquées co
 msgid "{0, plural, one {Marked as unread} other {Marked # conversations as unread}}"
 msgstr "{0, plural, one {Marqué comme non lu} other {# conversations marquées comme non lues}}"
 
+#. placeholder {0}: threadIds.length
+#: components/assistant-chat/tools.tsx
+msgid "{0, plural, one {Move # email to trash} other {Move # emails to trash}}"
+msgstr "{0, plural, one {Mettre # e-mail à la corbeille} other {Mettre # e-mails à la corbeille}}"
+
 #. placeholder {0}: open.openCount
 #: components/email-list/SentMessageOpenStatus.tsx
 msgid "{0, plural, one {Opened # time · Last opened {lastOpened}} other {Opened # times · Last opened {lastOpened}}}"
@@ -3874,6 +3879,10 @@ msgstr "Impossible de charger le contenu de l’e-mail : {0}"
 #: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
 msgid "Could not load the draft's attachments."
 msgstr "Impossible de charger les pièces jointes du brouillon."
+
+#: components/assistant-chat/tools.tsx
+msgid "Could not move these emails to trash."
+msgstr "Impossible de mettre ces e-mails à la corbeille."
 
 #: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
 msgid "Could not queue this email. Try again."
@@ -8866,6 +8875,10 @@ msgstr "Déplacer vers la boîte de réception"
 msgid "Move to review"
 msgstr "Déplacer vers « À examiner »"
 
+#: components/assistant-chat/tools.tsx
+msgid "Move to trash"
+msgstr "Mettre à la corbeille"
+
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Move to…"
 msgstr "Déplacer vers…"
@@ -8883,6 +8896,10 @@ msgstr "Déplacé vers {folderName}"
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Moving to review {count, plural, one {# sender} other {# senders}}..."
 msgstr "Déplacement vers « À examiner » de {count, plural, one {# expéditeur} other {# expéditeurs}}..."
+
+#: components/assistant-chat/tools.tsx
+msgid "Moving to trash..."
+msgstr "Mise à la corbeille..."
 
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Moving…"
@@ -10081,6 +10098,10 @@ msgid "Pending confirmation"
 msgstr "Confirmation en attente"
 
 #: components/assistant-chat/tools.tsx
+msgid "Pending confirmation. Nothing has moved yet."
+msgstr "Confirmation en attente. Rien n'a encore été déplacé."
+
+#: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
 msgstr "Suppression en attente"
 
@@ -10283,6 +10304,10 @@ msgstr "Préparation de la suppression de la règle « {0} »..."
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing to delete rule \"{ruleName}\"..."
 msgstr "Préparation de la suppression de la règle « {ruleName} »..."
+
+#: components/assistant-chat/message-part.tsx
+msgid "Preparing to move emails to trash..."
+msgstr "Préparation de la mise à la corbeille des e-mails..."
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
 msgid "Preset"

@@ -177,6 +177,7 @@ export async function aiProcessAssistantChat({
     email: user.email,
     emailAccountId,
     chatId,
+    responseSurface,
     userId: user.userId,
     provider: user.account.provider,
     integrationActionsEnabled,

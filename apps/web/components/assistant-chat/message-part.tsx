@@ -19,6 +19,7 @@ import {
   PendingDeleteSplitCard,
   PendingSaveMemoryToolCard,
   PendingCreateRuleToolCard,
+  PendingTrashThreadsCard,
   ForwardEmailResult,
   getManageInboxActionLabel,
   ManageInboxResult,
@@ -38,7 +39,10 @@ import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { ThreadLookup } from "@/components/assistant-chat/tools";
 import { formatToolLabel } from "@/components/assistant-chat/tool-label";
 import { BulkInboxActionCard } from "@/components/assistant-chat/bulk-inbox-action-card";
-import { pendingBulkInboxActionToolOutputSchema } from "@/utils/actions/assistant-chat.validation";
+import {
+  pendingBulkInboxActionToolOutputSchema,
+  pendingTrashThreadsToolOutputSchema,
+} from "@/utils/actions/assistant-chat.validation";
 import {
   isManageInboxAction,
   type ManageInboxAction,
@@ -363,6 +367,15 @@ export function MessagePart({
         );
       }
 
+      if (input.action === "trash_threads") {
+        return (
+          <BasicToolInfo
+            key={toolCallId}
+            text={t`Preparing to move emails to trash...`}
+          />
+        );
+      }
+
       const actionText = getManageInboxActionLabel({
         action: input.action,
         read: input.read ?? true,
@@ -379,6 +392,20 @@ export function MessagePart({
       const { output } = part;
       if (isOutputWithError(output)) {
         return renderToolError(toolCallId, output);
+      }
+      const pendingTrash =
+        pendingTrashThreadsToolOutputSchema.safeParse(output);
+      if (pendingTrash.success) {
+        return (
+          <PendingTrashThreadsCard
+            key={toolCallId}
+            output={pendingTrash.data}
+            chatMessageId={messageId}
+            toolCallId={toolCallId}
+            threadLookup={threadLookup}
+            disableConfirm={disableConfirm || !isPersistedMessage}
+          />
+        );
       }
       return (
         <ManageInboxResult

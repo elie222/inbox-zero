@@ -221,6 +221,11 @@ msgstr "{0, plural, one {Segnata come spam} other {# conversazioni segnate come 
 msgid "{0, plural, one {Marked as unread} other {Marked # conversations as unread}}"
 msgstr "{0, plural, one {Segnata come non letta} other {# conversazioni segnate come non lette}}"
 
+#. placeholder {0}: threadIds.length
+#: components/assistant-chat/tools.tsx
+msgid "{0, plural, one {Move # email to trash} other {Move # emails to trash}}"
+msgstr "{0, plural, one {Sposta # email nel cestino} other {Sposta # email nel cestino}}"
+
 #. placeholder {0}: open.openCount
 #: components/email-list/SentMessageOpenStatus.tsx
 msgid "{0, plural, one {Opened # time · Last opened {lastOpened}} other {Opened # times · Last opened {lastOpened}}}"
@@ -3886,6 +3891,10 @@ msgstr "Impossibile caricare il contenuto dell'email: {0}"
 #: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
 msgid "Could not load the draft's attachments."
 msgstr "Impossibile caricare gli allegati della bozza."
+
+#: components/assistant-chat/tools.tsx
+msgid "Could not move these emails to trash."
+msgstr "Impossibile spostare queste email nel cestino."
 
 #: app/(app)/[emailAccountId]/compose/compose-error-messages.ts
 msgid "Could not queue this email. Try again."
@@ -8859,6 +8868,10 @@ msgstr "Sposta nella posta in arrivo"
 msgid "Move to review"
 msgstr "Sposta in revisione"
 
+#: components/assistant-chat/tools.tsx
+msgid "Move to trash"
+msgstr "Sposta nel cestino"
+
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Move to…"
 msgstr "Sposta in…"
@@ -8876,6 +8889,10 @@ msgstr "Spostata in {folderName}"
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Moving to review {count, plural, one {# sender} other {# senders}}..."
 msgstr "Sposto in revisione {count, plural, one {# mittente} other {# mittenti}}..."
+
+#: components/assistant-chat/tools.tsx
+msgid "Moving to trash..."
+msgstr "Spostamento nel cestino..."
 
 #: app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx
 msgid "Moving…"
@@ -10074,6 +10091,10 @@ msgid "Pending confirmation"
 msgstr "In attesa di conferma"
 
 #: components/assistant-chat/tools.tsx
+msgid "Pending confirmation. Nothing has moved yet."
+msgstr "In attesa di conferma. Non è stato ancora spostato nulla."
+
+#: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
 msgstr "In attesa di eliminazione"
 
@@ -10276,6 +10297,10 @@ msgstr "Preparazione dell'eliminazione della regola \"{0}\"..."
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing to delete rule \"{ruleName}\"..."
 msgstr "Preparazione dell'eliminazione della regola \"{ruleName}\"..."
+
+#: components/assistant-chat/message-part.tsx
+msgid "Preparing to move emails to trash..."
+msgstr "Preparazione dello spostamento delle email nel cestino..."
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
 msgid "Preset"

@@ -9,6 +9,7 @@ import {
   confirmAssistantCreateRuleBody,
   confirmAssistantEmailActionBody,
   confirmAssistantSaveMemoryBody,
+  confirmAssistantTrashThreadsBody,
 } from "./assistant-chat.validation";
 import {
   confirmAssistantBulkInboxActionForAccount,
@@ -16,6 +17,7 @@ import {
   confirmAssistantCreateRuleForAccount,
   confirmAssistantEmailActionForAccount,
   confirmAssistantSaveMemoryForAccount,
+  confirmAssistantTrashThreadsForAccount,
 } from "./assistant-chat-confirmation";
 
 export const confirmAssistantEmailAction = actionClient
@@ -113,6 +115,25 @@ export const dismissAssistantBulkInboxAction = actionClient
         chatMessageId,
         toolCallId,
         emailAccountId,
+        logger,
+      }),
+  );
+
+export const confirmAssistantTrashThreads = actionClient
+  .metadata({ name: "confirmAssistantTrashThreads" })
+  .inputSchema(confirmAssistantTrashThreadsBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { chatId, chatMessageId, toolCallId },
+    }) =>
+      confirmAssistantTrashThreadsForAccount({
+        chatId,
+        chatMessageId,
+        toolCallId,
+        waitForPersistence: true,
+        emailAccountId,
+        provider,
         logger,
       }),
   );

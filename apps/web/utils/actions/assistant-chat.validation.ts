@@ -231,6 +231,29 @@ export const confirmAssistantBulkInboxActionBody =
 export const dismissAssistantBulkInboxActionBody =
   confirmAssistantActionBaseBody;
 
+export const pendingTrashThreadsToolOutputSchema = z.object({
+  success: z.literal(true),
+  actionType: z.literal("trash_threads"),
+  requiresConfirmation: z.literal(true),
+  confirmationState: z.enum(["pending", "processing", "confirmed"]),
+  confirmationProcessingAt: z.string().optional(),
+  pendingAction: z.object({
+    threadIds: z.array(z.string().min(1)).min(1),
+  }),
+  confirmationResult: z
+    .object({
+      successCount: z.number(),
+      failedThreadIds: z.array(z.string()),
+      confirmedAt: z.string().min(1),
+    })
+    .optional(),
+});
+export type PendingTrashThreadsToolOutput = z.infer<
+  typeof pendingTrashThreadsToolOutputSchema
+>;
+
+export const confirmAssistantTrashThreadsBody = confirmAssistantActionBaseBody;
+
 export const cancelBulkInboxActionJobBody = z.object({
   jobId: z.string().min(1),
 });
