@@ -1,4 +1,5 @@
 import prisma from "@/utils/prisma";
+import { Prisma } from "@/generated/prisma/client";
 
 type EmailField = "to" | "from" | "fromDomain";
 
@@ -9,6 +10,12 @@ interface EmailFieldStatsResult {
     count: number;
   }>;
 }
+
+const FIELD_COLUMNS: Record<EmailField, Prisma.Sql> = {
+  to: Prisma.raw('"to"'),
+  from: Prisma.raw('"from"'),
+  fromDomain: Prisma.raw('"fromDomain"'),
+};
 
 /**
  * Get detailed email stats for a specific field
@@ -26,40 +33,37 @@ export async function getEmailFieldStats({
   field: EmailField;
   isSent: boolean;
 }): Promise<EmailFieldStatsResult> {
-  const dateRange = { fromDate, toDate };
+  const column = FIELD_COLUMNS[field];
+  const conditions = [
+    Prisma.sql`"emailAccountId" = ${emailAccountId}`,
+    Prisma.sql`sent = ${isSent}`,
+    Prisma.sql`${column} IS NOT NULL`,
+  ];
+  if (fromDate) conditions.push(Prisma.sql`date >= ${new Date(fromDate)}`);
+  if (toDate) conditions.push(Prisma.sql`date <= ${new Date(toDate)}`);
 
-  const emailsCount = await prisma.emailMessage.groupBy({
-    by: [field],
-    where: {
-      emailAccountId,
-      sent: isSent,
-      date: {
-        gte: dateRange.fromDate ? new Date(dateRange.fromDate) : undefined,
-        lte: dateRange.toDate ? new Date(dateRange.toDate) : undefined,
-      },
-    },
-    _count: {
-      [field]: true,
-    },
-    orderBy: {
-      _count: {
-        [field]: "desc",
-      },
-    },
-    take: 50,
-  });
+  // Addresses and domains are stored as the sender wrote them, so group
+  // case-insensitively to count one sender once.
+  const query = Prisma.sql`
+    SELECT LOWER(${column}) AS "value", COUNT(*) AS "count"
+    FROM "EmailMessage"
+    WHERE ${Prisma.join(conditions, " AND ")}
+    GROUP BY LOWER(${column})
+    ORDER BY "count" DESC
+    LIMIT 50
+  `;
+  const emailsCount =
+    await prisma.$queryRaw<Array<{ value: string; count: bigint }>>(query);
 
   // Create the result with the correct field name
-  return {
-    data: emailsCount.map((item) => {
-      const resultField = field.includes("Domain")
-        ? field.replace("Domain", "")
-        : field;
+  const resultField = field.includes("Domain")
+    ? field.replace("Domain", "")
+    : field;
 
-      return {
-        [resultField]: item[field] || "",
-        count: item._count ? item._count[field] : 0,
-      };
-    }),
+  return {
+    data: emailsCount.map((item) => ({
+      [resultField]: item.value,
+      count: Number(item.count),
+    })),
   };
 }
