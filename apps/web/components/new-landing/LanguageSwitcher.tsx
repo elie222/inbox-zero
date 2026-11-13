@@ -8,7 +8,7 @@ import {
   localizeLandingHref,
   parseLandingPathname,
 } from "@/utils/i18n/landing";
-import { LOCALE_LABELS, LOCALES } from "@/utils/i18n/locales";
+import { DEFAULT_LOCALE, LOCALE_LABELS, LOCALES } from "@/utils/i18n/locales";
 import { cn } from "@/utils";
 
 // Links to the current page in every language. Hidden on pages that have no
@@ -17,7 +17,10 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   const { t, i18n } = useLingui();
   const pathname = usePathname();
   const { path } = parseLandingPathname(pathname);
-  if (!isLocalizedLandingPath(path)) return null;
+  // Signed-in visitors see the home page at /home, because next.config sends
+  // them from "/" to the app. English keeps them on /home.
+  const translatedPath = path === "/home" ? "/" : path;
+  if (!isLocalizedLandingPath(translatedPath)) return null;
 
   return (
     <nav
@@ -27,7 +30,10 @@ export function LanguageSwitcher({ className }: { className?: string }) {
       {LOCALES.map((locale) => (
         <Link
           key={locale}
-          href={localizeLandingHref(path, locale)}
+          href={localizeLandingHref(
+            locale === DEFAULT_LOCALE ? path : translatedPath,
+            locale,
+          )}
           hrefLang={locale}
           lang={locale}
           prefetch={false}
