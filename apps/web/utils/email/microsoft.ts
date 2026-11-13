@@ -1977,6 +1977,7 @@ export class OutlookProvider implements EmailProvider {
     maxResults?: number;
     pageToken?: string;
     messageFormat?: "full" | "metadata";
+    includeBccRecipients?: boolean;
     skipParticipantMessages?: boolean;
   }): Promise<{
     threads: EmailThread[];
@@ -2169,6 +2170,9 @@ export class OutlookProvider implements EmailProvider {
           [
             ...(message.toRecipients ?? []),
             ...(message.ccRecipients ?? []),
+            ...(options.includeBccRecipients
+              ? (message.bccRecipients ?? [])
+              : []),
           ].some((recipient) =>
             matchesSenderFilter(
               recipient.emailAddress?.address ?? "",

@@ -13,6 +13,7 @@ import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { extractEmailAddress, isSameOrganization } from "@/utils/email";
 import { isWhitelistedSender } from "@/utils/email/whitelist";
+import { hasUserSentEmail } from "@/utils/cold-email/has-user-sent-email";
 import { hasPriorContactOrAssumeYes } from "@/utils/cold-email/has-prior-contact";
 import { decideColdEmail } from "@/utils/decision-model/cold-email";
 import { runDecisionModelOrFallback } from "@/utils/decision-model/decision-model";
@@ -104,7 +105,36 @@ export async function checkColdEmailGuards({
     });
   }
 
-  if (patternMatch && !patternMatch.exclude) {
+  if (patternMatch?.exclude) {
+    logger.info("Sender explicitly excluded from cold email blocker", {
+      from: email.from,
+    });
+    return { isColdEmail: false, reason: "excluded" };
+  }
+
+  if (patternMatch) {
+    const sender = extractEmailAddress(email.from);
+    if (!sender) return { isColdEmail: false, reason: "hasPreviousEmail" };
+
+    // An old cold-sender pattern must not override correspondence the user initiated.
+    // Checking sent mail preserves blocking for repeated unanswered pitches.
+    try {
+      if (
+        await hasUserSentEmail({
+          provider,
+          emailAccountId: emailAccount.id,
+          sender,
+        })
+      ) {
+        return { isColdEmail: false, reason: "hasPreviousEmail" };
+      }
+    } catch (error) {
+      logger.warn("Assuming prior contact - could not check for sent replies", {
+        error,
+      });
+      return { isColdEmail: false, reason: "hasPreviousEmail" };
+    }
+
     logger.info("Known cold email sender", { from: email.from });
     const { group, ...groupItem } = patternMatch;
     return {
@@ -112,13 +142,6 @@ export async function checkColdEmailGuards({
       reason: "ai-already-labeled",
       ...(group ? { patternMatch: { group, groupItem } } : {}),
     };
-  }
-
-  if (patternMatch?.exclude) {
-    logger.info("Sender explicitly excluded from cold email blocker", {
-      from: email.from,
-    });
-    return { isColdEmail: false, reason: "excluded" };
   }
 
   const hasPreviousEmail = await hasPriorContactOrAssumeYes({
@@ -235,6 +258,8 @@ async function aiIsColdEmail(
   modelType?: ModelType,
 ) {
   const system = `Decide whether the email is cold outreach. Give a concise reason.
+
+Evaluate from the recipient's perspective. A sender seeking to buy or get help with the recipient's offering is a prospective customer, not a vendor pitching the recipient, even on first contact.
 
 <instructions>
 ${coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}

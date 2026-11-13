@@ -1,14 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { checkColdEmailGuards, isColdEmail } from "./is-cold-email";
-import { createTestLogger, getEmailAccount } from "@/__tests__/helpers";
+import {
+  createTestLogger,
+  getEmail,
+  getEmailAccount,
+} from "@/__tests__/helpers";
 import type { EmailForLLM } from "@/utils/types";
 import { GroupItemType } from "@/generated/prisma/enums";
 import { env } from "@/env";
 import prisma from "@/utils/__mocks__/prisma";
+import { hasUserSentEmail } from "@/utils/cold-email/has-user-sent-email";
 import { extractEmailAddress } from "@/utils/email";
 import { createGenerateObject } from "@/utils/llms";
 import { decideColdEmail } from "@/utils/decision-model/cold-email";
 import { runDecisionModelOrFallback } from "@/utils/decision-model/decision-model";
+
+vi.mock("@/utils/cold-email/has-user-sent-email", () => ({
+  hasUserSentEmail: vi.fn(),
+}));
 
 const logger = createTestLogger();
 
@@ -59,6 +68,10 @@ const mockProvider = {
 describe("isColdEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(hasUserSentEmail).mockResolvedValue(false);
+    mockProvider.hasPreviousCommunicationsWithSenderOrDomain.mockResolvedValue(
+      false,
+    );
     env.WHITELIST_FROM = "welcome@service.example OR service.example";
     env.DECISION_MODEL_COLD_EMAIL_ENABLED = false;
   });
@@ -67,6 +80,11 @@ describe("isColdEmail", () => {
     const emailAccount = getEmailAccount({ id: "test-account-id" });
     const normalizedEmail = "cold.sender@example.com";
     const groupId = "test-group-id";
+
+    // Repeated unanswered outreach does not establish a relationship.
+    mockProvider.hasPreviousCommunicationsWithSenderOrDomain.mockResolvedValue(
+      true,
+    );
 
     // Mock groupItem lookup
     vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
@@ -96,6 +114,14 @@ describe("isColdEmail", () => {
 
     expect(result.isColdEmail).toBe(true);
     expect(result.reason).toBe("ai-already-labeled");
+    expect(hasUserSentEmail).toHaveBeenCalledWith({
+      provider: mockProvider,
+      emailAccountId: emailAccount.id,
+      sender: normalizedEmail,
+    });
+    expect(
+      mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
+    ).not.toHaveBeenCalled();
     expect(result.patternMatch).toEqual({
       group: { id: groupId, name: "Cold Email" },
       groupItem: {
@@ -122,6 +148,40 @@ describe("isColdEmail", () => {
         group: { select: { id: true, name: true } },
       },
     });
+  });
+
+  it.each([
+    "sent",
+    "unavailable",
+  ])("does not block a learned cold sender when sent correspondence is %s", async (state) => {
+    prisma.groupItem.findFirst.mockResolvedValue({
+      id: "old-pattern",
+      type: GroupItemType.FROM,
+      value: "contact@outside.example",
+      exclude: false,
+      group: { id: "group-id", name: "Cold Email" },
+    } as never);
+    if (state === "sent") {
+      vi.mocked(hasUserSentEmail).mockResolvedValue(true);
+    } else {
+      vi.mocked(hasUserSentEmail).mockRejectedValue(
+        new Error("Provider unavailable"),
+      );
+    }
+
+    const result = await isColdEmail({
+      logger,
+      email: getEmail({ from: "contact@outside.example", date: new Date() }),
+      emailAccount: getEmailAccount(),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: null, groupId: "group-id" },
+    });
+
+    expect(result).toMatchObject({
+      isColdEmail: false,
+      reason: "hasPreviousEmail",
+    });
+    expect(createGenerateObject).not.toHaveBeenCalled();
   });
 
   it("should return excluded when sender is explicitly excluded from cold email blocker", async () => {
@@ -383,8 +443,10 @@ describe("isColdEmail", () => {
       coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
     });
 
-    expect(result.isColdEmail).toBe(true);
-    expect(result.reason).toBe("ai-already-labeled");
+    expect(result.isColdEmail).toBe(!!extractEmailAddress(from));
+    expect(result.reason).toBe(
+      extractEmailAddress(from) ? "ai-already-labeled" : "hasPreviousEmail",
+    );
   });
 
   // Blocking a sender we could not verify is worse than missing a cold email.
