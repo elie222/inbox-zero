@@ -8,11 +8,25 @@ import { messages as es } from "@/locales/es/messages.po";
 import { messages as fr } from "@/locales/fr/messages.po";
 import { messages as de } from "@/locales/de/messages.po";
 import { messages as ptBR } from "@/locales/pt-BR/messages.po";
+import { messages as it } from "@/locales/it/messages.po";
+import { messages as nl } from "@/locales/nl/messages.po";
+import { messages as pl } from "@/locales/pl/messages.po";
+import { messages as tr } from "@/locales/tr/messages.po";
+import { messages as ja } from "@/locales/ja/messages.po";
+import { messages as ko } from "@/locales/ko/messages.po";
+import { messages as zhCN } from "@/locales/zh-CN/messages.po";
 import { messages as enLanding } from "@/locales/en/landing.po";
 import { messages as esLanding } from "@/locales/es/landing.po";
 import { messages as frLanding } from "@/locales/fr/landing.po";
 import { messages as deLanding } from "@/locales/de/landing.po";
 import { messages as ptBRLanding } from "@/locales/pt-BR/landing.po";
+import { messages as itLanding } from "@/locales/it/landing.po";
+import { messages as nlLanding } from "@/locales/nl/landing.po";
+import { messages as plLanding } from "@/locales/pl/landing.po";
+import { messages as trLanding } from "@/locales/tr/landing.po";
+import { messages as jaLanding } from "@/locales/ja/landing.po";
+import { messages as koLanding } from "@/locales/ko/landing.po";
+import { messages as zhCNLanding } from "@/locales/zh-CN/landing.po";
 import { LOCALE_COOKIE, type Locale, toLocale } from "@/utils/i18n/locales";
 
 const landingCatalogs: Record<Locale, Messages> = {
@@ -21,6 +35,13 @@ const landingCatalogs: Record<Locale, Messages> = {
   fr: frLanding,
   de: deLanding,
   "pt-BR": ptBRLanding,
+  it: itLanding,
+  nl: nlLanding,
+  pl: plLanding,
+  tr: trLanding,
+  ja: jaLanding,
+  ko: koLanding,
+  "zh-CN": zhCNLanding,
 };
 
 // A few app screens render landing components (e.g. the upgrade page's
@@ -31,6 +52,13 @@ const catalogs: Record<Locale, Messages> = {
   fr: { ...frLanding, ...fr },
   de: { ...deLanding, ...de },
   "pt-BR": { ...ptBRLanding, ...ptBR },
+  it: { ...itLanding, ...it },
+  nl: { ...nlLanding, ...nl },
+  pl: { ...plLanding, ...pl },
+  tr: { ...trLanding, ...tr },
+  ja: { ...jaLanding, ...ja },
+  ko: { ...koLanding, ...ko },
+  "zh-CN": { ...zhCNLanding, ...zhCN },
 };
 
 // Catalogs are read-only, so one instance per locale is safe to share

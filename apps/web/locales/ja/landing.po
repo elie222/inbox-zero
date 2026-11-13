@@ -1,0 +1,1208 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-13 04:21+0200\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: ja\n"
+
+#: app/(landing)/home/home-metadata.ts
+msgid "{BRAND_NAME} | Automate and clean your inbox"
+msgstr "{BRAND_NAME} | 受信トレイを自動化してすっきり整理"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "{BRAND_NAME} for self-hosted teams"
+msgstr "セルフホスト型チーム向け {BRAND_NAME}"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "{BRAND_NAME} organizes your inbox and calendar, drafts replies in your voice, and helps you reach inbox zero fast. Never miss an important email again."
+msgstr "{BRAND_NAME} は受信トレイとカレンダーを整理し、あなたの文体で返信を下書きして、インボックスゼロへの到達を後押しします。大事なメールを見逃すことはもうありません。"
+
+#: app/(landing)/home/Footer.tsx
+msgid "{BRAND_NAME} Tabs (Chrome Extension)"
+msgstr "{BRAND_NAME} Tabs(Chrome 拡張機能)"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "{INCLUDED_EMAIL_ACCOUNTS_PER_PERSON, plural, one {# email account included, then {extraAccountPrice}/mo each, billed annually} other {# email accounts included, then {extraAccountPrice}/mo each, billed annually}}"
+msgstr "{INCLUDED_EMAIL_ACCOUNTS_PER_PERSON, plural, other {# 個のメールアカウントを含み、追加分は 1 つにつき {extraAccountPrice}/月(年払い)}}"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "{INCLUDED_EMAIL_ACCOUNTS_PER_PERSON, plural, one {# email account included, then {extraAccountPrice}/mo each} other {# email accounts included, then {extraAccountPrice}/mo each}}"
+msgstr "{INCLUDED_EMAIL_ACCOUNTS_PER_PERSON, plural, other {# 個のメールアカウントを含み、追加分は 1 つにつき {extraAccountPrice}/月}}"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "{price}/mo"
+msgstr "{price}/月"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "/user /month"
+msgstr "/ユーザー /月"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "#1 GitHub Trending"
+msgstr "#1 GitHub Trending"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "#1 Product Hunt"
+msgstr "#1 Product Hunt"
+
+#: app/(landing)/home/Footer.tsx
+msgid "© {year} {copyrightName}. All rights reserved."
+msgstr "© {year} {copyrightName}. 無断転載を禁じます。"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "<0>Contact our sales team</0> for custom pricing, SSO, SCIM, on-premise deployment, and dedicated support."
+msgstr "カスタム料金、SSO、SCIM、オンプレミス展開、専任サポートについては、<0>営業チームにお問い合わせください</0>。"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "12k+ GitHub Stars"
+msgstr "12k+ GitHub スター"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "A fast email app for Gmail and Outlook. Free on web, desktop, and iPhone."
+msgstr "Gmail と Outlook に対応した高速メールアプリ。Web、デスクトップ、iPhone で無料。"
+
+#: app/(app)/premium/config-messages.ts
+msgid "A notetaker joins your video calls and turns them into transcripts, summaries, recap emails, and follow-up drafts."
+msgstr "ノートテイカーがビデオ通話に参加し、文字起こし、要約、まとめメール、フォローアップの下書きにしてくれます。"
+
+#: app/(landing)/home/Footer.tsx
+msgid "About"
+msgstr "概要"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Accounting Firms"
+msgstr "会計事務所"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Advanced security & SLA"
+msgstr "高度なセキュリティと SLA"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Affiliates"
+msgstr "アフィリエイト"
+
+#: app/(landing)/home/Footer.tsx
+msgid "AI Chat for Slack & Telegram"
+msgstr "Slack と Telegram 向け AI チャット"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "AI drafts and a sorted inbox from ${starterPrice}/month, less than Superhuman charges."
+msgstr "月額 ${starterPrice} から、Superhuman より低価格で AI 下書きと整理された受信トレイを。"
+
+#: app/(landing)/home/Footer.tsx
+msgid "AI Email Assistant"
+msgstr "AI メールアシスタント"
+
+#: app/(landing)/home/Footer.tsx
+msgid "AI Email Assistant Directory"
+msgstr "AI メールアシスタントディレクトリ"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "AI email management for real estate professionals"
+msgstr "不動産プロフェッショナル向け AI メール管理"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "AI meeting notetaker"
+msgstr "AI ミーティングノートテイカー"
+
+#: app/(landing)/home/Footer.tsx
+msgid "AI Meeting Notetaker"
+msgstr "AI ミーティングノートテイカー"
+
+#: app/(landing)/home/Footer.tsx
+msgid "All Free Email Tools"
+msgstr "すべての無料メールツール"
+
+#: app/(landing)/home/Hero.tsx
+#: components/new-landing/sections/OrganizedInbox.tsx
+msgid "an organized inbox"
+msgstr "整理された受信トレイ"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Annually"
+msgstr "年払い"
+
+#: app/(app)/premium/config-messages.ts
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "App integrations"
+msgstr "アプリ連携"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "App integrations (Notion, Stripe, and more)"
+msgstr "アプリ連携(Notion、Stripe など)"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Auto Forward Emails"
+msgstr "メールの自動転送"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Auto-file attachments"
+msgstr "添付ファイルを自動整理"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Auto-File Attachments"
+msgstr "添付ファイルを自動整理"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Automate order updates and customer communications"
+msgstr "注文の更新や顧客対応を自動化"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Automatically organize and file email attachments to your preferred storage."
+msgstr "メールの添付ファイルを自動で整理し、お好みのストレージに保存します。"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Automatically organized.<0/>Never miss an important email again."
+msgstr "自動で整理。<0/>大事なメールを見逃すことはもうありません。"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Best AI Email Assistants"
+msgstr "おすすめの AI メールアシスタント"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Blocks cold emails"
+msgstr "コールドメールをブロック"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Blog"
+msgstr "ブログ"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Bot Directory"
+msgstr "ボットディレクトリ"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Brand Kit"
+msgstr "ブランドキット"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Brief My Meeting"
+msgstr "ミーティングのブリーフを作成"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Built to fit your workflow. Customize in plain English"
+msgstr "あなたのワークフローに合わせて構築。カスタマイズは普通の言葉で"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Bulk archive"
+msgstr "一括アーカイブ"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Bulk Email Unsubscriber"
+msgstr "メール一括配信停止ツール"
+
+#: components/new-landing/sections/BulkUnsubscribe.tsx
+msgid "bulk unsubscribe"
+msgstr "一括配信停止"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Bulk unsubscribe"
+msgstr "一括配信停止"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Bulk unsubscribe and archive emails"
+msgstr "メールを一括で配信停止・アーカイブ"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Calendar"
+msgstr "Calendar"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Can I switch between plans?"
+msgstr "プランを切り替えられますか?"
+
+#: app/(landing)/home/FAQs.tsx
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Can I try {BRAND_NAME} for free?"
+msgstr "{BRAND_NAME} を無料で試せますか?"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/HeaderLinks.tsx
+msgid "Case Studies"
+msgstr "導入事例"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Changelog"
+msgstr "更新履歴"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Clean your inbox"
+msgstr "受信トレイをクリーンアップ"
+
+#: app/(landing)/home/Footer.tsx
+msgid "CLI"
+msgstr "CLI"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Cold Email"
+msgstr "Cold Email"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Cold Email Blocker"
+msgstr "コールドメールブロッカー"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Company"
+msgstr "会社情報"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Compare"
+msgstr "比較"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Compare plans"
+msgstr "プランを比較"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Connect Notion, Stripe, Monday.com, and more so the AI can use data from your tools when drafting replies and meeting briefs."
+msgstr "Notion、Stripe、Monday.com などを接続すると、AI が返信やミーティングブリーフの作成時にツールのデータを活用できます。"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Connect your Google or Microsoft email"
+msgstr "Google または Microsoft のメールを接続"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Connects to your calendar and CRM to draft emails based on your actual schedule and customer data."
+msgstr "カレンダーや CRM と連携し、実際の予定や顧客データに基づいてメールを下書きします。"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Contact our sales team for custom pricing, SSO, SCIM, on-premise deployment, and dedicated support."
+msgstr "カスタム料金、SSO、SCIM、オンプレミス展開、専任サポートについては、営業チームにお問い合わせください。"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+#: components/new-landing/sections/Pricing.tsx
+msgid "Contact us"
+msgstr "お問い合わせ"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Content Creator"
+msgstr "コンテンツクリエイター"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Content Creators"
+msgstr "コンテンツクリエイター"
+
+#: components/new-landing/common/Logo.tsx
+msgid "Copy Logo as SVG"
+msgstr "ロゴを SVG としてコピー"
+
+#: components/new-landing/common/Logo.tsx
+msgid "Couldn't copy the logo"
+msgstr "ロゴをコピーできませんでした"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/HeaderLinks.tsx
+msgid "Customer Support"
+msgstr "カスタマーサポート"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Customize"
+msgstr "カスタマイズ"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Dedicated account manager & training"
+msgstr "専任のアカウントマネージャーとトレーニング"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Dedicated onboarding manager"
+msgstr "専任のオンボーディング担当"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Deliver faster support with AI-powered responses"
+msgstr "AI による返信で、より迅速なサポートを"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Deploy {BRAND_NAME} on your own infrastructure and automate your inbox with full data control."
+msgstr "{BRAND_NAME} を自社のインフラにデプロイし、データを完全に管理しながら受信トレイを自動化。"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Designed around how you actually work"
+msgstr "実際の働き方に合わせて設計"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Discord"
+msgstr "Discord"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Do you offer annual discounts?"
+msgstr "年払いの割引はありますか?"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Do you offer discounts for students, nonprofits, or open-source projects?"
+msgstr "学生、非営利団体、オープンソースプロジェクト向けの割引はありますか?"
+
+#: app/(landing)/home/FAQs.tsx
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Do you offer refunds?"
+msgstr "返金は可能ですか?"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Documentation"
+msgstr "ドキュメント"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Download"
+msgstr "ダウンロード"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "Download for Mac"
+msgstr "Mac 版をダウンロード"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "Download for Windows"
+msgstr "Windows 版をダウンロード"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "Download on the App Store"
+msgstr "App Store からダウンロード"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Drafts replies in your voice"
+msgstr "あなたの文体で返信を下書き"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Drafts that know your schedule and availability"
+msgstr "予定や空き状況を踏まえた下書き"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Drowning in emails? Don't waste energy trying to prioritize your emails. Our AI assistant will label everything automatically."
+msgstr "メールに埋もれていませんか?メールの優先順位付けに労力を割く必要はありません。AI アシスタントがすべて自動でラベル付けします。"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/HeaderLinks.tsx
+msgid "E-commerce"
+msgstr "Eコマース"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Email analytics"
+msgstr "メール分析"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Email Analytics"
+msgstr "メール分析"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Email analytics. What gets measured, gets managed"
+msgstr "メール分析。測れば、管理できる"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Email app"
+msgstr "メールアプリ"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Email App"
+msgstr "メールアプリ"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Email Blaster"
+msgstr "メール一斉送信ツール"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Email Deliverability Checker"
+msgstr "メール到達率チェッカー"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Email digests"
+msgstr "メールダイジェスト"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Email Signature Generator"
+msgstr "メール署名ジェネレーター"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Email us or post an issue on <0>GitHub</0>. We're happy to hear how we can improve your email experience."
+msgstr "メールまたは <0>GitHub</0> の Issue でお知らせください。メール体験の改善に向けたご意見をお待ちしています。"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Email us or post an issue on GitHub. We're happy to hear how we can improve your email experience."
+msgstr "メールまたは GitHub の Issue でお知らせください。メール体験の改善に向けたご意見をお待ちしています。"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Enterprise"
+msgstr "Enterprise"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Enterprise-grade security. SOC 2 Type 2 certified"
+msgstr "エンタープライズ級のセキュリティ。SOC 2 Type 2 認証取得済み"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Every email you get needing a reply will have a pre-written draft."
+msgstr "返信が必要なメールには、すべて下書きが用意されます。"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Every Gmail and Outlook account in one inbox, on the web, Mac, Windows, and iPhone. Like Superhuman, but free."
+msgstr "すべての Gmail と Outlook アカウントを、Web、Mac、Windows、iPhone の 1 つの受信トレイに集約。Superhuman のような使い心地で、無料です。"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Everything in Plus, plus:"
+msgstr "Plus のすべてに加えて:"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Everything in Starter, plus:"
+msgstr "Starter のすべてに加えて:"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Everything in Team, plus:"
+msgstr "Team のすべてに加えて:"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Feature"
+msgstr "機能"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Feature Requests"
+msgstr "機能リクエスト"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Finally an \"unsubscribe app\" that let's you *actually* unsubscribe and filter using Gmail filters (instead of always relying on the 3rd party app to filter those emails). Big plus for me, so I have all filters in one place (inside the Gmail filters, that is). Awesome work! Already a fan :)"
+msgstr "ついに、Gmail フィルターを使って「本当に」配信停止やフィルタリングができる「配信停止アプリ」が登場しました(サードパーティアプリにフィルタリングを任せきりにする必要がありません)。すべてのフィルターを 1 か所(Gmail のフィルター内)にまとめられるのは、私にとって大きなメリットです。素晴らしい仕事です!すでにファンです :)"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Flexible enough to fit any workflow. Simple enough to set up in minutes."
+msgstr "どんなワークフローにも合わせられる柔軟さ。数分で設定できるシンプルさ。"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Fly through email on desktop and mobile"
+msgstr "デスクトップでもモバイルでも、メールを軽快に処理"
+
+#: app/(app)/premium/config-messages.ts
+msgid "For individuals, entrepreneurs, and executives looking to buy back their time."
+msgstr "時間を取り戻したい個人、起業家、経営者の方へ。"
+
+#: app/(app)/premium/config-messages.ts
+msgid "For organizations with enterprise-grade security and compliance requirements."
+msgstr "エンタープライズ級のセキュリティとコンプライアンスが求められる組織向け。"
+
+#: app/(app)/premium/config-messages.ts
+msgid "For power users who need integrations and deeper knowledge base support."
+msgstr "連携や、より充実したナレッジベース対応が必要なパワーユーザー向け。"
+
+#: app/(app)/premium/config-messages.ts
+msgid "For teams and growing businesses handling high email volumes."
+msgstr "大量のメールを扱うチームや成長中のビジネス向け。"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Forward important emails and notifications to your Slack channels automatically."
+msgstr "重要なメールや通知を Slack チャンネルに自動で転送します。"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Founder"
+msgstr "創業者"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Founders"
+msgstr "創業者"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Free to use"
+msgstr "無料で利用可能"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Free Tools"
+msgstr "無料ツール"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Frequently asked questions"
+msgstr "よくある質問"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Get AI briefings before every meeting with research on attendees and context from your inbox."
+msgstr "ミーティングの前に、参加者の調査や受信トレイの情報をまとめた AI ブリーフィングを受け取れます。"
+
+#: app/(landing)/home/FinalCTA.tsx
+msgid "Get back an hour a day.<0/>Start using {BRAND_NAME}."
+msgstr "1 日 1 時間を取り戻そう。<0/>{BRAND_NAME} を使い始めましょう。"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "Get it on Google Play"
+msgstr "Google Play で手に入れよう"
+
+#: components/new-landing/CallToAction.tsx
+msgid "Get started"
+msgstr "始める"
+
+#: app/(landing)/home/FinalCTA.tsx
+msgid "Get started for free"
+msgstr "無料で始める"
+
+#: components/new-landing/sections/Header.tsx
+#: components/new-landing/sections/Pricing.tsx
+msgid "Get started free"
+msgstr "無料で始める"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Get started in minutes"
+msgstr "数分で始められます"
+
+#: components/new-landing/sections/BulkUnsubscribe.tsx
+msgid "Get to Inbox Zero fast.<0/>Bulk unsubscribe from emails you never read."
+msgstr "インボックスゼロを素早く実現。<0/>読まないメールを一括で配信停止。"
+
+#: app/(landing)/home/Footer.tsx
+msgid "GitHub"
+msgstr "GitHub"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Gmail Personality Quiz"
+msgstr "Gmail 性格診断"
+
+#: components/new-landing/common/Logo.tsx
+msgid "Go to Brand Kit"
+msgstr "ブランドキットへ移動"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Group emails from selected rules into a scheduled summary instead of reading each message individually."
+msgstr "選択したルールのメールを、1 通ずつ読む代わりに、スケジュールされた要約にまとめます。"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Grow your business with automated email management"
+msgstr "メール管理の自動化でビジネスを成長させる"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "hey bro, your tool is legit what I been looking for for ages haha. its a god send"
+msgstr "やあ、このツール、ずっと探してたやつだよ笑 まさに天の助け"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "How can I request a feature?"
+msgstr "機能をリクエストするにはどうすればよいですか?"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "I came across Inbox Zero while actively looking to hire a VA to manage my emails but after trying the tool, it turned out to be a complete game changer."
+msgstr "メール管理のために VA(バーチャルアシスタント)の採用を考えていたときに Inbox Zero に出会いましたが、実際に使ってみると、まさに画期的な変化でした。"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "I love the flexibility and customization options, and it's the first thing in forever that's gotten my inbox under control. Thank you!"
+msgstr "柔軟性とカスタマイズ性が気に入っています。長い間で初めて、受信トレイをきちんと管理できるようになりました。ありがとうございます!"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "I was mostly hoping to turn my email inbox into less of the mess that it is. I've been losing tasks that I should do as the emails get buried. So far it's really helped."
+msgstr "受信トレイの散らかり具合を少しでも解消したいと思っていました。メールに埋もれて、やるべきタスクを見失っていたんです。今のところ本当に助かっています。"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "I'm an executive who was drowning in hundreds of daily emails and heavily dependent on my EA for email management. What I love most about Inbox Zero is how it seamlessly replaced that entire function—the smart automation, prioritization, and organization features work like having a dedicated email assistant built right into my workflow."
+msgstr "私は毎日何百通ものメールに埋もれ、メール管理を EA(エグゼクティブアシスタント)に大きく頼っていた経営者です。Inbox Zero で一番気に入っているのは、その役割をそっくり置き換えてくれたことです。スマートな自動化、優先順位付け、整理の機能が、ワークフローに組み込まれた専任のメールアシスタントのように働いてくれます。"
+
+#: app/(landing)/home/HeroVideoDialog.tsx
+msgid "Inbox Zero product video"
+msgstr "Inbox Zero の製品紹介動画"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Industries"
+msgstr "業界"
+
+#: components/new-landing/sections/ManageFromAnywhere.tsx
+msgid "iOS & Android"
+msgstr "iOS と Android"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Is the code open-source?"
+msgstr "コードはオープンソースですか?"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Is there a mobile app?"
+msgstr "モバイルアプリはありますか?"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "It doesn't have to. {BRAND_NAME} works inside Gmail and Outlook, so you can keep using them as normal while the assistant works in the background. {BRAND_NAME} also has its own <0>email app</0> for the web, desktop, and iPhone if you'd like to use it."
+msgstr "その必要はありません。{BRAND_NAME} は Gmail と Outlook の中で動作するため、アシスタントがバックグラウンドで働く間も、いつも通りそれらを使い続けられます。ご希望であれば、Web、デスクトップ、iPhone 向けの専用<0>メールアプリ</0>もご利用いただけます。"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "It doesn't have to. {BRAND_NAME} works inside Gmail and Outlook, so you can keep using them as normal while the assistant works in the background. {BRAND_NAME} also has its own email app for the web, desktop, and iPhone if you'd like to use it."
+msgstr "その必要はありません。{BRAND_NAME} は Gmail と Outlook の中で動作するため、アシスタントがバックグラウンドで働く間も、いつも通りそれらを使い続けられます。ご希望であれば、Web、デスクトップ、iPhone 向けの専用メールアプリもご利用いただけます。"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "It's the first tool I've tried of many that have actually captured my voice in the responses that it drafts."
+msgstr "数多く試した中で、下書きする返信に私の話し方を本当に反映してくれた初めてのツールです。"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Join {userCount} others who spend less time on emails"
+msgstr "メールにかける時間を減らしている {userCount} 人の仲間に加わりましょう"
+
+#: components/new-landing/BrandScroller.tsx
+msgid "Join {userCount} professionals, including people at:"
+msgstr "次の企業の方々を含む {userCount} 人のプロフェッショナルが利用中:"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Knowledge base"
+msgstr "ナレッジベース"
+
+#: components/new-landing/LanguageSwitcher.tsx
+msgid "Language"
+msgstr "言語"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Law Firms"
+msgstr "法律事務所"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Legal"
+msgstr "法務"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Less than Superhuman"
+msgstr "Superhuman より低価格"
+
+#: app/(landing)/home/FinalCTA.tsx
+msgid "Less time in your inbox. More time for what actually matters."
+msgstr "受信トレイにかける時間を減らして、本当に大切なことに時間を使いましょう。"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Limited"
+msgstr "限定"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Link your Gmail or Outlook in two clicks to get started."
+msgstr "Gmail または Outlook を 2 クリックでリンクして始めましょう。"
+
+#: components/new-landing/sections/Header.tsx
+msgid "Log in"
+msgstr "ログイン"
+
+#: components/new-landing/common/Logo.tsx
+msgid "Logo copied as SVG"
+msgstr "ロゴを SVG としてコピーしました"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Love this new open-source app by @elie2222: getinboxzero.com"
+msgstr "@elie2222 さんによる新しいオープンソースアプリ、最高です: getinboxzero.com"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Loving it so far! Cleaned up my top cluttering newsletter and promotional email subscriptions in just a few minutes."
+msgstr "今のところ大満足です!邪魔だったニュースレターや広告メールの購読を、ほんの数分で整理できました。"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Marketing"
+msgstr "Marketing"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Meet the Inbox Zero email app"
+msgstr "Inbox Zero メールアプリのご紹介"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Meet your AI email assistant that *actually* works"
+msgstr "「本当に」使える AI メールアシスタントをご紹介"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Meeting Cost Calculator"
+msgstr "ミーティングコスト計算ツール"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "metrics"
+msgstr "指標"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Mobile App"
+msgstr "モバイルアプリ"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Monthly"
+msgstr "月払い"
+
+#: app/(landing)/home/Footer.tsx
+msgid "MSPs"
+msgstr "MSP"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Need a custom plan for your enterprise?"
+msgstr "エンタープライズ向けのカスタムプランが必要ですか?"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Need SSO, SCIM, on-premise deployment, or a dedicated account manager?"
+msgstr "SSO、SCIM、オンプレミス展開、専任のアカウントマネージャーが必要ですか?"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "New"
+msgstr "新着"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "New: Inbox Zero Mail app →"
+msgstr "新登場: Inbox Zero Mail アプリ →"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Newsletter"
+msgstr "Newsletter"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "No hidden fees. Cancel anytime."
+msgstr "隠れた手数料はありません。いつでもキャンセル可能。"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "No need to switch"
+msgstr "乗り換え不要"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Notification"
+msgstr "Notification"
+
+#: app/(app)/premium/config-messages.ts
+msgid "On-premise deployment (optional)"
+msgstr "オンプレミス展開(オプション)"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "One-click setup. Start organizing and drafting replies in minutes."
+msgstr "ワンクリックでセットアップ。数分で整理と返信の下書きを始められます。"
+
+#: components/new-landing/common/Logo.tsx
+msgid "Open Link in New Tab"
+msgstr "新しいタブでリンクを開く"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Open Source"
+msgstr "オープンソース"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Open-source. See exactly what the code does"
+msgstr "オープンソース。コードの動作を正確に確認できます"
+
+#: app/(landing)/home/Footer.tsx
+msgid "OpenClaw Skill"
+msgstr "OpenClaw Skill"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Organizes your inbox exactly how you want it"
+msgstr "受信トレイを思い通りに整理"
+
+#: app/(landing)/home/Footer.tsx
+msgid "OSS Friends"
+msgstr "OSS Friends"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "Other platforms"
+msgstr "その他のプラットフォーム"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Our customers love saving time with {BRAND_NAME}."
+msgstr "{BRAND_NAME} で時間を節約できると、お客様から好評をいただいています。"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Payment frequency"
+msgstr "支払い頻度"
+
+#: app/(landing)/home/HeroVideoDialog.tsx
+msgid "Play product demo video"
+msgstr "製品デモ動画を再生"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Popular"
+msgstr "人気"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Powered by <0>Inbox Zero</0>"
+msgstr "Powered by <0>Inbox Zero</0>"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Pre-drafted replies"
+msgstr "事前に下書きされた返信"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Pre-drafted replies based on your email history and calendar"
+msgstr "メール履歴とカレンダーに基づいて事前に下書きされた返信"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Pre-meeting briefings"
+msgstr "ミーティング前のブリーフィング"
+
+#: components/new-landing/sections/PreWrittenDrafts.tsx
+msgid "pre-written drafts"
+msgstr "事前に作成された下書き"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Pre-written drafts waiting in your inbox"
+msgstr "受信トレイで待機している、事前に作成された下書き"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Prefer Gmail or Outlook? The AI works there too."
+msgstr "Gmail や Outlook をお好みですか?AI はそちらでも動作します。"
+
+#: app/(landing)/home/Footer.tsx
+#: app/(landing)/pricing/pricing-metadata.ts
+#: components/new-landing/HeaderLinks.tsx
+msgid "Pricing"
+msgstr "料金"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Pricing FAQ"
+msgstr "料金に関するよくある質問"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Priority support"
+msgstr "優先サポート"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Privacy"
+msgstr "プライバシー"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Privacy first and open source"
+msgstr "プライバシー重視のオープンソース"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Product"
+msgstr "製品"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Product of the Day on Product Hunt"
+msgstr "Product Hunt の今日の製品"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Property Management"
+msgstr "不動産管理"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Rakazo"
+msgstr "Rakazo"
+
+#: components/new-landing/sections/ManageFromAnywhere.tsx
+msgid "Read emails, draft replies, and manage your inbox from Slack, Telegram, Microsoft Teams, mobile, or the web, without switching apps."
+msgstr "Slack、Telegram、Microsoft Teams、モバイル、Web から、アプリを切り替えることなく、メールの閲覧、返信の下書き、受信トレイの管理ができます。"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Real Estate"
+msgstr "不動産"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Realtor"
+msgstr "不動産エージェント"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Reply Zero"
+msgstr "Reply Zero"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Save {percent}%"
+msgstr "{percent}% お得"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Scale your startup while AI handles your inbox"
+msgstr "AI が受信トレイを処理する間に、スタートアップを成長させる"
+
+#: app/(app)/premium/config-messages.ts
+msgid "SCIM user provisioning"
+msgstr "SCIM によるユーザープロビジョニング"
+
+#: components/new-landing/sections/BulkUnsubscribe.tsx
+msgid "See which emails you never read, and one-click unsubscribe and archive them."
+msgstr "一度も読んでいないメールを確認し、ワンクリックで配信停止してアーカイブできます。"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "See who emails you most and what's clogging your inbox. Get clear insights, then take action."
+msgstr "誰からのメールが最も多く、何が受信トレイを圧迫しているのかを確認できます。明確なインサイトを得て、行動に移しましょう。"
+
+#: app/(landing)/pricing/pricing-metadata.ts
+msgid "Simple, transparent pricing. No hidden fees. Cancel anytime."
+msgstr "シンプルで明瞭な料金。隠れた手数料なし。いつでもキャンセル可能。"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Slack AI Assistant"
+msgstr "Slack AI アシスタント"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Slack integration"
+msgstr "Slack 連携"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/HeaderLinks.tsx
+msgid "Small Business"
+msgstr "小規模事業者"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Smart categories set up automatically. Use our categories or create your own."
+msgstr "スマートカテゴリは自動で設定されます。用意されたカテゴリを使うことも、独自に作成することもできます。"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Awards.tsx
+msgid "SOC2 Compliant"
+msgstr "SOC2 準拠"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Solutions"
+msgstr "ソリューション"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Sorts & labels emails"
+msgstr "メールを仕分けしてラベルを付ける"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Sorts and labels every email"
+msgstr "すべてのメールを仕分けしてラベルを付ける"
+
+#: app/(app)/premium/config-messages.ts
+#: components/new-landing/sections/Pricing.tsx
+msgid "Speak to sales"
+msgstr "営業担当に相談"
+
+#: app/(app)/premium/config-messages.ts
+msgid "SSO login"
+msgstr "SSO ログイン"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Status"
+msgstr "ステータス"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "STEP 1"
+msgstr "ステップ 1"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "STEP 2"
+msgstr "ステップ 2"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "STEP 3"
+msgstr "ステップ 3"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Streamline brand partnerships and collaborations"
+msgstr "ブランドとのパートナーシップやコラボレーションを効率化"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Subject Line Analyzer"
+msgstr "件名アナライザー"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "SUPER excited for this one! Well done, going to get use out of it for sure—have been waiting for a tool like this, it just makes so much sense to have as a layer atop email."
+msgstr "すごく楽しみです!お見事です。間違いなく活用します。こういうツールをずっと待っていました。メールの上に重ねるレイヤーとして、とても理にかなっています。"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Support"
+msgstr "サポート"
+
+#: components/new-landing/CallToAction.tsx
+msgid "Talk to sales"
+msgstr "営業担当に相談"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Team"
+msgstr "チーム"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Team Email Cost Calculator"
+msgstr "チームメールコスト計算ツール"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Team-wide analytics"
+msgstr "チーム全体の分析"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Teams AI Assistant"
+msgstr "Teams AI アシスタント"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Telegram AI Assistant"
+msgstr "Telegram AI アシスタント"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Terms"
+msgstr "利用規約"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "The app is free. Add the AI only if you want it."
+msgstr "アプリは無料です。AI は必要な場合にのみ追加できます。"
+
+#: app/(app)/premium/config-messages.ts
+msgid "The knowledge base is used to help draft responses. Store unlimited content in your knowledge base."
+msgstr "ナレッジベースは返信の下書き作成に役立てられます。ナレッジベースには無制限にコンテンツを保存できます。"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "this is something I've been searching for a long time – thanks for building it."
+msgstr "ずっと探していたものです。作ってくれてありがとう。"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "To Reply"
+msgstr "To Reply"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Trusted and loved by developers worldwide"
+msgstr "世界中の開発者に信頼され、愛されています"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Try for free, affordable paid plans"
+msgstr "無料で試せて、手頃な有料プラン"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Try free for 7 days"
+msgstr "7 日間無料で試す"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Try the email app free"
+msgstr "メールアプリを無料で試す"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Twitter"
+msgstr "Twitter"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Unlimited"
+msgstr "無制限"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Unlimited knowledge base"
+msgstr "無制限のナレッジベース"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Urgent"
+msgstr "緊急"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Use Cases"
+msgstr "ユースケース"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "View desktop releases"
+msgstr "デスクトップ版のリリースを見る"
+
+#: app/(landing)/home/Footer.tsx
+msgid "vs Fyxer.ai"
+msgstr "Fyxer.ai との比較"
+
+#: app/(landing)/home/Footer.tsx
+msgid "vs Perplexity Email Assistant"
+msgstr "Perplexity メールアシスタントとの比較"
+
+#: app/(landing)/home/Footer.tsx
+msgid "vs Shortwave"
+msgstr "Shortwave との比較"
+
+#: app/(landing)/home/Footer.tsx
+msgid "vs Superhuman"
+msgstr "Superhuman との比較"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "We accept all major credit cards through Stripe."
+msgstr "Stripe 経由で主要なクレジットカードをすべてご利用いただけます。"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "We support Gmail, Google Workspace, and Microsoft Outlook email accounts."
+msgstr "Gmail、Google Workspace、Microsoft Outlook のメールアカウントに対応しています。"
+
+#: app/(app)/premium/config-messages.ts
+msgid "We'll help you get set up on an onboarding call. Book as many free calls as needed."
+msgstr "オンボーディング通話でセットアップをお手伝いします。無料の通話は必要な回数だけご予約いただけます。"
+
+#: components/new-landing/sections/ManageFromAnywhere.tsx
+msgid "Web"
+msgstr "Web"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "What happens if I cancel?"
+msgstr "キャンセルするとどうなりますか?"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "What payment methods do you accept?"
+msgstr "どの支払い方法に対応していますか?"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "When you check your inbox, every email needing a response will have a pre-drafted reply in your tone, ready for you to send."
+msgstr "受信トレイを開くと、返信が必要なメールにはすべて、あなたの口調で事前に下書きされた返信が用意されており、すぐに送信できます。"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Which email providers does {BRAND_NAME} support?"
+msgstr "{BRAND_NAME} はどのメールプロバイダーに対応していますか?"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Will {BRAND_NAME} replace my current email app?"
+msgstr "{BRAND_NAME} は現在使っているメールアプリの代わりになりますか?"
+
+#: app/(landing)/home/Hero.tsx
+msgid "Works with"
+msgstr "対応サービス"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Wow. Onboarded and started unsubscribing from the worst spammers in just 3 minutes... Thank you 🙏🏼"
+msgstr "すごい。登録して、たった 3 分で最悪のスパム送信者の配信停止を始められました...ありがとう 🙏🏼"
+
+#: app/(landing)/home/FAQs.tsx
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes, if you don't think we provided you with value send us an <0>email</0> within 14 days of upgrading and we'll refund you."
+msgstr "はい。価値を感じられなかった場合は、アップグレードから 14 日以内に<0>メール</0>でご連絡ください。返金いたします。"
+
+#: app/(landing)/home/FAQs.tsx
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes, if you don't think we provided you with value send us an email within 14 days of upgrading and we'll refund you."
+msgstr "はい。価値を感じられなかった場合は、アップグレードから 14 日以内にメールでご連絡ください。返金いたします。"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes, you can upgrade or downgrade at any time. Changes take effect immediately and billing is prorated."
+msgstr "はい、いつでもアップグレードまたはダウングレードできます。変更はただちに反映され、請求は日割りで計算されます。"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes! Save up to 20% by choosing annual billing on any plan."
+msgstr "はい!どのプランでも、年払いを選ぶと最大 20% お得になります。"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes! Send us an <0>email</0> and we'll set up a discounted plan for you."
+msgstr "はい!<0>メール</0>でご連絡いただければ、割引プランをご用意します。"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes! Send us an email and we'll set up a discounted plan for you."
+msgstr "はい!メールでご連絡いただければ、割引プランをご用意します。"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Yes! The AI assistant, the web app, and the desktop email app are open source in our <0>GitHub repo</0>. The iPhone app isn't open source yet, but we plan to open it."
+msgstr "はい!AI アシスタント、Web アプリ、デスクトップメールアプリは、<0>GitHub リポジトリ</0>でオープンソースとして公開されています。iPhone アプリはまだオープンソースではありませんが、公開を予定しています。"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Yes! The AI assistant, the web app, and the desktop email app are open source in our GitHub repo. The iPhone app isn't open source yet, but we plan to open it."
+msgstr "はい!AI アシスタント、Web アプリ、デスクトップメールアプリは、GitHub リポジトリでオープンソースとして公開されています。iPhone アプリはまだオープンソースではありませんが、公開を予定しています。"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Yes. Our native iPhone app lets you triage your inbox and manage your assistant on the go. We also have an Android app, which is due for an update. Learn more on the <0>mobile app</0> page."
+msgstr "はい。ネイティブの iPhone アプリで、外出先でも受信トレイの仕分けやアシスタントの管理ができます。Android アプリもありますが、アップデートが予定されています。詳しくは<0>モバイルアプリ</0>のページをご覧ください。"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Yes. Our native iPhone app lets you triage your inbox and manage your assistant on the go. We also have an Android app, which is due for an update. Learn more on the mobile app page."
+msgstr "はい。ネイティブの iPhone アプリで、外出先でも受信トレイの仕分けやアシスタントの管理ができます。Android アプリもありますが、アップデートが予定されています。詳しくはモバイルアプリのページをご覧ください。"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Yes. The email app is free to use. The AI assistant plans include a 7-day free trial. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged."
+msgstr "はい。メールアプリは無料でご利用いただけます。AI アシスタントのプランには 7 日間の無料トライアルが含まれます。トライアルの開始にはクレジットカードが必要ですが、トライアルが終了するまで請求されることはありません。請求を避けるには、トライアル期間中にいつでもキャンセルしてください。"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes. The email app is free to use. The AI plans include a 7-day free trial."
+msgstr "はい。メールアプリは無料でご利用いただけます。AI プランには 7 日間の無料トライアルが含まれます。"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "You can cancel anytime. Your subscription will remain active until the end of the billing period."
+msgstr "いつでもキャンセルできます。サブスクリプションは、請求期間の終了まで有効です。"
+
+#: app/(landing)/home/home-metadata.ts
+msgid "Your AI executive assistant to reach inbox zero fast. Automate emails, bulk unsubscribe, block cold emails, and analytics. Open-source"
+msgstr "インボックスゼロを素早く実現する、AI エグゼクティブアシスタント。メールの自動化、一括配信停止、コールドメールのブロック、分析。オープンソース"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Your data stays private — no AI training, no funny business. We’re fully certified for top-tier security, and you can even self-host Inbox Zero if you want total control."
+msgstr "データは非公開のまま保たれ、AI の学習に使われることもなく、不透明な扱いもありません。最高水準のセキュリティ認証を取得しており、完全な管理をご希望なら Inbox Zero をセルフホストすることもできます。"
+
+#: components/new-landing/sections/ManageFromAnywhere.tsx
+msgid "Your inbox, wherever you work"
+msgstr "どこで働いても、あなたの受信トレイを"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Your inbox, your rules. Configure everything in plain English. Make it work the way you actually work."
+msgstr "あなたの受信トレイ、あなたのルール。すべてを普通の言葉で設定し、実際の働き方に合わせて動かせます。"

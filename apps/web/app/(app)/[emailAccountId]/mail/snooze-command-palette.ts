@@ -81,6 +81,8 @@ const LOCALE_DATE_PARSERS: Partial<Record<string, chrono.Chrono>> = {
   "pt-BR": chrono.pt.casual,
   it: chrono.it.casual,
   nl: chrono.nl.casual,
+  ja: chrono.ja.casual,
+  "zh-CN": chrono.zh.hans.casual,
 };
 
 const MORNING_HOUR = 9;

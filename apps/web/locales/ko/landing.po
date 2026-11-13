@@ -1,0 +1,1208 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-13 04:21+0200\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: ko\n"
+
+#: app/(landing)/home/home-metadata.ts
+msgid "{BRAND_NAME} | Automate and clean your inbox"
+msgstr "{BRAND_NAME} | 받은편지함을 자동화하고 깔끔하게 정리하세요"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "{BRAND_NAME} for self-hosted teams"
+msgstr "셀프 호스팅 팀을 위한 {BRAND_NAME}"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "{BRAND_NAME} organizes your inbox and calendar, drafts replies in your voice, and helps you reach inbox zero fast. Never miss an important email again."
+msgstr "{BRAND_NAME}이(가) 받은편지함과 캘린더를 정리하고, 내 말투로 답장 초안을 작성하며, 인박스 제로를 빠르게 달성하도록 도와줘요. 더 이상 중요한 이메일을 놓치지 마세요."
+
+#: app/(landing)/home/Footer.tsx
+msgid "{BRAND_NAME} Tabs (Chrome Extension)"
+msgstr "{BRAND_NAME} Tabs (Chrome 확장 프로그램)"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "{INCLUDED_EMAIL_ACCOUNTS_PER_PERSON, plural, one {# email account included, then {extraAccountPrice}/mo each, billed annually} other {# email accounts included, then {extraAccountPrice}/mo each, billed annually}}"
+msgstr "{INCLUDED_EMAIL_ACCOUNTS_PER_PERSON, plural, other {이메일 계정 #개 포함, 이후 계정당 월 {extraAccountPrice}, 연 단위 결제}}"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "{INCLUDED_EMAIL_ACCOUNTS_PER_PERSON, plural, one {# email account included, then {extraAccountPrice}/mo each} other {# email accounts included, then {extraAccountPrice}/mo each}}"
+msgstr "{INCLUDED_EMAIL_ACCOUNTS_PER_PERSON, plural, other {이메일 계정 #개 포함, 이후 계정당 월 {extraAccountPrice}}}"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "{price}/mo"
+msgstr "{price}/월"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "/user /month"
+msgstr "/사용자 /월"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "#1 GitHub Trending"
+msgstr "GitHub Trending 1위"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "#1 Product Hunt"
+msgstr "Product Hunt 1위"
+
+#: app/(landing)/home/Footer.tsx
+msgid "© {year} {copyrightName}. All rights reserved."
+msgstr "© {year} {copyrightName}. All rights reserved."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "<0>Contact our sales team</0> for custom pricing, SSO, SCIM, on-premise deployment, and dedicated support."
+msgstr "맞춤 가격, SSO, SCIM, 온프레미스 배포, 전담 지원은 <0>영업팀에 문의</0>하세요."
+
+#: components/new-landing/sections/Awards.tsx
+msgid "12k+ GitHub Stars"
+msgstr "GitHub 스타 12k+"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "A fast email app for Gmail and Outlook. Free on web, desktop, and iPhone."
+msgstr "Gmail과 Outlook을 위한 빠른 이메일 앱. 웹, 데스크톱, iPhone에서 무료로 사용하세요."
+
+#: app/(app)/premium/config-messages.ts
+msgid "A notetaker joins your video calls and turns them into transcripts, summaries, recap emails, and follow-up drafts."
+msgstr "노트테이커가 화상 회의에 참여하여 녹취록, 요약, 요약 이메일, 후속 초안으로 만들어 줘요."
+
+#: app/(landing)/home/Footer.tsx
+msgid "About"
+msgstr "소개"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Accounting Firms"
+msgstr "회계 법인"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Advanced security & SLA"
+msgstr "고급 보안 및 SLA"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Affiliates"
+msgstr "제휴 파트너"
+
+#: app/(landing)/home/Footer.tsx
+msgid "AI Chat for Slack & Telegram"
+msgstr "Slack 및 Telegram용 AI 채팅"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "AI drafts and a sorted inbox from ${starterPrice}/month, less than Superhuman charges."
+msgstr "AI 초안과 정리된 받은편지함을 월 ${starterPrice}부터. Superhuman보다 저렴해요."
+
+#: app/(landing)/home/Footer.tsx
+msgid "AI Email Assistant"
+msgstr "AI 이메일 어시스턴트"
+
+#: app/(landing)/home/Footer.tsx
+msgid "AI Email Assistant Directory"
+msgstr "AI 이메일 어시스턴트 디렉터리"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "AI email management for real estate professionals"
+msgstr "부동산 전문가를 위한 AI 이메일 관리"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "AI meeting notetaker"
+msgstr "AI 회의 노트테이커"
+
+#: app/(landing)/home/Footer.tsx
+msgid "AI Meeting Notetaker"
+msgstr "AI 회의 노트테이커"
+
+#: app/(landing)/home/Footer.tsx
+msgid "All Free Email Tools"
+msgstr "모든 무료 이메일 도구"
+
+#: app/(landing)/home/Hero.tsx
+#: components/new-landing/sections/OrganizedInbox.tsx
+msgid "an organized inbox"
+msgstr "정돈된 받은편지함"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Annually"
+msgstr "연간"
+
+#: app/(app)/premium/config-messages.ts
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "App integrations"
+msgstr "앱 연동"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "App integrations (Notion, Stripe, and more)"
+msgstr "앱 연동 (Notion, Stripe 등)"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Auto Forward Emails"
+msgstr "이메일 자동 전달"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Auto-file attachments"
+msgstr "첨부 파일 자동 보관"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Auto-File Attachments"
+msgstr "첨부 파일 자동 보관"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Automate order updates and customer communications"
+msgstr "주문 업데이트와 고객 커뮤니케이션 자동화"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Automatically organize and file email attachments to your preferred storage."
+msgstr "이메일 첨부 파일을 원하는 저장소에 자동으로 정리하고 보관하세요."
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Automatically organized.<0/>Never miss an important email again."
+msgstr "자동으로 정리돼요.<0/>더 이상 중요한 이메일을 놓치지 마세요."
+
+#: app/(landing)/home/Footer.tsx
+msgid "Best AI Email Assistants"
+msgstr "최고의 AI 이메일 어시스턴트"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Blocks cold emails"
+msgstr "콜드 이메일 차단"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Blog"
+msgstr "블로그"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Bot Directory"
+msgstr "봇 디렉터리"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Brand Kit"
+msgstr "Brand Kit"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Brief My Meeting"
+msgstr "Brief My Meeting"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Built to fit your workflow. Customize in plain English"
+msgstr "내 업무 방식에 맞게 설계되었어요. 쉬운 말로 맞춤 설정하세요"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Bulk archive"
+msgstr "일괄 보관"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Bulk Email Unsubscriber"
+msgstr "이메일 일괄 구독 취소"
+
+#: components/new-landing/sections/BulkUnsubscribe.tsx
+msgid "bulk unsubscribe"
+msgstr "일괄 구독 취소"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Bulk unsubscribe"
+msgstr "일괄 구독 취소"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Bulk unsubscribe and archive emails"
+msgstr "이메일 일괄 구독 취소 및 보관"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Calendar"
+msgstr "Calendar"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Can I switch between plans?"
+msgstr "요금제를 변경할 수 있나요?"
+
+#: app/(landing)/home/FAQs.tsx
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Can I try {BRAND_NAME} for free?"
+msgstr "{BRAND_NAME}을(를) 무료로 체험해 볼 수 있나요?"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/HeaderLinks.tsx
+msgid "Case Studies"
+msgstr "사례 연구"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Changelog"
+msgstr "변경 내역"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Clean your inbox"
+msgstr "받은편지함 정리"
+
+#: app/(landing)/home/Footer.tsx
+msgid "CLI"
+msgstr "CLI"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Cold Email"
+msgstr "Cold Email"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Cold Email Blocker"
+msgstr "콜드 이메일 차단기"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Company"
+msgstr "회사"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Compare"
+msgstr "비교"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Compare plans"
+msgstr "요금제 비교"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Connect Notion, Stripe, Monday.com, and more so the AI can use data from your tools when drafting replies and meeting briefs."
+msgstr "Notion, Stripe, Monday.com 등을 연결하면 AI가 답장과 회의 브리핑을 작성할 때 사용 중인 도구의 데이터를 활용할 수 있어요."
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Connect your Google or Microsoft email"
+msgstr "Google 또는 Microsoft 이메일 연결"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Connects to your calendar and CRM to draft emails based on your actual schedule and customer data."
+msgstr "캘린더와 CRM에 연결하여 실제 일정과 고객 데이터를 바탕으로 이메일 초안을 작성해요."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Contact our sales team for custom pricing, SSO, SCIM, on-premise deployment, and dedicated support."
+msgstr "맞춤 가격, SSO, SCIM, 온프레미스 배포, 전담 지원은 영업팀에 문의하세요."
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+#: components/new-landing/sections/Pricing.tsx
+msgid "Contact us"
+msgstr "문의하기"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Content Creator"
+msgstr "콘텐츠 크리에이터"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Content Creators"
+msgstr "콘텐츠 크리에이터"
+
+#: components/new-landing/common/Logo.tsx
+msgid "Copy Logo as SVG"
+msgstr "로고를 SVG로 복사"
+
+#: components/new-landing/common/Logo.tsx
+msgid "Couldn't copy the logo"
+msgstr "로고를 복사하지 못했어요"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/HeaderLinks.tsx
+msgid "Customer Support"
+msgstr "고객 지원"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Customize"
+msgstr "맞춤 설정"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Dedicated account manager & training"
+msgstr "전담 계정 매니저 및 교육"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Dedicated onboarding manager"
+msgstr "전담 온보딩 매니저"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Deliver faster support with AI-powered responses"
+msgstr "AI 응답으로 더 빠른 지원을 제공하세요"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Deploy {BRAND_NAME} on your own infrastructure and automate your inbox with full data control."
+msgstr "{BRAND_NAME}을(를) 자체 인프라에 배포하고 데이터를 완전히 통제하며 받은편지함을 자동화하세요."
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Designed around how you actually work"
+msgstr "실제 업무 방식에 맞춰 설계되었어요"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Discord"
+msgstr "Discord"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Do you offer annual discounts?"
+msgstr "연간 결제 할인이 있나요?"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Do you offer discounts for students, nonprofits, or open-source projects?"
+msgstr "학생, 비영리 단체, 오픈 소스 프로젝트를 위한 할인이 있나요?"
+
+#: app/(landing)/home/FAQs.tsx
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Do you offer refunds?"
+msgstr "환불이 가능한가요?"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Documentation"
+msgstr "문서"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Download"
+msgstr "다운로드"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "Download for Mac"
+msgstr "Mac용 다운로드"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "Download for Windows"
+msgstr "Windows용 다운로드"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "Download on the App Store"
+msgstr "App Store에서 다운로드"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Drafts replies in your voice"
+msgstr "내 말투로 답장 초안 작성"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Drafts that know your schedule and availability"
+msgstr "내 일정과 가능한 시간을 아는 초안"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Drowning in emails? Don't waste energy trying to prioritize your emails. Our AI assistant will label everything automatically."
+msgstr "이메일에 파묻혀 계신가요? 우선순위를 정하느라 에너지를 낭비하지 마세요. AI 어시스턴트가 모든 이메일에 자동으로 라벨을 지정해 드려요."
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/HeaderLinks.tsx
+msgid "E-commerce"
+msgstr "이커머스"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Email analytics"
+msgstr "이메일 분석"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Email Analytics"
+msgstr "이메일 분석"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Email analytics. What gets measured, gets managed"
+msgstr "이메일 분석. 측정해야 관리할 수 있어요"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Email app"
+msgstr "이메일 앱"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Email App"
+msgstr "이메일 앱"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Email Blaster"
+msgstr "Email Blaster"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Email Deliverability Checker"
+msgstr "이메일 전달률 검사기"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Email digests"
+msgstr "이메일 요약"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Email Signature Generator"
+msgstr "이메일 서명 생성기"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Email us or post an issue on <0>GitHub</0>. We're happy to hear how we can improve your email experience."
+msgstr "이메일을 보내 주시거나 <0>GitHub</0>에 이슈를 남겨 주세요. 이메일 경험을 어떻게 개선할 수 있을지 의견을 들려주시면 기쁠 거예요."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Email us or post an issue on GitHub. We're happy to hear how we can improve your email experience."
+msgstr "이메일을 보내 주시거나 GitHub에 이슈를 남겨 주세요. 이메일 경험을 어떻게 개선할 수 있을지 의견을 들려주시면 기쁠 거예요."
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Enterprise"
+msgstr "Enterprise"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Enterprise-grade security. SOC 2 Type 2 certified"
+msgstr "엔터프라이즈급 보안. SOC 2 Type 2 인증"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Every email you get needing a reply will have a pre-written draft."
+msgstr "답장이 필요한 모든 이메일에는 미리 작성된 초안이 준비돼요."
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Every Gmail and Outlook account in one inbox, on the web, Mac, Windows, and iPhone. Like Superhuman, but free."
+msgstr "모든 Gmail 및 Outlook 계정을 웹, Mac, Windows, iPhone에서 하나의 받은편지함으로. Superhuman 같지만 무료예요."
+
+#: app/(app)/premium/config-messages.ts
+msgid "Everything in Plus, plus:"
+msgstr "Plus의 모든 기능, 그리고:"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Everything in Starter, plus:"
+msgstr "Starter의 모든 기능, 그리고:"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Everything in Team, plus:"
+msgstr "Team의 모든 기능, 그리고:"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Feature"
+msgstr "기능"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Feature Requests"
+msgstr "기능 요청"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Finally an \"unsubscribe app\" that let's you *actually* unsubscribe and filter using Gmail filters (instead of always relying on the 3rd party app to filter those emails). Big plus for me, so I have all filters in one place (inside the Gmail filters, that is). Awesome work! Already a fan :)"
+msgstr "드디어 *진짜로* 구독을 취소하고 Gmail 필터로 걸러 주는 “구독 취소 앱”이 나왔네요 (타사 앱에 계속 의존해서 이메일을 거르지 않아도 돼요). 모든 필터를 한곳(Gmail 필터 안)에서 관리할 수 있어서 저한테는 큰 장점이에요. 정말 멋져요! 벌써 팬이 됐어요 :)"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Flexible enough to fit any workflow. Simple enough to set up in minutes."
+msgstr "어떤 업무 방식에도 맞출 만큼 유연하고, 몇 분이면 설정할 만큼 간단해요."
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Fly through email on desktop and mobile"
+msgstr "데스크톱과 모바일에서 이메일을 빠르게 처리하세요"
+
+#: app/(app)/premium/config-messages.ts
+msgid "For individuals, entrepreneurs, and executives looking to buy back their time."
+msgstr "시간을 되찾고 싶은 개인, 기업가, 임원을 위한 요금제예요."
+
+#: app/(app)/premium/config-messages.ts
+msgid "For organizations with enterprise-grade security and compliance requirements."
+msgstr "엔터프라이즈급 보안 및 규정 준수 요건이 있는 조직을 위한 요금제예요."
+
+#: app/(app)/premium/config-messages.ts
+msgid "For power users who need integrations and deeper knowledge base support."
+msgstr "연동과 더 깊은 지식 베이스 지원이 필요한 파워 유저를 위한 요금제예요."
+
+#: app/(app)/premium/config-messages.ts
+msgid "For teams and growing businesses handling high email volumes."
+msgstr "많은 양의 이메일을 처리하는 팀과 성장하는 기업을 위한 요금제예요."
+
+#: app/(app)/premium/config-messages.ts
+msgid "Forward important emails and notifications to your Slack channels automatically."
+msgstr "중요한 이메일과 알림을 Slack 채널로 자동 전달하세요."
+
+#: app/(landing)/home/Footer.tsx
+msgid "Founder"
+msgstr "창업자"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Founders"
+msgstr "창업자"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Free to use"
+msgstr "무료로 사용"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Free Tools"
+msgstr "무료 도구"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Frequently asked questions"
+msgstr "자주 묻는 질문"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Get AI briefings before every meeting with research on attendees and context from your inbox."
+msgstr "모든 회의 전에 참석자 조사 내용과 받은편지함의 맥락이 담긴 AI 브리핑을 받아보세요."
+
+#: app/(landing)/home/FinalCTA.tsx
+msgid "Get back an hour a day.<0/>Start using {BRAND_NAME}."
+msgstr "하루 한 시간을 되찾으세요.<0/>{BRAND_NAME}을(를) 시작하세요."
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "Get it on Google Play"
+msgstr "Google Play에서 다운로드"
+
+#: components/new-landing/CallToAction.tsx
+msgid "Get started"
+msgstr "시작하기"
+
+#: app/(landing)/home/FinalCTA.tsx
+msgid "Get started for free"
+msgstr "무료로 시작하기"
+
+#: components/new-landing/sections/Header.tsx
+#: components/new-landing/sections/Pricing.tsx
+msgid "Get started free"
+msgstr "무료로 시작하기"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Get started in minutes"
+msgstr "몇 분 만에 시작하세요"
+
+#: components/new-landing/sections/BulkUnsubscribe.tsx
+msgid "Get to Inbox Zero fast.<0/>Bulk unsubscribe from emails you never read."
+msgstr "인박스 제로를 빠르게 달성하세요.<0/>읽지 않는 이메일은 일괄 구독 취소하세요."
+
+#: app/(landing)/home/Footer.tsx
+msgid "GitHub"
+msgstr "GitHub"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Gmail Personality Quiz"
+msgstr "Gmail 성격 테스트"
+
+#: components/new-landing/common/Logo.tsx
+msgid "Go to Brand Kit"
+msgstr "Brand Kit으로 이동"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Group emails from selected rules into a scheduled summary instead of reading each message individually."
+msgstr "선택한 규칙의 이메일을 하나씩 읽는 대신 예약된 요약으로 묶어서 받아보세요."
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Grow your business with automated email management"
+msgstr "자동화된 이메일 관리로 비즈니스를 성장시키세요"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "hey bro, your tool is legit what I been looking for for ages haha. its a god send"
+msgstr "안녕하세요, 이 도구 정말 오랫동안 찾던 거예요 ㅋㅋ 완전 구세주예요"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "How can I request a feature?"
+msgstr "기능은 어떻게 요청하나요?"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "I came across Inbox Zero while actively looking to hire a VA to manage my emails but after trying the tool, it turned out to be a complete game changer."
+msgstr "이메일을 관리해 줄 가상 비서를 구하던 중 Inbox Zero를 알게 되었는데, 써 보니 완전히 판도를 바꿔 놓는 도구였어요."
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "I love the flexibility and customization options, and it's the first thing in forever that's gotten my inbox under control. Thank you!"
+msgstr "유연성과 맞춤 설정 옵션이 마음에 들고, 오랜만에 제 받은편지함을 제대로 관리하게 해 준 첫 도구예요. 감사합니다!"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "I was mostly hoping to turn my email inbox into less of the mess that it is. I've been losing tasks that I should do as the emails get buried. So far it's really helped."
+msgstr "엉망이던 받은편지함을 조금이라도 정리하고 싶었어요. 이메일이 묻히면서 해야 할 일을 계속 놓치고 있었거든요. 지금까지는 정말 큰 도움이 되고 있어요."
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "I'm an executive who was drowning in hundreds of daily emails and heavily dependent on my EA for email management. What I love most about Inbox Zero is how it seamlessly replaced that entire function—the smart automation, prioritization, and organization features work like having a dedicated email assistant built right into my workflow."
+msgstr "저는 매일 수백 통의 이메일에 파묻혀 이메일 관리를 비서에게 크게 의존하던 임원이에요. Inbox Zero에서 가장 마음에 드는 점은 그 역할을 매끄럽게 대체해 준다는 거예요. 똑똑한 자동화, 우선순위 지정, 정리 기능이 업무 흐름 속에 전담 이메일 비서를 둔 것처럼 작동해요."
+
+#: app/(landing)/home/HeroVideoDialog.tsx
+msgid "Inbox Zero product video"
+msgstr "Inbox Zero 제품 영상"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Industries"
+msgstr "산업별"
+
+#: components/new-landing/sections/ManageFromAnywhere.tsx
+msgid "iOS & Android"
+msgstr "iOS 및 Android"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Is the code open-source?"
+msgstr "코드는 오픈 소스인가요?"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Is there a mobile app?"
+msgstr "모바일 앱이 있나요?"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "It doesn't have to. {BRAND_NAME} works inside Gmail and Outlook, so you can keep using them as normal while the assistant works in the background. {BRAND_NAME} also has its own <0>email app</0> for the web, desktop, and iPhone if you'd like to use it."
+msgstr "그럴 필요 없어요. {BRAND_NAME}은(는) Gmail과 Outlook 안에서 작동하므로 어시스턴트가 백그라운드에서 일하는 동안 평소처럼 계속 사용할 수 있어요. 원한다면 웹, 데스크톱, iPhone용 자체 <0>이메일 앱</0>도 사용할 수 있어요."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "It doesn't have to. {BRAND_NAME} works inside Gmail and Outlook, so you can keep using them as normal while the assistant works in the background. {BRAND_NAME} also has its own email app for the web, desktop, and iPhone if you'd like to use it."
+msgstr "그럴 필요 없어요. {BRAND_NAME}은(는) Gmail과 Outlook 안에서 작동하므로 어시스턴트가 백그라운드에서 일하는 동안 평소처럼 계속 사용할 수 있어요. 원한다면 웹, 데스크톱, iPhone용 자체 이메일 앱도 사용할 수 있어요."
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "It's the first tool I've tried of many that have actually captured my voice in the responses that it drafts."
+msgstr "여러 도구를 써 봤지만, 초안에 제 말투를 제대로 담아낸 건 이 도구가 처음이에요."
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Join {userCount} others who spend less time on emails"
+msgstr "이메일에 쓰는 시간을 줄이고 있는 {userCount}명과 함께하세요"
+
+#: components/new-landing/BrandScroller.tsx
+msgid "Join {userCount} professionals, including people at:"
+msgstr "다음 회사 소속을 포함한 {userCount}명의 전문가와 함께하세요:"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Knowledge base"
+msgstr "지식 베이스"
+
+#: components/new-landing/LanguageSwitcher.tsx
+msgid "Language"
+msgstr "언어"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Law Firms"
+msgstr "법률 사무소"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Legal"
+msgstr "법률"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Less than Superhuman"
+msgstr "Superhuman보다 저렴"
+
+#: app/(landing)/home/FinalCTA.tsx
+msgid "Less time in your inbox. More time for what actually matters."
+msgstr "받은편지함에 쓰는 시간은 줄이고, 정말 중요한 일에 쓰는 시간은 늘리세요."
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Limited"
+msgstr "제한적"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Link your Gmail or Outlook in two clicks to get started."
+msgstr "클릭 두 번으로 Gmail 또는 Outlook을 연결하여 시작하세요."
+
+#: components/new-landing/sections/Header.tsx
+msgid "Log in"
+msgstr "로그인"
+
+#: components/new-landing/common/Logo.tsx
+msgid "Logo copied as SVG"
+msgstr "로고를 SVG로 복사했어요"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Love this new open-source app by @elie2222: getinboxzero.com"
+msgstr "@elie2222가 만든 이 새로운 오픈 소스 앱 정말 좋아요: getinboxzero.com"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Loving it so far! Cleaned up my top cluttering newsletter and promotional email subscriptions in just a few minutes."
+msgstr "지금까지 아주 만족해요! 받은편지함을 어지럽히던 뉴스레터와 프로모션 이메일 구독을 단 몇 분 만에 정리했어요."
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Marketing"
+msgstr "Marketing"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Meet the Inbox Zero email app"
+msgstr "Inbox Zero 이메일 앱을 만나보세요"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Meet your AI email assistant that *actually* works"
+msgstr "*정말로* 일하는 AI 이메일 어시스턴트를 만나보세요"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Meeting Cost Calculator"
+msgstr "회의 비용 계산기"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "metrics"
+msgstr "지표"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Mobile App"
+msgstr "모바일 앱"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Monthly"
+msgstr "월간"
+
+#: app/(landing)/home/Footer.tsx
+msgid "MSPs"
+msgstr "MSP"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Need a custom plan for your enterprise?"
+msgstr "기업을 위한 맞춤 요금제가 필요하신가요?"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Need SSO, SCIM, on-premise deployment, or a dedicated account manager?"
+msgstr "SSO, SCIM, 온프레미스 배포 또는 전담 계정 매니저가 필요하신가요?"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "New"
+msgstr "신규"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "New: Inbox Zero Mail app →"
+msgstr "신규: Inbox Zero Mail 앱 →"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Newsletter"
+msgstr "Newsletter"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "No hidden fees. Cancel anytime."
+msgstr "숨겨진 수수료 없음. 언제든 취소할 수 있어요."
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "No need to switch"
+msgstr "갈아탈 필요 없어요"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Notification"
+msgstr "Notification"
+
+#: app/(app)/premium/config-messages.ts
+msgid "On-premise deployment (optional)"
+msgstr "온프레미스 배포 (선택)"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "One-click setup. Start organizing and drafting replies in minutes."
+msgstr "클릭 한 번으로 설정하세요. 몇 분 만에 정리와 답장 초안 작성을 시작할 수 있어요."
+
+#: components/new-landing/common/Logo.tsx
+msgid "Open Link in New Tab"
+msgstr "새 탭에서 링크 열기"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Open Source"
+msgstr "오픈 소스"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Open-source. See exactly what the code does"
+msgstr "오픈 소스. 코드가 정확히 무엇을 하는지 직접 확인하세요"
+
+#: app/(landing)/home/Footer.tsx
+msgid "OpenClaw Skill"
+msgstr "OpenClaw Skill"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Organizes your inbox exactly how you want it"
+msgstr "원하는 방식 그대로 받은편지함을 정리해요"
+
+#: app/(landing)/home/Footer.tsx
+msgid "OSS Friends"
+msgstr "OSS Friends"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "Other platforms"
+msgstr "기타 플랫폼"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Our customers love saving time with {BRAND_NAME}."
+msgstr "고객들은 {BRAND_NAME}으로 시간을 절약하는 것을 좋아해요."
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Payment frequency"
+msgstr "결제 주기"
+
+#: app/(landing)/home/HeroVideoDialog.tsx
+msgid "Play product demo video"
+msgstr "제품 데모 영상 재생"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Popular"
+msgstr "인기"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Powered by <0>Inbox Zero</0>"
+msgstr "<0>Inbox Zero</0> 제공"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Pre-drafted replies"
+msgstr "미리 작성된 답장"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Pre-drafted replies based on your email history and calendar"
+msgstr "이메일 기록과 캘린더를 바탕으로 미리 작성된 답장"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Pre-meeting briefings"
+msgstr "회의 전 브리핑"
+
+#: components/new-landing/sections/PreWrittenDrafts.tsx
+msgid "pre-written drafts"
+msgstr "미리 작성된 초안"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "Pre-written drafts waiting in your inbox"
+msgstr "받은편지함에서 기다리는 미리 작성된 초안"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Prefer Gmail or Outlook? The AI works there too."
+msgstr "Gmail이나 Outlook이 편하신가요? AI는 그곳에서도 작동해요."
+
+#: app/(landing)/home/Footer.tsx
+#: app/(landing)/pricing/pricing-metadata.ts
+#: components/new-landing/HeaderLinks.tsx
+msgid "Pricing"
+msgstr "요금"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Pricing FAQ"
+msgstr "요금 FAQ"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Priority support"
+msgstr "우선 지원"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Privacy"
+msgstr "개인정보처리방침"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Privacy first and open source"
+msgstr "개인정보 보호 우선, 그리고 오픈 소스"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Product"
+msgstr "제품"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Product of the Day on Product Hunt"
+msgstr "Product Hunt 오늘의 제품"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Property Management"
+msgstr "부동산 관리"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Rakazo"
+msgstr "Rakazo"
+
+#: components/new-landing/sections/ManageFromAnywhere.tsx
+msgid "Read emails, draft replies, and manage your inbox from Slack, Telegram, Microsoft Teams, mobile, or the web, without switching apps."
+msgstr "앱을 바꾸지 않고 Slack, Telegram, Microsoft Teams, 모바일 또는 웹에서 이메일을 읽고, 답장 초안을 작성하고, 받은편지함을 관리하세요."
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Real Estate"
+msgstr "부동산"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Realtor"
+msgstr "공인중개사"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Reply Zero"
+msgstr "Reply Zero"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Save {percent}%"
+msgstr "{percent}% 절약"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Scale your startup while AI handles your inbox"
+msgstr "AI가 받은편지함을 맡는 동안 스타트업을 성장시키세요"
+
+#: app/(app)/premium/config-messages.ts
+msgid "SCIM user provisioning"
+msgstr "SCIM 사용자 프로비저닝"
+
+#: components/new-landing/sections/BulkUnsubscribe.tsx
+msgid "See which emails you never read, and one-click unsubscribe and archive them."
+msgstr "한 번도 읽지 않은 이메일을 확인하고, 클릭 한 번으로 구독을 취소하고 보관하세요."
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "See who emails you most and what's clogging your inbox. Get clear insights, then take action."
+msgstr "누가 가장 많이 이메일을 보내는지, 무엇이 받은편지함을 막고 있는지 확인하세요. 명확한 인사이트를 얻고 바로 조치하세요."
+
+#: app/(landing)/pricing/pricing-metadata.ts
+msgid "Simple, transparent pricing. No hidden fees. Cancel anytime."
+msgstr "간단하고 투명한 요금. 숨겨진 수수료 없음. 언제든 취소할 수 있어요."
+
+#: app/(landing)/home/Footer.tsx
+msgid "Slack AI Assistant"
+msgstr "Slack AI 어시스턴트"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Slack integration"
+msgstr "Slack 연동"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/HeaderLinks.tsx
+msgid "Small Business"
+msgstr "소규모 비즈니스"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Smart categories set up automatically. Use our categories or create your own."
+msgstr "스마트 카테고리가 자동으로 설정돼요. 기본 카테고리를 사용하거나 직접 만들 수 있어요."
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Awards.tsx
+msgid "SOC2 Compliant"
+msgstr "SOC2 준수"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Solutions"
+msgstr "솔루션"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Sorts & labels emails"
+msgstr "이메일 분류 및 라벨 지정"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Sorts and labels every email"
+msgstr "모든 이메일을 분류하고 라벨 지정"
+
+#: app/(app)/premium/config-messages.ts
+#: components/new-landing/sections/Pricing.tsx
+msgid "Speak to sales"
+msgstr "영업팀에 문의"
+
+#: app/(app)/premium/config-messages.ts
+msgid "SSO login"
+msgstr "SSO 로그인"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Status"
+msgstr "상태"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "STEP 1"
+msgstr "1단계"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "STEP 2"
+msgstr "2단계"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "STEP 3"
+msgstr "3단계"
+
+#: components/new-landing/HeaderLinks.tsx
+msgid "Streamline brand partnerships and collaborations"
+msgstr "브랜드 파트너십과 협업을 간소화하세요"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Subject Line Analyzer"
+msgstr "제목 분석기"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "SUPER excited for this one! Well done, going to get use out of it for sure—have been waiting for a tool like this, it just makes so much sense to have as a layer atop email."
+msgstr "정말 기대돼요! 잘 만드셨네요, 확실히 잘 쓸 것 같아요. 이런 도구를 기다려 왔는데, 이메일 위에 하나의 레이어로 얹는 게 너무 합리적이에요."
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Support"
+msgstr "지원"
+
+#: components/new-landing/CallToAction.tsx
+msgid "Talk to sales"
+msgstr "영업팀에 문의"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Team"
+msgstr "팀"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Team Email Cost Calculator"
+msgstr "팀 이메일 비용 계산기"
+
+#: app/(app)/premium/config-messages.ts
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Team-wide analytics"
+msgstr "팀 전체 분석"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Teams AI Assistant"
+msgstr "Teams AI 어시스턴트"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Telegram AI Assistant"
+msgstr "Telegram AI 어시스턴트"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Terms"
+msgstr "이용약관"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "The app is free. Add the AI only if you want it."
+msgstr "앱은 무료예요. AI는 원할 때만 추가하세요."
+
+#: app/(app)/premium/config-messages.ts
+msgid "The knowledge base is used to help draft responses. Store unlimited content in your knowledge base."
+msgstr "지식 베이스는 답변 초안을 작성하는 데 활용돼요. 지식 베이스에 콘텐츠를 무제한으로 저장하세요."
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "this is something I've been searching for a long time – thanks for building it."
+msgstr "오랫동안 찾던 바로 그 도구예요. 만들어 주셔서 감사해요."
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "To Reply"
+msgstr "To Reply"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Trusted and loved by developers worldwide"
+msgstr "전 세계 개발자들이 신뢰하고 사랑해요"
+
+#: components/new-landing/sections/Pricing.tsx
+msgid "Try for free, affordable paid plans"
+msgstr "무료로 체험해 보세요, 합리적인 가격의 유료 요금제"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Try free for 7 days"
+msgstr "7일 무료 체험"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Try the email app free"
+msgstr "이메일 앱 무료 체험"
+
+#: app/(landing)/home/Footer.tsx
+msgid "Twitter"
+msgstr "Twitter"
+
+#: app/(landing)/pricing/PricingComparisonTable.tsx
+msgid "Unlimited"
+msgstr "무제한"
+
+#: app/(app)/premium/config-messages.ts
+msgid "Unlimited knowledge base"
+msgstr "무제한 지식 베이스"
+
+#: components/new-landing/sections/StartedInMinutes.tsx
+msgid "Urgent"
+msgstr "긴급"
+
+#: app/(landing)/home/Footer.tsx
+#: components/new-landing/sections/Footer.tsx
+msgid "Use Cases"
+msgstr "활용 사례"
+
+#: components/new-landing/DesktopDownloadCta.tsx
+msgid "View desktop releases"
+msgstr "데스크톱 릴리스 보기"
+
+#: app/(landing)/home/Footer.tsx
+msgid "vs Fyxer.ai"
+msgstr "vs Fyxer.ai"
+
+#: app/(landing)/home/Footer.tsx
+msgid "vs Perplexity Email Assistant"
+msgstr "vs Perplexity Email Assistant"
+
+#: app/(landing)/home/Footer.tsx
+msgid "vs Shortwave"
+msgstr "vs Shortwave"
+
+#: app/(landing)/home/Footer.tsx
+msgid "vs Superhuman"
+msgstr "vs Superhuman"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "We accept all major credit cards through Stripe."
+msgstr "Stripe를 통해 모든 주요 신용카드를 받아요."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "We support Gmail, Google Workspace, and Microsoft Outlook email accounts."
+msgstr "Gmail, Google Workspace, Microsoft Outlook 이메일 계정을 지원해요."
+
+#: app/(app)/premium/config-messages.ts
+msgid "We'll help you get set up on an onboarding call. Book as many free calls as needed."
+msgstr "온보딩 통화로 설정을 도와 드려요. 무료 통화는 필요한 만큼 예약하세요."
+
+#: components/new-landing/sections/ManageFromAnywhere.tsx
+msgid "Web"
+msgstr "웹"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "What happens if I cancel?"
+msgstr "취소하면 어떻게 되나요?"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "What payment methods do you accept?"
+msgstr "어떤 결제 수단을 지원하나요?"
+
+#: app/(landing)/home/HomePage.tsx
+msgid "When you check your inbox, every email needing a response will have a pre-drafted reply in your tone, ready for you to send."
+msgstr "받은편지함을 확인하면 답장이 필요한 모든 이메일에 내 말투로 미리 작성된 답장이 준비되어 있어 바로 보낼 수 있어요."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Which email providers does {BRAND_NAME} support?"
+msgstr "{BRAND_NAME}은(는) 어떤 이메일 제공업체를 지원하나요?"
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Will {BRAND_NAME} replace my current email app?"
+msgstr "{BRAND_NAME}이(가) 지금 쓰는 이메일 앱을 대체하나요?"
+
+#: app/(landing)/home/Hero.tsx
+msgid "Works with"
+msgstr "호환 서비스"
+
+#: components/new-landing/sections/Testimonials.tsx
+msgid "Wow. Onboarded and started unsubscribing from the worst spammers in just 3 minutes... Thank you 🙏🏼"
+msgstr "와. 온보딩하고 최악의 스팸 발신자들 구독을 취소하기까지 단 3분 걸렸어요... 감사합니다 🙏🏼"
+
+#: app/(landing)/home/FAQs.tsx
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes, if you don't think we provided you with value send us an <0>email</0> within 14 days of upgrading and we'll refund you."
+msgstr "네, 가치를 제공받지 못했다고 느끼시면 업그레이드 후 14일 이내에 <0>이메일</0>을 보내 주세요. 환불해 드릴게요."
+
+#: app/(landing)/home/FAQs.tsx
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes, if you don't think we provided you with value send us an email within 14 days of upgrading and we'll refund you."
+msgstr "네, 가치를 제공받지 못했다고 느끼시면 업그레이드 후 14일 이내에 이메일을 보내 주세요. 환불해 드릴게요."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes, you can upgrade or downgrade at any time. Changes take effect immediately and billing is prorated."
+msgstr "네, 언제든 업그레이드하거나 다운그레이드할 수 있어요. 변경 사항은 즉시 적용되며 요금은 일할 계산돼요."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes! Save up to 20% by choosing annual billing on any plan."
+msgstr "네! 모든 요금제에서 연간 결제를 선택하면 최대 20% 절약할 수 있어요."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes! Send us an <0>email</0> and we'll set up a discounted plan for you."
+msgstr "네! <0>이메일</0>을 보내 주시면 할인된 요금제를 마련해 드릴게요."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes! Send us an email and we'll set up a discounted plan for you."
+msgstr "네! 이메일을 보내 주시면 할인된 요금제를 마련해 드릴게요."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Yes! The AI assistant, the web app, and the desktop email app are open source in our <0>GitHub repo</0>. The iPhone app isn't open source yet, but we plan to open it."
+msgstr "네! AI 어시스턴트, 웹 앱, 데스크톱 이메일 앱은 <0>GitHub 저장소</0>에 오픈 소스로 공개되어 있어요. iPhone 앱은 아직 오픈 소스가 아니지만 공개할 계획이에요."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Yes! The AI assistant, the web app, and the desktop email app are open source in our GitHub repo. The iPhone app isn't open source yet, but we plan to open it."
+msgstr "네! AI 어시스턴트, 웹 앱, 데스크톱 이메일 앱은 GitHub 저장소에 오픈 소스로 공개되어 있어요. iPhone 앱은 아직 오픈 소스가 아니지만 공개할 계획이에요."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Yes. Our native iPhone app lets you triage your inbox and manage your assistant on the go. We also have an Android app, which is due for an update. Learn more on the <0>mobile app</0> page."
+msgstr "네. 네이티브 iPhone 앱으로 이동 중에도 받은편지함을 분류하고 어시스턴트를 관리할 수 있어요. Android 앱도 있으며 업데이트를 앞두고 있어요. 자세한 내용은 <0>모바일 앱</0> 페이지에서 확인하세요."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Yes. Our native iPhone app lets you triage your inbox and manage your assistant on the go. We also have an Android app, which is due for an update. Learn more on the mobile app page."
+msgstr "네. 네이티브 iPhone 앱으로 이동 중에도 받은편지함을 분류하고 어시스턴트를 관리할 수 있어요. Android 앱도 있으며 업데이트를 앞두고 있어요. 자세한 내용은 모바일 앱 페이지에서 확인하세요."
+
+#: app/(landing)/home/FAQs.tsx
+msgid "Yes. The email app is free to use. The AI assistant plans include a 7-day free trial. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged."
+msgstr "네. 이메일 앱은 무료로 사용할 수 있어요. AI 어시스턴트 요금제에는 7일 무료 체험이 포함돼요. 체험을 시작하려면 신용카드가 필요하지만 체험이 끝나기 전에는 결제되지 않아요. 체험 중 언제든 취소하면 요금이 청구되지 않아요."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes. The email app is free to use. The AI plans include a 7-day free trial."
+msgstr "네. 이메일 앱은 무료로 사용할 수 있어요. AI 요금제에는 7일 무료 체험이 포함돼요."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "You can cancel anytime. Your subscription will remain active until the end of the billing period."
+msgstr "언제든 취소할 수 있어요. 구독은 결제 기간이 끝날 때까지 유지돼요."
+
+#: app/(landing)/home/home-metadata.ts
+msgid "Your AI executive assistant to reach inbox zero fast. Automate emails, bulk unsubscribe, block cold emails, and analytics. Open-source"
+msgstr "인박스 제로를 빠르게 달성하게 해 주는 AI 임원 비서. 이메일 자동화, 일괄 구독 취소, 콜드 이메일 차단, 분석까지. 오픈 소스"
+
+#: components/new-landing/sections/Awards.tsx
+msgid "Your data stays private — no AI training, no funny business. We’re fully certified for top-tier security, and you can even self-host Inbox Zero if you want total control."
+msgstr "데이터는 비공개로 유지돼요. AI 학습에 사용하지 않으며 꼼수도 없어요. 최고 수준의 보안 인증을 모두 갖췄고, 완전한 통제를 원한다면 Inbox Zero를 직접 호스팅할 수도 있어요."
+
+#: components/new-landing/sections/ManageFromAnywhere.tsx
+msgid "Your inbox, wherever you work"
+msgstr "어디서 일하든 내 받은편지함"
+
+#: components/new-landing/sections/EverythingElseSection.tsx
+msgid "Your inbox, your rules. Configure everything in plain English. Make it work the way you actually work."
+msgstr "내 받은편지함, 내 규칙. 모든 것을 쉬운 말로 설정하세요. 실제 업무 방식에 맞게 작동하게 만드세요."
