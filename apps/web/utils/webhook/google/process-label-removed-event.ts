@@ -190,8 +190,9 @@ async function findRulesThatAppliedLabel({
   for (const { rule, actionItems } of executedRules) {
     if (!rule) continue;
 
-    // Older executed actions only stored the label name, so compare it with
-    // the name this rule uses for the removed label ID.
+    // Older executed actions stored only the label name, and a stale label ID
+    // can be replaced when labelling, so also match the name this rule now
+    // uses for the removed label ID.
     const removedLabelNames = new Set(
       rule.actions.flatMap((action) => (action.label ? [action.label] : [])),
     );
@@ -203,8 +204,10 @@ async function findRulesThatAppliedLabel({
       ) {
         return false;
       }
-      if (action.labelId) return action.labelId === labelId;
-      return !!action.label && removedLabelNames.has(action.label);
+      return (
+        action.labelId === labelId ||
+        (!!action.label && removedLabelNames.has(action.label))
+      );
     });
 
     if (appliedRemovedLabel) {

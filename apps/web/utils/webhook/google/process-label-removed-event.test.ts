@@ -364,6 +364,35 @@ describe("process-label-removed-event", () => {
       );
     });
 
+    it("credits a run whose stored label ID was replaced when labelling", async () => {
+      vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
+        {
+          rule: {
+            id: "rule-replaced-id",
+            systemType: SystemType.NEWSLETTER,
+            actions: [{ label: "Newsletter" }],
+          },
+          actionItems: [
+            {
+              labelId: "stale-label-id",
+              label: "Newsletter",
+              executionStatus: "SUCCEEDED",
+            },
+          ],
+        },
+      ] as any);
+
+      const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
+        "label-2",
+      ]);
+
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
+
+      expect(saveClassificationFeedback).toHaveBeenCalledWith(
+        expect.objectContaining({ ruleId: "rule-replaced-id" }),
+      );
+    });
+
     it("credits a run whose label succeeded even if another action failed, but not a failed label", async () => {
       vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
         executedRuleRow({
