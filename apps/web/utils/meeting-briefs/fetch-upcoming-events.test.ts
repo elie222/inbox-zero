@@ -201,6 +201,32 @@ describe("filterEventsWithExternalGuests", () => {
     ).toEqual(["personal-domain-peer"]);
   });
 
+  it("skips all-day events, which are not meetings to brief on", () => {
+    const events = [
+      createEvent({
+        id: "conference",
+        isAllDay: true,
+        attendees: [
+          { email: "user@company.com" },
+          { email: "customer@example.com" },
+        ],
+      }),
+      createEvent({
+        id: "customer-call",
+        attendees: [
+          { email: "user@company.com" },
+          { email: "customer@example.com" },
+        ],
+      }),
+    ];
+
+    expect(
+      filterEventsWithExternalGuests(events, "user@company.com").map(
+        (event) => event.id,
+      ),
+    ).toEqual(["customer-call"]);
+  });
+
   it("drops meetings the user declined or every guest declined", () => {
     const events = [
       createEvent({
@@ -285,5 +311,6 @@ function createEvent(overrides: Partial<CalendarEvent>): CalendarEvent {
       overrides.endTime ?? new Date(startTime.getTime() + 30 * 60 * 1000),
     attendees: overrides.attendees ?? [{ email: "guest@example.com" }],
     userDeclined: overrides.userDeclined,
+    isAllDay: overrides.isAllDay,
   };
 }

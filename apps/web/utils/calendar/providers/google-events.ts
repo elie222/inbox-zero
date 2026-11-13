@@ -258,6 +258,8 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
   }
 
   private parseEvent(event: calendar_v3.Schema$Event) {
+    // Google sends all-day events with a start date and no start time.
+    const isAllDay = !!event.start?.date && !event.start?.dateTime;
     const startTime = new Date(
       event.start?.dateTime || event.start?.date || Date.now(),
     );
@@ -286,6 +288,7 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
       videoConferenceLink,
       startTime,
       endTime,
+      ...(isAllDay ? { isAllDay: true } : {}),
       organizerEmail: event.organizer?.email ?? undefined,
       isOrganizer: event.organizer?.self ?? undefined,
       userDeclined: getSelfDeclined(event.attendees),
