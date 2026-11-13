@@ -9,10 +9,15 @@ import type { EmailForLLM } from "@/utils/types";
 import { GroupItemType } from "@/generated/prisma/enums";
 import { env } from "@/env";
 import prisma from "@/utils/__mocks__/prisma";
+import { hasUserSentEmail } from "@/utils/cold-email/has-user-sent-email";
 import { extractEmailAddress } from "@/utils/email";
 import { createGenerateObject } from "@/utils/llms";
 import { decideColdEmail } from "@/utils/decision-model/cold-email";
 import { runDecisionModelOrFallback } from "@/utils/decision-model/decision-model";
+
+vi.mock("@/utils/cold-email/has-user-sent-email", () => ({
+  hasUserSentEmail: vi.fn(),
+}));
 
 const logger = createTestLogger();
 
@@ -58,13 +63,12 @@ vi.mock("@/utils/llms/model", () => ({
 
 const mockProvider = {
   hasPreviousCommunicationsWithSenderOrDomain: vi.fn().mockResolvedValue(false),
-  checkIfReplySent: vi.fn().mockResolvedValue(false),
 };
 
 describe("isColdEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockProvider.checkIfReplySent.mockResolvedValue(false);
+    vi.mocked(hasUserSentEmail).mockResolvedValue(false);
     mockProvider.hasPreviousCommunicationsWithSenderOrDomain.mockResolvedValue(
       false,
     );
@@ -110,7 +114,11 @@ describe("isColdEmail", () => {
 
     expect(result.isColdEmail).toBe(true);
     expect(result.reason).toBe("ai-already-labeled");
-    expect(mockProvider.checkIfReplySent).toHaveBeenCalledWith(normalizedEmail);
+    expect(hasUserSentEmail).toHaveBeenCalledWith({
+      provider: mockProvider,
+      emailAccountId: emailAccount.id,
+      sender: normalizedEmail,
+    });
     expect(
       mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
     ).not.toHaveBeenCalled();
@@ -154,9 +162,9 @@ describe("isColdEmail", () => {
       group: { id: "group-id", name: "Cold Email" },
     } as never);
     if (state === "sent") {
-      mockProvider.checkIfReplySent.mockResolvedValue(true);
+      vi.mocked(hasUserSentEmail).mockResolvedValue(true);
     } else {
-      mockProvider.checkIfReplySent.mockRejectedValue(
+      vi.mocked(hasUserSentEmail).mockRejectedValue(
         new Error("Provider unavailable"),
       );
     }

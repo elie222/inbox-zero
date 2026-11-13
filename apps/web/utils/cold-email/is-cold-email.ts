@@ -13,6 +13,7 @@ import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { extractEmailAddress, isSameOrganization } from "@/utils/email";
 import { isWhitelistedSender } from "@/utils/email/whitelist";
+import { hasUserSentEmail } from "@/utils/cold-email/has-user-sent-email";
 import { hasPriorContactOrAssumeYes } from "@/utils/cold-email/has-prior-contact";
 import { decideColdEmail } from "@/utils/decision-model/cold-email";
 import { runDecisionModelOrFallback } from "@/utils/decision-model/decision-model";
@@ -118,7 +119,13 @@ export async function checkColdEmailGuards({
     // An old cold-sender pattern must not override correspondence the user initiated.
     // Checking sent mail preserves blocking for repeated unanswered pitches.
     try {
-      if (await provider.checkIfReplySent(sender)) {
+      if (
+        await hasUserSentEmail({
+          provider,
+          emailAccountId: emailAccount.id,
+          sender,
+        })
+      ) {
         return { isColdEmail: false, reason: "hasPreviousEmail" };
       }
     } catch (error) {
