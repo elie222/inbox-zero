@@ -54,8 +54,13 @@ describe("resumeStalledBulkInboxActionJob", () => {
       .calls[0][0] as any;
     // The original delivery stays valid, so a slow queue still runs it.
     expect(update.data.chunkToken).toBe("old-token");
+    // A distinct resend keeps queue deduplication from dropping it.
     expect(enqueueBulkInboxActionChunk).toHaveBeenCalledWith(
-      expect.objectContaining({ jobId: "job-1", chunkToken: "old-token" }),
+      expect.objectContaining({
+        jobId: "job-1",
+        chunkToken: "old-token",
+        resendCount: 1,
+      }),
     );
   });
 
@@ -160,6 +165,31 @@ describe("resumeStalledBulkInboxActionJobs", () => {
     expect(query.where.status).toBe("RUNNING");
     expect(enqueueBulkInboxActionChunk).toHaveBeenCalledTimes(2);
     expect(result).toEqual({ checked: 2 });
+  });
+
+  it("only selects jobs whose retry wait is over", async () => {
+    prisma.bulkInboxActionJob.findMany.mockResolvedValue([]);
+    const now = Date.now();
+
+    await resumeStalledBulkInboxActionJobs({ logger });
+
+    const query = vi.mocked(prisma.bulkInboxActionJob.findMany).mock
+      .calls[0][0] as any;
+    const waitFor = (recoveryCount: unknown) => {
+      const branch = query.where.OR.find(
+        (condition: any) =>
+          condition.leaseExpiresAt === null &&
+          JSON.stringify(condition.recoveryCount) ===
+            JSON.stringify(recoveryCount),
+      );
+      return now - branch.updatedAt.lt.getTime();
+    };
+    // Jobs still backing off can't fill the batch ahead of due ones.
+    const minutes = 60_000;
+    expect(Math.round(waitFor(0) / minutes)).toBe(10);
+    expect(Math.round(waitFor(1) / minutes)).toBe(20);
+    expect(Math.round(waitFor(2) / minutes)).toBe(40);
+    expect(Math.round(waitFor({ gte: 3 }) / minutes)).toBe(80);
   });
 
   it("keeps sweeping when one job fails to resume", async () => {

@@ -40,7 +40,7 @@ export async function resumeStalledBulkInboxActionJob({
   // a slow queue doesn't fail a healthy job and its delivery keeps its place.
   const neverStarted = !job.leaseExpiresAt;
   const stalledAfter = neverStarted
-    ? BULK_INBOX_ACTION_STALLED_AFTER_MS * 2 ** job.recoveryCount
+    ? getNeverStartedStallMs(job.recoveryCount)
     : BULK_INBOX_ACTION_STALLED_AFTER_MS;
   if (now - job.updatedAt.getTime() < stalledAfter) return;
 
@@ -87,7 +87,14 @@ export async function resumeStalledBulkInboxActionJob({
     neverStarted,
   });
   try {
-    await enqueueBulkInboxActionChunk({ jobId: job.id, chunkToken, logger });
+    await enqueueBulkInboxActionChunk({
+      jobId: job.id,
+      chunkToken,
+      // A resend keeps the token, so it needs its own id to get past the
+      // queue's deduplication of the original message.
+      resendCount: job.recoveryCount + 1,
+      logger,
+    });
   } catch (error) {
     // The job looks stalled again after the same wait, and the next read
     // retries, until the recovery limit fails it.
@@ -107,13 +114,32 @@ export async function resumeStalledBulkInboxActionJobs({
   limit?: number;
 }) {
   const now = new Date();
+  const stalledBefore = (ms: number) => new Date(now.getTime() - ms);
+  // Only jobs whose wait is over, so jobs still backing off can't fill the
+  // batch and push due ones out of it.
+  const neverStartedDue = Array.from(
+    { length: MAX_RECOVERIES + 1 },
+    (_, recoveryCount) => ({
+      leaseExpiresAt: null,
+      recoveryCount:
+        recoveryCount === MAX_RECOVERIES
+          ? { gte: recoveryCount }
+          : recoveryCount,
+      updatedAt: { lt: stalledBefore(getNeverStartedStallMs(recoveryCount)) },
+    }),
+  );
   const jobs = await prisma.bulkInboxActionJob.findMany({
     where: {
       status: "RUNNING",
-      updatedAt: {
-        lt: new Date(now.getTime() - BULK_INBOX_ACTION_STALLED_AFTER_MS),
-      },
-      OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lt: now } }],
+      OR: [
+        {
+          leaseExpiresAt: { lt: now },
+          updatedAt: {
+            lt: stalledBefore(BULK_INBOX_ACTION_STALLED_AFTER_MS),
+          },
+        },
+        ...neverStartedDue,
+      ],
     },
     orderBy: { updatedAt: "asc" },
     take: limit,
@@ -139,4 +165,8 @@ export async function resumeStalledBulkInboxActionJobs({
   }
 
   return { checked: jobs.length };
+}
+
+function getNeverStartedStallMs(recoveryCount: number) {
+  return BULK_INBOX_ACTION_STALLED_AFTER_MS * 2 ** recoveryCount;
 }

@@ -7,10 +7,12 @@ const BULK_INBOX_ACTION_TOPIC = "bulk-inbox-action-process";
 export async function enqueueBulkInboxActionChunk({
   jobId,
   chunkToken,
+  resendCount,
   logger,
 }: {
   jobId: string;
   chunkToken: string;
+  resendCount?: number;
   logger: Logger;
 }) {
   await enqueueBackgroundJob<BulkInboxActionProcessBody>({
@@ -20,7 +22,9 @@ export async function enqueueBulkInboxActionChunk({
       queueName: BULK_INBOX_ACTION_TOPIC,
       parallelism: 5,
       path: "/api/bulk-inbox-action/process",
-      deduplicationId: `${jobId}-${chunkToken}`,
+      deduplicationId: resendCount
+        ? `${jobId}-${chunkToken}-resend-${resendCount}`
+        : `${jobId}-${chunkToken}`,
     },
     logger,
   });
