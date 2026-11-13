@@ -115,6 +115,40 @@ describe("handleImageProxyRequest", () => {
     expect(response.headers.get("cache-control")).toContain("s-maxage=3600");
   });
 
+  it.each([
+    false,
+    true,
+  ])("strips upstream middleware headers (cached: %s)", async (cached) => {
+    const upstream = new Response("image-bytes", {
+      headers: {
+        "content-type": "image/png",
+        etag: '"image-version"',
+        "x-middleware-rewrite": "https://upstream.example.com/internal",
+        "x-middleware-next": "1",
+        "x-middleware-set-cookie": "session=upstream",
+      },
+    });
+    const response = await handleImageProxyRequest(
+      new Request(
+        "https://proxy.example.com/proxy?u=https%3A%2F%2Fcdn.example.com%2Fphoto.png",
+      ),
+      {},
+      {
+        ...(cached
+          ? { cache: { match: async () => upstream, put: vi.fn() } }
+          : {}),
+        fetchImpl: vi.fn().mockResolvedValue(upstream) as typeof fetch,
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-middleware-rewrite")).toBeNull();
+    expect(response.headers.get("x-middleware-next")).toBeNull();
+    expect(response.headers.get("x-middleware-set-cookie")).toBeNull();
+    expect(response.headers.get("etag")).toBe('"image-version"');
+    await expect(response.text()).resolves.toBe("image-bytes");
+  });
+
   it("returns a configuration error when signed mode is required without a secret", async () => {
     const response = await handleImageProxyRequest(
       new Request(

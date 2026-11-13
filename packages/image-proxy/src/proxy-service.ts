@@ -344,7 +344,7 @@ function rejectImageProxyRequest({
 }
 
 function embeddableImageResponse(response: Response) {
-  const headers = new Headers(response.headers);
+  const headers = copyResponseHeaders(response.headers);
   // Opaque-origin readers (WKWebView loadHTMLString) are not same-site with
   // the proxy. Cached entries from before this policy still say same-site.
   headers.set("Cross-Origin-Resource-Policy", "cross-origin");
@@ -359,7 +359,12 @@ function copyResponseHeaders(source: Headers) {
   const headers = new Headers();
 
   source.forEach((value, key) => {
-    if (HOP_BY_HOP_HEADERS.has(key.toLowerCase())) return;
+    // Upstream framework headers must not control the proxy's host runtime.
+    if (
+      HOP_BY_HOP_HEADERS.has(key.toLowerCase()) ||
+      key.toLowerCase().startsWith("x-middleware-")
+    )
+      return;
     headers.set(key, value);
   });
 
