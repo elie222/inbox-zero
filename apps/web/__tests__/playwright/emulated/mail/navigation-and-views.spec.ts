@@ -271,6 +271,44 @@ test("navigates drafts and sent mail from the sidebar", async ({
   ).toHaveCount(0);
 });
 
+test("keeps sidebar labels unselectable but its name field editable", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  const labelType =
+    playwrightMailProvider === "microsoft" ? "category" : "label";
+  const sidebar = page
+    .locator("aside")
+    .filter({ has: page.getByRole("button", { name: /^Compose/ }) });
+
+  // Start in the sidebar's padding: a drag that starts on a link drags the
+  // link instead of selecting text, and would pass with or without the fix.
+  const box = await sidebar.boundingBox();
+  if (!box) throw new Error("Mail sidebar is not visible");
+  await page.mouse.move(box.x + 2, box.y + 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height - 40, {
+    steps: 10,
+  });
+  await page.mouse.up();
+  expect(await page.evaluate(() => window.getSelection()?.toString())).toBe("");
+
+  await page.getByRole("button", { name: `Create ${labelType}` }).click();
+  const nameField = page.getByRole("textbox", {
+    name: `New ${labelType} name`,
+  });
+  await nameField.fill("Selectable name");
+  await nameField.selectText();
+  expect(
+    await nameField.evaluate(
+      (input: HTMLInputElement) =>
+        input.selectionEnd !== null &&
+        input.selectionEnd - (input.selectionStart ?? 0),
+    ),
+  ).toBe("Selectable name".length);
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-sidebar-selection");
+});
+
 test("creates and edits a label and shows every keyboard workflow", async ({
   page,
 }, testInfo) => {
