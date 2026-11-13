@@ -275,14 +275,25 @@ describe("decisionModelChooseRule", () => {
   });
 
   describe("Notification criterion", () => {
-    it("replaces only the default wording", async () => {
+    it("replaces the current and previous default wording", async () => {
       mockAnswer("None");
       await chooseRule({ rules: [systemNotificationRule] });
       const criterion =
         getRequest().questions[CHOICE_KEY].criteria.Notification;
       expect(criterion).not.toBe(systemNotificationRule.instructions);
-      expect(criterion.length).toBeGreaterThan(
-        systemNotificationRule.instructions.length,
+
+      mockAnswer("None");
+      await chooseRule({
+        rules: [
+          {
+            ...systemNotificationRule,
+            instructions:
+              "Notifications: Alerts, status updates, or system messages",
+          },
+        ],
+      });
+      expect(getRequest(1).questions[CHOICE_KEY].criteria.Notification).toBe(
+        criterion,
       );
     });
 
