@@ -963,6 +963,73 @@ describe("OutlookProvider.removeThreadLabels", () => {
   });
 });
 
+describe("OutlookProvider.getMessagesBatch", () => {
+  it("fills the folder and category caches once before fetching", async () => {
+    const provider = new OutlookProvider({} as never, createTestLogger());
+    const calls: string[] = [];
+    getFolderIdsMock.mockImplementation(async () => {
+      calls.push("folders");
+      return {};
+    });
+    vi.spyOn(outlookMessageModule, "getCategoryMap").mockImplementation(
+      async () => {
+        calls.push("categories");
+        return new Map();
+      },
+    );
+    vi.spyOn(provider, "getMessage").mockImplementation(async (messageId) => {
+      calls.push(`message:${messageId}`);
+      return { id: messageId } as never;
+    });
+
+    await provider.getMessagesBatch(["a", "b", "c"]);
+
+    expect(calls.slice(0, 2).sort()).toEqual(["categories", "folders"]);
+    expect(calls.slice(2).sort()).toEqual([
+      "message:a",
+      "message:b",
+      "message:c",
+    ]);
+  });
+
+  it("makes no requests for an empty batch", async () => {
+    const provider = new OutlookProvider({} as never, createTestLogger());
+    const getMessage = vi.spyOn(provider, "getMessage");
+
+    await expect(provider.getMessagesBatch([])).resolves.toEqual([]);
+
+    expect(getFolderIdsMock).not.toHaveBeenCalled();
+    expect(getMessage).not.toHaveBeenCalled();
+  });
+
+  it("fetches messages with bounded concurrency and keeps input order", async () => {
+    const provider = new OutlookProvider({} as never, createTestLogger());
+    vi.spyOn(outlookMessageModule, "getCategoryMap").mockResolvedValue(
+      new Map(),
+    );
+    let inFlight = 0;
+    let maxInFlight = 0;
+    vi.spyOn(provider, "getMessage").mockImplementation(async (messageId) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      // The first message finishes last, so a result list built in completion
+      // order would not match the input order.
+      await new Promise((resolve) =>
+        setTimeout(resolve, messageId === "message-0" ? 20 : 1),
+      );
+      inFlight--;
+      return { id: messageId } as never;
+    });
+    const ids = Array.from({ length: 20 }, (_, index) => `message-${index}`);
+
+    const messages = await provider.getMessagesBatch(ids);
+
+    expect(messages.map((message) => message.id)).toEqual(ids);
+    expect(maxInFlight).toBeLessThanOrEqual(4);
+    expect(maxInFlight).toBeGreaterThan(1);
+  });
+});
+
 describe("OutlookProvider.getSentMessageIds", () => {
   it("queries sent items with sentDateTime bounds", async () => {
     const client = createMockOutlookClient([
