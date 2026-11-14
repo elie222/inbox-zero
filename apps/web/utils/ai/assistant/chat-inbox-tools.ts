@@ -20,6 +20,7 @@ import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-ad
 import { runWithBoundedConcurrency } from "@/utils/async";
 import { findNestedLabelMatches } from "@/utils/label/find-nested-label-matches";
 import { normalizeLabelName } from "@/utils/label/normalize-label-name";
+import { isReservedReviewBypassLabel } from "@/utils/review-before-delete";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import { applyLabelToThread } from "@/utils/label/apply-label-to-thread";
 import {
@@ -1873,6 +1874,12 @@ export async function resolveThreadLabel({
   matchNestedLabels: boolean;
   missingLabelError: (name: string, action: ManageInboxAction) => string;
 }) {
+  if (action === "label_threads" && isReservedReviewBypassLabel(labelName)) {
+    throw new Error(
+      `"${labelName}" is a reserved system label and cannot be applied via label actions.`,
+    );
+  }
+
   const existingLabel = await emailProvider.getLabelByName(labelName);
 
   if (existingLabel) {

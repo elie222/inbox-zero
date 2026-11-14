@@ -91,7 +91,7 @@ export async function getOutlookChildFolders(
   return response.value.map(convertMailFolderToOutlookFolder);
 }
 
-async function findOutlookFolderByName(
+export async function findOutlookFolderByName(
   client: OutlookClient,
   folderName: string,
   logger: Logger,
