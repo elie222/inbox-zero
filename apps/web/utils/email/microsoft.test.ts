@@ -2717,6 +2717,12 @@ describe("OutlookProvider.getMessagesBatch", () => {
     const client = createMockOutlookClient([]);
     const provider = new OutlookProvider(client, createTestLogger());
 
+    getFolderIdsMock.mockImplementationOnce(async (c: any) => {
+      const folders = { inbox: "inbox-id" };
+      c.setFolderIdCache(folders);
+      return folders;
+    });
+
     expect(client.getFolderIdCache()).toBeNull();
     expect(client.getCategoryMapCache()).toBeNull();
 
@@ -2724,6 +2730,11 @@ describe("OutlookProvider.getMessagesBatch", () => {
 
     await provider.getMessagesBatch(["msg-1"]);
 
+    expect(getFolderIdsMock).toHaveBeenCalledWith(
+      client,
+      expect.anything(),
+      { includeDrafts: false },
+    );
     expect(client.getFolderIdCache()).not.toBeNull();
     expect(client.getCategoryMapCache()).not.toBeNull();
   });

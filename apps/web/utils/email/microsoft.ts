@@ -1709,13 +1709,11 @@ export class OutlookProvider implements EmailProvider {
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
     if (messageIds.length === 0) return [];
 
-    // Preload well-known folder IDs and category map once so concurrent
-    // getMessage workers hit the in-memory cache instead of fanning out
-    // duplicate folder and category requests on a cold cache.
-    await Promise.all([
-      getFolderIds(this.client, this.logger, { includeDrafts: false }),
-      getCategoryMap(this.client, this.logger),
-    ]);
+    // Preload well-known folder IDs and category map sequentially so
+    // cold-cache resolution stays within Graph's concurrency budget (4),
+    // and concurrent getMessage workers hit the in-memory cache.
+    await getFolderIds(this.client, this.logger, { includeDrafts: false });
+    await getCategoryMap(this.client, this.logger);
 
     // Throttle concurrent message requests to stay within Microsoft Graph's
     // per-mailbox concurrency limit (4) to prevent ErrorAccessDenied and burst throttling.
