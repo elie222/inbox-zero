@@ -148,7 +148,7 @@ export function buildDisputeEvidence({
       `Last signed-in app visit: ${facts.lastActiveAt?.toISOString() ?? "unknown"}`,
       `AI assistant messages sent since charge: ${facts.assistantMessagesSinceCharge}`,
     ].join("\n"),
-    cancellation_policy_disclosure: `Customers can cancel at any time from ${baseUrl}/premium via "Manage subscription". Canceling stops future renewals.`,
+    cancellation_policy_disclosure: `Customers can cancel at any time from the billing page at ${baseUrl}/premium, which opens the Stripe billing portal. Canceling stops future renewals.`,
     ...(reason === "subscription_canceled"
       ? { cancellation_rebuttal: rebuttal }
       : { uncategorized_text: rebuttal }),
