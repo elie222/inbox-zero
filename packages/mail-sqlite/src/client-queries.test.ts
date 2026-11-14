@@ -345,9 +345,10 @@ describe("mail client queries", () => {
         { accountId: "acc-1", conversationId: "c-1" },
         { pageSize: 10, after: null },
       );
-      expect(
-        initialConv.view.messages.map((m) => m.metadata.messageId),
-      ).toEqual(["m-1", "m-2"]);
+      expect(initialConv.view.messages.map((m) => m.key.messageId)).toEqual([
+        "m-1",
+        "m-2",
+      ]);
 
       // Apply first delta page: delete m-2 (one message in c-1), roundComplete: false
       await store.applySyncPage({
@@ -375,7 +376,7 @@ describe("mail client queries", () => {
         { pageSize: 10, after: null },
       );
       expect(
-        convAfterFirstDelete.view.messages.map((m) => m.metadata.messageId),
+        convAfterFirstDelete.view.messages.map((m) => m.key.messageId),
       ).toEqual(["m-1"]);
 
       // c-1 is still in inbox view because m-1 remains
