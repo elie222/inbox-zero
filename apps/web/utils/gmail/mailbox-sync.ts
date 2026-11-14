@@ -73,8 +73,14 @@ export async function getGmailMailboxSyncPage({
       },
       logger,
     );
+    const resumeEndHistoryId = decoded.endHistoryId;
+    const history = resumeEndHistoryId
+      ? (response.history ?? []).filter((record) =>
+          historyRecordAtOrBefore(record.id, resumeEndHistoryId),
+        )
+      : (response.history ?? []);
     const { upsertIds, deletedIds, changedThreadIds } =
-      getGmailMailboxChangeIds(response.history ?? []);
+      getGmailMailboxChangeIds(history);
     // `maxResults` bounds history records, not the message ids they expand to.
     // Emit a bounded slice and keep the offset in the cursor so every upsert
     // and deletion lands before the checkpoint reaches the next history page.
@@ -218,6 +224,21 @@ function gmailHistoryPageFingerprint(
     hash.update(`${unit.kind}:${unit.messageId}\n`);
   }
   return hash.digest("base64url").slice(0, 22);
+}
+
+// A resumed page must be the same snapshot the offset was taken from. Gmail
+// can append newer records to the last page of a listing, so leave those for
+// the next sync rather than letting them shift the saved offset.
+function historyRecordAtOrBefore(
+  recordId: string | null | undefined,
+  endHistoryId: string,
+) {
+  if (!recordId) return true;
+  try {
+    return BigInt(recordId) <= BigInt(endHistoryId);
+  } catch {
+    return true;
+  }
 }
 
 async function getGmailSnapshotPage({

@@ -369,6 +369,54 @@ describe("getGmailMailboxSyncPage", () => {
     expect(secondCursor.endHistoryId).toBeUndefined();
   });
 
+  it("ignores history records newer than the saved end history when resuming", async () => {
+    const addedIds = Array.from(
+      { length: 700 },
+      (_, index) => `added-${index}`,
+    );
+    const deletedIds = Array.from(
+      { length: 700 },
+      (_, index) => `deleted-${index}`,
+    );
+    const original = historyRecord({
+      id: "150",
+      added: addedIds,
+      deleted: deletedIds,
+    });
+    const newer = historyRecord({ id: "201", deleted: [addedIds[0]] });
+    vi.mocked(getHistory)
+      .mockResolvedValueOnce({ history: [original], historyId: "200" })
+      .mockResolvedValueOnce({
+        history: [original, newer],
+        historyId: "201",
+      });
+    stubFetchedMessages();
+
+    const first = await getGmailMailboxSyncPage({
+      gmail: {} as never,
+      accessToken: "access-token",
+      logger,
+      cursor: deltaCursor(),
+      limit: 100,
+    });
+    expect(first.deletedMessageIds).toEqual(deletedIds.slice(0, 300));
+    expect(first.hasMore).toBe(true);
+
+    const second = await getGmailMailboxSyncPage({
+      gmail: {} as never,
+      accessToken: "access-token",
+      logger,
+      cursor: first.cursor,
+      limit: 100,
+    });
+
+    expect(second.upsertedMessages).toEqual([]);
+    expect(second.deletedMessageIds).toEqual(deletedIds.slice(300));
+    expect(second.hasMore).toBe(false);
+    const secondCursor = decodeMailboxSyncCursor(second.cursor, "google");
+    expect(secondCursor.historyId).toBe("200");
+  });
+
   it("repeats a partial page for a retried cursor without overlapping later pages", async () => {
     const addedIds = Array.from(
       { length: 1100 },
@@ -735,23 +783,28 @@ function deltaCursor(historyId = "100") {
 }
 
 function historyRecord({
+  id,
   added = [],
   deleted = [],
 }: {
+  id?: string;
   added?: string[];
   deleted?: string[];
 }) {
   return {
+    ...(id ? { id } : {}),
     ...(added.length > 0
       ? {
-          labelsAdded: added.map((id) => ({
-            message: { id, threadId: `thread-${id}` },
+          labelsAdded: added.map((messageId) => ({
+            message: { id: messageId, threadId: `thread-${messageId}` },
           })),
         }
       : {}),
     ...(deleted.length > 0
       ? {
-          messagesDeleted: deleted.map((id) => ({ message: { id } })),
+          messagesDeleted: deleted.map((messageId) => ({
+            message: { id: messageId },
+          })),
         }
       : {}),
   };
