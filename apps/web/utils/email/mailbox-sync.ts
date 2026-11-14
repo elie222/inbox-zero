@@ -8,6 +8,7 @@ const gmailCursorSchema = z.object({
   historyId: z.string().regex(/^\d+$/),
   after: z.string().datetime(),
   pageToken: z.string().min(1).optional(),
+  offset: z.number().int().nonnegative().optional(),
 });
 
 const microsoftCursorSchema = z.object({
@@ -34,6 +35,10 @@ export class InvalidMailboxSyncCursorError extends Error {
 }
 
 export function encodeMailboxSyncCursor(cursor: MailboxSyncCursor): string {
+  if (cursor.provider === "google" && !cursor.offset) {
+    const { offset: _omitted, ...rest } = cursor;
+    return Buffer.from(JSON.stringify(rest)).toString("base64url");
+  }
   return Buffer.from(JSON.stringify(cursor)).toString("base64url");
 }
 

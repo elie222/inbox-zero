@@ -298,6 +298,154 @@ describe("mail client queries", () => {
       await rm(directory, { recursive: true, force: true });
     }
   });
+
+  it("removes deleted mail from conversation and mailbox views across paginated sync delta pages", async () => {
+    const store = await createSqliteMailStore(
+      createNodeSqliteDriver(":memory:"),
+    );
+    try {
+      await store.ensureAccount({
+        accountId: "acc-1",
+        provider: "google",
+        generation: "g1",
+      });
+      // Initial sync with two conversations:
+      // c-1 has two messages (m-1, m-2); c-2 has one message (m-3)
+      await store.applySyncPage({
+        ownerId: "owner",
+        page: {
+          session: { accountId: "acc-1", generation: "g1" },
+          requestId: "init",
+          from: { streamId: "primary", generation: "g1", checkpoint: null },
+          to: { streamId: "primary", generation: "g1", checkpoint: "cp-1" },
+          changes: [
+            messagePatch("m-1", "c-1", 1000, ["inbox"]),
+            messagePatch("m-2", "c-1", 2000, ["inbox"]),
+            messagePatch("m-3", "c-2", 3000, ["inbox"]),
+          ],
+          requiredHydration: [],
+          roundComplete: true,
+        },
+      });
+
+      // Both conversations appear in inbox view
+      const initialInbox = await store.readMailboxView({
+        accountIds: ["acc-1"],
+        predicate: mailboxPredicate("inbox"),
+        order: "newest_first",
+        pageSize: 25,
+        after: null,
+      });
+      expect(
+        initialInbox.view.conversations.map((item) => item.key.conversationId),
+      ).toEqual(["c-2", "c-1"]);
+
+      // Conversation c-1 contains both messages
+      const initialConv = await store.readConversation(
+        { accountId: "acc-1", conversationId: "c-1" },
+        { limit: 10 },
+      );
+      expect(initialConv.messages.map((m) => m.messageId)).toEqual([
+        "m-1",
+        "m-2",
+      ]);
+
+      // Apply first delta page: delete m-2 (one message in c-1), roundComplete: false
+      await store.applySyncPage({
+        ownerId: "owner",
+        page: {
+          session: { accountId: "acc-1", generation: "g1" },
+          requestId: "delta-chunk-1",
+          from: { streamId: "primary", generation: "g1", checkpoint: "cp-1" },
+          to: { streamId: "primary", generation: "g1", checkpoint: "cp-2" },
+          changes: [
+            {
+              kind: "message_deleted",
+              key: { accountId: "acc-1", messageId: "m-2" },
+              evidence: "delta-chunk-1",
+            },
+          ],
+          requiredHydration: [],
+          roundComplete: false,
+        },
+      });
+
+      // m-2 disappears from conversation c-1 view; m-1 remains
+      const convAfterFirstDelete = await store.readConversation(
+        { accountId: "acc-1", conversationId: "c-1" },
+        { limit: 10 },
+      );
+      expect(convAfterFirstDelete.messages.map((m) => m.messageId)).toEqual([
+        "m-1",
+      ]);
+
+      // c-1 is still in inbox view because m-1 remains
+      const inboxAfterFirstDelete = await store.readMailboxView({
+        accountIds: ["acc-1"],
+        predicate: mailboxPredicate("inbox"),
+        order: "newest_first",
+        pageSize: 25,
+        after: null,
+      });
+      expect(
+        inboxAfterFirstDelete.view.conversations.map(
+          (item) => item.key.conversationId,
+        ),
+      ).toEqual(["c-2", "c-1"]);
+
+      // Apply second delta page: delete m-1 (last message of c-1), roundComplete: true
+      await store.applySyncPage({
+        ownerId: "owner",
+        page: {
+          session: { accountId: "acc-1", generation: "g1" },
+          requestId: "delta-chunk-2",
+          from: { streamId: "primary", generation: "g1", checkpoint: "cp-2" },
+          to: { streamId: "primary", generation: "g1", checkpoint: "cp-3" },
+          changes: [
+            {
+              kind: "message_deleted",
+              key: { accountId: "acc-1", messageId: "m-1" },
+              evidence: "delta-chunk-2",
+            },
+          ],
+          requiredHydration: [],
+          roundComplete: true,
+        },
+      });
+
+      // c-1 completely disappears from inbox view and allMail view
+      const finalInbox = await store.readMailboxView({
+        accountIds: ["acc-1"],
+        predicate: mailboxPredicate("inbox"),
+        order: "newest_first",
+        pageSize: 25,
+        after: null,
+      });
+      expect(
+        finalInbox.view.conversations.map((item) => item.key.conversationId),
+      ).toEqual(["c-2"]);
+
+      const finalAllMail = await store.readMailboxView({
+        accountIds: ["acc-1"],
+        predicate: mailboxPredicate("all"),
+        order: "newest_first",
+        pageSize: 25,
+        after: null,
+      });
+      expect(
+        finalAllMail.view.conversations.map((item) => item.key.conversationId),
+      ).toEqual(["c-2"]);
+
+      // Conversation c-1 is now empty
+      const finalConv = await store.readConversation(
+        { accountId: "acc-1", conversationId: "c-1" },
+        { limit: 10 },
+      );
+      expect(finalConv.messages).toEqual([]);
+    } finally {
+      await store.close();
+    }
+  });
 });
 
 describe("sqlite driver contract portability", () => {

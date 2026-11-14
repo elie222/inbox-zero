@@ -257,6 +257,96 @@ describe("createEmailProviderMailboxSource", () => {
     });
   });
 
+  it("yields paginated delta pages within schema bounds without skipping deletions or unapplied changes", async () => {
+    let callCount = 0;
+    const offsetCursor = encodeMailboxSyncCursor({
+      version: 1,
+      provider: "google",
+      phase: "delta",
+      historyId: "100",
+      after: "2026-07-01T00:00:00.000Z",
+      offset: 1000,
+    });
+    const finalCursor = encodeMailboxSyncCursor({
+      version: 1,
+      provider: "google",
+      phase: "delta",
+      historyId: "200",
+      after: "2026-07-01T00:00:00.000Z",
+    });
+
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        localMailSyncStrategy: "history",
+        async getMailboxSyncPage({ cursor }: { cursor?: string }) {
+          callCount += 1;
+          if (cursor === "init-checkpoint") {
+            return {
+              reset: false,
+              cursor: offsetCursor,
+              upsertedMessages: [],
+              deletedMessageIds: Array.from(
+                { length: 1000 },
+                (_, i) => `deleted-${i}`,
+              ),
+              hasMore: true,
+            };
+          }
+          return {
+            reset: false,
+            cursor: finalCursor,
+            upsertedMessages: [searchMessage("updated-msg")],
+            deletedMessageIds: ["deleted-1000"],
+            hasMore: false,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+
+    // Page 1: 1,000 deletions, roundComplete: false, to.checkpoint is offsetCursor
+    const page1Result = await source.readChanges({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "req-1",
+      position: {
+        streamId: "primary",
+        generation: "g1",
+        checkpoint: "init-checkpoint",
+      },
+      pageSize: 50,
+      signal: new AbortController().signal,
+    });
+
+    expect(page1Result.status).toBe("page");
+    if (page1Result.status !== "page") throw new Error("expected page");
+    expect(page1Result.page.changes).toHaveLength(1000);
+    expect(page1Result.page.roundComplete).toBe(false);
+    expect(page1Result.page.to.checkpoint).toBe(offsetCursor);
+    expect(() => syncPageSchema.parse(page1Result.page)).not.toThrow();
+
+    // Page 2: remaining changes, roundComplete: true, to.checkpoint is finalCursor
+    const page2Result = await source.readChanges({
+      session: { accountId: "acc-1", generation: "g1" },
+      requestId: "req-2",
+      position: {
+        streamId: "primary",
+        generation: "g1",
+        checkpoint: page1Result.page.to.checkpoint,
+      },
+      pageSize: 50,
+      signal: new AbortController().signal,
+    });
+
+    expect(page2Result.status).toBe("page");
+    if (page2Result.status !== "page") throw new Error("expected page");
+    expect(page2Result.page.changes).toHaveLength(2);
+    expect(page2Result.page.roundComplete).toBe(true);
+    expect(page2Result.page.to.checkpoint).toBe(finalCursor);
+    expect(() => syncPageSchema.parse(page2Result.page)).not.toThrow();
+    expect(callCount).toBe(2);
+  });
+
   it("pauses catch-up when the provider is throttled", async () => {
     const source = createEmailProviderMailboxSource({
       accountId: "acc-1",

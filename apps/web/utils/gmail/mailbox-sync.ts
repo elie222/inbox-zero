@@ -1,4 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
+import { MAX_SYNC_PAGE_CHANGES } from "@inboxzero/mail-core/sync";
 import {
   compactMailboxSyncMessage,
   decodeMailboxSyncCursor,
@@ -9,6 +10,7 @@ import { getGmailSyncMessages } from "@/utils/gmail/sync-messages";
 import { getHistory } from "@/utils/gmail/history";
 import { extractErrorInfo, withGmailRetry } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
+import type { ParsedMessage } from "@/utils/types";
 
 // Archive, read, and star are label events. Gmail does not treat archive as
 // messagesDeleted, so mailbox delta sync must ask for labelRemoved explicitly.
@@ -26,6 +28,7 @@ export async function getGmailMailboxSyncPage({
   cursor,
   after,
   limit,
+  maxChanges = MAX_SYNC_PAGE_CHANGES,
 }: {
   gmail: gmail_v1.Gmail;
   accessToken: string;
@@ -33,6 +36,7 @@ export async function getGmailMailboxSyncPage({
   cursor?: string;
   after?: Date;
   limit: number;
+  maxChanges?: number;
 }): Promise<MailboxSyncPage> {
   if (!cursor) {
     if (!after) throw new Error("after is required for initial mailbox sync");
@@ -71,41 +75,105 @@ export async function getGmailMailboxSyncPage({
       },
       logger,
     );
-    const { upsertIds, deletedIds, changedThreadIds } =
-      getGmailMailboxChangeIds(response.history ?? []);
-    const fetched = await getGmailSyncMessages({
-      gmail,
-      messageIds: upsertIds,
-      accessToken,
-      logger,
-    });
-    const fetchedMessages = fetched.messages.map(compactMailboxSyncMessage);
-    const afterTimestamp = new Date(decoded.after).getTime();
-    const upsertedMessages = fetchedMessages.filter((message) => {
-      const inTimeWindow = Number(message.internalDate) >= afterTimestamp;
-      if (!inTimeWindow) deletedIds.add(message.id);
-      return inTimeWindow;
-    });
-    const fetchedIds = new Set(fetchedMessages.map((message) => message.id));
-    for (const messageId of upsertIds) {
-      if (!fetchedIds.has(messageId)) deletedIds.add(messageId);
+    const { upsertIds, deletedIds } = getGmailMailboxChangeIds(
+      response.history ?? [],
+    );
+
+    const sortedDeletedIds = Array.from(deletedIds).sort();
+    const sortedUpsertIds = [...upsertIds].sort();
+    const allChanges: Array<{ kind: "delete" | "upsert"; id: string }> = [
+      ...sortedDeletedIds.map((id) => ({ kind: "delete" as const, id })),
+      ...sortedUpsertIds.map((id) => ({ kind: "upsert" as const, id })),
+    ];
+
+    const startOffset = decoded.offset ?? 0;
+    const endOffset = Math.min(startOffset + maxChanges, allChanges.length);
+    const chunk = allChanges.slice(startOffset, endOffset);
+    const hasMoreInHistory = endOffset < allChanges.length;
+
+    const chunkUpsertIds = chunk
+      .filter((c) => c.kind === "upsert")
+      .map((c) => c.id);
+    const chunkDeletedIds = new Set(
+      chunk.filter((c) => c.kind === "delete").map((c) => c.id),
+    );
+
+    let upsertedMessages: ParsedMessage[] = [];
+    if (chunkUpsertIds.length > 0) {
+      const fetched = await getGmailSyncMessages({
+        gmail,
+        messageIds: chunkUpsertIds,
+        accessToken,
+        logger,
+      });
+      const fetchedMessages = fetched.messages.map(compactMailboxSyncMessage);
+      const afterTimestamp = new Date(decoded.after).getTime();
+      upsertedMessages = fetchedMessages.filter((message) => {
+        const inTimeWindow = Number(message.internalDate) >= afterTimestamp;
+        if (!inTimeWindow) chunkDeletedIds.add(message.id);
+        return inTimeWindow;
+      });
+      const fetchedIds = new Set(fetchedMessages.map((message) => message.id));
+      for (const messageId of chunkUpsertIds) {
+        if (!fetchedIds.has(messageId)) chunkDeletedIds.add(messageId);
+      }
+    }
+
+    const messageToThreadId = new Map<string, string>();
+    for (const record of response.history ?? []) {
+      for (const change of [
+        ...(record.messagesAdded ?? []),
+        ...(record.messagesDeleted ?? []),
+        ...(record.labelsAdded ?? []),
+        ...(record.labelsRemoved ?? []),
+      ]) {
+        if (change.message?.id && change.message.threadId) {
+          messageToThreadId.set(change.message.id, change.message.threadId);
+        }
+      }
+      for (const message of record.messages ?? []) {
+        if (message.id && message.threadId) {
+          messageToThreadId.set(message.id, message.threadId);
+        }
+      }
+    }
+    const chunkThreadIds = new Set<string>();
+    for (const change of chunk) {
+      const threadId = messageToThreadId.get(change.id);
+      if (threadId) chunkThreadIds.add(threadId);
+    }
+    for (const message of upsertedMessages) {
+      if (message.threadId) chunkThreadIds.add(message.threadId);
     }
 
     const nextHistoryId = response.nextPageToken
       ? decoded.historyId
       : (response.historyId ?? decoded.historyId);
+
+    const cursorPayload = hasMoreInHistory
+      ? {
+          version: 1 as const,
+          provider: "google" as const,
+          phase: "delta" as const,
+          historyId: decoded.historyId,
+          after: decoded.after,
+          pageToken: decoded.pageToken,
+          offset: endOffset,
+        }
+      : {
+          version: 1 as const,
+          provider: "google" as const,
+          phase: "delta" as const,
+          historyId: nextHistoryId,
+          after: decoded.after,
+          pageToken: response.nextPageToken ?? undefined,
+        };
+
     return {
-      cursor: encodeMailboxSyncCursor({
-        version: 1,
-        provider: "google",
-        phase: "delta",
-        historyId: nextHistoryId,
-        after: decoded.after,
-        pageToken: response.nextPageToken ?? undefined,
-      }),
-      changedThreadIds: [...changedThreadIds],
-      deletedMessageIds: [...deletedIds],
-      hasMore: Boolean(response.nextPageToken),
+      cursor: encodeMailboxSyncCursor(cursorPayload),
+      changedThreadIds: [...chunkThreadIds],
+      deletedMessageIds: [...chunkDeletedIds],
+      hasMore: hasMoreInHistory || Boolean(response.nextPageToken),
       reset: false,
       upsertedMessages,
     };

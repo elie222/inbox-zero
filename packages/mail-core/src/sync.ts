@@ -48,6 +48,8 @@ export type ProviderChange = z.infer<typeof providerChangeSchema>;
 export const MAX_BODY_LENGTH = 5_000_000;
 export const MAX_BODY_ATTACHMENTS = 100;
 
+export const MAX_SYNC_PAGE_CHANGES = 1000;
+
 export const bodyObservationSchema = z.object({
   key: messageKeySchema,
   version: z.string().max(512).nullable(),
@@ -66,9 +68,9 @@ export const syncPageSchema = z.object({
   requestId: z.string().min(1).max(128),
   from: syncPositionSchema,
   to: syncPositionSchema,
-  changes: z.array(providerChangeSchema).max(1000),
-  requiredHydration: z.array(messageKeySchema).max(1000),
-  bodies: z.array(bodyObservationSchema).max(1000).optional(),
+  changes: z.array(providerChangeSchema).max(MAX_SYNC_PAGE_CHANGES),
+  requiredHydration: z.array(messageKeySchema).max(MAX_SYNC_PAGE_CHANGES),
+  bodies: z.array(bodyObservationSchema).max(MAX_SYNC_PAGE_CHANGES).optional(),
   roundComplete: z.boolean(),
 });
 export type SyncPage = z.infer<typeof syncPageSchema>;
