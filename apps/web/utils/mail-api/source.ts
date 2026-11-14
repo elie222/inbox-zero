@@ -49,6 +49,7 @@ const SUPPORTED_CHANGES = [
 type FolderScopeNode = {
   id: string;
   systemType?: string;
+  childFolderCount?: number;
   childFolders?: FolderScopeNode[];
 };
 
@@ -102,8 +103,19 @@ export function createEmailProviderMailboxSource(input: {
     },
     async beginBootstrap({ afterMs, scope, session }) {
       try {
+        const initialSyncDays = process.env.MAIL_INITIAL_SYNC_DAYS
+          ? Number.parseInt(process.env.MAIL_INITIAL_SYNC_DAYS, 10)
+          : undefined;
+        const defaultAfterMs =
+          initialSyncDays &&
+          Number.isFinite(initialSyncDays) &&
+          initialSyncDays > 0
+            ? Date.now() - initialSyncDays * 24 * 60 * 60 * 1000
+            : 0;
+        const resolvedAfterMs =
+          typeof afterMs === "number" ? afterMs : defaultAfterMs;
         const token: BootstrapToken = {
-          afterMs: afterMs ?? 0,
+          afterMs: resolvedAfterMs,
           scopeId: scope.id,
           folderId: scopedFolderId(provider, scope),
         };
@@ -127,6 +139,17 @@ export function createEmailProviderMailboxSource(input: {
           },
         };
       } catch (error) {
+        const folderId = scopedFolderId(provider, scope);
+        if (
+          folderId &&
+          isMissingProviderResource(error) &&
+          (await isFolderGone(provider, folderId))
+        ) {
+          return {
+            status: "reset_required",
+            scopeId: scope.id,
+          };
+        }
         return mapProviderError(error);
       }
     },
@@ -137,6 +160,10 @@ export function createEmailProviderMailboxSource(input: {
           maxResults: Math.min(pageSize, maxPageSize),
           folderId: token.folderId ?? undefined,
           pageToken: token.pageToken,
+          after:
+            typeof token.afterMs === "number" && token.afterMs > 0
+              ? new Date(token.afterMs)
+              : undefined,
           includeDrafts: true,
         });
         const { changes, requiredHydration, bodies } = enumeratedObservations(
@@ -184,6 +211,23 @@ export function createEmailProviderMailboxSource(input: {
       } catch (error) {
         if (error instanceof InvalidMailboxSyncCursorError) {
           return { status: "reset_required", scopeId: "primary" };
+        }
+        const parsedToken = (() => {
+          try {
+            return JSON.parse(page) as BootstrapToken;
+          } catch {
+            return null;
+          }
+        })();
+        if (
+          parsedToken?.folderId &&
+          isMissingProviderResource(error) &&
+          (await isFolderGone(provider, parsedToken.folderId))
+        ) {
+          return {
+            status: "reset_required",
+            scopeId: parsedToken.scopeId ?? "primary",
+          };
         }
         return mapProviderError(error);
       }
@@ -507,6 +551,41 @@ async function finalCatchUpFrom({
 function scopedFolderId(provider: EmailProvider, scope: ScopeDescriptor) {
   if (provider.name === "microsoft") return scope.folderId ?? scope.id;
   return scope.folderId ?? undefined;
+}
+
+function hasIncompleteFolderBranches(folders: FolderScopeNode[]): boolean {
+  for (const folder of folders) {
+    const expectedChildren = folder.childFolderCount ?? 0;
+    const actualChildren = folder.childFolders?.length ?? 0;
+    if (expectedChildren > 0 && actualChildren === 0) {
+      return true;
+    }
+    if (
+      folder.childFolders &&
+      hasIncompleteFolderBranches(folder.childFolders)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// A deleted folder's enumeration or delta query fails with a 404, but so can a
+// transient Graph error, so only a fresh, complete folder listing without it counts as gone.
+async function isFolderGone(provider: EmailProvider, folderId: string) {
+  try {
+    const folders = (await provider.getFolders()) as FolderScopeNode[];
+    const allScopes = flattenFolderScopes(folders);
+    if (allScopes.some((scope) => scope.id === folderId)) {
+      return false;
+    }
+    if (hasIncompleteFolderBranches(folders)) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function flattenFolderScopes(folders: FolderScopeNode[]) {
