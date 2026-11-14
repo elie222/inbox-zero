@@ -38,6 +38,7 @@ describe("mailbox sync cursor", () => {
       after: "2026-07-01T00:00:00.000Z",
       changeOffset: 1000,
       endHistoryId: "23456",
+      pageFingerprint: "abcdef123456",
     });
 
     expect(decodeMailboxSyncCursor(encoded, "google")).toEqual({
@@ -48,6 +49,7 @@ describe("mailbox sync cursor", () => {
       after: "2026-07-01T00:00:00.000Z",
       changeOffset: 1000,
       endHistoryId: "23456",
+      pageFingerprint: "abcdef123456",
     });
   });
 

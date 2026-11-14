@@ -36,52 +36,6 @@ beforeEach(() => {
   vi.mocked(getMessage).mockRejectedValue({ status: 404 });
 });
 
-function deltaCursor(historyId = "100") {
-  return encodeMailboxSyncCursor({
-    version: 1,
-    provider: "google",
-    phase: "delta",
-    historyId,
-    after,
-  });
-}
-
-function historyRecord({
-  added = [],
-  deleted = [],
-}: {
-  added?: string[];
-  deleted?: string[];
-}) {
-  return {
-    ...(added.length > 0
-      ? {
-          labelsAdded: added.map((id) => ({
-            message: { id, threadId: `thread-${id}` },
-          })),
-        }
-      : {}),
-    ...(deleted.length > 0
-      ? {
-          messagesDeleted: deleted.map((id) => ({ message: { id } })),
-        }
-      : {}),
-  };
-}
-
-function stubFetchedMessages() {
-  vi.mocked(getMessagesBatch).mockImplementation(async ({ messageIds }) =>
-    messageIds.map((id) => ({
-      ...getMockMessage({
-        id,
-        labelIds: ["INBOX"],
-        date: "2026-07-02T00:00:00.000Z",
-      }),
-      internalDate: recentInternalDate,
-    })),
-  );
-}
-
 describe("getGmailMailboxSyncPage", () => {
   it.each([
     "snapshot",
@@ -496,6 +450,90 @@ describe("getGmailMailboxSyncPage", () => {
     );
   });
 
+  it("restarts a page that shrank to exactly the saved offset", async () => {
+    const addedIds = Array.from(
+      { length: 700 },
+      (_, index) => `exact-shrink-${index}`,
+    );
+    vi.mocked(getHistory).mockResolvedValue({
+      history: [historyRecord({ added: addedIds })],
+      historyId: "200",
+    });
+    stubFetchedMessages();
+
+    const page = await getGmailMailboxSyncPage({
+      gmail: {} as never,
+      accessToken: "access-token",
+      logger,
+      cursor: encodeMailboxSyncCursor({
+        version: 1,
+        provider: "google",
+        phase: "delta",
+        historyId: "100",
+        after,
+        changeOffset: addedIds.length,
+        endHistoryId: "200",
+        pageFingerprint: "different-page",
+      }),
+      limit: 100,
+    });
+
+    expect(page.upsertedMessages.map((message) => message.id)).toEqual(
+      addedIds,
+    );
+    expect(page.hasMore).toBe(false);
+    expect(decodeMailboxSyncCursor(page.cursor, "google").historyId).toBe(
+      "200",
+    );
+  });
+
+  it("restarts a page whose contents changed before the saved offset", async () => {
+    const addedIds = Array.from(
+      { length: 1100 },
+      (_, index) => `shifted-${index}`,
+    );
+    vi.mocked(getHistory).mockResolvedValue({
+      history: [historyRecord({ added: addedIds })],
+      historyId: "200",
+    });
+    stubFetchedMessages();
+
+    const first = await getGmailMailboxSyncPage({
+      gmail: {} as never,
+      accessToken: "access-token",
+      logger,
+      cursor: encodeMailboxSyncCursor({
+        version: 1,
+        provider: "google",
+        phase: "delta",
+        historyId: "100",
+        after,
+        changeOffset: MAX_SYNC_PAGE_CHANGES,
+        endHistoryId: "200",
+        pageFingerprint: "different-page",
+      }),
+      limit: 100,
+    });
+
+    expect(first.upsertedMessages.map((message) => message.id)).toEqual(
+      addedIds.slice(0, MAX_SYNC_PAGE_CHANGES),
+    );
+    expect(first.hasMore).toBe(true);
+
+    const second = await getGmailMailboxSyncPage({
+      gmail: {} as never,
+      accessToken: "access-token",
+      logger,
+      cursor: first.cursor,
+      limit: 100,
+    });
+
+    expect(second.upsertedMessages.map((message) => message.id)).toEqual(
+      addedIds.slice(MAX_SYNC_PAGE_CHANGES),
+    );
+    expect(second.hasMore).toBe(false);
+  });
+
   it("moves to the next Gmail history page only after the current page is drained", async () => {
     const addedIds = Array.from(
       { length: 1200 },
@@ -685,3 +723,49 @@ describe("Gmail mailbox changes over the mail API source", () => {
     ).toBe("200");
   });
 });
+
+function deltaCursor(historyId = "100") {
+  return encodeMailboxSyncCursor({
+    version: 1,
+    provider: "google",
+    phase: "delta",
+    historyId,
+    after,
+  });
+}
+
+function historyRecord({
+  added = [],
+  deleted = [],
+}: {
+  added?: string[];
+  deleted?: string[];
+}) {
+  return {
+    ...(added.length > 0
+      ? {
+          labelsAdded: added.map((id) => ({
+            message: { id, threadId: `thread-${id}` },
+          })),
+        }
+      : {}),
+    ...(deleted.length > 0
+      ? {
+          messagesDeleted: deleted.map((id) => ({ message: { id } })),
+        }
+      : {}),
+  };
+}
+
+function stubFetchedMessages() {
+  vi.mocked(getMessagesBatch).mockImplementation(async ({ messageIds }) =>
+    messageIds.map((id) => ({
+      ...getMockMessage({
+        id,
+        labelIds: ["INBOX"],
+        date: "2026-07-02T00:00:00.000Z",
+      }),
+      internalDate: recentInternalDate,
+    })),
+  );
+}

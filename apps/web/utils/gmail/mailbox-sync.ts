@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { MAX_SYNC_PAGE_CHANGES } from "@inboxzero/mail-core/sync";
 import {
@@ -85,11 +86,15 @@ export async function getGmailMailboxSyncPage({
       })),
     ];
     const requestedOffset = decoded.changeOffset ?? 0;
-    // History pages are stable while their page token is used, but if the
-    // provider ever returns a smaller page, start over rather than skipping
-    // ids that moved before the saved offset.
-    const changeOffset =
-      requestedOffset > changeUnits.length ? 0 : requestedOffset;
+    const pageFingerprint = gmailHistoryPageFingerprint(changeUnits);
+    // History pages are stable while their page token is used. If a re-read
+    // page has a different ordered change list, the saved offset could point
+    // at the wrong ids, so restart the page rather than skipping changes.
+    const pageChanged =
+      decoded.pageFingerprint !== undefined
+        ? decoded.pageFingerprint !== pageFingerprint
+        : requestedOffset > 0;
+    const changeOffset = pageChanged ? 0 : requestedOffset;
     const sliceEnd = Math.min(
       changeOffset + MAX_SYNC_PAGE_CHANGES,
       changeUnits.length,
@@ -138,7 +143,9 @@ export async function getGmailMailboxSyncPage({
             : decoded.historyId,
         after: decoded.after,
         ...(nextPageToken ? { pageToken: nextPageToken } : {}),
-        ...(pageComplete ? {} : { changeOffset: sliceEnd, endHistoryId }),
+        ...(pageComplete
+          ? {}
+          : { changeOffset: sliceEnd, endHistoryId, pageFingerprint }),
       }),
       changedThreadIds: [...changedThreadIds],
       deletedMessageIds: [...deletedInPage],
@@ -201,6 +208,16 @@ export function getGmailMailboxChangeIds(history: gmail_v1.Schema$History[]): {
 
   for (const messageId of deletedIds) upsertIds.delete(messageId);
   return { upsertIds: [...upsertIds], deletedIds, changedThreadIds };
+}
+
+function gmailHistoryPageFingerprint(
+  changeUnits: Array<{ kind: "upsert" | "delete"; messageId: string }>,
+) {
+  const hash = createHash("sha256");
+  for (const unit of changeUnits) {
+    hash.update(`${unit.kind}:${unit.messageId}\n`);
+  }
+  return hash.digest("base64url").slice(0, 22);
 }
 
 async function getGmailSnapshotPage({
