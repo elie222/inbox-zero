@@ -399,7 +399,11 @@ describe("createEmailProviderMailboxSource", () => {
         expect(token.afterMs).toBeLessThanOrEqual(now - thirtyDaysMs + 2000);
       }
     } finally {
-      process.env.MAIL_INITIAL_SYNC_DAYS = prevEnv;
+      if (prevEnv === undefined) {
+        delete process.env.MAIL_INITIAL_SYNC_DAYS;
+      } else {
+        process.env.MAIL_INITIAL_SYNC_DAYS = prevEnv;
+      }
     }
   });
 
@@ -436,7 +440,11 @@ describe("createEmailProviderMailboxSource", () => {
         expect(token.afterMs).toBe(0);
       }
     } finally {
-      process.env.MAIL_INITIAL_SYNC_DAYS = prevEnv;
+      if (prevEnv === undefined) {
+        delete process.env.MAIL_INITIAL_SYNC_DAYS;
+      } else {
+        process.env.MAIL_INITIAL_SYNC_DAYS = prevEnv;
+      }
     }
   });
 
