@@ -328,8 +328,8 @@ describe("getGmailMailboxSyncPage", () => {
     const recentDate = new Date("2026-07-02T00:00:00.000Z")
       .getTime()
       .toString();
-    vi.mocked(getMessagesBatch).mockImplementation(async (ids) =>
-      ids.map((id) => ({
+    vi.mocked(getMessagesBatch).mockImplementation(async ({ messageIds }) =>
+      messageIds.map((id) => ({
         ...getMockMessage({ id, threadId: id === "add-3" ? "t-3" : "t-2" }),
         internalDate: recentDate,
       })),

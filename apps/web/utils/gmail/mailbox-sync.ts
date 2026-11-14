@@ -142,9 +142,6 @@ export async function getGmailMailboxSyncPage({
       const threadId = messageToThreadId.get(change.id);
       if (threadId) chunkThreadIds.add(threadId);
     }
-    for (const message of upsertedMessages) {
-      if (message.threadId) chunkThreadIds.add(message.threadId);
-    }
 
     const nextHistoryId = response.nextPageToken
       ? decoded.historyId
