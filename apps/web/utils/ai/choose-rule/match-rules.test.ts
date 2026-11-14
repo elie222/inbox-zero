@@ -1850,6 +1850,40 @@ describe("filterConversationStatusRules", () => {
     }
   });
 
+  it("should filter no-reply senders whatever their letter case", async () => {
+    vi.mocked(checkSenderReplyHistory).mockClear();
+
+    const toReplyRule = {
+      ...getRule({
+        systemType: SystemType.TO_REPLY,
+      }),
+      instructions: "Reply to important emails",
+    };
+
+    const senders = [
+      "NoReply@Company.com",
+      "GitHub <Notifications@github.com>",
+      "NEWSLETTER@news.com",
+    ];
+
+    for (const from of senders) {
+      const message = getMessage({
+        headers: getHeaders({ from }),
+      });
+
+      const result = await filterConversationStatusRules(
+        [toReplyRule],
+        message,
+        provider,
+        logger,
+      );
+
+      expect(result).toHaveLength(0);
+    }
+
+    expect(checkSenderReplyHistory).not.toHaveBeenCalled();
+  });
+
   it("should handle errors from checkSenderReplyHistory gracefully", async () => {
     vi.mocked(checkSenderReplyHistory).mockRejectedValueOnce(
       new Error("API error"),
