@@ -4526,6 +4526,10 @@ msgstr "{displayNames} göndericilerinin e-postaları siliniyor..."
 msgid "Deleting rule..."
 msgstr "Kural siliniyor..."
 
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Deleting your account also cancels your subscription immediately."
+msgstr "Hesabını silmek aboneliğini de hemen iptal eder."
+
 #: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 #: components/assistant-chat/DeleteChatDialog.tsx

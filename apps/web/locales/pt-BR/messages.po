@@ -4514,6 +4514,10 @@ msgstr "Excluindo e-mails de {displayNames}..."
 msgid "Deleting rule..."
 msgstr "Excluindo regra..."
 
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Deleting your account also cancels your subscription immediately."
+msgstr "Excluir sua conta também cancela sua assinatura imediatamente."
+
 #: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 #: components/assistant-chat/DeleteChatDialog.tsx

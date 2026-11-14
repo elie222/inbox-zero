@@ -61,8 +61,16 @@ export function DeleteSection() {
     premium?.appleSubscriptionStatus || null,
   );
 
+  const deletionCancelsStripe =
+    premium?.deletionCancelsStripeSubscription ?? false;
+  const hasActiveStripeSubscription =
+    !!premium?.stripeSubscriptionId &&
+    premium.stripeSubscriptionStatus !== "canceled" &&
+    premium.stripeSubscriptionStatus !== "incomplete_expired";
+
+  // A sole member's Stripe subscription is canceled by the deletion itself.
   const hasSubscription =
-    premium?.stripeSubscriptionId ||
+    (premium?.stripeSubscriptionId && !deletionCancelsStripe) ||
     premium?.lemonSqueezySubscriptionId ||
     hasAppleSubscription;
 
@@ -175,6 +183,14 @@ export function DeleteSection() {
                           </Trans>
                         </p>
                       </LoadingContent>
+                      {deletionCancelsStripe && hasActiveStripeSubscription && (
+                        <p>
+                          <Trans>
+                            Deleting your account also cancels your subscription
+                            immediately.
+                          </Trans>
+                        </p>
+                      )}
                       {connectedEmails.length > 1 && (
                         <Link
                           href="/accounts"
