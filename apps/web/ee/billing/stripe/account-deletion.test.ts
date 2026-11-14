@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
-import { cancelStripeSubscriptionForDeletedUser } from "./account-deletion";
+import {
+  cancelStripeSubscriptionForDeletedUser,
+  deletionCancelsStripeSubscription,
+} from "./account-deletion";
 
 const { mockRetrieve, mockCancel } = vi.hoisted(() => ({
   mockRetrieve: vi.fn(),
@@ -57,6 +60,29 @@ describe("cancelStripeSubscriptionForDeletedUser", () => {
     await cancelStripeSubscriptionForDeletedUser({ userId: "user-1", logger });
 
     expect(mockRetrieve).not.toHaveBeenCalled();
+  });
+});
+
+describe("deletionCancelsStripeSubscription", () => {
+  it("is true only for a Stripe plan with a single member", () => {
+    expect(
+      deletionCancelsStripeSubscription({
+        stripeSubscriptionId: "sub_123",
+        _count: { users: 1 },
+      }),
+    ).toBe(true);
+    expect(
+      deletionCancelsStripeSubscription({
+        stripeSubscriptionId: "sub_123",
+        _count: { users: 2 },
+      }),
+    ).toBe(false);
+    expect(
+      deletionCancelsStripeSubscription({
+        stripeSubscriptionId: null,
+        _count: { users: 1 },
+      }),
+    ).toBe(false);
   });
 });
 

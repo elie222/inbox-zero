@@ -4526,6 +4526,10 @@ msgstr "正在删除来自 {displayNames} 的邮件..."
 msgid "Deleting rule..."
 msgstr "正在删除规则..."
 
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Deleting your account also cancels your subscription immediately."
+msgstr "删除账户也会立即取消你的订阅。"
+
 #: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 #: components/assistant-chat/DeleteChatDialog.tsx

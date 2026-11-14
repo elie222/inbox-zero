@@ -4526,6 +4526,10 @@ msgstr "{displayNames}의 이메일 삭제 중..."
 msgid "Deleting rule..."
 msgstr "규칙 삭제 중..."
 
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Deleting your account also cancels your subscription immediately."
+msgstr "계정을 삭제하면 구독도 즉시 취소됩니다."
+
 #: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 #: components/assistant-chat/DeleteChatDialog.tsx

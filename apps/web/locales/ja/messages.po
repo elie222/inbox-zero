@@ -4526,6 +4526,10 @@ msgstr "{displayNames} からのメールを削除中..."
 msgid "Deleting rule..."
 msgstr "ルールを削除中..."
 
+#: app/(app)/[emailAccountId]/settings/DeleteSection.tsx
+msgid "Deleting your account also cancels your subscription immediately."
+msgstr "アカウントを削除すると、サブスクリプションも直ちにキャンセルされます。"
+
 #: app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 #: components/assistant-chat/DeleteChatDialog.tsx

@@ -32,8 +32,7 @@ export async function cancelStripeSubscriptionForDeletedUser({
   const premium = user?.premium;
   if (!premium?.stripeSubscriptionId) return;
 
-  // Other members still rely on a shared plan.
-  if (premium._count.users > 1) {
+  if (!deletionCancelsStripeSubscription(premium)) {
     logger.info("Keeping shared Stripe subscription on account deletion", {
       subscriptionId: premium.stripeSubscriptionId,
     });
@@ -53,4 +52,14 @@ export async function cancelStripeSubscriptionForDeletedUser({
   logger.info("Canceled Stripe subscription on account deletion", {
     subscriptionId: subscription.id,
   });
+}
+
+// Other members still rely on a shared plan, so only a sole member's deletion
+// cancels it. The delete screen uses this to decide whether to ask the user to
+// cancel first.
+export function deletionCancelsStripeSubscription(premium: {
+  stripeSubscriptionId: string | null;
+  _count: { users: number };
+}) {
+  return Boolean(premium.stripeSubscriptionId) && premium._count.users <= 1;
 }
