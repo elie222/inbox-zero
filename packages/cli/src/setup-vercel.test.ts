@@ -141,6 +141,18 @@ describe("seedLlmPlaceholderCredentials", () => {
     });
   });
 
+  it("enables ChatGPT plan usage without an API key", () => {
+    const env: Record<string, string> = {};
+
+    seedLlmPlaceholderCredentials("chatgpt", env);
+
+    expect(env).toMatchObject({
+      DEFAULT_LLMS: "chatgpt:gpt-6.1-sol",
+      CHATGPT_PLAN_ENABLED: "true",
+    });
+    expect(env.LLM_API_KEY).toBeUndefined();
+  });
+
   it("rejects unsupported providers with a clear error", () => {
     expect(() =>
       seedLlmPlaceholderCredentials("unknown-provider", {}),

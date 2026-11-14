@@ -127,6 +127,10 @@
         "CLI_LLM_ENABLED",
         "CODEX_CLI_ALLOW_NPX",
         "CODEX_CLI_PATH",
+        "CHATGPT_PLAN_ENABLED",
+        "CHATGPT_CLIENT_ID",
+        "CHATGPT_HOST_ID",
+        "CHATGPT_REFRESH_TOKEN",
         "PERPLEXITY_API_KEY",
 
         "REDIS_HTTP_URL",

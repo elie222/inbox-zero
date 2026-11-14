@@ -5,6 +5,8 @@ import type Stripe from "stripe";
 import { deleteUser } from "@/utils/user/delete";
 import prisma from "@/utils/prisma";
 import { adminActionClient } from "@/utils/actions/safe-action";
+import { env } from "@/env";
+import { disconnectChatGpt } from "@/utils/llms/chatgpt/connection";
 import { SafeError } from "@/utils/error";
 import {
   connectPurchaserAsAdmin,
@@ -802,3 +804,14 @@ async function findUserByUserOrAccountEmail(email: string) {
 
   return emailAccount?.user ?? null;
 }
+
+export const adminDisconnectChatGptAction = adminActionClient
+  .metadata({ name: "adminDisconnectChatGpt" })
+  .action(async ({ ctx: { logger } }) => {
+    if (!env.CHATGPT_PLAN_ENABLED) {
+      throw new SafeError("Set CHATGPT_PLAN_ENABLED=true to manage ChatGPT.");
+    }
+    const { revoked } = await disconnectChatGpt();
+    logger.info("Disconnected ChatGPT", { revoked });
+    return { revoked };
+  });

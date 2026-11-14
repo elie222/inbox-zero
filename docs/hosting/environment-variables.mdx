@@ -119,6 +119,11 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `CLI_LLM_ENABLED` | No | Enables community CLI-backed LLM providers (`codex-cli`, `claude-code`). Self-host only; requires installing optional provider packages. | `false` |
 | `CODEX_CLI_ALLOW_NPX` | No | Allows the Codex community provider to fall back to `npx @openai/codex` if `codex` is not on PATH. Leave disabled unless you trust that install path. | `false` |
 | `CODEX_CLI_PATH` | No | Optional path to the `codex` binary when using `codex-cli`. | — |
+| **Sign in with ChatGPT** ||||
+| `CHATGPT_PLAN_ENABLED` | No | Enables the `chatgpt` LLM provider, which uses the instance owner's ChatGPT Plus/Pro plan instead of an API key. Self-host only; `inbox-zero setup` signs in and fills the values below. | `false` |
+| `CHATGPT_CLIENT_ID` | No | Inbox Zero's ChatGPT app registration, written by `inbox-zero setup` or `inbox-zero chatgpt login`. | — |
+| `CHATGPT_HOST_ID` | No | Stable ID for this install, sent to OpenAI for usage attribution. Written by the CLI. | — |
+| `CHATGPT_REFRESH_TOKEN` | No | One-time sign-in credential from the CLI. Imported into the database on first use; the app manages refresh after that. | — |
 | **AI Content Controls** ||||
 | `SENSITIVE_DATA_POLICY_DEFAULT` | No | Default policy for handling sensitive data matches in LLM requests (`ALLOW`, `REDACT`, or `BLOCK`) | `ALLOW` |
 | `NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED` | No | Set to `true` to enforce the default policy for all accounts, disable account-level edits, and hide the setting in the UI | `false` |

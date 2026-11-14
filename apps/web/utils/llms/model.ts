@@ -23,6 +23,10 @@ import {
   getCliProviderDefaultModel,
   isCliProvider,
 } from "./cli-provider";
+import {
+  CHATGPT_PROVIDER_OPTIONS,
+  createChatGptLanguageModel,
+} from "./chatgpt/model";
 
 const DEFAULT_GOOGLE_THINKING_BUDGET = 128;
 const REASONING_EFFORT_BY_MODEL_TYPE = {
@@ -322,6 +326,25 @@ function selectModel(
         providerOptions: getLocalThinkingProviderOptions("openai-compatible"),
       };
     }
+    case Provider.CHATGPT: {
+      if (!env.CHATGPT_PLAN_ENABLED) {
+        throw new SafeError(
+          'LLM provider "chatgpt" is disabled. Set CHATGPT_PLAN_ENABLED=true to use it.',
+        );
+      }
+      const modelName = aiModel || "gpt-6.1-sol";
+      return {
+        provider: Provider.CHATGPT,
+        modelName,
+        model: createChatGptLanguageModel(modelName),
+        providerOptions: {
+          openai: {
+            ...CHATGPT_PROVIDER_OPTIONS.openai,
+            reasoningEffort: REASONING_EFFORT_BY_MODEL_TYPE[modelType],
+          },
+        },
+      };
+    }
     case Provider.BEDROCK: {
       const modelName = aiModel || "global.anthropic.claude-sonnet-5";
       return {
@@ -572,6 +595,8 @@ function getProviderApiKey(provider: string) {
     // when no API key is configured (many OpenAI-compatible servers don't require one)
     [Provider.OPENAI_COMPATIBLE]:
       env.LLM_API_KEY || process.env.LLM_API_KEY || "not-required",
+    // Whether an admin has connected ChatGPT is only known at request time.
+    [Provider.CHATGPT]: env.CHATGPT_PLAN_ENABLED ? "chatgpt-oauth" : undefined,
   };
 
   return providerApiKeys[provider];

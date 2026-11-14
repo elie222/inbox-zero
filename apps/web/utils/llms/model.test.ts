@@ -70,6 +70,16 @@ vi.mock("@ai-sdk/cerebras", () => ({
   createCerebras: vi.fn(() => (model: string) => ({ model })),
 }));
 
+vi.mock("./chatgpt/model", () => ({
+  CHATGPT_PROVIDER_OPTIONS: {
+    openai: { store: false, systemMessageMode: "developer" },
+  },
+  createChatGptLanguageModel: vi.fn((model: string) => ({
+    provider: "chatgpt",
+    modelId: model,
+  })),
+}));
+
 vi.mock("@/env", () => ({
   env: {
     DEFAULT_LLMS: "openrouter:openai/gpt-5.4-mini",
@@ -106,6 +116,7 @@ vi.mock("@/env", () => ({
     OPENAI_COMPATIBLE_MODEL: "llama-3.2-3b-instruct",
     OPENAI_COMPATIBLE_AUTH_HEADER: undefined,
     CLI_LLM_ENABLED: false,
+    CHATGPT_PLAN_ENABLED: false,
     CODEX_CLI_ALLOW_NPX: false,
     CODEX_CLI_PATH: undefined,
     BEDROCK_REGION: "us-west-2",
@@ -159,6 +170,7 @@ describe("Models", () => {
     vi.mocked(env).OPENAI_COMPATIBLE_MODEL = "llama-3.2-3b-instruct";
     vi.mocked(env).OPENAI_COMPATIBLE_AUTH_HEADER = undefined;
     vi.mocked(env).CLI_LLM_ENABLED = false;
+    vi.mocked(env).CHATGPT_PLAN_ENABLED = false;
     vi.mocked(env).CODEX_CLI_ALLOW_NPX = false;
     vi.mocked(env).CODEX_CLI_PATH = undefined;
     vi.mocked(env).BEDROCK_ACCESS_KEY = "";
@@ -1528,6 +1540,32 @@ describe("Models", () => {
         provider: Provider.CLAUDE_CODE,
         modelId: "sonnet",
       });
+    });
+
+    it("should use the connected ChatGPT plan when enabled", () => {
+      const userAi = defaultUserAi();
+
+      setDefaultLlms(Provider.CHATGPT, "gpt-6.1-sol");
+      vi.mocked(env).CHATGPT_PLAN_ENABLED = true;
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.CHATGPT);
+      expect(result.model).toMatchObject({ modelId: "gpt-6.1-sol" });
+      expect(result.providerOptions?.openai).toMatchObject({
+        store: false,
+        systemMessageMode: "developer",
+      });
+    });
+
+    it("should skip ChatGPT when plan usage is not enabled", () => {
+      const userAi = defaultUserAi();
+
+      setDefaultLlms(Provider.CHATGPT, "gpt-6.1-sol", ["openai:gpt-5.4-mini"]);
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.OPEN_AI);
     });
 
     it("should skip CLI fallback providers when CLI LLMs are disabled", () => {
