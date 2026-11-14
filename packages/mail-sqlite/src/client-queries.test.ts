@@ -343,12 +343,11 @@ describe("mail client queries", () => {
       // Conversation c-1 contains both messages
       const initialConv = await store.readConversation(
         { accountId: "acc-1", conversationId: "c-1" },
-        { limit: 10 },
+        { pageSize: 10, after: null },
       );
-      expect(initialConv.messages.map((m) => m.messageId)).toEqual([
-        "m-1",
-        "m-2",
-      ]);
+      expect(
+        initialConv.view.messages.map((m) => m.metadata.messageId),
+      ).toEqual(["m-1", "m-2"]);
 
       // Apply first delta page: delete m-2 (one message in c-1), roundComplete: false
       await store.applySyncPage({
@@ -373,11 +372,11 @@ describe("mail client queries", () => {
       // m-2 disappears from conversation c-1 view; m-1 remains
       const convAfterFirstDelete = await store.readConversation(
         { accountId: "acc-1", conversationId: "c-1" },
-        { limit: 10 },
+        { pageSize: 10, after: null },
       );
-      expect(convAfterFirstDelete.messages.map((m) => m.messageId)).toEqual([
-        "m-1",
-      ]);
+      expect(
+        convAfterFirstDelete.view.messages.map((m) => m.metadata.messageId),
+      ).toEqual(["m-1"]);
 
       // c-1 is still in inbox view because m-1 remains
       const inboxAfterFirstDelete = await store.readMailboxView({
@@ -439,9 +438,9 @@ describe("mail client queries", () => {
       // Conversation c-1 is now empty
       const finalConv = await store.readConversation(
         { accountId: "acc-1", conversationId: "c-1" },
-        { limit: 10 },
+        { pageSize: 10, after: null },
       );
-      expect(finalConv.messages).toEqual([]);
+      expect(finalConv.view.messages).toEqual([]);
     } finally {
       await store.close();
     }
