@@ -35,6 +35,9 @@ test("keeps Test row controls inside the phone viewport", async ({
     route.fulfill({ json: { messages: [message] } }),
   );
   await page.goto(`/${emailAccountId}/automation?tab=test`);
+  await expect(
+    page.getByText("All rules are disabled", { exact: true }),
+  ).toBeVisible();
   const row = page.getByRole("row").filter({ hasText: subject });
   await expect(row).toBeVisible();
   await row.scrollIntoViewIfNeeded();

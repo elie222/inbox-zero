@@ -1,6 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { SafeError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { Prisma } from "@/generated/prisma/client";
@@ -215,7 +216,19 @@ export async function saveBatch({
 
   logger.info("Saving", { count: emailsToSave.length });
 
-  await saveEmailMessages(emailsToSave);
+  try {
+    await saveEmailMessages(emailsToSave);
+  } catch (error) {
+    // Fetching a page can outlive deletion of the account and its saved stats.
+    if (isRawQueryForeignKeyError(error)) {
+      const account = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: { id: true },
+      });
+      if (!account) throw new SafeError("Email account not found", 404);
+    }
+    throw error;
+  }
 
   return {
     data: {
@@ -316,4 +329,28 @@ function mergeUnsubscribeSources({
   if (headerLinks.includes(normalizedHtmlLink)) return listUnsubscribeHeader;
 
   return `${listUnsubscribeHeader}, <${normalizedHtmlLink}>`;
+}
+
+function isRawQueryForeignKeyError(error: unknown) {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== "P2010"
+  )
+    return false;
+
+  const adapterError = error.meta?.driverAdapterError;
+  if (
+    typeof adapterError !== "object" ||
+    adapterError === null ||
+    !("cause" in adapterError)
+  )
+    return false;
+
+  const cause = adapterError.cause;
+  return (
+    typeof cause === "object" &&
+    cause !== null &&
+    "originalCode" in cause &&
+    cause.originalCode === "23503"
+  );
 }
