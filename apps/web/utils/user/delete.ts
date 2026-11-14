@@ -1,4 +1,5 @@
 import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
+import { cancelStripeSubscriptionForDeletedUser } from "@/ee/billing/stripe/account-deletion";
 import { deleteContact as deleteResendContact } from "@inboxzero/transactional-email";
 import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
 import prisma from "@/utils/prisma";
@@ -52,6 +53,20 @@ export async function deleteUser({
   const organizationIdsToDelete = getDeletableOrganizationIdsOrThrow(
     ownershipImpact,
     DELETE_ACCOUNT_REQUIRES_OWNER_TRANSFER_ERROR,
+  );
+
+  // Billing stops before anything is removed, so a failure leaves the account
+  // intact for a retry rather than deleted but still being charged.
+  await cancelStripeSubscriptionForDeletedUser({ userId, logger }).catch(
+    (error) => {
+      logger.error("Failed to cancel Stripe subscription on deletion", {
+        error,
+      });
+      captureException(error);
+      throw new SafeError(
+        "We couldn't cancel your subscription. Please cancel it from the billing page, then try again.",
+      );
+    },
   );
 
   // Drop every session before the slower resource cleanup so a second device
