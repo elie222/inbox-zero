@@ -161,6 +161,19 @@ describe.each([
     ]);
   });
 
+  it("rejects an empty claimed match during structured generation", async () => {
+    mockStructuredResponse({
+      reasoning: "A rule applies",
+      noMatchFound: false,
+      ruleId: null,
+      matchedRules: [],
+    });
+
+    await expect(
+      chooseRule(candidateRules, multiRuleSelectionEnabled),
+    ).rejects.toBeInstanceOf(z.ZodError);
+  });
+
   it("allows an explicit no-match response", async () => {
     mockStructuredResponse({
       reasoning: "No rule applies",
