@@ -29,6 +29,30 @@ describe("mailbox sync cursor", () => {
     );
   });
 
+  it("round-trips a partially drained Gmail history page", () => {
+    const encoded = encodeMailboxSyncCursor({
+      version: 1,
+      provider: "google",
+      phase: "delta",
+      historyId: "12345",
+      after: "2026-07-01T00:00:00.000Z",
+      changeOffset: 1000,
+      endHistoryId: "23456",
+      pageFingerprint: "abcdef123456",
+    });
+
+    expect(decodeMailboxSyncCursor(encoded, "google")).toEqual({
+      version: 1,
+      provider: "google",
+      phase: "delta",
+      historyId: "12345",
+      after: "2026-07-01T00:00:00.000Z",
+      changeOffset: 1000,
+      endHistoryId: "23456",
+      pageFingerprint: "abcdef123456",
+    });
+  });
+
   it("rejects Microsoft cursors that could send credentials off Graph", () => {
     const encoded = encodeMailboxSyncCursor({
       version: 1,
