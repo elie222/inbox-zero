@@ -99,9 +99,42 @@ describe("engine catch-up after a long gap", () => {
     expect(source.newestPageReads()).toBe(0);
     await engine.close();
   });
+
+  it("removes mail deleted during catch-up from the inbox and conversation views", async () => {
+    const store = await storeWithCheckpoint("h-0", [
+      inboxMessage("deleted-during-catch-up", 1000),
+    ]);
+    const engine = createMailEngine({
+      store,
+      source: deletionSource("deleted-during-catch-up").port,
+      executor: idleExecutor(),
+      runtime: createHostRuntime({ nowMs: () => 1000 }),
+    });
+
+    expect(await inboxSubjects(store)).toContain("deleted-during-catch-up");
+
+    for (let run = 0; run < 3; run += 1) {
+      await engine.runUntil(Date.now() + 2000);
+    }
+
+    expect(await inboxSubjects(store)).not.toContain("deleted-during-catch-up");
+    const conversation = await store.readConversation(
+      {
+        accountId: session.accountId,
+        conversationId: "c-deleted-during-catch-up",
+      },
+      { pageSize: 10, after: null },
+    );
+    expect(conversation.view.messages).toEqual([]);
+    expect(await streamCheckpoint(store)).toBe("h-1");
+    await engine.close();
+  });
 });
 
-async function storeWithCheckpoint(checkpoint: string) {
+async function storeWithCheckpoint(
+  checkpoint: string,
+  changes: ProviderChange[] = [],
+) {
   const store = await createSqliteMailStore(createNodeSqliteDriver());
   await store.ensureAccount({
     accountId: session.accountId,
@@ -115,7 +148,7 @@ async function storeWithCheckpoint(checkpoint: string) {
       requestId: "seed",
       from: { streamId: "primary", generation: "g1", checkpoint: null },
       to: { streamId: "primary", generation: "g1", checkpoint },
-      changes: [],
+      changes,
       requiredHydration: [],
       roundComplete: true,
     },
@@ -250,6 +283,91 @@ function historySource({
     historyReads: () => historyReads,
     newestPageReads: () => newestPageReads,
   };
+}
+
+function deletionSource(messageId: string) {
+  const port: MailboxSource = {
+    async describe() {
+      return {
+        status: "ok",
+        value: {
+          strategy: "account_history",
+          supportedChanges: ["archive"],
+          maxPageSize: 50,
+          maxHydrationBatch: 20,
+        },
+      };
+    },
+    async discoverScopes() {
+      return {
+        status: "ok",
+        value: {
+          scopes: [{ id: "primary", kind: "account", folderId: null }],
+          nextPage: null,
+        },
+      };
+    },
+    async beginBootstrap() {
+      return {
+        status: "ok",
+        value: {
+          bootstrapId: "boot",
+          enumerationToken: "newest",
+          catchUpFrom: null,
+        },
+      };
+    },
+    async enumerate() {
+      return {
+        status: "ok",
+        value: {
+          bootstrapId: "boot",
+          scopeId: "primary",
+          changes: [],
+          requiredHydration: [],
+          bodies: [],
+          nextPage: "older",
+          catchUpFrom: null,
+        },
+      };
+    },
+    async readChanges({ position, requestId }) {
+      return {
+        status: "page",
+        page: {
+          session,
+          requestId,
+          from: position,
+          to: { ...position, checkpoint: "h-1" },
+          changes: [
+            {
+              kind: "message_deleted",
+              key: { accountId: session.accountId, messageId },
+              evidence: "deleted during catch-up",
+            },
+          ],
+          requiredHydration: [],
+          roundComplete: true,
+        },
+      };
+    },
+    async hydrate() {
+      return {
+        status: "ok",
+        value: { changes: [], bodies: [], unresolved: [] },
+      };
+    },
+    async readConversationMembership() {
+      return { status: "ok", value: { status: "unsupported" } };
+    },
+    async search() {
+      return { status: "unsupported" };
+    },
+    async readAttachment() {
+      return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
+    },
+  };
+  return { port };
 }
 
 function inboxMessage(

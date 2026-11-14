@@ -1,4 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
+import { MAX_SYNC_PAGE_CHANGES } from "@inboxzero/mail-core/sync";
 import {
   compactMailboxSyncMessage,
   decodeMailboxSyncCursor,
@@ -73,39 +74,75 @@ export async function getGmailMailboxSyncPage({
     );
     const { upsertIds, deletedIds, changedThreadIds } =
       getGmailMailboxChangeIds(response.history ?? []);
+    // `maxResults` bounds history records, not the message ids they expand to.
+    // Emit a bounded slice and keep the offset in the cursor so every upsert
+    // and deletion lands before the checkpoint reaches the next history page.
+    const changeUnits = [
+      ...upsertIds.map((messageId) => ({ kind: "upsert" as const, messageId })),
+      ...[...deletedIds].map((messageId) => ({
+        kind: "delete" as const,
+        messageId,
+      })),
+    ];
+    const requestedOffset = decoded.changeOffset ?? 0;
+    // History pages are stable while their page token is used, but if the
+    // provider ever returns a smaller page, start over rather than skipping
+    // ids that moved before the saved offset.
+    const changeOffset =
+      requestedOffset > changeUnits.length ? 0 : requestedOffset;
+    const sliceEnd = Math.min(
+      changeOffset + MAX_SYNC_PAGE_CHANGES,
+      changeUnits.length,
+    );
+    const slice = changeUnits.slice(changeOffset, sliceEnd);
+    const upsertMessageIds = slice.flatMap((unit) =>
+      unit.kind === "upsert" ? [unit.messageId] : [],
+    );
     const fetched = await getGmailSyncMessages({
       gmail,
-      messageIds: upsertIds,
+      messageIds: upsertMessageIds,
       accessToken,
       logger,
     });
     const fetchedMessages = fetched.messages.map(compactMailboxSyncMessage);
     const afterTimestamp = new Date(decoded.after).getTime();
+    const deletedInPage = new Set(
+      slice.flatMap((unit) => (unit.kind === "delete" ? [unit.messageId] : [])),
+    );
     const upsertedMessages = fetchedMessages.filter((message) => {
       const inTimeWindow = Number(message.internalDate) >= afterTimestamp;
-      if (!inTimeWindow) deletedIds.add(message.id);
+      if (!inTimeWindow) deletedInPage.add(message.id);
       return inTimeWindow;
     });
     const fetchedIds = new Set(fetchedMessages.map((message) => message.id));
-    for (const messageId of upsertIds) {
-      if (!fetchedIds.has(messageId)) deletedIds.add(messageId);
+    for (const messageId of upsertMessageIds) {
+      if (!fetchedIds.has(messageId)) deletedInPage.add(messageId);
     }
 
-    const nextHistoryId = response.nextPageToken
-      ? decoded.historyId
-      : (response.historyId ?? decoded.historyId);
+    const pageComplete = sliceEnd === changeUnits.length;
+    const endHistoryId =
+      decoded.endHistoryId ?? response.historyId ?? decoded.historyId;
+    const nextPageToken = pageComplete
+      ? response.nextPageToken
+      : decoded.pageToken;
     return {
       cursor: encodeMailboxSyncCursor({
         version: 1,
         provider: "google",
         phase: "delta",
-        historyId: nextHistoryId,
+        // Keep the current start until every id on this page is emitted, then
+        // move to the next page or the history id captured before slicing.
+        historyId:
+          pageComplete && !response.nextPageToken
+            ? endHistoryId
+            : decoded.historyId,
         after: decoded.after,
-        pageToken: response.nextPageToken ?? undefined,
+        ...(nextPageToken ? { pageToken: nextPageToken } : {}),
+        ...(pageComplete ? {} : { changeOffset: sliceEnd, endHistoryId }),
       }),
       changedThreadIds: [...changedThreadIds],
-      deletedMessageIds: [...deletedIds],
-      hasMore: Boolean(response.nextPageToken),
+      deletedMessageIds: [...deletedInPage],
+      hasMore: !pageComplete || Boolean(response.nextPageToken),
       reset: false,
       upsertedMessages,
     };
