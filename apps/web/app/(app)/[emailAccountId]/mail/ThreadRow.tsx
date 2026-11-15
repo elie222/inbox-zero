@@ -133,7 +133,7 @@ export const ThreadRow = memo(function ThreadRow({
           {sentMessageOpen ? (
             <SentMessageOpenStatus compact open={sentMessageOpen} />
           ) : null}
-          <span className="text-muted-foreground text-xs">
+          <span className="shrink-0 whitespace-nowrap text-muted-foreground text-xs">
             {formatShortDate(internalDateToDate(message.internalDate), {
               lowercase: true,
               locale: i18n.locale,
