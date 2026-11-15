@@ -189,7 +189,7 @@ msgstr "{0, plural, one {Impossibile mettere in coda il posticipo} other {Imposs
 #. placeholder {0}: threadIds.length
 #: components/assistant-chat/tools.tsx
 msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
-msgstr ""
+msgstr "{0, plural, one {Elimina le bozze in # conversazione} other {Elimina le bozze in # conversazioni}}"
 
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
@@ -3862,7 +3862,7 @@ msgstr "Impossibile creare questa regola."
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete these drafts."
-msgstr ""
+msgstr "Impossibile eliminare queste bozze."
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
@@ -4431,7 +4431,7 @@ msgstr "Elimina commento"
 
 #: components/assistant-chat/tools.tsx
 msgid "Delete drafts"
-msgstr ""
+msgstr "Elimina bozze"
 
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
@@ -4487,7 +4487,7 @@ msgstr "Eliminato"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleted drafts"
-msgstr ""
+msgstr "Bozze eliminate"
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
@@ -4525,11 +4525,11 @@ msgstr "Eliminazione di tutte le email di {name}"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts"
-msgstr ""
+msgstr "Eliminazione bozze"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts..."
-msgstr ""
+msgstr "Eliminazione bozze..."
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -10142,7 +10142,7 @@ msgstr "In attesa di conferma. Non è stato ancora spostato nulla."
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending confirmation. Only unsent drafts are deleted."
-msgstr ""
+msgstr "Conferma in sospeso. Vengono eliminate solo le bozze non inviate."
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
@@ -10341,7 +10341,7 @@ msgstr "Preparazione della risposta..."
 
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing to delete drafts..."
-msgstr ""
+msgstr "Preparazione dell'eliminazione delle bozze..."
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx

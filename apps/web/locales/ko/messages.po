@@ -189,7 +189,7 @@ msgstr "{0, plural, one {다시 알림을 대기열에 추가하지 못했어요
 #. placeholder {0}: threadIds.length
 #: components/assistant-chat/tools.tsx
 msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
-msgstr ""
+msgstr "{0, plural, other {대화 #개의 초안 삭제}}"
 
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
@@ -3862,7 +3862,7 @@ msgstr "이 규칙을 만들지 못했어요."
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete these drafts."
-msgstr ""
+msgstr "이 초안을 삭제할 수 없습니다."
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
@@ -4431,7 +4431,7 @@ msgstr "댓글 삭제"
 
 #: components/assistant-chat/tools.tsx
 msgid "Delete drafts"
-msgstr ""
+msgstr "초안 삭제"
 
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
@@ -4487,7 +4487,7 @@ msgstr "삭제됨"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleted drafts"
-msgstr ""
+msgstr "초안 삭제됨"
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
@@ -4525,11 +4525,11 @@ msgstr "{name}의 모든 이메일 삭제 중"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts"
-msgstr ""
+msgstr "초안 삭제 중"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts..."
-msgstr ""
+msgstr "초안 삭제 중..."
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -10142,7 +10142,7 @@ msgstr "확인 대기 중이에요. 아직 아무것도 옮기지 않았어요."
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending confirmation. Only unsent drafts are deleted."
-msgstr ""
+msgstr "확인 대기 중입니다. 보내지 않은 초안만 삭제됩니다."
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
@@ -10341,7 +10341,7 @@ msgstr "답장을 준비하는 중..."
 
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing to delete drafts..."
-msgstr ""
+msgstr "초안 삭제 준비 중..."
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx

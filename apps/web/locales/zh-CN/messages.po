@@ -189,7 +189,7 @@ msgstr "{0, plural, other {无法将稍后提醒加入队列}}"
 #. placeholder {0}: threadIds.length
 #: components/assistant-chat/tools.tsx
 msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
-msgstr ""
+msgstr "{0, plural, other {删除 # 个会话中的草稿}}"
 
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
@@ -3862,7 +3862,7 @@ msgstr "无法创建此规则。"
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete these drafts."
-msgstr ""
+msgstr "无法删除这些草稿。"
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
@@ -4431,7 +4431,7 @@ msgstr "删除评论"
 
 #: components/assistant-chat/tools.tsx
 msgid "Delete drafts"
-msgstr ""
+msgstr "删除草稿"
 
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
@@ -4487,7 +4487,7 @@ msgstr "已删除"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleted drafts"
-msgstr ""
+msgstr "已删除草稿"
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
@@ -4525,11 +4525,11 @@ msgstr "正在删除来自 {name} 的所有邮件"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts"
-msgstr ""
+msgstr "正在删除草稿"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts..."
-msgstr ""
+msgstr "正在删除草稿..."
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -10142,7 +10142,7 @@ msgstr "待确认。尚未移动任何邮件。"
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending confirmation. Only unsent drafts are deleted."
-msgstr ""
+msgstr "等待确认。只会删除未发送的草稿。"
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
@@ -10341,7 +10341,7 @@ msgstr "正在准备回复..."
 
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing to delete drafts..."
-msgstr ""
+msgstr "正在准备删除草稿..."
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx

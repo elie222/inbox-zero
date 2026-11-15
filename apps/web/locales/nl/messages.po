@@ -189,7 +189,7 @@ msgstr "{0, plural, one {Uitstellen kon niet in de wachtrij worden gezet} other 
 #. placeholder {0}: threadIds.length
 #: components/assistant-chat/tools.tsx
 msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
-msgstr ""
+msgstr "{0, plural, one {Concepten in # gesprek verwijderen} other {Concepten in # gesprekken verwijderen}}"
 
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
@@ -3862,7 +3862,7 @@ msgstr "Deze regel kon niet worden aangemaakt."
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete these drafts."
-msgstr ""
+msgstr "Deze concepten konden niet worden verwijderd."
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
@@ -4431,7 +4431,7 @@ msgstr "Reactie verwijderen"
 
 #: components/assistant-chat/tools.tsx
 msgid "Delete drafts"
-msgstr ""
+msgstr "Concepten verwijderen"
 
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
@@ -4487,7 +4487,7 @@ msgstr "Verwijderd"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleted drafts"
-msgstr ""
+msgstr "Concepten verwijderd"
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
@@ -4525,11 +4525,11 @@ msgstr "Alle e-mails van {name} verwijderen"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts"
-msgstr ""
+msgstr "Concepten verwijderen"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts..."
-msgstr ""
+msgstr "Concepten verwijderen..."
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -10142,7 +10142,7 @@ msgstr "Wacht op bevestiging. Er is nog niets verplaatst."
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending confirmation. Only unsent drafts are deleted."
-msgstr ""
+msgstr "Bevestiging in afwachting. Alleen niet-verzonden concepten worden verwijderd."
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
@@ -10341,7 +10341,7 @@ msgstr "Antwoord voorbereiden..."
 
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing to delete drafts..."
-msgstr ""
+msgstr "Verwijderen van concepten voorbereiden..."
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx

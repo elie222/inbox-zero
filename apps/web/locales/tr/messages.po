@@ -189,7 +189,7 @@ msgstr "{0, plural, one {Erteleme sıraya alınamadı} other {Konuşmaları erte
 #. placeholder {0}: threadIds.length
 #: components/assistant-chat/tools.tsx
 msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
-msgstr ""
+msgstr "{0, plural, one {# konuşmadaki taslakları sil} other {# konuşmadaki taslakları sil}}"
 
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
@@ -3862,7 +3862,7 @@ msgstr "Bu kural oluşturulamadı."
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete these drafts."
-msgstr ""
+msgstr "Bu taslaklar silinemedi."
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
@@ -4431,7 +4431,7 @@ msgstr "Yorumu sil"
 
 #: components/assistant-chat/tools.tsx
 msgid "Delete drafts"
-msgstr ""
+msgstr "Taslakları sil"
 
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
@@ -4487,7 +4487,7 @@ msgstr "Silindi"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleted drafts"
-msgstr ""
+msgstr "Taslaklar silindi"
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
@@ -4525,11 +4525,11 @@ msgstr "{name} göndericisinin tüm e-postaları siliniyor"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts"
-msgstr ""
+msgstr "Taslaklar siliniyor"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts..."
-msgstr ""
+msgstr "Taslaklar siliniyor..."
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -10142,7 +10142,7 @@ msgstr "Onay bekleniyor. Henüz hiçbir şey taşınmadı."
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending confirmation. Only unsent drafts are deleted."
-msgstr ""
+msgstr "Onay bekleniyor. Yalnızca gönderilmemiş taslaklar silinir."
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
@@ -10341,7 +10341,7 @@ msgstr "Yanıt hazırlanıyor..."
 
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing to delete drafts..."
-msgstr ""
+msgstr "Taslaklar silinmeye hazırlanıyor..."
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx
