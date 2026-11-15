@@ -188,8 +188,8 @@ msgstr "{0, plural, one {No se pudo poner en cola la posposición} other {No se 
 
 #. placeholder {0}: threadIds.length
 #: components/assistant-chat/tools.tsx
-msgid "{0, plural, one {Delete # draft} other {Delete # drafts}}"
-msgstr "{0, plural, one {Eliminar # borrador} other {Eliminar # borradores}}"
+msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
+msgstr "{0, plural, one {Eliminar borradores en # conversación} other {Eliminar borradores en # conversaciones}}"
 
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx

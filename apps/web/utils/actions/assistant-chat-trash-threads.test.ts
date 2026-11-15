@@ -34,7 +34,7 @@ describe("chat trash confirmation", () => {
   });
 
   it("does not trash anything when chat asks to trash threads", async () => {
-    const output = await runTrashTool("web");
+    const output = await runManageInboxTool("trash_threads", "web");
 
     expect(trashThread).not.toHaveBeenCalled();
     expect(addChatActionTotals).not.toHaveBeenCalled();
@@ -47,7 +47,7 @@ describe("chat trash confirmation", () => {
   });
 
   it("refuses to trash on messaging surfaces, which have no confirmation", async () => {
-    const output = await runTrashTool("messaging");
+    const output = await runManageInboxTool("trash_threads", "messaging");
 
     expect(trashThread).not.toHaveBeenCalled();
     expect(output).toHaveProperty("error");
@@ -55,7 +55,7 @@ describe("chat trash confirmation", () => {
   });
 
   it("trashes the threads once the user confirms", async () => {
-    mockChatMessage(await runTrashTool("web"));
+    mockChatMessage(await runManageInboxTool("trash_threads", "web"));
 
     const result = await confirm();
 
@@ -89,7 +89,7 @@ describe("chat trash confirmation", () => {
   });
 
   it("reports threads the provider failed to trash", async () => {
-    mockChatMessage(await runTrashTool("web"));
+    mockChatMessage(await runManageInboxTool("trash_threads", "web"));
     trashThread
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error("provider down"));
@@ -103,7 +103,7 @@ describe("chat trash confirmation", () => {
   });
 
   it("keeps the card retryable when no thread could be trashed", async () => {
-    mockChatMessage(await runTrashTool("web"));
+    mockChatMessage(await runManageInboxTool("trash_threads", "web"));
     trashThread.mockRejectedValue(new Error("provider down"));
 
     await expect(confirm()).rejects.toThrow(
@@ -118,7 +118,7 @@ describe("chat trash confirmation", () => {
   });
 
   it("does not count totals when the confirmed result can't be saved", async () => {
-    mockChatMessage(await runTrashTool("web"));
+    mockChatMessage(await runManageInboxTool("trash_threads", "web"));
     // The reservation succeeds, then every attempt to save the result loses.
     prisma.chatMessage.updateMany
       .mockResolvedValueOnce({ count: 1 })
@@ -130,7 +130,7 @@ describe("chat trash confirmation", () => {
   });
 
   it("does not count totals when an overlapping confirmation saved first", async () => {
-    const pending = await runTrashTool("web");
+    const pending = await runManageInboxTool("trash_threads", "web");
     const confirmedOutput = {
       ...pending,
       confirmationState: "confirmed",
@@ -152,7 +152,7 @@ describe("chat trash confirmation", () => {
   });
 
   it("does not trash again when the action was already confirmed", async () => {
-    const pending = await runTrashTool("web");
+    const pending = await runManageInboxTool("trash_threads", "web");
     mockChatMessage({
       ...pending,
       confirmationState: "confirmed",
@@ -179,7 +179,7 @@ describe("chat trash cancellation", () => {
   });
 
   it("marks a pending trash as cancelled without trashing anything", async () => {
-    mockChatMessage(await runTrashTool("web"));
+    mockChatMessage(await runManageInboxTool("trash_threads", "web"));
 
     const result = await dismiss();
 
@@ -193,7 +193,7 @@ describe("chat trash cancellation", () => {
 
   it("refuses to trash after the user cancelled", async () => {
     mockChatMessage({
-      ...(await runTrashTool("web")),
+      ...(await runManageInboxTool("trash_threads", "web")),
       confirmationState: "cancelled",
     });
 
@@ -203,7 +203,7 @@ describe("chat trash cancellation", () => {
 
   it("does not cancel once a confirmation has started", async () => {
     mockChatMessage({
-      ...(await runTrashTool("web")),
+      ...(await runManageInboxTool("trash_threads", "web")),
       confirmationState: "processing",
       confirmationProcessingAt: new Date().toISOString(),
     });
@@ -256,6 +256,7 @@ describe("chat draft deletion", () => {
           ? [
               { id: "received-1", labelIds: ["INBOX"] },
               { id: "draft-1", labelIds: ["DRAFT"] },
+              { id: "draft-2", labelIds: ["DRAFT"] },
             ]
           : [{ id: "received-2", labelIds: ["INBOX"] }],
     }));
@@ -265,17 +266,18 @@ describe("chat draft deletion", () => {
 
     expect(getThread).toHaveBeenCalledWith("thread-1", {
       includeDrafts: true,
+      complete: true,
     });
-    expect(deleteDraft).toHaveBeenCalledTimes(1);
+    expect(deleteDraft).toHaveBeenCalledTimes(2);
     expect(deleteDraft).toHaveBeenCalledWith("draft-for-draft-1", undefined);
     expect(trashThread).not.toHaveBeenCalled();
     expect(result.confirmationResult).toMatchObject({
-      successCount: 1,
-      failedThreadIds: ["thread-2"],
+      successCount: 2,
+      failedThreadIds: [],
     });
     expect(addChatActionTotals).toHaveBeenCalledWith({
       chatId: "chat-1",
-      counts: { drafts_deleted: 1 },
+      counts: { drafts_deleted: 2 },
     });
   });
 });
@@ -288,10 +290,6 @@ function dismiss() {
     emailAccountId: "ea_1",
     logger,
   });
-}
-
-function runTrashTool(responseSurface: "web" | "messaging") {
-  return runManageInboxTool("trash_threads", responseSurface);
 }
 
 async function runManageInboxTool(

@@ -188,8 +188,8 @@ msgstr "{0, plural, one {Não foi possível agendar o adiamento} other {Não foi
 
 #. placeholder {0}: threadIds.length
 #: components/assistant-chat/tools.tsx
-msgid "{0, plural, one {Delete # draft} other {Delete # drafts}}"
-msgstr "{0, plural, one {Excluir # rascunho} other {Excluir # rascunhos}}"
+msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
+msgstr "{0, plural, one {Excluir rascunhos em # conversa} other {Excluir rascunhos em # conversas}}"
 
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx

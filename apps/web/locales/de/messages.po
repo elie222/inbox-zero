@@ -188,8 +188,8 @@ msgstr "{0, plural, one {Zurückstellen konnte nicht eingereiht werden} other {Z
 
 #. placeholder {0}: threadIds.length
 #: components/assistant-chat/tools.tsx
-msgid "{0, plural, one {Delete # draft} other {Delete # drafts}}"
-msgstr "{0, plural, one {# Entwurf löschen} other {# Entwürfe löschen}}"
+msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
+msgstr "{0, plural, one {Entwürfe in # Konversation löschen} other {Entwürfe in # Konversationen löschen}}"
 
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx

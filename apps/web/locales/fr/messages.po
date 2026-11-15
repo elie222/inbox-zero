@@ -188,8 +188,8 @@ msgstr "{0, plural, one {Impossible de mettre le report en file d’attente} oth
 
 #. placeholder {0}: threadIds.length
 #: components/assistant-chat/tools.tsx
-msgid "{0, plural, one {Delete # draft} other {Delete # drafts}}"
-msgstr "{0, plural, one {Supprimer # brouillon} other {Supprimer # brouillons}}"
+msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
+msgstr "{0, plural, one {Supprimer les brouillons de # conversation} other {Supprimer les brouillons de # conversations}}"
 
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx

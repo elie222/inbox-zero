@@ -188,8 +188,8 @@ msgstr "{0, plural, one {다시 알림을 대기열에 추가하지 못했어요
 
 #. placeholder {0}: threadIds.length
 #: components/assistant-chat/tools.tsx
-msgid "{0, plural, one {Delete # draft} other {Delete # drafts}}"
-msgstr "{0, plural, other {초안 #개 삭제}}"
+msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
+msgstr "{0, plural, other {대화 #개의 초안 삭제}}"
 
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
@@ -4874,7 +4874,7 @@ msgstr "초안 내용 (선택 사항)"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Draft follow-up emails"
-msgstr ""
+msgstr "후속 이메일 초안 작성"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
 msgid "Draft knowledge base"
@@ -4892,7 +4892,7 @@ msgstr "답장 초안"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Draft replies in your tone to emails that need a reply. Turning this off keeps the To Reply label."
-msgstr ""
+msgstr "답장이 필요한 이메일에 내 말투로 답장 초안을 작성합니다. 이 기능을 꺼도 '답장 필요' 라벨은 유지됩니다."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Draft replies to customer questions using our help docs"
@@ -6052,7 +6052,7 @@ msgstr "계정 순서를 저장하지 못했어요"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to save follow-up settings"
-msgstr ""
+msgstr "후속 조치 설정을 저장하지 못했습니다"
 
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 #: app/(app)/[emailAccountId]/briefs/page.tsx
@@ -6066,7 +6066,7 @@ msgstr "서명을 저장하지 못했어요"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to scan for follow-ups"
-msgstr ""
+msgstr "후속 조치를 검색하지 못했습니다"
 
 #: app/(app)/[emailAccountId]/briefs/UpcomingMeetings.tsx
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
@@ -6163,11 +6163,11 @@ msgstr "초안 신뢰도를 업데이트하지 못했어요"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Failed to update draft replies"
-msgstr ""
+msgstr "답장 초안을 업데이트하지 못했습니다"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to update follow-up reminders"
-msgstr ""
+msgstr "후속 조치 알림을 업데이트하지 못했습니다"
 
 #: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
 msgid "Failed to update hidden AI draft links setting"
@@ -7923,11 +7923,11 @@ msgstr "Stripe에서 온 이메일에 @[Stripe] 라벨을 지정하고 보관해
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied, and draft a nudge when you haven't heard back."
-msgstr ""
+msgstr "답장을 받지 못했거나 답장하지 않은 이메일에 라벨을 지정하고, 답장을 받지 못한 경우 독촉 초안을 작성합니다."
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied. Does not draft emails."
-msgstr ""
+msgstr "답장을 받지 못했거나 답장하지 않은 이메일에 라벨을 지정합니다. 이메일 초안은 작성하지 않습니다."
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Label emails with feedback from customers about our product as @[Customer Feedback]"
@@ -13594,7 +13594,7 @@ msgstr "{0} 분할 끄기"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Turn on Draft replies to use this."
-msgstr ""
+msgstr "이 기능을 사용하려면 답장 초안을 켜세요."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Turn on split"
@@ -14640,7 +14640,7 @@ msgstr "메시지 작성…"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Write a nudge draft when you haven't heard back."
-msgstr ""
+msgstr "답장을 받지 못했을 때 독촉 초안을 작성합니다."
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"

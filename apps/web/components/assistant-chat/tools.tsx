@@ -1220,8 +1220,8 @@ export function PendingTrashThreadsCard({
             ) : (
               <Plural
                 value={threadIds.length}
-                one="Delete # draft"
-                other="Delete # drafts"
+                one="Delete drafts in # conversation"
+                other="Delete drafts in # conversations"
               />
             )}
           </h3>

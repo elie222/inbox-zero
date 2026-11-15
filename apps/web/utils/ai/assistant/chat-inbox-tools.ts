@@ -979,7 +979,7 @@ const outlookManageInboxInputSchema = z
     action: z
       .enum(outlookManageInboxActions)
       .describe(
-        "Outlook inbox action. archive_threads archives selected threads; trash_threads asks the user to confirm moving selected threads to trash; delete_drafts asks the user to confirm deleting only the unsent drafts in selected threads, keeping sent and received messages; categorize_threads applies an existing category; remove_category_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
+        "Outlook inbox action. archive_threads archives selected threads; trash_threads asks the user to confirm moving selected threads to trash; delete_drafts asks the user to confirm deleting only the unsent drafts in selected threads, keeping sent and received messages (search the Drafts folder with folderName to find them); categorize_threads applies an existing category; remove_category_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
       ),
     threadIds: threadIdsSchema
       .optional()
@@ -1019,7 +1019,7 @@ const gmailManageInboxInputSchema = z
     action: z
       .enum(manageInboxActions)
       .describe(
-        "Gmail inbox action. archive_threads archives selected threads; trash_threads asks the user to confirm moving selected threads to trash; delete_drafts asks the user to confirm deleting only the unsent drafts in selected threads, keeping sent and received messages; label_threads applies an existing label; remove_label_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
+        "Gmail inbox action. archive_threads archives selected threads; trash_threads asks the user to confirm moving selected threads to trash; delete_drafts asks the user to confirm deleting only the unsent drafts in selected threads, keeping sent and received messages (search with in:drafts to find them); label_threads applies an existing label; remove_label_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
       ),
     threadIds: threadIdsSchema
       .optional()
@@ -1823,6 +1823,7 @@ export async function deleteChatDrafts({
   emailProvider: EmailProvider;
   threadIds: string[];
 }) {
+  let deletedDraftCount = 0;
   const results = await runThreadActionsInParallel({
     threadIds,
     emailProvider,
@@ -1830,11 +1831,13 @@ export async function deleteChatDrafts({
     runAction: async (threadId) => {
       const thread = await emailProvider.getThread(threadId, {
         includeDrafts: true,
+        complete: true,
       });
       const drafts = thread.messages.filter((message) =>
         message.labelIds?.includes("DRAFT"),
       );
-      if (!drafts.length) throw new Error("Thread has no drafts");
+      // A thread with no drafts left is already in the requested state, which
+      // also lets a retry succeed after an earlier attempt deleted them.
       for (const draft of drafts) {
         const reference = await emailProvider.getDraftReferenceForMessage(
           draft.id,
@@ -1845,6 +1848,7 @@ export async function deleteChatDrafts({
           reference.version,
         );
         if (!deleted) throw new Error("Draft was not deleted");
+        deletedDraftCount += 1;
       }
     },
   });
@@ -1854,6 +1858,7 @@ export async function deleteChatDrafts({
   return {
     successCount: results.length - failedThreadIds.length,
     failedThreadIds,
+    deletedDraftCount,
   };
 }
 

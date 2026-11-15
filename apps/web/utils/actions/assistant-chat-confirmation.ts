@@ -737,7 +737,9 @@ export async function confirmAssistantTrashThreadsForAccount({
   const { threadIds } = pendingAction;
   const isTrash = actionType === "trash_threads";
 
-  let threadResult: Awaited<ReturnType<typeof trashChatThreads>>;
+  let threadResult: Awaited<ReturnType<typeof trashChatThreads>> & {
+    deletedDraftCount?: number;
+  };
   try {
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
@@ -779,7 +781,8 @@ export async function confirmAssistantTrashThreadsForAccount({
   }
 
   const confirmationResult = {
-    ...threadResult,
+    successCount: threadResult.successCount,
+    failedThreadIds: threadResult.failedThreadIds,
     confirmedAt: new Date().toISOString(),
   };
 
@@ -812,10 +815,9 @@ export async function confirmAssistantTrashThreadsForAccount({
   if (savedByThisRequest) {
     await addChatActionTotals({
       chatId,
-      counts: {
-        [isTrash ? "threads_trashed" : "drafts_deleted"]:
-          threadResult.successCount,
-      },
+      counts: isTrash
+        ? { threads_trashed: threadResult.successCount }
+        : { drafts_deleted: threadResult.deletedDraftCount ?? 0 },
     }).catch((error: unknown) => {
       logger.error("Failed to update chat action totals", { error });
     });

@@ -559,11 +559,28 @@ async function evaluateScenario(
         manageCall?.action === "delete_drafts" &&
         threadIds.size === expectation.threadIds.length &&
         expectation.threadIds.every((id) => threadIds.has(id));
-      const usedTrash = hasManageInboxAction(result.toolCalls, "trash_threads");
+      const draftDeletions = result.toolCalls.filter(
+        (toolCall) =>
+          toolCall.toolName === "manageInbox" &&
+          isManageInboxInput(toolCall.input) &&
+          toolCall.input.action === "delete_drafts",
+      );
+      const deletedOnlyExpectedThreads = draftDeletions.every((toolCall) =>
+        (toolCall.input as ManageInboxInput).threadIds?.every((id) =>
+          expectation.threadIds.includes(id),
+        ),
+      );
+      const usedTrash = result.toolCalls.some(
+        (toolCall) =>
+          (toolCall.toolName === "manageInbox" ||
+            toolCall.toolName === "bulkManageInbox") &&
+          isManageInboxInput(toolCall.input) &&
+          toolCall.input.action === "trash_threads",
+      );
       const callSummary = manageCall
         ? `manageInbox(action=${manageCall.action}, threadIds=${JSON.stringify(manageCall.threadIds)})`
         : result.actual;
-      if (!isExactDraftDeletion || usedTrash) {
+      if (!isExactDraftDeletion || !deletedOnlyExpectedThreads || usedTrash) {
         return { pass: false, actual: callSummary };
       }
 

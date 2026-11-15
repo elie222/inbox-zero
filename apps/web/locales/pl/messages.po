@@ -188,8 +188,8 @@ msgstr "{0, plural, one {Nie udało się dodać odłożenia do kolejki} few {Nie
 
 #. placeholder {0}: threadIds.length
 #: components/assistant-chat/tools.tsx
-msgid "{0, plural, one {Delete # draft} other {Delete # drafts}}"
-msgstr "{0, plural, one {Usuń # wersję roboczą} few {Usuń # wersje robocze} many {Usuń # wersji roboczych} other {Usuń # wersji roboczej}}"
+msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
+msgstr "{0, plural, one {Usuń wersje robocze w # rozmowie} few {Usuń wersje robocze w # rozmowach} many {Usuń wersje robocze w # rozmowach} other {Usuń wersje robocze w # rozmowach}}"
 
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
@@ -4874,7 +4874,7 @@ msgstr "Treść wersji roboczej (opcjonalnie)"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Draft follow-up emails"
-msgstr ""
+msgstr "Twórz wersje robocze wiadomości przypominających"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
 msgid "Draft knowledge base"
@@ -4892,7 +4892,7 @@ msgstr "Wersje robocze odpowiedzi"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Draft replies in your tone to emails that need a reply. Turning this off keeps the To Reply label."
-msgstr ""
+msgstr "Twórz wersje robocze odpowiedzi w Twoim stylu na e-maile wymagające odpowiedzi. Wyłączenie tej opcji zachowuje etykietę Do odpowiedzi."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Draft replies to customer questions using our help docs"
@@ -6052,7 +6052,7 @@ msgstr "Nie udało się zapisać kolejności kont"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to save follow-up settings"
-msgstr ""
+msgstr "Nie udało się zapisać ustawień przypomnień"
 
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 #: app/(app)/[emailAccountId]/briefs/page.tsx
@@ -6066,7 +6066,7 @@ msgstr "Nie udało się zapisać podpisu"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to scan for follow-ups"
-msgstr ""
+msgstr "Nie udało się wyszukać przypomnień"
 
 #: app/(app)/[emailAccountId]/briefs/UpcomingMeetings.tsx
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
@@ -6163,11 +6163,11 @@ msgstr "Nie udało się zaktualizować pewności szkicu"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Failed to update draft replies"
-msgstr ""
+msgstr "Nie udało się zaktualizować wersji roboczych odpowiedzi"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to update follow-up reminders"
-msgstr ""
+msgstr "Nie udało się zaktualizować przypomnień o odpowiedzi"
 
 #: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
 msgid "Failed to update hidden AI draft links setting"
@@ -7923,11 +7923,11 @@ msgstr "Oznaczaj e-maile ze Stripe etykietą @[Stripe] i archiwizuj je"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied, and draft a nudge when you haven't heard back."
-msgstr ""
+msgstr "Oznaczaj e-maile bez odpowiedzi lub bez Twojej odpowiedzi i twórz wersję roboczą przypomnienia, gdy nie otrzymasz odpowiedzi."
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied. Does not draft emails."
-msgstr ""
+msgstr "Oznaczaj e-maile bez odpowiedzi lub bez Twojej odpowiedzi. Nie tworzy wersji roboczych e-maili."
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Label emails with feedback from customers about our product as @[Customer Feedback]"
@@ -13594,7 +13594,7 @@ msgstr "Wyłącz kartę {0}"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Turn on Draft replies to use this."
-msgstr ""
+msgstr "Włącz wersje robocze odpowiedzi, aby z tego korzystać."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Turn on split"
@@ -14640,7 +14640,7 @@ msgstr "Napisz wiadomość…"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Write a nudge draft when you haven't heard back."
-msgstr ""
+msgstr "Twórz wersję roboczą przypomnienia, gdy nie otrzymasz odpowiedzi."
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"
