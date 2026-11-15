@@ -213,6 +213,73 @@ describe("chat trash cancellation", () => {
   });
 });
 
+describe("chat draft deletion", () => {
+  const getThread = vi.fn();
+  const getDraftReferenceForMessage = vi.fn();
+  const deleteDraft = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      trashThread,
+      getThread,
+      getDraftReferenceForMessage,
+      deleteDraft,
+    } as any);
+    vi.mocked(addChatActionTotals).mockResolvedValue({});
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "user@test.com",
+    } as any);
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 });
+    getDraftReferenceForMessage.mockImplementation(async (messageId) => ({
+      id: `draft-for-${messageId}`,
+    }));
+    deleteDraft.mockResolvedValue(true);
+  });
+
+  it("does not delete anything until the user confirms", async () => {
+    const output = await runManageInboxTool("delete_drafts", "web");
+
+    expect(deleteDraft).not.toHaveBeenCalled();
+    expect(output).toMatchObject({
+      actionType: "delete_drafts",
+      requiresConfirmation: true,
+      confirmationState: "pending",
+    });
+  });
+
+  it("deletes only the drafts in each thread and keeps the conversation", async () => {
+    getThread.mockImplementation(async (threadId) => ({
+      id: threadId,
+      messages:
+        threadId === "thread-1"
+          ? [
+              { id: "received-1", labelIds: ["INBOX"] },
+              { id: "draft-1", labelIds: ["DRAFT"] },
+            ]
+          : [{ id: "received-2", labelIds: ["INBOX"] }],
+    }));
+    mockChatMessage(await runManageInboxTool("delete_drafts", "web"));
+
+    const result = await confirm();
+
+    expect(getThread).toHaveBeenCalledWith("thread-1", {
+      includeDrafts: true,
+    });
+    expect(deleteDraft).toHaveBeenCalledTimes(1);
+    expect(deleteDraft).toHaveBeenCalledWith("draft-for-draft-1", undefined);
+    expect(trashThread).not.toHaveBeenCalled();
+    expect(result.confirmationResult).toMatchObject({
+      successCount: 1,
+      failedThreadIds: ["thread-2"],
+    });
+    expect(addChatActionTotals).toHaveBeenCalledWith({
+      chatId: "chat-1",
+      counts: { drafts_deleted: 1 },
+    });
+  });
+});
+
 function dismiss() {
   return dismissAssistantTrashThreadsForAccount({
     chatId: "chat-1",
@@ -223,7 +290,14 @@ function dismiss() {
   });
 }
 
-async function runTrashTool(responseSurface: "web" | "messaging") {
+function runTrashTool(responseSurface: "web" | "messaging") {
+  return runManageInboxTool("trash_threads", responseSurface);
+}
+
+async function runManageInboxTool(
+  action: "trash_threads" | "delete_drafts",
+  responseSurface: "web" | "messaging",
+) {
   const toolInstance = manageInboxTool({
     email: "user@test.com",
     emailAccountId: "ea_1",
@@ -233,7 +307,7 @@ async function runTrashTool(responseSurface: "web" | "messaging") {
     responseSurface,
   });
   return (toolInstance.execute as any)({
-    action: "trash_threads",
+    action,
     threadIds: ["thread-1", "thread-2"],
   });
 }

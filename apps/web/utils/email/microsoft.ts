@@ -1496,7 +1496,9 @@ export class OutlookProvider implements EmailProvider {
         folderId: wellKnownFolder ?? folderId,
         categoryNames,
         mailboxSearch: options.mailboxSearch,
-        includeDrafts: options.mailboxSearch !== undefined,
+        // An explicit folder scope returns what is in it, so the Drafts folder is searchable.
+        includeDrafts:
+          options.mailboxSearch !== undefined || !!options.folderId,
       },
       this.logger,
     );

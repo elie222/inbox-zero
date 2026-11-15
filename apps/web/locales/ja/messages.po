@@ -186,6 +186,11 @@ msgstr "{0, plural, other {# 件の送信者を分類中...}}"
 msgid "{0, plural, one {Couldn't queue snoozing} other {Couldn't queue snoozing conversations}}"
 msgstr "{0, plural, other {スヌーズをキューに追加できませんでした}}"
 
+#. placeholder {0}: threadIds.length
+#: components/assistant-chat/tools.tsx
+msgid "{0, plural, one {Delete # draft} other {Delete # drafts}}"
+msgstr "{0, plural, other {#件の下書きを削除}}"
+
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
 msgid "{0, plural, one {Delete emails from # sender? This action cannot be undone.} other {Delete emails from # senders? This action cannot be undone.}}"
@@ -2177,10 +2182,6 @@ msgstr "今後のメールを自動アーカイブ"
 msgid "Auto categorize"
 msgstr "自動分類"
 
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
-msgid "Auto draft replies"
-msgstr "返信の下書きを自動作成"
-
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
 msgid "Auto-archive"
 msgstr "自動アーカイブ"
@@ -2215,10 +2216,6 @@ msgstr "添付ファイルを自動で振り分け"
 msgid "Auto-filing started!"
 msgstr "自動振り分けを開始しました！"
 
-#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Auto-generate drafts"
-msgstr "下書きを自動生成"
-
 #: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
 msgid "Automated notification"
 msgstr "自動通知"
@@ -2242,10 +2239,6 @@ msgstr "一括アーカイブと AI アシスタントのために、送信者�
 #: app/(app)/[emailAccountId]/smart-categories/setup/SmartCategoriesOnboarding.tsx
 msgid "Automatically categorize who emails you for better inbox management and smarter automation."
 msgstr "メールを送ってくる相手を自動的に分類し、受信トレイの管理をしやすくして、より賢い自動化を実現します。"
-
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
-msgid "Automatically draft replies written in your tone to emails needing a reply."
-msgstr "返信が必要なメールに、あなたの口調で書いた返信の下書きを自動作成します。"
 
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Automatically send each Stripe invoice to the billing email."
@@ -3868,6 +3861,10 @@ msgid "Could not create this rule."
 msgstr "このルールを作成できませんでした。"
 
 #: components/assistant-chat/tools.tsx
+msgid "Could not delete these drafts."
+msgstr "これらの下書きを削除できませんでした。"
+
+#: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
 msgstr "このルールを削除できませんでした。"
 
@@ -4432,6 +4429,10 @@ msgstr "チャットを削除しますか？"
 msgid "Delete comment"
 msgstr "コメントを削除"
 
+#: components/assistant-chat/tools.tsx
+msgid "Delete drafts"
+msgstr "下書きを削除"
+
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
 msgstr "ナレッジベースのエントリを削除"
@@ -4484,6 +4485,10 @@ msgstr "Inbox Zero アカウントを削除しますか？"
 msgid "Deleted"
 msgstr "削除しました"
 
+#: components/assistant-chat/tools.tsx
+msgid "Deleted drafts"
+msgstr "下書きを削除しました"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
 msgstr "{displayNames} からのメールを削除しました"
@@ -4517,6 +4522,14 @@ msgstr "アカウントを削除中..."
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting all emails from {name}"
 msgstr "{name} からのメールをすべて削除中"
+
+#: components/assistant-chat/tools.tsx
+msgid "Deleting drafts"
+msgstr "下書きを削除中"
+
+#: components/assistant-chat/tools.tsx
+msgid "Deleting drafts..."
+msgstr "下書きを削除中..."
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -4835,10 +4848,6 @@ msgstr "下書き"
 msgid "Draft a follow-up email"
 msgstr "フォローアップメールを下書き"
 
-#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Draft a nudge when you haven't heard back."
-msgstr "返信がないときのリマインドメールを下書きします。"
-
 #: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
 msgid "Draft a reply for every email, even when uncertain."
 msgstr "確信がない場合でも、すべてのメールに返信の下書きを作成します。"
@@ -4863,6 +4872,10 @@ msgstr "下書きの確信度を更新しました"
 msgid "Draft content (optional)"
 msgstr "下書きの内容（任意）"
 
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Draft follow-up emails"
+msgstr ""
+
 #: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
 msgid "Draft knowledge base"
 msgstr "下書き用ナレッジベース"
@@ -4872,9 +4885,14 @@ msgid "Draft ready"
 msgstr "下書きの準備ができました"
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "Draft replies"
 msgstr "返信の下書き"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+msgid "Draft replies in your tone to emails that need a reply. Turning this off keeps the To Reply label."
+msgstr ""
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Draft replies to customer questions using our help docs"
@@ -6033,6 +6051,9 @@ msgid "Failed to save account order"
 msgstr "アカウントの順序の保存に失敗しました"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Failed to save follow-up settings"
+msgstr ""
+
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 #: app/(app)/[emailAccountId]/briefs/page.tsx
 #: app/(app)/[emailAccountId]/meetings/MeetingRecorderSettingsDialog.tsx
@@ -6044,8 +6065,8 @@ msgid "Failed to save signature"
 msgstr "署名の保存に失敗しました"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Failed to scan"
-msgstr "スキャンに失敗しました"
+msgid "Failed to scan for follow-ups"
+msgstr ""
 
 #: app/(app)/[emailAccountId]/briefs/UpcomingMeetings.tsx
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
@@ -6140,6 +6161,14 @@ msgstr "ドキュメントサイトの更新に失敗しました"
 msgid "Failed to update draft confidence"
 msgstr "下書きの確信度の更新に失敗しました"
 
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+msgid "Failed to update draft replies"
+msgstr ""
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Failed to update follow-up reminders"
+msgstr ""
+
 #: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
 msgid "Failed to update hidden AI draft links setting"
 msgstr "非表示のAI下書きリンク設定の更新に失敗しました"
@@ -6178,7 +6207,6 @@ msgid "Failed to update setting"
 msgstr "設定の更新に失敗しました"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DigestSetting.tsx
-#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
 #: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
 #: app/(app)/organization/[organizationId]/OrgAnalyticsConsentBanner.tsx
@@ -7894,8 +7922,12 @@ msgid "Label emails from Stripe as @[Stripe] and archive them"
 msgstr "Stripeからのメールに@[Stripe]のラベルを付けてアーカイブする"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Label emails where you haven't heard back or haven't replied."
-msgstr "返信が来ていない、または自分が返信していないメールにラベルを付けます。"
+msgid "Label emails where you haven't heard back or haven't replied, and draft a nudge when you haven't heard back."
+msgstr ""
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Label emails where you haven't heard back or haven't replied. Does not draft emails."
+msgstr ""
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Label emails with feedback from customers about our product as @[Customer Feedback]"
@@ -10107,6 +10139,10 @@ msgid "Pending confirmation. Nothing has moved yet."
 msgstr "確認待ちです。まだ何も移動していません。"
 
 #: components/assistant-chat/tools.tsx
+msgid "Pending confirmation. Only unsent drafts are deleted."
+msgstr "確認待ちです。未送信の下書きのみが削除されます。"
+
+#: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
 msgstr "削除待ち"
 
@@ -10300,6 +10336,10 @@ msgstr "転送を準備中..."
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing reply..."
 msgstr "返信を準備中..."
+
+#: components/assistant-chat/message-part.tsx
+msgid "Preparing to delete drafts..."
+msgstr "下書きの削除を準備中..."
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx
@@ -13032,16 +13072,10 @@ msgstr "メールのゴミ箱への移動中にエラーが発生しました"
 msgid "There was an error updating the rule."
 msgstr "ルールの更新中にエラーが発生しました。"
 
-#. placeholder {0}: error.message
 #. placeholder {0}: result.serverError || ""
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "There was an error: {0}"
 msgstr "エラーが発生しました: {0}"
-
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
-msgid "There was an error: Unknown error"
-msgstr "エラーが発生しました: 不明なエラー"
 
 #. placeholder {0}: warning.placeholder
 #: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
@@ -13558,6 +13592,10 @@ msgstr "分割をオフにする"
 msgid "Turn off the {0} split"
 msgstr "{0} の分割をオフにする"
 
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Turn on Draft replies to use this."
+msgstr ""
+
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Turn on split"
 msgstr "分割をオンにする"
@@ -13686,6 +13724,8 @@ msgid "Unknown date"
 msgstr "日付不明"
 
 #: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 #: app/(app)/[emailAccountId]/integrations/IntegrationRow.tsx
@@ -14597,6 +14637,10 @@ msgstr "クリーンアップしたメールはアーカイブしますか、既
 #: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
 msgid "Write a message…"
 msgstr "メッセージを入力…"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Write a nudge draft when you haven't heard back."
+msgstr ""
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"

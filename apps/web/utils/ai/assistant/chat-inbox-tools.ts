@@ -966,6 +966,7 @@ const senderEmailsSchema = z
 const outlookManageInboxActions = [
   "archive_threads",
   "trash_threads",
+  "delete_drafts",
   "categorize_threads",
   "remove_category_threads",
   "mark_read_threads",
@@ -978,7 +979,7 @@ const outlookManageInboxInputSchema = z
     action: z
       .enum(outlookManageInboxActions)
       .describe(
-        "Outlook inbox action. archive_threads archives selected threads; trash_threads asks the user to confirm moving selected threads to trash; categorize_threads applies an existing category; remove_category_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
+        "Outlook inbox action. archive_threads archives selected threads; trash_threads asks the user to confirm moving selected threads to trash; delete_drafts asks the user to confirm deleting only the unsent drafts in selected threads, keeping sent and received messages; categorize_threads applies an existing category; remove_category_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
       ),
     threadIds: threadIdsSchema
       .optional()
@@ -1018,7 +1019,7 @@ const gmailManageInboxInputSchema = z
     action: z
       .enum(manageInboxActions)
       .describe(
-        "Gmail inbox action. archive_threads archives selected threads; trash_threads asks the user to confirm moving selected threads to trash; label_threads applies an existing label; remove_label_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
+        "Gmail inbox action. archive_threads archives selected threads; trash_threads asks the user to confirm moving selected threads to trash; delete_drafts asks the user to confirm deleting only the unsent drafts in selected threads, keeping sent and received messages; label_threads applies an existing label; remove_label_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
       ),
     threadIds: threadIdsSchema
       .optional()
@@ -1138,7 +1139,7 @@ const buildManageInboxTool = ({
 
   return tool({
     description:
-      "Run inbox actions on threads or senders. For emails already shown or found in this turn, prefer thread actions with threadIds. Use archive_threads for ordinary inbox cleanup; only use trash_threads when the user explicitly asks to delete or trash. Do not widen a limited thread-level request into sender-wide cleanup. Only use sender-wide cleanup with fromEmails when the user clearly wants all mail from that sender, and get confirmation before doing broad sender-wide cleanup. Only use unsubscribe_senders for an explicit unsubscribe request.",
+      "Run inbox actions on threads or senders. For emails already shown or found in this turn, prefer thread actions with threadIds. Use archive_threads for ordinary inbox cleanup; only use trash_threads when the user explicitly asks to delete or trash. Use delete_drafts when the user asks to delete drafts. Do not widen a limited thread-level request into sender-wide cleanup. Only use sender-wide cleanup with fromEmails when the user clearly wants all mail from that sender, and get confirmation before doing broad sender-wide cleanup. Only use unsubscribe_senders for an explicit unsubscribe request.",
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });
@@ -1147,25 +1148,28 @@ const buildManageInboxTool = ({
       const { action, labelName, originalAction } = parsedInput;
       const isSenderAction = requiresSenderEmails(action);
 
-      // Chat never trashes on its own: the user confirms on a card first.
-      if (action === "trash_threads") {
+      // Chat never removes mail on its own: the user confirms on a card first.
+      if (action === "trash_threads" || action === "delete_drafts") {
+        const isTrash = action === "trash_threads";
         if (responseSurface === "messaging") {
           return {
-            error:
-              "Nothing was trashed. Trashing needs a confirmation that is only available in the Inbox Zero web app.",
+            error: isTrash
+              ? "Nothing was trashed. Trashing needs a confirmation that is only available in the Inbox Zero web app."
+              : "No drafts were deleted. Deleting drafts needs a confirmation that is only available in the Inbox Zero web app.",
           };
         }
         const threadIds = parsedInput.threadIds!;
         return {
           success: true,
           action: originalAction,
-          actionType: "trash_threads" as const,
+          actionType: action,
           requiresConfirmation: true as const,
           confirmationState: "pending" as const,
           requestedCount: threadIds.length,
           pendingAction: { threadIds },
-          nextStep:
-            "Nothing is trashed yet. The user confirms on the card before anything moves to trash.",
+          nextStep: isTrash
+            ? "Nothing is trashed yet. The user confirms on the card before anything moves to trash."
+            : "No drafts are deleted yet. The user confirms on the card before any draft is deleted.",
         };
       }
 
@@ -1802,6 +1806,47 @@ export async function trashChatThreads({
     emailProvider,
     concurrency: THREAD_ACTION_CONCURRENCY,
     runAction: (threadId) => emailProvider.trashThread(threadId, email, "user"),
+  });
+  const failedThreadIds = results
+    .filter((result) => !result.success)
+    .map((result) => result.threadId);
+  return {
+    successCount: results.length - failedThreadIds.length,
+    failedThreadIds,
+  };
+}
+
+export async function deleteChatDrafts({
+  emailProvider,
+  threadIds,
+}: {
+  emailProvider: EmailProvider;
+  threadIds: string[];
+}) {
+  const results = await runThreadActionsInParallel({
+    threadIds,
+    emailProvider,
+    concurrency: THREAD_ACTION_CONCURRENCY,
+    runAction: async (threadId) => {
+      const thread = await emailProvider.getThread(threadId, {
+        includeDrafts: true,
+      });
+      const drafts = thread.messages.filter((message) =>
+        message.labelIds?.includes("DRAFT"),
+      );
+      if (!drafts.length) throw new Error("Thread has no drafts");
+      for (const draft of drafts) {
+        const reference = await emailProvider.getDraftReferenceForMessage(
+          draft.id,
+        );
+        if (!reference) throw new Error("Draft not found");
+        const deleted = await emailProvider.deleteDraft(
+          reference.id,
+          reference.version,
+        );
+        if (!deleted) throw new Error("Draft was not deleted");
+      }
+    },
   });
   const failedThreadIds = results
     .filter((result) => !result.success)

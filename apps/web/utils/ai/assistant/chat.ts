@@ -823,7 +823,7 @@ export function buildResolvedSystemPrompt({
 - Match your response to the actual memory outcome. Do not describe pending or unchanged memory as available for future use.`,
     `Write and confirmation policy:
 - When the user gives a direct inbox action request (${providerPolicy.threadActionPolicy}), search for the relevant threads and then execute the action using the returned threadIds. The user's request is the confirmation — do not stop after searching to summarize or ask for permission.
-- For delete or trash requests, use trash_threads on matching threadIds; do not use sender-wide archive actions.
+- For delete or trash requests, use trash_threads on matching threadIds (delete_drafts for drafts); do not use sender-wide archive actions.
 - Do not expand a request for the threads shown or found in this turn into a broader sender-level or category-level cleanup on your own. If broader scope is only inferred from a search sample rather than clearly requested, ask one brief confirmation before writing.
 - For ambiguous requests where the intent is unclear (archive vs trash vs mark read), ask a brief clarification question before writing.
 - Never claim that you changed a setting, rule, inbox state, or memory unless the corresponding write tool call in this turn succeeded.

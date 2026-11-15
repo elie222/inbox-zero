@@ -1,6 +1,7 @@
 export const manageInboxActions = [
   "archive_threads",
   "trash_threads",
+  "delete_drafts",
   "label_threads",
   "remove_label_threads",
   "mark_read_threads",
@@ -13,6 +14,7 @@ export type ManageInboxAction = (typeof manageInboxActions)[number];
 const threadIdManageInboxActions = [
   "archive_threads",
   "trash_threads",
+  "delete_drafts",
   "label_threads",
   "remove_label_threads",
   "mark_read_threads",

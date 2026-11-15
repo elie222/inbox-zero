@@ -80,6 +80,47 @@ const newsletterMessages = [
   }),
 ];
 
+const draftMessages = [
+  getMockMessage({
+    id: "msg-draft-1",
+    threadId: "thread-draft-1",
+    from: "user@test.com",
+    to: "support@helpdesk.test",
+    subject: "Question about my invoice",
+    snippet: "Hi, I wanted to ask about",
+    labelIds: ["DRAFT"],
+  }),
+  getMockMessage({
+    id: "msg-draft-2",
+    threadId: "thread-draft-2",
+    from: "user@test.com",
+    to: "support@helpdesk.test",
+    subject: "Follow-up on ticket",
+    snippet: "Just checking in on",
+    labelIds: ["DRAFT"],
+  }),
+];
+
+const draftReplyMessages = [
+  getMockMessage({
+    id: "msg-vendor-1",
+    threadId: "thread-vendor-1",
+    from: "sales@vendor.test",
+    subject: "Your quote is ready",
+    snippet: "Please find the quote attached",
+    labelIds: ["INBOX"],
+  }),
+  getMockMessage({
+    id: "msg-vendor-draft-1",
+    threadId: "thread-vendor-1",
+    from: "user@test.com",
+    to: "sales@vendor.test",
+    subject: "Re: Your quote is ready",
+    snippet: "Thanks, we will review",
+    labelIds: ["DRAFT"],
+  }),
+];
+
 const scenarios: EvalScenario[] = [
   {
     title: "uses trash_threads for explicit delete request on spam",
@@ -100,6 +141,27 @@ const scenarios: EvalScenario[] = [
     expectation: {
       kind: "trash_threads",
       threadIds: ["thread-marketing-1"],
+    },
+  },
+  {
+    title: "uses delete_drafts for a request to delete drafts",
+    reportName: "delete drafts uses delete_drafts",
+    prompt: "Delete my drafts to support@helpdesk.test",
+    searchMessages: draftMessages,
+    expectation: {
+      kind: "delete_drafts",
+      threadIds: ["thread-draft-1", "thread-draft-2"],
+    },
+  },
+  {
+    title:
+      "uses delete_drafts for draft replies without trashing the conversation",
+    reportName: "discard draft reply keeps conversation",
+    prompt: "Discard the draft reply I started to the vendor quote",
+    searchMessages: draftReplyMessages,
+    expectation: {
+      kind: "delete_drafts",
+      threadIds: ["thread-vendor-1"],
     },
   },
   {
@@ -381,6 +443,10 @@ type ScenarioExpectation =
       threadIds: string[];
     }
   | {
+      kind: "delete_drafts";
+      threadIds: string[];
+    }
+  | {
       kind: "ambiguous_action";
     };
 
@@ -473,6 +539,43 @@ async function evaluateScenario(
           name: "Trash left pending for user confirmation",
           description:
             "Chat never trashes email on its own. The reply must make clear the emails have not been trashed yet and need the user to confirm. It fails if it states or implies the emails are already deleted or in the trash.",
+        },
+      });
+
+      return {
+        pass: pendingJudge.pass,
+        actual: `${callSummary} | ${formatSemanticJudgeActual(result.finalText, pendingJudge)}`,
+      };
+    }
+
+    case "delete_drafts": {
+      const manageCall = getLastMatchingToolCall(
+        result.toolCalls,
+        "manageInbox",
+        isManageInboxInput,
+      )?.input;
+      const threadIds = new Set(manageCall?.threadIds);
+      const isExactDraftDeletion =
+        manageCall?.action === "delete_drafts" &&
+        threadIds.size === expectation.threadIds.length &&
+        expectation.threadIds.every((id) => threadIds.has(id));
+      const usedTrash = hasManageInboxAction(result.toolCalls, "trash_threads");
+      const callSummary = manageCall
+        ? `manageInbox(action=${manageCall.action}, threadIds=${JSON.stringify(manageCall.threadIds)})`
+        : result.actual;
+      if (!isExactDraftDeletion || usedTrash) {
+        return { pass: false, actual: callSummary };
+      }
+
+      const pendingJudge = await judgeEvalOutput({
+        input: prompt,
+        output: result.finalText,
+        expected:
+          "The assistant presents the draft deletion as waiting for the user's confirmation in the app, without claiming the drafts were already deleted.",
+        criterion: {
+          name: "Draft deletion left pending for user confirmation",
+          description:
+            "Chat never deletes drafts on its own. The reply must make clear the drafts have not been deleted yet and need the user to confirm. It fails if it states or implies the drafts are already deleted, or if it says it cannot delete drafts.",
         },
       });
 
@@ -621,6 +724,8 @@ function getMessageById(messageId: string) {
     ...spamMessages,
     ...marketingMessages,
     ...newsletterMessages,
+    ...draftMessages,
+    ...draftReplyMessages,
     getMockMessage({
       id: "msg-default-1",
       threadId: "thread-default-1",

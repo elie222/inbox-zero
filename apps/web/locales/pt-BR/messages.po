@@ -186,6 +186,11 @@ msgstr "{0, plural, one {Categorizando # remetente...} other {Categorizando # re
 msgid "{0, plural, one {Couldn't queue snoozing} other {Couldn't queue snoozing conversations}}"
 msgstr "{0, plural, one {Não foi possível agendar o adiamento} other {Não foi possível agendar o adiamento das conversas}}"
 
+#. placeholder {0}: threadIds.length
+#: components/assistant-chat/tools.tsx
+msgid "{0, plural, one {Delete # draft} other {Delete # drafts}}"
+msgstr "{0, plural, one {Excluir # rascunho} other {Excluir # rascunhos}}"
+
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
 msgid "{0, plural, one {Delete emails from # sender? This action cannot be undone.} other {Delete emails from # senders? This action cannot be undone.}}"
@@ -3856,6 +3861,10 @@ msgid "Could not create this rule."
 msgstr "Não foi possível criar esta regra."
 
 #: components/assistant-chat/tools.tsx
+msgid "Could not delete these drafts."
+msgstr "Não foi possível excluir estes rascunhos."
+
+#: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
 msgstr "Não foi possível excluir esta regra."
 
@@ -4420,6 +4429,10 @@ msgstr "Excluir chat?"
 msgid "Delete comment"
 msgstr "Excluir comentário"
 
+#: components/assistant-chat/tools.tsx
+msgid "Delete drafts"
+msgstr "Excluir rascunhos"
+
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
 msgstr "Excluir item da base de conhecimento"
@@ -4472,6 +4485,10 @@ msgstr "Excluir sua conta do Inbox Zero?"
 msgid "Deleted"
 msgstr "Excluído"
 
+#: components/assistant-chat/tools.tsx
+msgid "Deleted drafts"
+msgstr "Rascunhos excluídos"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
 msgstr "E-mails de {displayNames} excluídos"
@@ -4505,6 +4522,14 @@ msgstr "Excluindo conta..."
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting all emails from {name}"
 msgstr "Excluindo todos os e-mails de {name}"
+
+#: components/assistant-chat/tools.tsx
+msgid "Deleting drafts"
+msgstr "Excluindo rascunhos"
+
+#: components/assistant-chat/tools.tsx
+msgid "Deleting drafts..."
+msgstr "Excluindo rascunhos..."
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -10114,6 +10139,10 @@ msgid "Pending confirmation. Nothing has moved yet."
 msgstr "Confirmação pendente. Nada foi movido ainda."
 
 #: components/assistant-chat/tools.tsx
+msgid "Pending confirmation. Only unsent drafts are deleted."
+msgstr "Confirmação pendente. Apenas rascunhos não enviados são excluídos."
+
+#: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
 msgstr "Exclusão pendente"
 
@@ -10307,6 +10336,10 @@ msgstr "Preparando encaminhamento..."
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing reply..."
 msgstr "Preparando resposta..."
+
+#: components/assistant-chat/message-part.tsx
+msgid "Preparing to delete drafts..."
+msgstr "Preparando para excluir rascunhos..."
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx

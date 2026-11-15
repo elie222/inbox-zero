@@ -186,6 +186,11 @@ msgstr "{0, plural, one {Catégorisation de # expéditeur...} other {Catégorisa
 msgid "{0, plural, one {Couldn't queue snoozing} other {Couldn't queue snoozing conversations}}"
 msgstr "{0, plural, one {Impossible de mettre le report en file d’attente} other {Impossible de mettre le report des conversations en file d’attente}}"
 
+#. placeholder {0}: threadIds.length
+#: components/assistant-chat/tools.tsx
+msgid "{0, plural, one {Delete # draft} other {Delete # drafts}}"
+msgstr "{0, plural, one {Supprimer # brouillon} other {Supprimer # brouillons}}"
+
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
 msgid "{0, plural, one {Delete emails from # sender? This action cannot be undone.} other {Delete emails from # senders? This action cannot be undone.}}"
@@ -3856,6 +3861,10 @@ msgid "Could not create this rule."
 msgstr "Impossible de créer cette règle."
 
 #: components/assistant-chat/tools.tsx
+msgid "Could not delete these drafts."
+msgstr "Impossible de supprimer ces brouillons."
+
+#: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
 msgstr "Impossible de supprimer cette règle."
 
@@ -4420,6 +4429,10 @@ msgstr "Supprimer le chat ?"
 msgid "Delete comment"
 msgstr "Supprimer le commentaire"
 
+#: components/assistant-chat/tools.tsx
+msgid "Delete drafts"
+msgstr "Supprimer les brouillons"
+
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
 msgstr "Supprimer l’entrée de la base de connaissances"
@@ -4472,6 +4485,10 @@ msgstr "Supprimer ton compte Inbox Zero ?"
 msgid "Deleted"
 msgstr "Supprimé"
 
+#: components/assistant-chat/tools.tsx
+msgid "Deleted drafts"
+msgstr "Brouillons supprimés"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
 msgstr "E-mails de {displayNames} supprimés"
@@ -4505,6 +4522,14 @@ msgstr "Suppression du compte..."
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting all emails from {name}"
 msgstr "Suppression de tous les e-mails de {name}"
+
+#: components/assistant-chat/tools.tsx
+msgid "Deleting drafts"
+msgstr "Suppression des brouillons"
+
+#: components/assistant-chat/tools.tsx
+msgid "Deleting drafts..."
+msgstr "Suppression des brouillons..."
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -10114,6 +10139,10 @@ msgid "Pending confirmation. Nothing has moved yet."
 msgstr "Confirmation en attente. Rien n'a encore été déplacé."
 
 #: components/assistant-chat/tools.tsx
+msgid "Pending confirmation. Only unsent drafts are deleted."
+msgstr "Confirmation en attente. Seuls les brouillons non envoyés sont supprimés."
+
+#: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
 msgstr "Suppression en attente"
 
@@ -10307,6 +10336,10 @@ msgstr "Préparation du transfert..."
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing reply..."
 msgstr "Préparation de la réponse..."
+
+#: components/assistant-chat/message-part.tsx
+msgid "Preparing to delete drafts..."
+msgstr "Préparation de la suppression des brouillons..."
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx
