@@ -14,7 +14,6 @@ import { isError } from "@/utils/error";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { fetchWithAccount } from "@/utils/fetch";
 import { getRetryAfterDelayMs } from "@/utils/retry/provider-retry";
-import { sleep } from "@/utils/sleep";
 
 // Gmail's per-user quota is per minute, and a rate-limited load can report a
 // much shorter Retry-After, so resuming sooner only hits the limit again.
@@ -99,7 +98,9 @@ export function StatLoaderProvider(props: { children: React.ReactNode }) {
   const [rateLimitResumeAts, setRateLimitResumeAts] = useState<
     Record<string, Date | undefined>
   >({});
-  const cancellationGenerationRef = useRef(0);
+  // Cancelling aborts every batch started before it, including one that is
+  // waiting out a rate limit; batches started afterwards get a fresh signal.
+  const cancelControllerRef = useRef(new AbortController());
   const { emailAccountId } = useAccount();
   const rateLimitResumeAt = rateLimitResumeAts[emailAccountId] ?? null;
   const isLoading =
@@ -132,13 +133,13 @@ export function StatLoaderProvider(props: { children: React.ReactNode }) {
   );
 
   const waitForRateLimit = useCallback(
-    async (resumeAt: Date) => {
+    async (resumeAt: Date, signal: AbortSignal) => {
       setRateLimitResumeAts((resumeAts) => ({
         ...resumeAts,
         [emailAccountId]: resumeAt,
       }));
       try {
-        await sleep(resumeAt.getTime() - Date.now());
+        await sleepUnlessAborted(resumeAt.getTime() - Date.now(), signal);
       } finally {
         setRateLimitResumeAts((resumeAts) => ({
           ...resumeAts,
@@ -152,15 +153,16 @@ export function StatLoaderProvider(props: { children: React.ReactNode }) {
   const onLoadBatch = useCallback(
     async (options: { loadBefore: boolean; showToast: boolean }) => {
       const batchSize = 50;
-      const generation = cancellationGenerationRef.current;
+      const { signal } = cancelControllerRef.current;
       let rateLimitedSince: number | null = null;
       try {
         for (let i = 0; i < batchSize; ) {
-          if (generation !== cancellationGenerationRef.current) return;
+          if (signal.aborted) return;
           console.log("Loading batch", i);
           try {
             await onLoad({ ...options, showToast: false });
           } catch (error) {
+            if (signal.aborted) return;
             if (!(error instanceof StatsRateLimitError)) throw error;
 
             const now = Date.now();
@@ -170,13 +172,13 @@ export function StatLoaderProvider(props: { children: React.ReactNode }) {
             if (resumeAt - rateLimitedSince > MAX_RATE_LIMIT_WAIT_MS)
               throw error;
 
-            await waitForRateLimit(new Date(resumeAt));
+            await waitForRateLimit(new Date(resumeAt), signal);
             continue;
           }
           rateLimitedSince = null;
           i++;
         }
-        if (generation !== cancellationGenerationRef.current) return;
+        if (signal.aborted) return;
         if (options.showToast) toastSuccess({ description: "Stats loaded!" });
       } catch (error) {
         if (!options.showToast) return;
@@ -192,7 +194,8 @@ export function StatLoaderProvider(props: { children: React.ReactNode }) {
   );
 
   const onCancelLoadBatch = useCallback(() => {
-    cancellationGenerationRef.current += 1;
+    cancelControllerRef.current.abort();
+    cancelControllerRef.current = new AbortController();
   }, []);
 
   return (
@@ -218,6 +221,22 @@ export function LoadStats(props: { loadBefore: boolean; showToast: boolean }) {
   }, [onLoad, props]);
 
   return null;
+}
+
+function sleepUnlessAborted(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve) => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+    const timeout = setTimeout(done, ms);
+    signal.addEventListener("abort", done, { once: true });
+    function done() {
+      clearTimeout(timeout);
+      signal.removeEventListener("abort", done);
+      resolve();
+    }
+  });
 }
 
 class StatsRateLimitError extends Error {

@@ -237,7 +237,7 @@ describe("manual import under provider rate limits", () => {
     expect(result.current.isLoading).toBe(false);
   });
 
-  it("sends no more requests when canceled while waiting", async () => {
+  it("ends the pause as soon as the batch is canceled and sends no more requests", async () => {
     mocks.fetch
       .mockResolvedValueOnce(rateLimitedResponse())
       .mockImplementation(() => Promise.resolve(new Response("{}")));
@@ -249,16 +249,41 @@ describe("manual import under provider rate limits", () => {
       batch = result.current.onLoadBatch(batchOptions);
     });
     await act(() => vi.advanceTimersByTimeAsync(0));
-    act(() => result.current.onCancelLoadBatch());
+    expect(result.current.rateLimitResumeAt).not.toBeNull();
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(60_000);
+      result.current.onCancelLoadBatch();
       await batch;
     });
+    expect(result.current.rateLimitResumeAt).toBeNull();
+    expect(result.current.isLoading).toBe(false);
+
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
     expect(mocks.fetch).toHaveBeenCalledOnce();
     expect(mocks.toastSuccess).not.toHaveBeenCalled();
     expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+
+  it("does not pause a batch that was canceled while its request was in flight", async () => {
+    const pending = Promise.withResolvers<Response>();
+    mocks.fetch.mockReturnValueOnce(pending.promise);
+    const { result } = renderHook(useStatLoader, {
+      wrapper: StatLoaderProvider,
+    });
+    let batch!: Promise<void>;
+    act(() => {
+      batch = result.current.onLoadBatch(batchOptions);
+    });
+    act(() => result.current.onCancelLoadBatch());
+
+    await act(async () => {
+      pending.resolve(rateLimitedResponse());
+      await batch;
+    });
+    expect(result.current.rateLimitResumeAt).toBeNull();
     expect(result.current.isLoading).toBe(false);
+    expect(mocks.fetch).toHaveBeenCalledOnce();
+    expect(mocks.toastError).not.toHaveBeenCalled();
   });
 });
 
