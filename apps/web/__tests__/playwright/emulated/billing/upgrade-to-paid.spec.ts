@@ -70,7 +70,7 @@ test("starts a trial from the post-onboarding upgrade page", async ({
   );
 });
 
-test("a desktop checkout finishes in the browser and the app opens mail", async ({
+test("a desktop checkout finishes in the browser and the app moves on", async ({
   context,
   page,
 }) => {
@@ -104,7 +104,8 @@ test("a desktop checkout finishes in the browser and the app opens mail", async 
     "desktop-checkout-complete",
   );
 
-  await expect(page).toHaveURL(/\/mail(?:\?.*)?$/, { timeout: 60_000 });
+  // The seeded user picked no signup intent, so the app opens the assistant.
+  await expect(page).toHaveURL(/\/automation(?:\?.*)?$/, { timeout: 60_000 });
   expect(await getPremiumBillingState()).toMatchObject({
     stripeSubscriptionStatus: "trialing",
   });

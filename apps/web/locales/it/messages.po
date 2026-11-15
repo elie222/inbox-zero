@@ -4849,7 +4849,7 @@ msgstr "Contenuto della bozza (facoltativo)"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Draft follow-up emails"
-msgstr ""
+msgstr "Bozze di email di follow-up"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
 msgid "Draft knowledge base"
@@ -4867,7 +4867,7 @@ msgstr "Bozze di risposta"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Draft replies in your tone to emails that need a reply. Turning this off keeps the To Reply label."
-msgstr ""
+msgstr "Redigi bozze di risposta con il tuo tono per le email che richiedono una risposta. Se lo disattivi, l'etichetta To Reply resta."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Draft replies to customer questions using our help docs"
@@ -6028,7 +6028,7 @@ msgstr "Impossibile salvare l'ordine degli account"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to save follow-up settings"
-msgstr ""
+msgstr "Impossibile salvare le impostazioni di follow-up"
 
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 #: app/(app)/[emailAccountId]/briefs/page.tsx
@@ -6042,7 +6042,7 @@ msgstr "Impossibile salvare la firma"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to scan for follow-ups"
-msgstr ""
+msgstr "Impossibile cercare i follow-up"
 
 #: app/(app)/[emailAccountId]/briefs/UpcomingMeetings.tsx
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
@@ -6139,11 +6139,11 @@ msgstr "Impossibile aggiornare l'affidabilità delle bozze"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Failed to update draft replies"
-msgstr ""
+msgstr "Impossibile aggiornare le bozze di risposta"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to update follow-up reminders"
-msgstr ""
+msgstr "Impossibile aggiornare i promemoria di follow-up"
 
 #: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
 msgid "Failed to update hidden AI draft links setting"
@@ -7899,11 +7899,11 @@ msgstr "Etichetta le email di Stripe come @[Stripe] e archiviale"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied, and draft a nudge when you haven't heard back."
-msgstr ""
+msgstr "Etichetta le email senza risposta ricevuta o a cui non hai ancora risposto, e redigi un sollecito quando non hai ricevuto risposta."
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied. Does not draft emails."
-msgstr ""
+msgstr "Etichetta le email senza risposta ricevuta o a cui non hai ancora risposto. Non redige email."
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Label emails with feedback from customers about our product as @[Customer Feedback]"
@@ -13571,7 +13571,7 @@ msgstr "Disattiva la scheda {0}"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Turn on Draft replies to use this."
-msgstr ""
+msgstr "Attiva Bozze di risposta per usare questa opzione."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Turn on split"
@@ -14617,7 +14617,7 @@ msgstr "Scrivi un messaggio…"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Write a nudge draft when you haven't heard back."
-msgstr ""
+msgstr "Redigi una bozza di sollecito quando non hai ricevuto risposta."
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"

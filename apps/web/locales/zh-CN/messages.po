@@ -4849,7 +4849,7 @@ msgstr "草稿内容（可选）"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Draft follow-up emails"
-msgstr ""
+msgstr "起草跟进邮件"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
 msgid "Draft knowledge base"
@@ -4867,7 +4867,7 @@ msgstr "草稿回复"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Draft replies in your tone to emails that need a reply. Turning this off keeps the To Reply label."
-msgstr ""
+msgstr "以你的语气为需要回复的邮件起草回复。关闭后仍会保留 To Reply 标签。"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Draft replies to customer questions using our help docs"
@@ -6028,7 +6028,7 @@ msgstr "保存账号顺序失败"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to save follow-up settings"
-msgstr ""
+msgstr "无法保存跟进设置"
 
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 #: app/(app)/[emailAccountId]/briefs/page.tsx
@@ -6042,7 +6042,7 @@ msgstr "保存签名失败"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to scan for follow-ups"
-msgstr ""
+msgstr "无法扫描跟进邮件"
 
 #: app/(app)/[emailAccountId]/briefs/UpcomingMeetings.tsx
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
@@ -6139,11 +6139,11 @@ msgstr "更新草稿置信度失败"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Failed to update draft replies"
-msgstr ""
+msgstr "无法更新草稿回复"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to update follow-up reminders"
-msgstr ""
+msgstr "无法更新跟进提醒"
 
 #: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
 msgid "Failed to update hidden AI draft links setting"
@@ -7899,11 +7899,11 @@ msgstr "将来自 Stripe 的邮件标记为 @[Stripe] 并归档"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied, and draft a nudge when you haven't heard back."
-msgstr ""
+msgstr "为未收到回复或你尚未回复的邮件添加标签，并在未收到回复时起草提醒邮件。"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied. Does not draft emails."
-msgstr ""
+msgstr "为未收到回复或你尚未回复的邮件添加标签。不会起草邮件。"
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Label emails with feedback from customers about our product as @[Customer Feedback]"
@@ -13571,7 +13571,7 @@ msgstr "关闭 {0} 分栏"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Turn on Draft replies to use this."
-msgstr ""
+msgstr "开启“草稿回复”后才能使用此功能。"
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Turn on split"
@@ -14617,7 +14617,7 @@ msgstr "写一条消息…"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Write a nudge draft when you haven't heard back."
-msgstr ""
+msgstr "在未收到回复时起草提醒邮件。"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"

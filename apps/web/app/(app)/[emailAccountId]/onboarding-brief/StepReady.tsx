@@ -25,6 +25,7 @@ import {
 import { generateCheckoutSessionAction } from "@/utils/actions/premium";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { toastError } from "@/components/Toast";
+import { ContinueWhenSubscribed } from "@/components/ContinueWhenSubscribed";
 import { redirectToSafeUrl } from "@/utils/redirect";
 
 const PRICING_FEATURES = [
@@ -67,6 +68,7 @@ export function StepReady() {
 
   return (
     <>
+      <ContinueWhenSubscribed href="/setup" />
       <div className="flex justify-center">
         <IconCircle size="lg">
           <Sparkles className="size-6" />

@@ -30,17 +30,21 @@ export default async function CheckoutCompletePage(props: {
   const { session_id: sessionId, status } = await props.searchParams;
 
   if (sessionId) {
-    await syncCompletedCheckout(sessionId);
+    const outcome = await syncCompletedCheckout(sessionId);
     redirect(
       buildRedirectUrl("/checkout-complete", {
-        status: "complete",
-        [CONVERSION_EVENT_PARAM]: "trial_started",
-        [CONVERSION_EVENT_ID_PARAM]: sessionId,
+        status: outcome,
+        ...(outcome === "trial"
+          ? {
+              [CONVERSION_EVENT_PARAM]: "trial_started",
+              [CONVERSION_EVENT_ID_PARAM]: sessionId,
+            }
+          : {}),
       }),
     );
   }
 
-  const canceled = status === "canceled";
+  const { title, description } = getCopy(status);
 
   return (
     <BasicLayout>
@@ -50,28 +54,28 @@ export default async function CheckoutCompletePage(props: {
       <ConversionAnalyticsScript />
       <div className="px-4 pb-40 pt-40">
         <CardBasic className="mx-auto max-w-xl text-center">
-          <PageHeading>
-            {canceled ? "Checkout canceled" : "You're all set"}
-          </PageHeading>
-          <TypographyP className="mt-2">
-            {canceled
-              ? "No charge was made. Switch back to the Inbox Zero app to pick a plan."
-              : "Your trial has started. Switch back to the Inbox Zero app, which will open your inbox."}
-          </TypographyP>
+          <PageHeading>{title}</PageHeading>
+          <TypographyP className="mt-2">{description}</TypographyP>
         </CardBasic>
       </div>
     </BasicLayout>
   );
 }
 
-async function syncCompletedCheckout(sessionId: string) {
+type CheckoutOutcome = "trial" | "subscribed" | "unconfirmed";
+
+async function syncCompletedCheckout(
+  sessionId: string,
+): Promise<CheckoutOutcome> {
   try {
-    const session = await getStripe().checkout.sessions.retrieve(sessionId);
+    const session = await getStripe().checkout.sessions.retrieve(sessionId, {
+      expand: ["subscription"],
+    });
     const customerId =
       typeof session.customer === "string"
         ? session.customer
         : session.customer?.id;
-    if (session.status !== "complete" || !customerId) return;
+    if (session.status !== "complete" || !customerId) return "unconfirmed";
 
     await syncStripeDataToDb({ customerId, logger });
 
@@ -86,8 +90,42 @@ async function syncCompletedCheckout(sessionId: string) {
         }),
       );
     }
+
+    const subscription =
+      typeof session.subscription === "object" ? session.subscription : null;
+    return subscription?.status === "trialing" ? "trial" : "subscribed";
   } catch (error) {
     // The Stripe webhook still syncs the plan, so the page can carry on.
     logger.error("Failed to sync a desktop checkout", { error });
+    return "unconfirmed";
+  }
+}
+
+function getCopy(status: string | undefined) {
+  switch (status) {
+    case "canceled":
+      return {
+        title: "Checkout canceled",
+        description:
+          "No charge was made. Switch back to the Inbox Zero app to pick a plan.",
+      };
+    case "trial":
+      return {
+        title: "You're all set",
+        description:
+          "Your trial has started. Switch back to the Inbox Zero app, which will open your inbox.",
+      };
+    case "subscribed":
+      return {
+        title: "You're all set",
+        description:
+          "Your subscription is active. Switch back to the Inbox Zero app, which will open your inbox.",
+      };
+    default:
+      return {
+        title: "Switch back to Inbox Zero",
+        description:
+          "We're still confirming your checkout. Switch back to the Inbox Zero app, which will open your inbox once your plan is active.",
+      };
   }
 }

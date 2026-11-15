@@ -13,6 +13,7 @@ import { toastError } from "@/components/Toast";
 import { prefixPath } from "@/utils/path";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { usePremium } from "@/hooks/usePremium";
+import { isPremiumRecord } from "@/utils/premium";
 import type { SignupIntent } from "@/generated/prisma/enums";
 
 // Marks onboarding complete and redirects: the upgrade page for users without a
@@ -20,7 +21,7 @@ import type { SignupIntent } from "@/generated/prisma/enums";
 export function useCompleteOnboarding(signupIntent: SignupIntent | null) {
   const router = useRouter();
   const { emailAccountId } = useAccount();
-  const { isPremium } = usePremium();
+  const { isPremium, mutate: refetchPremium } = usePremium();
   const { executeAsync: completeOnboarding } = useAction(
     completedOnboardingAction,
   );
@@ -67,13 +68,31 @@ export function useCompleteOnboarding(signupIntent: SignupIntent | null) {
 
     markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
 
+    // The plan may still be loading, and routing a paying user on a stale
+    // "no plan" would send them to the upgrade page.
+    const latestUser = await refetchPremium().catch(() => undefined);
+    const latestDestination =
+      latestUser && "premium" in latestUser
+        ? getDestination({
+            signupIntent,
+            isPremium: isPremiumRecord(latestUser.premium),
+          })
+        : destination;
+
     router.push(
-      destination === "welcome-upgrade"
+      latestDestination === "welcome-upgrade"
         ? "/welcome-upgrade"
-        : prefixPath(emailAccountId, `/${destination}`),
+        : prefixPath(emailAccountId, `/${latestDestination}`),
     );
     return true;
-  }, [completeOnboarding, destination, emailAccountId, router]);
+  }, [
+    completeOnboarding,
+    destination,
+    emailAccountId,
+    refetchPremium,
+    router,
+    signupIntent,
+  ]);
 
   return { completeAndRedirect, destination };
 }

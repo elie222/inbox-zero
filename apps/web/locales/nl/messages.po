@@ -4849,7 +4849,7 @@ msgstr "Inhoud van concept (optioneel)"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Draft follow-up emails"
-msgstr ""
+msgstr "Opvolgmails opstellen"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
 msgid "Draft knowledge base"
@@ -4867,7 +4867,7 @@ msgstr "Antwoorden opstellen"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Draft replies in your tone to emails that need a reply. Turning this off keeps the To Reply label."
-msgstr ""
+msgstr "Stel antwoorden in jouw toon op voor e-mails die een antwoord nodig hebben. Als je dit uitzet, blijft het label To Reply staan."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Draft replies to customer questions using our help docs"
@@ -6028,7 +6028,7 @@ msgstr "Kan accountvolgorde niet opslaan"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to save follow-up settings"
-msgstr ""
+msgstr "Opvolginstellingen opslaan mislukt"
 
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 #: app/(app)/[emailAccountId]/briefs/page.tsx
@@ -6042,7 +6042,7 @@ msgstr "Kan handtekening niet opslaan"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to scan for follow-ups"
-msgstr ""
+msgstr "Zoeken naar opvolgingen mislukt"
 
 #: app/(app)/[emailAccountId]/briefs/UpcomingMeetings.tsx
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
@@ -6139,11 +6139,11 @@ msgstr "Kan conceptbetrouwbaarheid niet bijwerken"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Failed to update draft replies"
-msgstr ""
+msgstr "Antwoorden opstellen bijwerken mislukt"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to update follow-up reminders"
-msgstr ""
+msgstr "Opvolgherinneringen bijwerken mislukt"
 
 #: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
 msgid "Failed to update hidden AI draft links setting"
@@ -7899,11 +7899,11 @@ msgstr "Label e-mails van Stripe als @[Stripe] en archiveer ze"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied, and draft a nudge when you haven't heard back."
-msgstr ""
+msgstr "Label e-mails waarop je geen antwoord hebt gekregen of nog niet hebt gereageerd, en stel een herinnering op als je niets terughoort."
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied. Does not draft emails."
-msgstr ""
+msgstr "Label e-mails waarop je geen antwoord hebt gekregen of nog niet hebt gereageerd. Stelt geen e-mails op."
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Label emails with feedback from customers about our product as @[Customer Feedback]"
@@ -13571,7 +13571,7 @@ msgstr "Tabblad {0} uitzetten"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Turn on Draft replies to use this."
-msgstr ""
+msgstr "Zet Antwoorden opstellen aan om dit te gebruiken."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Turn on split"
@@ -14617,7 +14617,7 @@ msgstr "Schrijf een bericht…"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Write a nudge draft when you haven't heard back."
-msgstr ""
+msgstr "Stel een herinnering op als je niets terughoort."
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"

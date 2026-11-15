@@ -19,7 +19,7 @@ vi.mock("@/app/(landing)/welcome-upgrade/WelcomeUpgradeNav", () => ({
 vi.mock("@/app/(landing)/welcome-upgrade/Testimonial", () => ({
   Testimonial: () => null,
 }));
-vi.mock("@/app/(landing)/welcome-upgrade/ContinueWhenSubscribed", () => ({
+vi.mock("@/components/ContinueWhenSubscribed", () => ({
   ContinueWhenSubscribed: () => null,
 }));
 vi.mock("@/app/(landing)/welcome-upgrade/WelcomeUpgradePricing", () => ({
