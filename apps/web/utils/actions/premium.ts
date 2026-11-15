@@ -509,10 +509,11 @@ export const generateCheckoutSessionAction = actionClientUser
     z.object({
       tier: z.nativeEnum(PremiumTier),
       offer: checkoutOfferSchema.optional(),
+      fromDesktopApp: z.boolean().optional(),
     }),
   )
   .action(async ({ ctx: { userId, logger }, parsedInput }) => {
-    const { tier, offer } = parsedInput;
+    const { tier, offer, fromDesktopApp } = parsedInput;
     const priceId = getCheckoutPriceId({ tier, offer });
 
     if (!priceId) throw new SafeError("Unknown tier. Contact support.");
@@ -603,8 +604,14 @@ export const generateCheckoutSessionAction = actionClientUser
 
     const checkoutParams: Stripe.Checkout.SessionCreateParams = {
       customer: stripeCustomerId,
-      success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
+      // Desktop checkout opens in the system browser, which is usually signed
+      // out, so it returns to a public page rather than the app.
+      success_url: fromDesktopApp
+        ? `${env.NEXT_PUBLIC_BASE_URL}/checkout-complete?session_id={CHECKOUT_SESSION_ID}`
+        : `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: fromDesktopApp
+        ? `${env.NEXT_PUBLIC_BASE_URL}/checkout-complete?status=canceled`
+        : `${env.NEXT_PUBLIC_BASE_URL}/premium`,
       mode: "subscription",
       subscription_data: {
         ...(isFirstStripeSubscription ? { trial_period_days: 7 } : {}),

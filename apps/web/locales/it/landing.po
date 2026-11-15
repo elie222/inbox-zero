@@ -59,10 +59,6 @@ msgstr "<0>Contatta il nostro team vendite</0> per prezzi personalizzati, SSO, S
 msgid "12k+ GitHub Stars"
 msgstr "Oltre 12.000 stelle su GitHub"
 
-#: components/new-landing/sections/Pricing.tsx
-msgid "A fast email app for Gmail and Outlook. Free on web, desktop, and iPhone."
-msgstr "Un'app email veloce per Gmail e Outlook. Gratuita su web, desktop e iPhone."
-
 #: app/(app)/premium/config-messages.ts
 msgid "A notetaker joins your video calls and turns them into transcripts, summaries, recap emails, and follow-up drafts."
 msgstr "Un notetaker partecipa alle tue videochiamate e le trasforma in trascrizioni, riepiloghi, email di riepilogo e bozze di follow-up."
@@ -397,10 +393,6 @@ msgstr "Statistiche email"
 msgid "Email analytics. What gets measured, gets managed"
 msgstr "Statistiche email. Ciò che si misura, si gestisce"
 
-#: components/new-landing/sections/Pricing.tsx
-msgid "Email app"
-msgstr "App email"
-
 #: app/(landing)/home/Footer.tsx
 msgid "Email App"
 msgstr "App email"
@@ -443,8 +435,12 @@ msgid "Every email you get needing a reply will have a pre-written draft."
 msgstr "Ogni email che richiede una risposta avrà una bozza già scritta."
 
 #: components/new-landing/sections/EmailClient.tsx
-msgid "Every Gmail and Outlook account in one inbox, on the web, Mac, Windows, and iPhone. Like Superhuman, but free."
-msgstr "Tutti i tuoi account Gmail e Outlook in un'unica posta in arrivo, su web, Mac, Windows e iPhone. Come Superhuman, ma gratis."
+msgid "Every Gmail and Outlook account in one inbox, on the web, Mac, Windows, and iPhone. Like Superhuman, for less."
+msgstr "Tutti i tuoi account Gmail e Outlook in un'unica posta in arrivo, su web, Mac, Windows e iPhone. Come Superhuman, ma a meno."
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Every plan includes the email app and the AI."
+msgstr "Ogni piano include l'app email e l'IA."
 
 #: app/(app)/premium/config-messages.ts
 msgid "Everything in Plus, plus:"
@@ -506,10 +502,6 @@ msgstr "Founder"
 msgid "Founders"
 msgstr "Founder"
 
-#: components/new-landing/sections/EmailClient.tsx
-msgid "Free to use"
-msgstr "Gratuito"
-
 #: app/(landing)/home/Footer.tsx
 #: components/new-landing/sections/Footer.tsx
 msgid "Free Tools"
@@ -540,7 +532,6 @@ msgid "Get started for free"
 msgstr "Inizia gratis"
 
 #: components/new-landing/sections/Header.tsx
-#: components/new-landing/sections/Pricing.tsx
 msgid "Get started free"
 msgstr "Inizia gratis"
 
@@ -725,10 +716,6 @@ msgstr "Hai bisogno di un piano personalizzato per la tua azienda?"
 #: components/new-landing/sections/Pricing.tsx
 msgid "Need SSO, SCIM, on-premise deployment, or a dedicated account manager?"
 msgstr "Ti servono SSO, SCIM, distribuzione on-premise o un account manager dedicato?"
-
-#: components/new-landing/sections/Pricing.tsx
-msgid "New"
-msgstr "Novità"
 
 #: app/(landing)/home/HomePage.tsx
 msgid "New: Inbox Zero Mail app →"
@@ -1020,10 +1007,6 @@ msgstr "Assistente IA per Telegram"
 msgid "Terms"
 msgstr "Termini"
 
-#: components/new-landing/sections/EmailClient.tsx
-msgid "The app is free. Add the AI only if you want it."
-msgstr "L'app è gratuita. Aggiungi l'IA solo se vuoi."
-
 #: app/(app)/premium/config-messages.ts
 msgid "The knowledge base is used to help draft responses. Store unlimited content in your knowledge base."
 msgstr "La knowledge base serve a preparare le risposte. Archivia contenuti illimitati nella tua knowledge base."
@@ -1049,8 +1032,12 @@ msgid "Try free for 7 days"
 msgstr "Prova gratis per 7 giorni"
 
 #: components/new-landing/sections/EmailClient.tsx
-msgid "Try the email app free"
-msgstr "Prova gratis l'app email"
+msgid "Try it free for 7 days"
+msgstr "Provalo gratis per 7 giorni"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Try the email app free for 7 days"
+msgstr "Prova l'app email gratis per 7 giorni"
 
 #: app/(landing)/home/Footer.tsx
 msgid "Twitter"
@@ -1172,20 +1159,20 @@ msgid "Yes! The AI assistant, the web app, and the desktop email app are open so
 msgstr "Sì! L'assistente IA, l'app web e l'app email desktop sono open source nel nostro repository GitHub. L'app per iPhone non è ancora open source, ma abbiamo intenzione di aprirla."
 
 #: app/(landing)/home/FAQs.tsx
+msgid "Yes. Every plan includes a 7-day free trial of the email app and the AI assistant. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged."
+msgstr "Sì. Ogni piano include una prova gratuita di 7 giorni dell'app email e dell'assistente IA. Per iniziare la prova serve una carta di credito, ma non ti verrà addebitato nulla fino al termine della prova. Annulla in qualsiasi momento durante la prova per evitare addebiti."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes. Every plan includes a 7-day free trial of the email app and the AI."
+msgstr "Sì. Ogni piano include una prova gratuita di 7 giorni dell'app email e dell'IA."
+
+#: app/(landing)/home/FAQs.tsx
 msgid "Yes. Our native iPhone app lets you triage your inbox and manage your assistant on the go. We also have an Android app, which is due for an update. Learn more on the <0>mobile app</0> page."
 msgstr "Sì. La nostra app nativa per iPhone ti permette di smistare la posta in arrivo e gestire il tuo assistente in mobilità. Abbiamo anche un'app Android, che è in attesa di un aggiornamento. Scopri di più nella pagina dell'<0>app mobile</0>."
 
 #: app/(landing)/home/FAQs.tsx
 msgid "Yes. Our native iPhone app lets you triage your inbox and manage your assistant on the go. We also have an Android app, which is due for an update. Learn more on the mobile app page."
 msgstr "Sì. La nostra app nativa per iPhone ti permette di smistare la posta in arrivo e gestire il tuo assistente in mobilità. Abbiamo anche un'app Android, che è in attesa di un aggiornamento. Scopri di più nella pagina dell'app mobile."
-
-#: app/(landing)/home/FAQs.tsx
-msgid "Yes. The email app is free to use. The AI assistant plans include a 7-day free trial. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged."
-msgstr "Sì. L'app email è gratuita. I piani con l'assistente IA includono una prova gratuita di 7 giorni. Per iniziare la prova serve una carta di credito, ma non ti verrà addebitato nulla fino al termine della prova. Annulla in qualsiasi momento durante la prova per evitare addebiti."
-
-#: app/(landing)/pricing/PricingFAQs.tsx
-msgid "Yes. The email app is free to use. The AI plans include a 7-day free trial."
-msgstr "Sì. L'app email è gratuita. I piani IA includono una prova gratuita di 7 giorni."
 
 #: app/(landing)/pricing/PricingFAQs.tsx
 msgid "You can cancel anytime. Your subscription will remain active until the end of the billing period."

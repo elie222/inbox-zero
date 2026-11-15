@@ -17,6 +17,7 @@ import {
   MessageSquareIcon,
   InboxIcon,
   Loader2Icon,
+  MailIcon,
 } from "lucide-react";
 import {
   MutedText,
@@ -29,6 +30,7 @@ import { useSetupProgress } from "@/hooks/useSetupProgress";
 import { FeatureIcon } from "@/components/FeatureIcon";
 import { LoadingContent } from "@/components/LoadingContent";
 import { EXTENSION_URL } from "@/utils/config";
+import { env } from "@/env";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
@@ -46,6 +48,7 @@ const SETUP_ACTION_TIMEOUT_MS = 15_000;
 const logger = createClientLogger("setup");
 
 type DismissibleSetupStep =
+  | "emailApp"
   | "aiAssistant"
   | "bulkUnsubscribe"
   | "calendarConnected"
@@ -82,6 +85,16 @@ function FeatureCard({
 
 function getFeatures() {
   const features = [
+    ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
+      ? [
+          {
+            href: "/mail",
+            icon: MailIcon,
+            title: msg`Email app`,
+            description: msg`Read and send email from every account in one fast inbox`,
+          } as const,
+        ]
+      : []),
     {
       href: "/assistant",
       icon: MessageSquareIcon,
@@ -250,6 +263,8 @@ function Checklist({
   isAiAssistantConfigured,
   isCalendarConnected,
   showCalendarStep,
+  isEmailAppOpened,
+  showEmailAppStep,
   isTabsExtensionCompleted,
   teamInvite,
   onSetupProgressChanged,
@@ -262,6 +277,8 @@ function Checklist({
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
   showCalendarStep: boolean;
+  isEmailAppOpened: boolean;
+  showEmailAppStep: boolean;
   isTabsExtensionCompleted: boolean;
   teamInvite: {
     completed: boolean;
@@ -340,6 +357,21 @@ function Checklist({
           </div>
         </div>
       </div>
+
+      {showEmailAppStep && (
+        <StepItem
+          href={prefixPath(emailAccountId, "/mail")}
+          icon={<MailIcon size={18} />}
+          title={t`Try the ${BRAND_NAME} email app`}
+          timeEstimate={t`1 minute`}
+          completed={isEmailAppOpened}
+          actionText={t`Open`}
+          onMarkDone={() => handleMarkStepDone("emailApp")}
+          showMarkDone
+          markDoneDisabled={pendingStep !== null}
+          markDonePending={pendingStep === "emailApp"}
+        />
+      )}
 
       <StepItem
         href={getOnboardingStepHref(emailAccountId, STEP_KEYS.LABELS)}
@@ -455,6 +487,8 @@ export function SetupContent() {
           isBulkUnsubscribeConfigured={data.steps.bulkUnsubscribe}
           isCalendarConnected={data.steps.calendarConnected}
           showCalendarStep={data.showCalendarStep}
+          isEmailAppOpened={data.steps.emailApp}
+          showEmailAppStep={data.showEmailAppStep}
           isTabsExtensionCompleted={data.tabsExtensionCompleted}
           completedCount={data.completed}
           totalSteps={data.total}
@@ -475,6 +509,8 @@ function SetupPageContent({
   isAiAssistantConfigured,
   isCalendarConnected,
   showCalendarStep,
+  isEmailAppOpened,
+  showEmailAppStep,
   isTabsExtensionCompleted,
   completedCount,
   totalSteps,
@@ -489,6 +525,8 @@ function SetupPageContent({
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
   showCalendarStep: boolean;
+  isEmailAppOpened: boolean;
+  showEmailAppStep: boolean;
   isTabsExtensionCompleted: boolean;
   completedCount: number;
   totalSteps: number;
@@ -524,6 +562,8 @@ function SetupPageContent({
           isAiAssistantConfigured={isAiAssistantConfigured}
           isCalendarConnected={isCalendarConnected}
           showCalendarStep={showCalendarStep}
+          isEmailAppOpened={isEmailAppOpened}
+          showEmailAppStep={showEmailAppStep}
           isTabsExtensionCompleted={isTabsExtensionCompleted}
           completedCount={completedCount}
           totalSteps={totalSteps}

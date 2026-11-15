@@ -59,10 +59,6 @@ msgstr "<0>Neem contact op met ons salesteam</0> voor maatwerkprijzen, SSO, SCIM
 msgid "12k+ GitHub Stars"
 msgstr "12k+ GitHub-sterren"
 
-#: components/new-landing/sections/Pricing.tsx
-msgid "A fast email app for Gmail and Outlook. Free on web, desktop, and iPhone."
-msgstr "Een snelle e-mailapp voor Gmail en Outlook. Gratis op web, desktop en iPhone."
-
 #: app/(app)/premium/config-messages.ts
 msgid "A notetaker joins your video calls and turns them into transcripts, summaries, recap emails, and follow-up drafts."
 msgstr "Een notulist neemt deel aan je videogesprekken en maakt er transcripten, samenvattingen, recap-e-mails en opvolgconcepten van."
@@ -397,10 +393,6 @@ msgstr "E-mailstatistieken"
 msgid "Email analytics. What gets measured, gets managed"
 msgstr "E-mailstatistieken. Wat gemeten wordt, wordt beheerd"
 
-#: components/new-landing/sections/Pricing.tsx
-msgid "Email app"
-msgstr "E-mailapp"
-
 #: app/(landing)/home/Footer.tsx
 msgid "Email App"
 msgstr "E-mailapp"
@@ -443,8 +435,12 @@ msgid "Every email you get needing a reply will have a pre-written draft."
 msgstr "Elke e-mail die een antwoord nodig heeft, krijgt een vooraf geschreven concept."
 
 #: components/new-landing/sections/EmailClient.tsx
-msgid "Every Gmail and Outlook account in one inbox, on the web, Mac, Windows, and iPhone. Like Superhuman, but free."
-msgstr "Elk Gmail- en Outlook-account in één inbox, op web, Mac, Windows en iPhone. Zoals Superhuman, maar gratis."
+msgid "Every Gmail and Outlook account in one inbox, on the web, Mac, Windows, and iPhone. Like Superhuman, for less."
+msgstr "Elk Gmail- en Outlook-account in één inbox, op web, Mac, Windows en iPhone. Zoals Superhuman, maar voordeliger."
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Every plan includes the email app and the AI."
+msgstr "Elk abonnement bevat de e-mailapp en de AI."
 
 #: app/(app)/premium/config-messages.ts
 msgid "Everything in Plus, plus:"
@@ -506,10 +502,6 @@ msgstr "Oprichter"
 msgid "Founders"
 msgstr "Oprichters"
 
-#: components/new-landing/sections/EmailClient.tsx
-msgid "Free to use"
-msgstr "Gratis te gebruiken"
-
 #: app/(landing)/home/Footer.tsx
 #: components/new-landing/sections/Footer.tsx
 msgid "Free Tools"
@@ -540,7 +532,6 @@ msgid "Get started for free"
 msgstr "Gratis aan de slag"
 
 #: components/new-landing/sections/Header.tsx
-#: components/new-landing/sections/Pricing.tsx
 msgid "Get started free"
 msgstr "Start gratis"
 
@@ -725,10 +716,6 @@ msgstr "Een maatwerkabonnement nodig voor je onderneming?"
 #: components/new-landing/sections/Pricing.tsx
 msgid "Need SSO, SCIM, on-premise deployment, or a dedicated account manager?"
 msgstr "SSO, SCIM, on-premise implementatie of een vaste accountmanager nodig?"
-
-#: components/new-landing/sections/Pricing.tsx
-msgid "New"
-msgstr "Nieuw"
 
 #: app/(landing)/home/HomePage.tsx
 msgid "New: Inbox Zero Mail app →"
@@ -1020,10 +1007,6 @@ msgstr "Telegram-AI-assistent"
 msgid "Terms"
 msgstr "Voorwaarden"
 
-#: components/new-landing/sections/EmailClient.tsx
-msgid "The app is free. Add the AI only if you want it."
-msgstr "De app is gratis. Voeg de AI alleen toe als je dat wilt."
-
 #: app/(app)/premium/config-messages.ts
 msgid "The knowledge base is used to help draft responses. Store unlimited content in your knowledge base."
 msgstr "De kennisbank wordt gebruikt om antwoorden op te stellen. Sla onbeperkt veel inhoud op in je kennisbank."
@@ -1049,8 +1032,12 @@ msgid "Try free for 7 days"
 msgstr "Probeer 7 dagen gratis"
 
 #: components/new-landing/sections/EmailClient.tsx
-msgid "Try the email app free"
-msgstr "Probeer de e-mailapp gratis"
+msgid "Try it free for 7 days"
+msgstr "Probeer het 7 dagen gratis"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Try the email app free for 7 days"
+msgstr "Probeer de e-mailapp 7 dagen gratis"
 
 #: app/(landing)/home/Footer.tsx
 msgid "Twitter"
@@ -1172,20 +1159,20 @@ msgid "Yes! The AI assistant, the web app, and the desktop email app are open so
 msgstr "Ja! De AI-assistent, de webapp en de desktop-e-mailapp zijn open source in onze GitHub-repo. De iPhone-app is nog niet open source, maar we zijn van plan dat te doen."
 
 #: app/(landing)/home/FAQs.tsx
+msgid "Yes. Every plan includes a 7-day free trial of the email app and the AI assistant. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged."
+msgstr "Ja. Elk abonnement bevat een gratis proefperiode van 7 dagen voor de e-mailapp en de AI-assistent. Voor het starten van je proefperiode is een creditcard nodig, maar je wordt pas belast als de proefperiode eindigt. Zeg op elk moment tijdens de proefperiode op om niet belast te worden."
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes. Every plan includes a 7-day free trial of the email app and the AI."
+msgstr "Ja. Elk abonnement bevat een gratis proefperiode van 7 dagen voor de e-mailapp en de AI."
+
+#: app/(landing)/home/FAQs.tsx
 msgid "Yes. Our native iPhone app lets you triage your inbox and manage your assistant on the go. We also have an Android app, which is due for an update. Learn more on the <0>mobile app</0> page."
 msgstr "Ja. Met onze native iPhone-app triageer je je inbox en beheer je je assistent onderweg. We hebben ook een Android-app, die aan een update toe is. Lees meer op de pagina <0>mobiele app</0>."
 
 #: app/(landing)/home/FAQs.tsx
 msgid "Yes. Our native iPhone app lets you triage your inbox and manage your assistant on the go. We also have an Android app, which is due for an update. Learn more on the mobile app page."
 msgstr "Ja. Met onze native iPhone-app triageer je je inbox en beheer je je assistent onderweg. We hebben ook een Android-app, die aan een update toe is. Lees meer op de pagina mobiele app."
-
-#: app/(landing)/home/FAQs.tsx
-msgid "Yes. The email app is free to use. The AI assistant plans include a 7-day free trial. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged."
-msgstr "Ja. De e-mailapp is gratis te gebruiken. De abonnementen voor de AI-assistent bevatten een gratis proefperiode van 7 dagen. Voor het starten van je proefperiode is een creditcard nodig, maar je wordt pas belast als de proefperiode eindigt. Zeg op elk moment tijdens de proefperiode op om niet belast te worden."
-
-#: app/(landing)/pricing/PricingFAQs.tsx
-msgid "Yes. The email app is free to use. The AI plans include a 7-day free trial."
-msgstr "Ja. De e-mailapp is gratis te gebruiken. De AI-abonnementen bevatten een gratis proefperiode van 7 dagen."
 
 #: app/(landing)/pricing/PricingFAQs.tsx
 msgid "You can cancel anytime. Your subscription will remain active until the end of the billing period."

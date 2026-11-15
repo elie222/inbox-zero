@@ -59,10 +59,6 @@ msgstr "<0>联系我们的销售团队</0>，获取定制价格、SSO、SCIM、�
 msgid "12k+ GitHub Stars"
 msgstr "12k+ GitHub Star"
 
-#: components/new-landing/sections/Pricing.tsx
-msgid "A fast email app for Gmail and Outlook. Free on web, desktop, and iPhone."
-msgstr "适用于 Gmail 和 Outlook 的快速邮件应用。网页版、桌面版和 iPhone 版均可免费使用。"
-
 #: app/(app)/premium/config-messages.ts
 msgid "A notetaker joins your video calls and turns them into transcripts, summaries, recap emails, and follow-up drafts."
 msgstr "记录助手会加入你的视频通话，并将其转化为文字记录、摘要、回顾邮件和跟进草稿。"
@@ -397,10 +393,6 @@ msgstr "邮件分析"
 msgid "Email analytics. What gets measured, gets managed"
 msgstr "邮件分析：可衡量，才能管理"
 
-#: components/new-landing/sections/Pricing.tsx
-msgid "Email app"
-msgstr "邮件应用"
-
 #: app/(landing)/home/Footer.tsx
 msgid "Email App"
 msgstr "邮件应用"
@@ -443,8 +435,12 @@ msgid "Every email you get needing a reply will have a pre-written draft."
 msgstr "你收到的每封需要回复的邮件都会有一份预先写好的草稿。"
 
 #: components/new-landing/sections/EmailClient.tsx
-msgid "Every Gmail and Outlook account in one inbox, on the web, Mac, Windows, and iPhone. Like Superhuman, but free."
-msgstr "所有 Gmail 和 Outlook 账号集中在一个收件箱，支持网页、Mac、Windows 和 iPhone。类似 Superhuman，但免费。"
+msgid "Every Gmail and Outlook account in one inbox, on the web, Mac, Windows, and iPhone. Like Superhuman, for less."
+msgstr "所有 Gmail 和 Outlook 账号集中在一个收件箱，支持网页、Mac、Windows 和 iPhone。类似 Superhuman，但价格更低。"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Every plan includes the email app and the AI."
+msgstr "每个套餐都包含邮件应用和 AI。"
 
 #: app/(app)/premium/config-messages.ts
 msgid "Everything in Plus, plus:"
@@ -506,10 +502,6 @@ msgstr "创始人"
 msgid "Founders"
 msgstr "创始人"
 
-#: components/new-landing/sections/EmailClient.tsx
-msgid "Free to use"
-msgstr "免费使用"
-
 #: app/(landing)/home/Footer.tsx
 #: components/new-landing/sections/Footer.tsx
 msgid "Free Tools"
@@ -540,7 +532,6 @@ msgid "Get started for free"
 msgstr "免费开始使用"
 
 #: components/new-landing/sections/Header.tsx
-#: components/new-landing/sections/Pricing.tsx
 msgid "Get started free"
 msgstr "免费开始使用"
 
@@ -725,10 +716,6 @@ msgstr "需要为你的企业定制套餐吗？"
 #: components/new-landing/sections/Pricing.tsx
 msgid "Need SSO, SCIM, on-premise deployment, or a dedicated account manager?"
 msgstr "需要 SSO、SCIM、本地部署或专属客户经理吗？"
-
-#: components/new-landing/sections/Pricing.tsx
-msgid "New"
-msgstr "新"
 
 #: app/(landing)/home/HomePage.tsx
 msgid "New: Inbox Zero Mail app →"
@@ -1020,10 +1007,6 @@ msgstr "Telegram AI 助手"
 msgid "Terms"
 msgstr "条款"
 
-#: components/new-landing/sections/EmailClient.tsx
-msgid "The app is free. Add the AI only if you want it."
-msgstr "应用本身免费。只有在你需要时才添加 AI。"
-
 #: app/(app)/premium/config-messages.ts
 msgid "The knowledge base is used to help draft responses. Store unlimited content in your knowledge base."
 msgstr "知识库用于帮助起草回复。可在知识库中存储不限量的内容。"
@@ -1049,8 +1032,12 @@ msgid "Try free for 7 days"
 msgstr "免费试用 7 天"
 
 #: components/new-landing/sections/EmailClient.tsx
-msgid "Try the email app free"
-msgstr "免费试用邮件应用"
+msgid "Try it free for 7 days"
+msgstr "免费试用 7 天"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Try the email app free for 7 days"
+msgstr "免费试用邮件应用 7 天"
 
 #: app/(landing)/home/Footer.tsx
 msgid "Twitter"
@@ -1172,20 +1159,20 @@ msgid "Yes! The AI assistant, the web app, and the desktop email app are open so
 msgstr "是的！AI 助手、网页应用和桌面邮件应用都在我们的 GitHub 仓库中开源。iPhone 应用尚未开源，但我们计划将其开源。"
 
 #: app/(landing)/home/FAQs.tsx
+msgid "Yes. Every plan includes a 7-day free trial of the email app and the AI assistant. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged."
+msgstr "可以。每个套餐都包含邮件应用和 AI 助手的 7 天免费试用。开始试用需要信用卡，但试用结束前不会扣费。试用期间可随时取消，以免被扣费。"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes. Every plan includes a 7-day free trial of the email app and the AI."
+msgstr "可以。每个套餐都包含邮件应用和 AI 的 7 天免费试用。"
+
+#: app/(landing)/home/FAQs.tsx
 msgid "Yes. Our native iPhone app lets you triage your inbox and manage your assistant on the go. We also have an Android app, which is due for an update. Learn more on the <0>mobile app</0> page."
 msgstr "有。我们的原生 iPhone 应用让你随时随地分流收件箱并管理你的助手。我们还有一款 Android 应用，即将更新。详情请见<0>移动应用</0>页面。"
 
 #: app/(landing)/home/FAQs.tsx
 msgid "Yes. Our native iPhone app lets you triage your inbox and manage your assistant on the go. We also have an Android app, which is due for an update. Learn more on the mobile app page."
 msgstr "有。我们的原生 iPhone 应用让你随时随地分流收件箱并管理你的助手。我们还有一款 Android 应用，即将更新。详情请见移动应用页面。"
-
-#: app/(landing)/home/FAQs.tsx
-msgid "Yes. The email app is free to use. The AI assistant plans include a 7-day free trial. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged."
-msgstr "是的。邮件应用可免费使用。AI 助手套餐包含 7 天免费试用。开始试用需要提供信用卡，但在试用结束前不会扣费。在试用期间随时取消即可避免被扣费。"
-
-#: app/(landing)/pricing/PricingFAQs.tsx
-msgid "Yes. The email app is free to use. The AI plans include a 7-day free trial."
-msgstr "是的。邮件应用可免费使用。AI 套餐包含 7 天免费试用。"
 
 #: app/(landing)/pricing/PricingFAQs.tsx
 msgid "You can cancel anytime. Your subscription will remain active until the end of the billing period."

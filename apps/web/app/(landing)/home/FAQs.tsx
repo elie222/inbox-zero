@@ -101,7 +101,7 @@ const faqs: {
   },
   {
     question: msg`Can I try ${BRAND_NAME} for free?`,
-    answerText: msg`Yes. The email app is free to use. The AI assistant plans include a 7-day free trial. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged.`,
+    answerText: msg`Yes. Every plan includes a 7-day free trial of the email app and the AI assistant. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged.`,
   },
 ];
 

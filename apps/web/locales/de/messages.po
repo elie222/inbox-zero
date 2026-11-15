@@ -1070,8 +1070,8 @@ msgid "a deleted rule"
 msgstr "eine gelöschte Regel"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
-msgid "A fast, free app for reading and sending your email."
-msgstr "Eine schnelle, kostenlose App zum Lesen und Senden deiner E-Mails."
+msgid "A fast app for reading and sending your email."
+msgstr "Eine schnelle App zum Lesen und Senden deiner E-Mails."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "a month"
@@ -5155,6 +5155,7 @@ msgid "Email and inbox connection"
 msgstr "E-Mail- und Posteingangsverbindung"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Email app"
 msgstr "E-Mail-App"
 
@@ -9846,6 +9847,7 @@ msgstr "Nur Absender ohne Abmeldelink sind übrig"
 msgid "Only the ones I turn on myself"
 msgstr "Nur die, die ich selbst aktiviere"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Open"
 msgstr "Öffnen"
@@ -10551,6 +10553,10 @@ msgstr "Aggregierte Posteingangsstatistiken für dieses Postfach lesen."
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Read and search mail"
 msgstr "E-Mails lesen und durchsuchen"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Read and send email from every account in one fast inbox"
+msgstr "Lies und sende E-Mails aller Konten in einem schnellen Posteingang"
 
 #: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
 msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
@@ -13534,6 +13540,10 @@ msgstr "Versuche es erneut oder wähle einen anderen Ordner oder eine andere Unt
 #: app/(app)/premium/Pricing.tsx
 msgid "Try for free, affordable paid plans"
 msgstr "Kostenlos testen, günstige bezahlte Tarife"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Try the {BRAND_NAME} email app"
+msgstr "Probiere die E-Mail-App von {BRAND_NAME} aus"
 
 #: app/(app)/[emailAccountId]/calendars/availability-schedule.ts
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx

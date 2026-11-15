@@ -3,6 +3,7 @@ import { expect, type Browser, type Page } from "@playwright/test";
 import { playwrightMailProvider } from "../mail-provider";
 import { getEmailAccount } from "../account-test-helpers";
 import { withClient } from "./mail-test-helpers";
+import { grantDefaultPlan } from "../billing/billing-test-helpers";
 
 export function teammateEmail(role: "b" | "c" | "d") {
   const publisherEmail = process.env.PLAYWRIGHT_TEST_EMAIL;
@@ -80,6 +81,7 @@ export async function signInTeammate(browser: Browser, role: "b" | "c" | "d") {
     expect(user.rowCount).toBe(1);
     expect(emailAccount.rowCount).toBe(1);
   });
+  await grantDefaultPlan(email);
   const account = await getEmailAccount(page);
   expect(account.email).toBe(email);
   return { context, page, account };

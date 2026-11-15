@@ -451,6 +451,43 @@ describe("generateCheckoutSessionAction", () => {
     ).toHaveProperty("trial_period_days", 7);
   });
 
+  it("returns desktop checkouts to a page that works without a browser session", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      utms: null,
+      emailAccounts: [],
+      premium: {
+        id: "premium-1",
+        stripeCustomerId: "cus_test",
+        stripeSubscriptionId: null,
+        stripeSubscriptionStatus: null,
+        stripeEndedAt: null,
+        users: [{ _count: { emailAccounts: 1 } }],
+        admins: [{ id: "user-1" }],
+      },
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    mocks.createCheckoutSession.mockResolvedValue({
+      id: "cs_test",
+      url: "https://stripe.test",
+    });
+
+    await generateCheckoutSessionAction({
+      tier: "BASIC_MONTHLY",
+      fromDesktopApp: true,
+    });
+    await generateCheckoutSessionAction({ tier: "BASIC_MONTHLY" });
+
+    const [desktopParams] = mocks.createCheckoutSession.mock.calls[0];
+    const [webParams] = mocks.createCheckoutSession.mock.calls[1];
+    expect(new URL(desktopParams.success_url).pathname).toBe(
+      "/checkout-complete",
+    );
+    expect(new URL(desktopParams.cancel_url).pathname).toBe(
+      "/checkout-complete",
+    );
+    expect(new URL(webParams.success_url).pathname).toBe("/api/stripe/success");
+  });
+
   it("uses a new idempotency key when the checkout quantity changes", async () => {
     let emailAccounts = 1;
     prisma.user.findUnique.mockImplementation(

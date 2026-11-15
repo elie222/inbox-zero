@@ -1070,8 +1070,8 @@ msgid "a deleted rule"
 msgstr "silinmiş bir kural"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
-msgid "A fast, free app for reading and sending your email."
-msgstr "E-postalarınızı okumak ve göndermek için hızlı, ücretsiz bir uygulama."
+msgid "A fast app for reading and sending your email."
+msgstr "E-postalarınızı okumak ve göndermek için hızlı bir uygulama."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "a month"
@@ -2177,10 +2177,6 @@ msgstr "Gelecekteki e-postaları otomatik arşivle"
 msgid "Auto categorize"
 msgstr "Otomatik kategorilere ayır"
 
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
-msgid "Auto draft replies"
-msgstr "Yanıt taslaklarını otomatik hazırla"
-
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
 msgid "Auto-archive"
 msgstr "Otomatik arşivle"
@@ -2215,10 +2211,6 @@ msgstr "Ekleri otomatik dosyala"
 msgid "Auto-filing started!"
 msgstr "Otomatik dosyalama başladı!"
 
-#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Auto-generate drafts"
-msgstr "Taslakları otomatik oluştur"
-
 #: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
 msgid "Automated notification"
 msgstr "Otomatik bildirim"
@@ -2242,10 +2234,6 @@ msgstr "Toplu arşivleme ve YZ asistanı için göndericileri otomatik kategoril
 #: app/(app)/[emailAccountId]/smart-categories/setup/SmartCategoriesOnboarding.tsx
 msgid "Automatically categorize who emails you for better inbox management and smarter automation."
 msgstr "Daha iyi gelen kutusu yönetimi ve daha akıllı otomasyon için size kimlerin e-posta gönderdiğini otomatik kategorilere ayırın."
-
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
-msgid "Automatically draft replies written in your tone to emails needing a reply."
-msgstr "Yanıt gerektiren e-postalara sizin tonunuzda yazılmış yanıt taslaklarını otomatik hazırlayın."
 
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Automatically send each Stripe invoice to the billing email."
@@ -4835,10 +4823,6 @@ msgstr "Taslak"
 msgid "Draft a follow-up email"
 msgstr "Takip e-postası taslağı hazırla"
 
-#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Draft a nudge when you haven't heard back."
-msgstr "Yanıt alamadığınızda bir hatırlatma taslağı hazırlayın."
-
 #: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
 msgid "Draft a reply for every email, even when uncertain."
 msgstr "Emin olmasanız bile her e-posta için bir yanıt taslağı hazırlayın."
@@ -4863,6 +4847,10 @@ msgstr "Taslak güveni güncellendi"
 msgid "Draft content (optional)"
 msgstr "Taslak içeriği (isteğe bağlı)"
 
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Draft follow-up emails"
+msgstr "Takip e-postası taslakları hazırla"
+
 #: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
 msgid "Draft knowledge base"
 msgstr "Taslak bilgi tabanı"
@@ -4872,9 +4860,14 @@ msgid "Draft ready"
 msgstr "Taslak hazır"
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "Draft replies"
 msgstr "Yanıt taslakları"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+msgid "Draft replies in your tone to emails that need a reply. Turning this off keeps the To Reply label."
+msgstr "Yanıt gerektiren e-postalara sizin tonunuzda yanıt taslakları hazırlayın. Bunu kapatırsanız To Reply etiketi kalır."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Draft replies to customer questions using our help docs"
@@ -5162,6 +5155,7 @@ msgid "Email and inbox connection"
 msgstr "E-posta ve gelen kutusu bağlantısı"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Email app"
 msgstr "E-posta uygulaması"
 
@@ -6033,6 +6027,9 @@ msgid "Failed to save account order"
 msgstr "Hesap sırası kaydedilemedi"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Failed to save follow-up settings"
+msgstr "Takip ayarları kaydedilemedi"
+
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 #: app/(app)/[emailAccountId]/briefs/page.tsx
 #: app/(app)/[emailAccountId]/meetings/MeetingRecorderSettingsDialog.tsx
@@ -6044,8 +6041,8 @@ msgid "Failed to save signature"
 msgstr "İmza kaydedilemedi"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Failed to scan"
-msgstr "Taranamadı"
+msgid "Failed to scan for follow-ups"
+msgstr "Takipler taranamadı"
 
 #: app/(app)/[emailAccountId]/briefs/UpcomingMeetings.tsx
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
@@ -6140,6 +6137,14 @@ msgstr "Dokümantasyon siteleri güncellenemedi"
 msgid "Failed to update draft confidence"
 msgstr "Taslak güven düzeyi güncellenemedi"
 
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+msgid "Failed to update draft replies"
+msgstr "Yanıt taslakları güncellenemedi"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Failed to update follow-up reminders"
+msgstr "Takip hatırlatmaları güncellenemedi"
+
 #: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
 msgid "Failed to update hidden AI draft links setting"
 msgstr "Yapay zeka taslaklarındaki gizli bağlantı ayarı güncellenemedi"
@@ -6178,7 +6183,6 @@ msgid "Failed to update setting"
 msgstr "Ayar güncellenemedi"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DigestSetting.tsx
-#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
 #: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
 #: app/(app)/organization/[organizationId]/OrgAnalyticsConsentBanner.tsx
@@ -7894,8 +7898,12 @@ msgid "Label emails from Stripe as @[Stripe] and archive them"
 msgstr "Stripe'tan gelen e-postaları @[Stripe] olarak etiketle ve arşivle"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Label emails where you haven't heard back or haven't replied."
-msgstr "Yanıt alamadığınız veya yanıtlamadığınız e-postaları etiketle."
+msgid "Label emails where you haven't heard back or haven't replied, and draft a nudge when you haven't heard back."
+msgstr "Yanıt alamadığınız veya yanıtlamadığınız e-postaları etiketleyin ve yanıt alamadığınızda bir hatırlatma taslağı hazırlayın."
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Label emails where you haven't heard back or haven't replied. Does not draft emails."
+msgstr "Yanıt alamadığınız veya yanıtlamadığınız e-postaları etiketleyin. E-posta taslağı hazırlamaz."
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Label emails with feedback from customers about our product as @[Customer Feedback]"
@@ -9839,6 +9847,7 @@ msgstr "Yalnızca abonelikten çıkma bağlantısı olmayan göndericiler kaldı
 msgid "Only the ones I turn on myself"
 msgstr "Yalnızca kendim açtıklarım"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Open"
 msgstr "Aç"
@@ -10544,6 +10553,10 @@ msgstr "Bu gelen kutusunun toplu istatistiklerini okuyun."
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Read and search mail"
 msgstr "E-postaları okuyun ve arayın"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Read and send email from every account in one fast inbox"
+msgstr "Tüm hesaplarınızdaki e-postaları tek ve hızlı bir gelen kutusunda okuyun ve gönderin"
 
 #: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
 msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
@@ -13032,16 +13045,10 @@ msgstr "E-postalar çöp kutusuna taşınırken bir hata oluştu"
 msgid "There was an error updating the rule."
 msgstr "Kural güncellenirken bir hata oluştu."
 
-#. placeholder {0}: error.message
 #. placeholder {0}: result.serverError || ""
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "There was an error: {0}"
 msgstr "Bir hata oluştu: {0}"
-
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
-msgid "There was an error: Unknown error"
-msgstr "Bir hata oluştu: Bilinmeyen hata"
 
 #. placeholder {0}: warning.placeholder
 #: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
@@ -13534,6 +13541,10 @@ msgstr "Tekrar deneyin veya başka bir klasör ya da konuşma seçin. Sorun deva
 msgid "Try for free, affordable paid plans"
 msgstr "Ücretsiz deneyin, uygun fiyatlı ücretli planlar"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Try the {BRAND_NAME} email app"
+msgstr "{BRAND_NAME} e-posta uygulamasını deneyin"
+
 #: app/(app)/[emailAccountId]/calendars/availability-schedule.ts
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Tuesday"
@@ -13557,6 +13568,10 @@ msgstr "Sekmeyi kapat"
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Turn off the {0} split"
 msgstr "{0} sekmesini kapat"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Turn on Draft replies to use this."
+msgstr "Bunu kullanmak için Yanıt taslaklarını açın."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Turn on split"
@@ -13686,6 +13701,8 @@ msgid "Unknown date"
 msgstr "Bilinmeyen tarih"
 
 #: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 #: app/(app)/[emailAccountId]/integrations/IntegrationRow.tsx
@@ -14597,6 +14614,10 @@ msgstr "Temizlenen e-postalar arşivlensin mi yoksa okundu olarak mı işaretlen
 #: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
 msgid "Write a message…"
 msgstr "Bir mesaj yazın…"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Write a nudge draft when you haven't heard back."
+msgstr "Yanıt alamadığınızda bir hatırlatma taslağı hazırlayın."
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"

@@ -6,6 +6,7 @@ const { mockEnv, mockLogger } = vi.hoisted(() => ({
   mockEnv: {
     meetingBriefsEnabled: false,
     bookingLinksEnabled: false,
+    emailSendEnabled: false,
   },
   mockLogger: {
     error: vi.fn(),
@@ -19,6 +20,9 @@ vi.mock("@/env", () => ({
     },
     get NEXT_PUBLIC_BOOKING_LINKS_ENABLED() {
       return mockEnv.bookingLinksEnabled;
+    },
+    get NEXT_PUBLIC_EMAIL_SEND_ENABLED() {
+      return mockEnv.emailSendEnabled;
     },
   },
 }));
@@ -44,6 +48,7 @@ describe("GET /api/user/setup-progress", () => {
     vi.clearAllMocks();
     mockEnv.meetingBriefsEnabled = false;
     mockEnv.bookingLinksEnabled = false;
+    mockEnv.emailSendEnabled = false;
   });
 
   it("omits the calendar setup step when calendar features are disabled", async () => {
@@ -88,18 +93,72 @@ describe("GET /api/user/setup-progress", () => {
       showCalendarStep: true,
     });
   });
+
+  it("asks users to try the email app until they have opened it", async () => {
+    mockEnv.emailSendEnabled = true;
+    prisma.emailAccount.findUnique.mockResolvedValue(
+      createEmailAccount({ calendarConnections: [], mailSetup: "PENDING" }),
+    );
+
+    const response = await GET(createRequest());
+    const body = await response.json();
+
+    expect(body).toMatchObject({
+      steps: { emailApp: false },
+      completed: 0,
+      total: 3,
+      showEmailAppStep: true,
+    });
+  });
+
+  it("counts the email app step as done once mail has been set up", async () => {
+    mockEnv.emailSendEnabled = true;
+    prisma.emailAccount.findUnique.mockResolvedValue(
+      createEmailAccount({ calendarConnections: [], mailSetup: "DONE" }),
+    );
+
+    const response = await GET(createRequest());
+    const body = await response.json();
+
+    expect(body).toMatchObject({
+      steps: { emailApp: true },
+      completed: 1,
+      total: 3,
+    });
+  });
+
+  it("counts the email app step as done once the user skips it", async () => {
+    mockEnv.emailSendEnabled = true;
+    prisma.emailAccount.findUnique.mockResolvedValue(
+      createEmailAccount({
+        calendarConnections: [],
+        mailSetup: "PENDING",
+        dismissedHints: ["setup:emailApp:email-account-1"],
+      }),
+    );
+
+    const response = await GET(createRequest());
+    const body = await response.json();
+
+    expect(body).toMatchObject({ steps: { emailApp: true }, completed: 1 });
+  });
 });
 
 function createEmailAccount({
   calendarConnections,
+  mailSetup = "PENDING",
+  dismissedHints = [],
 }: {
   calendarConnections: { id: string }[];
+  mailSetup?: "PENDING" | "SUGGESTED" | "DONE";
+  dismissedHints?: string[];
 }) {
   return {
     rules: [],
     newsletters: [],
     calendarConnections,
-    user: { dismissedHints: [] },
+    mailSetup,
+    user: { dismissedHints },
     members: [
       {
         role: "member",
