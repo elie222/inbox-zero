@@ -189,7 +189,7 @@ msgstr "{0, plural, one {다시 알림을 대기열에 추가하지 못했어요
 #. placeholder {0}: threadIds.length
 #: components/assistant-chat/tools.tsx
 msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
-msgstr "{0, plural, other {대화 #개의 초안 삭제}}"
+msgstr ""
 
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
@@ -1075,8 +1075,8 @@ msgid "a deleted rule"
 msgstr "삭제된 규칙"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
-msgid "A fast, free app for reading and sending your email."
-msgstr "이메일을 읽고 보낼 수 있는 빠른 무료 앱이에요."
+msgid "A fast app for reading and sending your email."
+msgstr "이메일을 읽고 보낼 수 있는 빠른 앱이에요."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "a month"
@@ -3862,7 +3862,7 @@ msgstr "이 규칙을 만들지 못했어요."
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete these drafts."
-msgstr "이 초안을 삭제할 수 없습니다."
+msgstr ""
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
@@ -4431,7 +4431,7 @@ msgstr "댓글 삭제"
 
 #: components/assistant-chat/tools.tsx
 msgid "Delete drafts"
-msgstr "초안 삭제"
+msgstr ""
 
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
@@ -4487,7 +4487,7 @@ msgstr "삭제됨"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleted drafts"
-msgstr "초안 삭제됨"
+msgstr ""
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
@@ -4525,11 +4525,11 @@ msgstr "{name}의 모든 이메일 삭제 중"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts"
-msgstr "초안 삭제 중"
+msgstr ""
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts..."
-msgstr "초안 삭제 중..."
+msgstr ""
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -4892,7 +4892,7 @@ msgstr "답장 초안"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Draft replies in your tone to emails that need a reply. Turning this off keeps the To Reply label."
-msgstr "답장이 필요한 이메일에 내 말투로 답장 초안을 작성합니다. 이 기능을 꺼도 '답장 필요' 라벨은 유지됩니다."
+msgstr "답장이 필요한 이메일에 내 말투로 답장 초안을 작성해요. 꺼도 To Reply 라벨은 유지돼요."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Draft replies to customer questions using our help docs"
@@ -5180,6 +5180,7 @@ msgid "Email and inbox connection"
 msgstr "이메일 및 받은편지함 연결"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Email app"
 msgstr "이메일 앱"
 
@@ -6052,7 +6053,7 @@ msgstr "계정 순서를 저장하지 못했어요"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to save follow-up settings"
-msgstr "후속 조치 설정을 저장하지 못했습니다"
+msgstr "후속 조치 설정을 저장하지 못했어요"
 
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 #: app/(app)/[emailAccountId]/briefs/page.tsx
@@ -6066,7 +6067,7 @@ msgstr "서명을 저장하지 못했어요"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to scan for follow-ups"
-msgstr "후속 조치를 검색하지 못했습니다"
+msgstr "후속 조치를 검색하지 못했어요"
 
 #: app/(app)/[emailAccountId]/briefs/UpcomingMeetings.tsx
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
@@ -6163,11 +6164,11 @@ msgstr "초안 신뢰도를 업데이트하지 못했어요"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Failed to update draft replies"
-msgstr "답장 초안을 업데이트하지 못했습니다"
+msgstr "답장 초안을 업데이트하지 못했어요"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to update follow-up reminders"
-msgstr "후속 조치 알림을 업데이트하지 못했습니다"
+msgstr "후속 조치 알림을 업데이트하지 못했어요"
 
 #: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
 msgid "Failed to update hidden AI draft links setting"
@@ -7923,11 +7924,11 @@ msgstr "Stripe에서 온 이메일에 @[Stripe] 라벨을 지정하고 보관해
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied, and draft a nudge when you haven't heard back."
-msgstr "답장을 받지 못했거나 답장하지 않은 이메일에 라벨을 지정하고, 답장을 받지 못한 경우 독촉 초안을 작성합니다."
+msgstr "답장을 받지 못했거나 답장하지 않은 이메일에 라벨을 지정하고, 답장이 없을 때 재촉하는 초안을 작성해요."
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied. Does not draft emails."
-msgstr "답장을 받지 못했거나 답장하지 않은 이메일에 라벨을 지정합니다. 이메일 초안은 작성하지 않습니다."
+msgstr "답장을 받지 못했거나 답장하지 않은 이메일에 라벨을 지정해요. 이메일 초안은 작성하지 않아요."
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Label emails with feedback from customers about our product as @[Customer Feedback]"
@@ -9871,6 +9872,7 @@ msgstr "구독 취소 링크가 없는 발신자만 남았어요"
 msgid "Only the ones I turn on myself"
 msgstr "내가 직접 켜는 것만"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Open"
 msgstr "열기"
@@ -10140,7 +10142,7 @@ msgstr "확인 대기 중이에요. 아직 아무것도 옮기지 않았어요."
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending confirmation. Only unsent drafts are deleted."
-msgstr "확인 대기 중입니다. 보내지 않은 초안만 삭제됩니다."
+msgstr ""
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
@@ -10339,7 +10341,7 @@ msgstr "답장을 준비하는 중..."
 
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing to delete drafts..."
-msgstr "초안 삭제 준비 중..."
+msgstr ""
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx
@@ -10584,6 +10586,10 @@ msgstr "이 받은편지함의 집계된 받은편지함 통계를 읽어요."
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Read and search mail"
 msgstr "메일 읽기 및 검색"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Read and send email from every account in one fast inbox"
+msgstr "모든 계정의 이메일을 하나의 빠른 받은편지함에서 읽고 보내세요"
 
 #: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
 msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
@@ -13568,6 +13574,10 @@ msgstr "다시 시도하거나 다른 폴더 또는 대화를 선택하세요. �
 msgid "Try for free, affordable paid plans"
 msgstr "무료로 체험해 보세요, 합리적인 가격의 유료 요금제"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Try the {BRAND_NAME} email app"
+msgstr "{BRAND_NAME} 이메일 앱 사용해 보기"
+
 #: app/(app)/[emailAccountId]/calendars/availability-schedule.ts
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Tuesday"
@@ -14640,7 +14650,7 @@ msgstr "메시지 작성…"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Write a nudge draft when you haven't heard back."
-msgstr "답장을 받지 못했을 때 독촉 초안을 작성합니다."
+msgstr "답장이 없을 때 재촉하는 초안을 작성해요."
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"

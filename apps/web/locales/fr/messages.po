@@ -1075,8 +1075,8 @@ msgid "a deleted rule"
 msgstr "une règle supprimée"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
-msgid "A fast, free app for reading and sending your email."
-msgstr "Une app rapide et gratuite pour lire et envoyer tes e-mails."
+msgid "A fast app for reading and sending your email."
+msgstr "Une app rapide pour lire et envoyer tes e-mails."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "a month"
@@ -5180,6 +5180,7 @@ msgid "Email and inbox connection"
 msgstr "Connexion de l’e-mail et de la boîte de réception"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Email app"
 msgstr "App d’e-mail"
 
@@ -9871,6 +9872,7 @@ msgstr "Il ne reste que des expéditeurs sans lien de désabonnement"
 msgid "Only the ones I turn on myself"
 msgstr "Uniquement celles que j'active moi-même"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Open"
 msgstr "Ouvrir"
@@ -10584,6 +10586,10 @@ msgstr "Lire les statistiques agrégées de cette boîte de réception."
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Read and search mail"
 msgstr "Lire et rechercher des e-mails"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Read and send email from every account in one fast inbox"
+msgstr "Lis et envoie les e-mails de tous tes comptes dans une boîte de réception rapide"
 
 #: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
 msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
@@ -13567,6 +13573,10 @@ msgstr "Réessaie, ou sélectionne un autre dossier ou une autre conversation. S
 #: app/(app)/premium/Pricing.tsx
 msgid "Try for free, affordable paid plans"
 msgstr "Essai gratuit, forfaits payants abordables"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Try the {BRAND_NAME} email app"
+msgstr "Essaie l’app e-mail {BRAND_NAME}"
 
 #: app/(app)/[emailAccountId]/calendars/availability-schedule.ts
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx

@@ -33,8 +33,8 @@ const starterPrice = tiers[0].price.annually;
 const reasons = [
   {
     icon: <Gift className="size-5" />,
-    title: msg`Free to use`,
-    description: msg`The app is free. Add the AI only if you want it.`,
+    title: msg`Try it free for 7 days`,
+    description: msg`Every plan includes the email app and the AI.`,
   },
   {
     icon: <Repeat className="size-5" />,
@@ -60,7 +60,7 @@ export function EmailClient() {
       <SectionSubtitle>
         <Trans>
           Every Gmail and Outlook account in one inbox, on the web, Mac,
-          Windows, and iPhone. Like Superhuman, but free.
+          Windows, and iPhone. Like Superhuman, for less.
         </Trans>
       </SectionSubtitle>
       <SectionContent>
@@ -102,7 +102,7 @@ export function EmailClient() {
           <Button size="lg" asChild>
             <Link href={MAIL_CLIENT_SIGNUP_PATH}>
               <span className="relative z-10">
-                <Trans>Try the email app free</Trans>
+                <Trans>Try the email app free for 7 days</Trans>
               </span>
             </Link>
           </Button>

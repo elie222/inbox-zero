@@ -30,7 +30,7 @@ const options: {
   {
     intent: "MAIL_CLIENT",
     title: msg`Email app`,
-    description: msg`A fast, free app for reading and sending your email.`,
+    description: msg`A fast app for reading and sending your email.`,
     icon: <InboxIcon className="size-4" />,
   },
   {

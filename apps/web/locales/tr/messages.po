@@ -189,7 +189,7 @@ msgstr "{0, plural, one {Erteleme sıraya alınamadı} other {Konuşmaları erte
 #. placeholder {0}: threadIds.length
 #: components/assistant-chat/tools.tsx
 msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
-msgstr "{0, plural, one {# konuşmadaki taslakları sil} other {# konuşmadaki taslakları sil}}"
+msgstr ""
 
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
@@ -1075,8 +1075,8 @@ msgid "a deleted rule"
 msgstr "silinmiş bir kural"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
-msgid "A fast, free app for reading and sending your email."
-msgstr "E-postalarınızı okumak ve göndermek için hızlı, ücretsiz bir uygulama."
+msgid "A fast app for reading and sending your email."
+msgstr "E-postalarınızı okumak ve göndermek için hızlı bir uygulama."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "a month"
@@ -3862,7 +3862,7 @@ msgstr "Bu kural oluşturulamadı."
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete these drafts."
-msgstr "Bu taslaklar silinemedi."
+msgstr ""
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
@@ -4431,7 +4431,7 @@ msgstr "Yorumu sil"
 
 #: components/assistant-chat/tools.tsx
 msgid "Delete drafts"
-msgstr "Taslakları sil"
+msgstr ""
 
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
@@ -4487,7 +4487,7 @@ msgstr "Silindi"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleted drafts"
-msgstr "Taslaklar silindi"
+msgstr ""
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
@@ -4525,11 +4525,11 @@ msgstr "{name} göndericisinin tüm e-postaları siliniyor"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts"
-msgstr "Taslaklar siliniyor"
+msgstr ""
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts..."
-msgstr "Taslaklar siliniyor..."
+msgstr ""
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -4874,7 +4874,7 @@ msgstr "Taslak içeriği (isteğe bağlı)"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Draft follow-up emails"
-msgstr "Takip e-postalarının taslağını oluştur"
+msgstr "Takip e-postası taslakları hazırla"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
 msgid "Draft knowledge base"
@@ -4892,7 +4892,7 @@ msgstr "Yanıt taslakları"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Draft replies in your tone to emails that need a reply. Turning this off keeps the To Reply label."
-msgstr "Yanıt gerektiren e-postalara kendi üslubunla yanıt taslakları oluştur. Bunu kapatmak Yanıtlanacak etiketini korur."
+msgstr "Yanıt gerektiren e-postalara sizin tonunuzda yanıt taslakları hazırlayın. Bunu kapatırsanız To Reply etiketi kalır."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Draft replies to customer questions using our help docs"
@@ -5180,6 +5180,7 @@ msgid "Email and inbox connection"
 msgstr "E-posta ve gelen kutusu bağlantısı"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Email app"
 msgstr "E-posta uygulaması"
 
@@ -6167,7 +6168,7 @@ msgstr "Yanıt taslakları güncellenemedi"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to update follow-up reminders"
-msgstr "Takip hatırlatıcıları güncellenemedi"
+msgstr "Takip hatırlatmaları güncellenemedi"
 
 #: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
 msgid "Failed to update hidden AI draft links setting"
@@ -7923,11 +7924,11 @@ msgstr "Stripe'tan gelen e-postaları @[Stripe] olarak etiketle ve arşivle"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied, and draft a nudge when you haven't heard back."
-msgstr "Yanıt alamadığın veya yanıtlamadığın e-postaları etiketle ve yanıt alamadığında bir hatırlatma taslağı oluştur."
+msgstr "Yanıt alamadığınız veya yanıtlamadığınız e-postaları etiketleyin ve yanıt alamadığınızda bir hatırlatma taslağı hazırlayın."
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied. Does not draft emails."
-msgstr "Yanıt alamadığın veya yanıtlamadığın e-postaları etiketle. E-posta taslağı oluşturmaz."
+msgstr "Yanıt alamadığınız veya yanıtlamadığınız e-postaları etiketleyin. E-posta taslağı hazırlamaz."
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Label emails with feedback from customers about our product as @[Customer Feedback]"
@@ -9871,6 +9872,7 @@ msgstr "Yalnızca abonelikten çıkma bağlantısı olmayan göndericiler kaldı
 msgid "Only the ones I turn on myself"
 msgstr "Yalnızca kendim açtıklarım"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Open"
 msgstr "Aç"
@@ -10140,7 +10142,7 @@ msgstr "Onay bekleniyor. Henüz hiçbir şey taşınmadı."
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending confirmation. Only unsent drafts are deleted."
-msgstr "Onay bekleniyor. Yalnızca gönderilmemiş taslaklar silinir."
+msgstr ""
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
@@ -10339,7 +10341,7 @@ msgstr "Yanıt hazırlanıyor..."
 
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing to delete drafts..."
-msgstr "Taslaklar silinmeye hazırlanıyor..."
+msgstr ""
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx
@@ -10584,6 +10586,10 @@ msgstr "Bu gelen kutusunun toplu istatistiklerini okuyun."
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Read and search mail"
 msgstr "E-postaları okuyun ve arayın"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Read and send email from every account in one fast inbox"
+msgstr "Tüm hesaplarınızdaki e-postaları tek ve hızlı bir gelen kutusunda okuyun ve gönderin"
 
 #: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
 msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
@@ -13568,6 +13574,10 @@ msgstr "Tekrar deneyin veya başka bir klasör ya da konuşma seçin. Sorun deva
 msgid "Try for free, affordable paid plans"
 msgstr "Ücretsiz deneyin, uygun fiyatlı ücretli planlar"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Try the {BRAND_NAME} email app"
+msgstr "{BRAND_NAME} e-posta uygulamasını deneyin"
+
 #: app/(app)/[emailAccountId]/calendars/availability-schedule.ts
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Tuesday"
@@ -13594,7 +13604,7 @@ msgstr "{0} sekmesini kapat"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Turn on Draft replies to use this."
-msgstr "Bunu kullanmak için Yanıt taslaklarını aç."
+msgstr "Bunu kullanmak için Yanıt taslaklarını açın."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Turn on split"
@@ -14640,7 +14650,7 @@ msgstr "Bir mesaj yazın…"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Write a nudge draft when you haven't heard back."
-msgstr "Yanıt alamadığında bir hatırlatma taslağı oluştur."
+msgstr "Yanıt alamadığınızda bir hatırlatma taslağı hazırlayın."
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"

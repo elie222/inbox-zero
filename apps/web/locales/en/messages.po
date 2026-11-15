@@ -1075,8 +1075,8 @@ msgid "a deleted rule"
 msgstr "a deleted rule"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
-msgid "A fast, free app for reading and sending your email."
-msgstr "A fast, free app for reading and sending your email."
+msgid "A fast app for reading and sending your email."
+msgstr "A fast app for reading and sending your email."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "a month"
@@ -5180,6 +5180,7 @@ msgid "Email and inbox connection"
 msgstr "Email and inbox connection"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Email app"
 msgstr "Email app"
 
@@ -9871,6 +9872,7 @@ msgstr "Only senders without an unsubscribe link are left"
 msgid "Only the ones I turn on myself"
 msgstr "Only the ones I turn on myself"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Open"
 msgstr "Open"
@@ -10584,6 +10586,10 @@ msgstr "Read aggregated inbox statistics for this inbox."
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Read and search mail"
 msgstr "Read and search mail"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Read and send email from every account in one fast inbox"
+msgstr "Read and send email from every account in one fast inbox"
 
 #: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
 msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
@@ -13567,6 +13573,10 @@ msgstr "Try again, or select another folder or conversation. If the problem cont
 #: app/(app)/premium/Pricing.tsx
 msgid "Try for free, affordable paid plans"
 msgstr "Try for free, affordable paid plans"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Try the {BRAND_NAME} email app"
+msgstr "Try the {BRAND_NAME} email app"
 
 #: app/(app)/[emailAccountId]/calendars/availability-schedule.ts
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx

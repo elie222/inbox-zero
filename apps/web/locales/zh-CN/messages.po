@@ -189,7 +189,7 @@ msgstr "{0, plural, other {无法将稍后提醒加入队列}}"
 #. placeholder {0}: threadIds.length
 #: components/assistant-chat/tools.tsx
 msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
-msgstr "{0, plural, other {删除 # 个会话中的草稿}}"
+msgstr ""
 
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
@@ -1075,8 +1075,8 @@ msgid "a deleted rule"
 msgstr "已删除的规则"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
-msgid "A fast, free app for reading and sending your email."
-msgstr "一款快速、免费的邮件收发应用。"
+msgid "A fast app for reading and sending your email."
+msgstr "一款可快速阅读和发送邮件的应用。"
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "a month"
@@ -3862,7 +3862,7 @@ msgstr "无法创建此规则。"
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete these drafts."
-msgstr "无法删除这些草稿。"
+msgstr ""
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
@@ -4431,7 +4431,7 @@ msgstr "删除评论"
 
 #: components/assistant-chat/tools.tsx
 msgid "Delete drafts"
-msgstr "删除草稿"
+msgstr ""
 
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
@@ -4487,7 +4487,7 @@ msgstr "已删除"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleted drafts"
-msgstr "已删除草稿"
+msgstr ""
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
@@ -4525,11 +4525,11 @@ msgstr "正在删除来自 {name} 的所有邮件"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts"
-msgstr "正在删除草稿"
+msgstr ""
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts..."
-msgstr "正在删除草稿..."
+msgstr ""
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -4892,7 +4892,7 @@ msgstr "草稿回复"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Draft replies in your tone to emails that need a reply. Turning this off keeps the To Reply label."
-msgstr "用你的语气为需要回复的邮件起草回复。关闭后仍会保留“待回复”标签。"
+msgstr "以你的语气为需要回复的邮件起草回复。关闭后仍会保留 To Reply 标签。"
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Draft replies to customer questions using our help docs"
@@ -5180,6 +5180,7 @@ msgid "Email and inbox connection"
 msgstr "邮箱与收件箱连接"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Email app"
 msgstr "邮件应用"
 
@@ -6163,7 +6164,7 @@ msgstr "更新草稿置信度失败"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Failed to update draft replies"
-msgstr "无法更新回复草稿"
+msgstr "无法更新草稿回复"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to update follow-up reminders"
@@ -7923,7 +7924,7 @@ msgstr "将来自 Stripe 的邮件标记为 @[Stripe] 并归档"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied, and draft a nudge when you haven't heard back."
-msgstr "为未收到回复或你尚未回复的邮件添加标签，并在未收到回复时起草催促邮件。"
+msgstr "为未收到回复或你尚未回复的邮件添加标签，并在未收到回复时起草提醒邮件。"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied. Does not draft emails."
@@ -9871,6 +9872,7 @@ msgstr "只剩下没有退订链接的发件人"
 msgid "Only the ones I turn on myself"
 msgstr "仅限我自己开启的"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Open"
 msgstr "打开"
@@ -10140,7 +10142,7 @@ msgstr "待确认。尚未移动任何邮件。"
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending confirmation. Only unsent drafts are deleted."
-msgstr "等待确认。只会删除未发送的草稿。"
+msgstr ""
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
@@ -10339,7 +10341,7 @@ msgstr "正在准备回复..."
 
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing to delete drafts..."
-msgstr "正在准备删除草稿..."
+msgstr ""
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx
@@ -10584,6 +10586,10 @@ msgstr "读取此收件箱的汇总统计数据。"
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Read and search mail"
 msgstr "读取和搜索邮件"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Read and send email from every account in one fast inbox"
+msgstr "在一个快速收件箱中阅读和发送所有账号的邮件"
 
 #: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
 msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
@@ -13568,6 +13574,10 @@ msgstr "请重试，或选择其他文件夹或会话。如果问题仍然存在
 msgid "Try for free, affordable paid plans"
 msgstr "免费试用，价格实惠的付费套餐"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Try the {BRAND_NAME} email app"
+msgstr "试用 {BRAND_NAME} 邮件应用"
+
 #: app/(app)/[emailAccountId]/calendars/availability-schedule.ts
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Tuesday"
@@ -13594,7 +13604,7 @@ msgstr "关闭 {0} 分栏"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Turn on Draft replies to use this."
-msgstr "开启“回复草稿”后即可使用。"
+msgstr "开启“草稿回复”后才能使用此功能。"
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Turn on split"
@@ -14640,7 +14650,7 @@ msgstr "写一条消息…"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Write a nudge draft when you haven't heard back."
-msgstr "未收到回复时起草催促草稿。"
+msgstr "在未收到回复时起草提醒邮件。"
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"

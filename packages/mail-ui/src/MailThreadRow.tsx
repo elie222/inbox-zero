@@ -213,7 +213,7 @@ export function MailThreadRow({
               </span>
             </div>
           )}
-          <div className="w-16 shrink-0 text-right">{date}</div>
+          <div className="min-w-16 shrink-0 text-right">{date}</div>
         </>
       ) : (
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">

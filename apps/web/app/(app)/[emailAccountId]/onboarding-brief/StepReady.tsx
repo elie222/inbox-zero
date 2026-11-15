@@ -23,7 +23,9 @@ import {
   DiscountBadge,
 } from "@/app/(app)/premium/PricingFrequencyToggle";
 import { generateCheckoutSessionAction } from "@/utils/actions/premium";
+import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { toastError } from "@/components/Toast";
+import { ContinueWhenSubscribed } from "@/components/ContinueWhenSubscribed";
 import { redirectToSafeUrl } from "@/utils/redirect";
 
 const PRICING_FEATURES = [
@@ -48,6 +50,7 @@ export function StepReady() {
       const result = await generateCheckoutSessionAction({
         tier,
         offer: "BRIEF_MY_MEETING",
+        fromDesktopApp: Boolean(getInboxZeroDesktopApp()),
       });
 
       if (!result?.data?.url) {
@@ -65,6 +68,7 @@ export function StepReady() {
 
   return (
     <>
+      <ContinueWhenSubscribed href="/setup" />
       <div className="flex justify-center">
         <IconCircle size="lg">
           <Sparkles className="size-6" />

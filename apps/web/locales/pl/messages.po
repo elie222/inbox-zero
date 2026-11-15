@@ -189,7 +189,7 @@ msgstr "{0, plural, one {Nie udało się dodać odłożenia do kolejki} few {Nie
 #. placeholder {0}: threadIds.length
 #: components/assistant-chat/tools.tsx
 msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
-msgstr "{0, plural, one {Usuń wersje robocze w # rozmowie} few {Usuń wersje robocze w # rozmowach} many {Usuń wersje robocze w # rozmowach} other {Usuń wersje robocze w # rozmowach}}"
+msgstr ""
 
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
@@ -1075,8 +1075,8 @@ msgid "a deleted rule"
 msgstr "usunięta reguła"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
-msgid "A fast, free app for reading and sending your email."
-msgstr "Szybka, bezpłatna aplikacja do czytania i wysyłania e-maili."
+msgid "A fast app for reading and sending your email."
+msgstr "Szybka aplikacja do czytania i wysyłania e-maili."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "a month"
@@ -3862,7 +3862,7 @@ msgstr "Nie udało się utworzyć tej reguły."
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete these drafts."
-msgstr "Nie udało się usunąć tych wersji roboczych."
+msgstr ""
 
 #: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
@@ -4431,7 +4431,7 @@ msgstr "Usuń komentarz"
 
 #: components/assistant-chat/tools.tsx
 msgid "Delete drafts"
-msgstr "Usuń wersje robocze"
+msgstr ""
 
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
@@ -4487,7 +4487,7 @@ msgstr "Usunięto"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleted drafts"
-msgstr "Usunięto wersje robocze"
+msgstr ""
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
@@ -4525,11 +4525,11 @@ msgstr "Usuwanie wszystkich e-maili od {name}"
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts"
-msgstr "Usuwanie wersji roboczych"
+msgstr ""
 
 #: components/assistant-chat/tools.tsx
 msgid "Deleting drafts..."
-msgstr "Usuwanie wersji roboczych..."
+msgstr ""
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -4874,7 +4874,7 @@ msgstr "Treść wersji roboczej (opcjonalnie)"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Draft follow-up emails"
-msgstr "Twórz wersje robocze wiadomości przypominających"
+msgstr "Przygotowuj wersje robocze e-maili z ponagleniem"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
 msgid "Draft knowledge base"
@@ -4892,7 +4892,7 @@ msgstr "Wersje robocze odpowiedzi"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 msgid "Draft replies in your tone to emails that need a reply. Turning this off keeps the To Reply label."
-msgstr "Twórz wersje robocze odpowiedzi w Twoim stylu na e-maile wymagające odpowiedzi. Wyłączenie tej opcji zachowuje etykietę Do odpowiedzi."
+msgstr "Przygotowuj wersje robocze odpowiedzi w twoim stylu dla e-maili wymagających odpowiedzi. Po wyłączeniu etykieta To Reply pozostaje."
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Draft replies to customer questions using our help docs"
@@ -5180,6 +5180,7 @@ msgid "Email and inbox connection"
 msgstr "Połączenie z pocztą i skrzynką odbiorczą"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Email app"
 msgstr "Aplikacja pocztowa"
 
@@ -6052,7 +6053,7 @@ msgstr "Nie udało się zapisać kolejności kont"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to save follow-up settings"
-msgstr "Nie udało się zapisać ustawień przypomnień"
+msgstr "Nie udało się zapisać ustawień follow-upów"
 
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 #: app/(app)/[emailAccountId]/briefs/page.tsx
@@ -6066,7 +6067,7 @@ msgstr "Nie udało się zapisać podpisu"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to scan for follow-ups"
-msgstr "Nie udało się wyszukać przypomnień"
+msgstr "Nie udało się wyszukać follow-upów"
 
 #: app/(app)/[emailAccountId]/briefs/UpcomingMeetings.tsx
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
@@ -6167,7 +6168,7 @@ msgstr "Nie udało się zaktualizować wersji roboczych odpowiedzi"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Failed to update follow-up reminders"
-msgstr "Nie udało się zaktualizować przypomnień o odpowiedzi"
+msgstr "Nie udało się zaktualizować przypomnień o follow-upach"
 
 #: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
 msgid "Failed to update hidden AI draft links setting"
@@ -7923,11 +7924,11 @@ msgstr "Oznaczaj e-maile ze Stripe etykietą @[Stripe] i archiwizuj je"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied, and draft a nudge when you haven't heard back."
-msgstr "Oznaczaj e-maile bez odpowiedzi lub bez Twojej odpowiedzi i twórz wersję roboczą przypomnienia, gdy nie otrzymasz odpowiedzi."
+msgstr "Oznaczaj e-maile bez odpowiedzi od odbiorcy lub bez twojej odpowiedzi i przygotuj ponaglenie, gdy nie dostaniesz odpowiedzi."
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Label emails where you haven't heard back or haven't replied. Does not draft emails."
-msgstr "Oznaczaj e-maile bez odpowiedzi lub bez Twojej odpowiedzi. Nie tworzy wersji roboczych e-maili."
+msgstr "Oznaczaj e-maile bez odpowiedzi od odbiorcy lub bez twojej odpowiedzi. Nie przygotowuje e-maili."
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Label emails with feedback from customers about our product as @[Customer Feedback]"
@@ -9871,6 +9872,7 @@ msgstr "Zostali tylko nadawcy bez linku do rezygnacji z subskrypcji"
 msgid "Only the ones I turn on myself"
 msgstr "Tylko te, które sam włączę"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Open"
 msgstr "Otwórz"
@@ -10140,7 +10142,7 @@ msgstr "Oczekuje na potwierdzenie. Nic jeszcze nie zostało przeniesione."
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending confirmation. Only unsent drafts are deleted."
-msgstr "Oczekuje na potwierdzenie. Usuwane są tylko niewysłane wersje robocze."
+msgstr ""
 
 #: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
@@ -10339,7 +10341,7 @@ msgstr "Przygotowywanie odpowiedzi..."
 
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing to delete drafts..."
-msgstr "Przygotowywanie usuwania wersji roboczych..."
+msgstr ""
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx
@@ -10584,6 +10586,10 @@ msgstr "Odczytuj zbiorcze statystyki tej skrzynki."
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Read and search mail"
 msgstr "Czytaj i przeszukuj pocztę"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Read and send email from every account in one fast inbox"
+msgstr "Czytaj i wysyłaj e-maile ze wszystkich kont w jednej szybkiej skrzynce"
 
 #: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
 msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
@@ -13568,6 +13574,10 @@ msgstr "Spróbuj ponownie albo wybierz inny folder lub rozmowę. Jeśli problem 
 msgid "Try for free, affordable paid plans"
 msgstr "Wypróbuj za darmo, przystępne płatne plany"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Try the {BRAND_NAME} email app"
+msgstr "Wypróbuj aplikację pocztową {BRAND_NAME}"
+
 #: app/(app)/[emailAccountId]/calendars/availability-schedule.ts
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Tuesday"
@@ -13594,7 +13604,7 @@ msgstr "Wyłącz kartę {0}"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Turn on Draft replies to use this."
-msgstr "Włącz wersje robocze odpowiedzi, aby z tego korzystać."
+msgstr "Włącz Wersje robocze odpowiedzi, aby z tego korzystać."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Turn on split"
@@ -14640,7 +14650,7 @@ msgstr "Napisz wiadomość…"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Write a nudge draft when you haven't heard back."
-msgstr "Twórz wersję roboczą przypomnienia, gdy nie otrzymasz odpowiedzi."
+msgstr "Przygotuj ponaglenie, gdy nie dostaniesz odpowiedzi."
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"

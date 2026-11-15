@@ -1075,8 +1075,8 @@ msgid "a deleted rule"
 msgstr "uma regra excluída"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
-msgid "A fast, free app for reading and sending your email."
-msgstr "Um app rápido e gratuito para ler e enviar seus e-mails."
+msgid "A fast app for reading and sending your email."
+msgstr "Um app rápido para ler e enviar seus e-mails."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "a month"
@@ -5180,6 +5180,7 @@ msgid "Email and inbox connection"
 msgstr "Conexão de e-mail e caixa de entrada"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Email app"
 msgstr "App de e-mail"
 
@@ -9871,6 +9872,7 @@ msgstr "Restam apenas remetentes sem link de cancelamento de inscrição"
 msgid "Only the ones I turn on myself"
 msgstr "Apenas as que eu mesmo ativar"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Open"
 msgstr "Abrir"
@@ -10584,6 +10586,10 @@ msgstr "Leia as estatísticas agregadas desta caixa de entrada."
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Read and search mail"
 msgstr "Ler e pesquisar e-mails"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Read and send email from every account in one fast inbox"
+msgstr "Leia e envie e-mails de todas as suas contas em uma caixa de entrada rápida"
 
 #: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
 msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
@@ -13567,6 +13573,10 @@ msgstr "Tente novamente ou selecione outra pasta ou conversa. Se o problema cont
 #: app/(app)/premium/Pricing.tsx
 msgid "Try for free, affordable paid plans"
 msgstr "Teste grátis, planos pagos acessíveis"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Try the {BRAND_NAME} email app"
+msgstr "Experimente o app de e-mail do {BRAND_NAME}"
 
 #: app/(app)/[emailAccountId]/calendars/availability-schedule.ts
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx

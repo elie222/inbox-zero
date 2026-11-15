@@ -40,6 +40,7 @@ import { cn } from "@/utils";
 import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";
 import { captureException } from "@/utils/error";
 import { redirectToSafeUrl } from "@/utils/redirect";
+import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { TIER_MESSAGES } from "@/app/(app)/premium/config-messages";
 
 export type PricingProps = {
@@ -444,6 +445,7 @@ function PriceTier({
             } else {
               result = await generateCheckoutSessionAction({
                 tier: upgradeToTier,
+                fromDesktopApp: Boolean(getInboxZeroDesktopApp()),
               });
             }
 
