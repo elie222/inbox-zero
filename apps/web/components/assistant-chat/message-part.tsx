@@ -376,6 +376,15 @@ export function MessagePart({
         );
       }
 
+      if (input.action === "delete_drafts") {
+        return (
+          <BasicToolInfo
+            key={toolCallId}
+            text={t`Preparing to delete drafts...`}
+          />
+        );
+      }
+
       const actionText = getManageInboxActionLabel({
         action: input.action,
         read: input.read ?? true,

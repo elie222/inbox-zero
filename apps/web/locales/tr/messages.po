@@ -186,6 +186,11 @@ msgstr "{0, plural, one {# gönderen kategorilere ayrılıyor...} other {# gönd
 msgid "{0, plural, one {Couldn't queue snoozing} other {Couldn't queue snoozing conversations}}"
 msgstr "{0, plural, one {Erteleme sıraya alınamadı} other {Konuşmaları erteleme sıraya alınamadı}}"
 
+#. placeholder {0}: threadIds.length
+#: components/assistant-chat/tools.tsx
+msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
+msgstr "{0, plural, one {# konuşmadaki taslakları sil} other {# konuşmadaki taslakları sil}}"
+
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
 msgid "{0, plural, one {Delete emails from # sender? This action cannot be undone.} other {Delete emails from # senders? This action cannot be undone.}}"
@@ -3856,6 +3861,10 @@ msgid "Could not create this rule."
 msgstr "Bu kural oluşturulamadı."
 
 #: components/assistant-chat/tools.tsx
+msgid "Could not delete these drafts."
+msgstr "Bu taslaklar silinemedi."
+
+#: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
 msgstr "Bu kural silinemedi."
 
@@ -4420,6 +4429,10 @@ msgstr "Sohbet silinsin mi?"
 msgid "Delete comment"
 msgstr "Yorumu sil"
 
+#: components/assistant-chat/tools.tsx
+msgid "Delete drafts"
+msgstr "Taslakları sil"
+
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
 msgstr "Bilgi tabanı girdisini sil"
@@ -4472,6 +4485,10 @@ msgstr "Inbox Zero hesabınız silinsin mi?"
 msgid "Deleted"
 msgstr "Silindi"
 
+#: components/assistant-chat/tools.tsx
+msgid "Deleted drafts"
+msgstr "Taslaklar silindi"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
 msgstr "{displayNames} göndericilerinin e-postaları silindi"
@@ -4505,6 +4522,14 @@ msgstr "Hesap siliniyor..."
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting all emails from {name}"
 msgstr "{name} göndericisinin tüm e-postaları siliniyor"
+
+#: components/assistant-chat/tools.tsx
+msgid "Deleting drafts"
+msgstr "Taslaklar siliniyor"
+
+#: components/assistant-chat/tools.tsx
+msgid "Deleting drafts..."
+msgstr "Taslaklar siliniyor..."
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -10116,6 +10141,10 @@ msgid "Pending confirmation. Nothing has moved yet."
 msgstr "Onay bekleniyor. Henüz hiçbir şey taşınmadı."
 
 #: components/assistant-chat/tools.tsx
+msgid "Pending confirmation. Only unsent drafts are deleted."
+msgstr "Onay bekleniyor. Yalnızca gönderilmemiş taslaklar silinir."
+
+#: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
 msgstr "Silme bekleniyor"
 
@@ -10309,6 +10338,10 @@ msgstr "İletme hazırlanıyor..."
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing reply..."
 msgstr "Yanıt hazırlanıyor..."
+
+#: components/assistant-chat/message-part.tsx
+msgid "Preparing to delete drafts..."
+msgstr "Taslaklar silinmeye hazırlanıyor..."
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx

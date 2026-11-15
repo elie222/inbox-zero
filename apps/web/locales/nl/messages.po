@@ -186,6 +186,11 @@ msgstr "{0, plural, one {# afzender categoriseren...} other {# afzenders categor
 msgid "{0, plural, one {Couldn't queue snoozing} other {Couldn't queue snoozing conversations}}"
 msgstr "{0, plural, one {Uitstellen kon niet in de wachtrij worden gezet} other {Uitstellen van gesprekken kon niet in de wachtrij worden gezet}}"
 
+#. placeholder {0}: threadIds.length
+#: components/assistant-chat/tools.tsx
+msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
+msgstr "{0, plural, one {Concepten in # gesprek verwijderen} other {Concepten in # gesprekken verwijderen}}"
+
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
 msgid "{0, plural, one {Delete emails from # sender? This action cannot be undone.} other {Delete emails from # senders? This action cannot be undone.}}"
@@ -3856,6 +3861,10 @@ msgid "Could not create this rule."
 msgstr "Deze regel kon niet worden aangemaakt."
 
 #: components/assistant-chat/tools.tsx
+msgid "Could not delete these drafts."
+msgstr "Deze concepten konden niet worden verwijderd."
+
+#: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
 msgstr "Deze regel kon niet worden verwijderd."
 
@@ -4420,6 +4429,10 @@ msgstr "Chat verwijderen?"
 msgid "Delete comment"
 msgstr "Reactie verwijderen"
 
+#: components/assistant-chat/tools.tsx
+msgid "Delete drafts"
+msgstr "Concepten verwijderen"
+
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
 msgstr "Item in kennisbank verwijderen"
@@ -4472,6 +4485,10 @@ msgstr "Je Inbox Zero-account verwijderen?"
 msgid "Deleted"
 msgstr "Verwijderd"
 
+#: components/assistant-chat/tools.tsx
+msgid "Deleted drafts"
+msgstr "Concepten verwijderd"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
 msgstr "E-mails van {displayNames} verwijderd"
@@ -4505,6 +4522,14 @@ msgstr "Account verwijderen..."
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting all emails from {name}"
 msgstr "Alle e-mails van {name} verwijderen"
+
+#: components/assistant-chat/tools.tsx
+msgid "Deleting drafts"
+msgstr "Concepten verwijderen"
+
+#: components/assistant-chat/tools.tsx
+msgid "Deleting drafts..."
+msgstr "Concepten verwijderen..."
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -10116,6 +10141,10 @@ msgid "Pending confirmation. Nothing has moved yet."
 msgstr "Wacht op bevestiging. Er is nog niets verplaatst."
 
 #: components/assistant-chat/tools.tsx
+msgid "Pending confirmation. Only unsent drafts are deleted."
+msgstr "Bevestiging in afwachting. Alleen niet-verzonden concepten worden verwijderd."
+
+#: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
 msgstr "Wacht op verwijdering"
 
@@ -10309,6 +10338,10 @@ msgstr "Doorsturen voorbereiden..."
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing reply..."
 msgstr "Antwoord voorbereiden..."
+
+#: components/assistant-chat/message-part.tsx
+msgid "Preparing to delete drafts..."
+msgstr "Verwijderen van concepten voorbereiden..."
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx

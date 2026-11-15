@@ -186,6 +186,11 @@ msgstr "{0, plural, other {# 件の送信者を分類中...}}"
 msgid "{0, plural, one {Couldn't queue snoozing} other {Couldn't queue snoozing conversations}}"
 msgstr "{0, plural, other {スヌーズをキューに追加できませんでした}}"
 
+#. placeholder {0}: threadIds.length
+#: components/assistant-chat/tools.tsx
+msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
+msgstr "{0, plural, other {#件の会話の下書きを削除}}"
+
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
 msgid "{0, plural, one {Delete emails from # sender? This action cannot be undone.} other {Delete emails from # senders? This action cannot be undone.}}"
@@ -3856,6 +3861,10 @@ msgid "Could not create this rule."
 msgstr "このルールを作成できませんでした。"
 
 #: components/assistant-chat/tools.tsx
+msgid "Could not delete these drafts."
+msgstr "これらの下書きを削除できませんでした。"
+
+#: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
 msgstr "このルールを削除できませんでした。"
 
@@ -4420,6 +4429,10 @@ msgstr "チャットを削除しますか？"
 msgid "Delete comment"
 msgstr "コメントを削除"
 
+#: components/assistant-chat/tools.tsx
+msgid "Delete drafts"
+msgstr "下書きを削除"
+
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
 msgstr "ナレッジベースのエントリを削除"
@@ -4472,6 +4485,10 @@ msgstr "Inbox Zero アカウントを削除しますか？"
 msgid "Deleted"
 msgstr "削除しました"
 
+#: components/assistant-chat/tools.tsx
+msgid "Deleted drafts"
+msgstr "下書きを削除しました"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
 msgstr "{displayNames} からのメールを削除しました"
@@ -4505,6 +4522,14 @@ msgstr "アカウントを削除中..."
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting all emails from {name}"
 msgstr "{name} からのメールをすべて削除中"
+
+#: components/assistant-chat/tools.tsx
+msgid "Deleting drafts"
+msgstr "下書きを削除中"
+
+#: components/assistant-chat/tools.tsx
+msgid "Deleting drafts..."
+msgstr "下書きを削除中..."
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -10116,6 +10141,10 @@ msgid "Pending confirmation. Nothing has moved yet."
 msgstr "確認待ちです。まだ何も移動していません。"
 
 #: components/assistant-chat/tools.tsx
+msgid "Pending confirmation. Only unsent drafts are deleted."
+msgstr "確認待ちです。未送信の下書きのみが削除されます。"
+
+#: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
 msgstr "削除待ち"
 
@@ -10309,6 +10338,10 @@ msgstr "転送を準備中..."
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing reply..."
 msgstr "返信を準備中..."
+
+#: components/assistant-chat/message-part.tsx
+msgid "Preparing to delete drafts..."
+msgstr "下書きの削除を準備中..."
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx

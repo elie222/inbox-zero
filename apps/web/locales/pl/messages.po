@@ -186,6 +186,11 @@ msgstr "{0, plural, one {Kategoryzowanie nadawców: #...} few {Kategoryzowanie n
 msgid "{0, plural, one {Couldn't queue snoozing} other {Couldn't queue snoozing conversations}}"
 msgstr "{0, plural, one {Nie udało się dodać odłożenia do kolejki} few {Nie udało się dodać odłożenia rozmów do kolejki} many {Nie udało się dodać odłożenia rozmów do kolejki} other {Nie udało się dodać odłożenia rozmów do kolejki}}"
 
+#. placeholder {0}: threadIds.length
+#: components/assistant-chat/tools.tsx
+msgid "{0, plural, one {Delete drafts in # conversation} other {Delete drafts in # conversations}}"
+msgstr "{0, plural, one {Usuń wersje robocze w # rozmowie} few {Usuń wersje robocze w # rozmowach} many {Usuń wersje robocze w # rozmowach} other {Usuń wersje robocze w # rozmowach}}"
+
 #. placeholder {0}: selectedToProcess.length
 #: components/BulkArchiveCards.tsx
 msgid "{0, plural, one {Delete emails from # sender? This action cannot be undone.} other {Delete emails from # senders? This action cannot be undone.}}"
@@ -3856,6 +3861,10 @@ msgid "Could not create this rule."
 msgstr "Nie udało się utworzyć tej reguły."
 
 #: components/assistant-chat/tools.tsx
+msgid "Could not delete these drafts."
+msgstr "Nie udało się usunąć tych wersji roboczych."
+
+#: components/assistant-chat/tools.tsx
 msgid "Could not delete this rule."
 msgstr "Nie udało się usunąć tej reguły."
 
@@ -4420,6 +4429,10 @@ msgstr "Usunąć czat?"
 msgid "Delete comment"
 msgstr "Usuń komentarz"
 
+#: components/assistant-chat/tools.tsx
+msgid "Delete drafts"
+msgstr "Usuń wersje robocze"
+
 #: app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase.tsx
 msgid "Delete Knowledge Base Entry"
 msgstr "Usuń wpis z bazy wiedzy"
@@ -4472,6 +4485,10 @@ msgstr "Usunąć konto Inbox Zero?"
 msgid "Deleted"
 msgstr "Usunięto"
 
+#: components/assistant-chat/tools.tsx
+msgid "Deleted drafts"
+msgstr "Usunięto wersje robocze"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleted emails from {displayNames}"
 msgstr "Usunięto e-maile od {displayNames}"
@@ -4505,6 +4522,14 @@ msgstr "Usuwanie konta..."
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting all emails from {name}"
 msgstr "Usuwanie wszystkich e-maili od {name}"
+
+#: components/assistant-chat/tools.tsx
+msgid "Deleting drafts"
+msgstr "Usuwanie wersji roboczych"
+
+#: components/assistant-chat/tools.tsx
+msgid "Deleting drafts..."
+msgstr "Usuwanie wersji roboczych..."
 
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "Deleting emails from {displayNames}..."
@@ -10116,6 +10141,10 @@ msgid "Pending confirmation. Nothing has moved yet."
 msgstr "Oczekuje na potwierdzenie. Nic jeszcze nie zostało przeniesione."
 
 #: components/assistant-chat/tools.tsx
+msgid "Pending confirmation. Only unsent drafts are deleted."
+msgstr "Oczekuje na potwierdzenie. Usuwane są tylko niewysłane wersje robocze."
+
+#: components/assistant-chat/tools.tsx
 msgid "Pending deletion"
 msgstr "Oczekuje na usunięcie"
 
@@ -10309,6 +10338,10 @@ msgstr "Przygotowywanie przekazania..."
 #: components/assistant-chat/message-part.tsx
 msgid "Preparing reply..."
 msgstr "Przygotowywanie odpowiedzi..."
+
+#: components/assistant-chat/message-part.tsx
+msgid "Preparing to delete drafts..."
+msgstr "Przygotowywanie usuwania wersji roboczych..."
 
 #. placeholder {0}: part.input.ruleName
 #: components/assistant-chat/message-part.tsx

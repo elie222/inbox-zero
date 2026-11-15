@@ -233,7 +233,7 @@ export const dismissAssistantBulkInboxActionBody =
 
 export const pendingTrashThreadsToolOutputSchema = z.object({
   success: z.literal(true),
-  actionType: z.literal("trash_threads"),
+  actionType: z.enum(["trash_threads", "delete_drafts"]),
   requiresConfirmation: z.literal(true),
   confirmationState: z.enum([
     "pending",

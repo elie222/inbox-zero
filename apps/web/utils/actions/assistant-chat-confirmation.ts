@@ -33,7 +33,10 @@ import {
 } from "@/utils/ai/assistant/tools/rules/shared";
 import { createRule } from "@/utils/rule/rule";
 import { enqueueBulkInboxActionChunk } from "@/utils/bulk-inbox-action/enqueue";
-import { trashChatThreads } from "@/utils/ai/assistant/chat-inbox-tools";
+import {
+  deleteChatDrafts,
+  trashChatThreads,
+} from "@/utils/ai/assistant/chat-inbox-tools";
 import { addChatActionTotals } from "@/utils/ai/assistant/chat-action-totals";
 
 const CONFIRMATION_IN_PROGRESS_ERROR =
@@ -730,9 +733,13 @@ export async function confirmAssistantTrashThreadsForAccount({
     };
   }
 
-  const { threadIds } = reservation.lookup.output.pendingAction;
+  const { actionType, pendingAction } = reservation.lookup.output;
+  const { threadIds } = pendingAction;
+  const isTrash = actionType === "trash_threads";
 
-  let trashResult: Awaited<ReturnType<typeof trashChatThreads>>;
+  let threadResult: Awaited<ReturnType<typeof trashChatThreads>> & {
+    deletedDraftCount?: number;
+  };
   try {
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
@@ -744,14 +751,16 @@ export async function confirmAssistantTrashThreadsForAccount({
       provider,
       logger,
     });
-    trashResult = await trashChatThreads({
-      emailProvider,
-      threadIds,
-      email: emailAccount.email,
-    });
-    // Nothing moved, so the card stays pending and can be confirmed again.
-    if (trashResult.successCount === 0) {
-      throw new Error("No threads were moved to trash");
+    threadResult = isTrash
+      ? await trashChatThreads({
+          emailProvider,
+          threadIds,
+          email: emailAccount.email,
+        })
+      : await deleteChatDrafts({ emailProvider, threadIds });
+    // Nothing changed, so the card stays pending and can be confirmed again.
+    if (threadResult.successCount === 0) {
+      throw new Error(`No threads were changed by ${actionType}`);
     }
   } catch (error) {
     await clearPendingPartProcessing({
@@ -763,12 +772,17 @@ export async function confirmAssistantTrashThreadsForAccount({
         error: processingError,
       });
     });
-    logger.error("Failed to confirm assistant trash", { error });
-    throw new SafeError("Couldn't move these emails to trash. Try again.");
+    logger.error("Failed to confirm assistant trash", { error, actionType });
+    throw new SafeError(
+      isTrash
+        ? "Couldn't move these emails to trash. Try again."
+        : "Couldn't delete these drafts. Try again.",
+    );
   }
 
   const confirmationResult = {
-    ...trashResult,
+    successCount: threadResult.successCount,
+    failedThreadIds: threadResult.failedThreadIds,
     confirmedAt: new Date().toISOString(),
   };
 
@@ -790,7 +804,9 @@ export async function confirmAssistantTrashThreadsForAccount({
   } catch (error) {
     logger.error("Failed to persist confirmed assistant trash", { error });
     throw new SafeError(
-      "Emails were moved to trash but confirmation state could not be saved. Please refresh.",
+      isTrash
+        ? "Emails were moved to trash but confirmation state could not be saved. Please refresh."
+        : "Drafts were deleted but confirmation state could not be saved. Please refresh.",
     );
   }
 
@@ -799,7 +815,9 @@ export async function confirmAssistantTrashThreadsForAccount({
   if (savedByThisRequest) {
     await addChatActionTotals({
       chatId,
-      counts: { threads_trashed: trashResult.successCount },
+      counts: isTrash
+        ? { threads_trashed: threadResult.successCount }
+        : { drafts_deleted: threadResult.deletedDraftCount ?? 0 },
     }).catch((error: unknown) => {
       logger.error("Failed to update chat action totals", { error });
     });
