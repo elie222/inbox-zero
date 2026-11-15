@@ -22,7 +22,7 @@ const pricingFaqs: {
 }[] = [
   {
     question: msg`Can I try ${BRAND_NAME} for free?`,
-    answerText: msg`Yes. The email app is free to use. The AI plans include a 7-day free trial.`,
+    answerText: msg`Yes. Every plan includes a 7-day free trial of the email app and the AI.`,
   },
   {
     question: msg`Can I switch between plans?`,

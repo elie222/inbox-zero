@@ -23,6 +23,7 @@ import {
   DiscountBadge,
 } from "@/app/(app)/premium/PricingFrequencyToggle";
 import { generateCheckoutSessionAction } from "@/utils/actions/premium";
+import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { toastError } from "@/components/Toast";
 import { redirectToSafeUrl } from "@/utils/redirect";
 
@@ -48,6 +49,7 @@ export function StepReady() {
       const result = await generateCheckoutSessionAction({
         tier,
         offer: "BRIEF_MY_MEETING",
+        fromDesktopApp: Boolean(getInboxZeroDesktopApp()),
       });
 
       if (!result?.data?.url) {

@@ -59,10 +59,6 @@ msgstr "カスタム料金、SSO、SCIM、オンプレミス展開、専任サ�
 msgid "12k+ GitHub Stars"
 msgstr "12k+ GitHub スター"
 
-#: components/new-landing/sections/Pricing.tsx
-msgid "A fast email app for Gmail and Outlook. Free on web, desktop, and iPhone."
-msgstr "Gmail と Outlook に対応した高速メールアプリ。Web、デスクトップ、iPhone で無料。"
-
 #: app/(app)/premium/config-messages.ts
 msgid "A notetaker joins your video calls and turns them into transcripts, summaries, recap emails, and follow-up drafts."
 msgstr "ノートテイカーがビデオ通話に参加し、文字起こし、要約、まとめメール、フォローアップの下書きにしてくれます。"
@@ -397,10 +393,6 @@ msgstr "メール分析"
 msgid "Email analytics. What gets measured, gets managed"
 msgstr "メール分析。測れば、管理できる"
 
-#: components/new-landing/sections/Pricing.tsx
-msgid "Email app"
-msgstr "メールアプリ"
-
 #: app/(landing)/home/Footer.tsx
 msgid "Email App"
 msgstr "メールアプリ"
@@ -443,8 +435,12 @@ msgid "Every email you get needing a reply will have a pre-written draft."
 msgstr "返信が必要なメールには、すべて下書きが用意されます。"
 
 #: components/new-landing/sections/EmailClient.tsx
-msgid "Every Gmail and Outlook account in one inbox, on the web, Mac, Windows, and iPhone. Like Superhuman, but free."
-msgstr "すべての Gmail と Outlook アカウントを、Web、Mac、Windows、iPhone の 1 つの受信トレイに集約。Superhuman のような使い心地で、無料です。"
+msgid "Every Gmail and Outlook account in one inbox, on the web, Mac, Windows, and iPhone. Like Superhuman, for less."
+msgstr "すべての Gmail と Outlook アカウントを、Web、Mac、Windows、iPhone の 1 つの受信トレイに集約。Superhuman のような使い心地を、より手頃な価格で。"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Every plan includes the email app and the AI."
+msgstr "すべてのプランにメールアプリと AI が含まれます。"
 
 #: app/(app)/premium/config-messages.ts
 msgid "Everything in Plus, plus:"
@@ -506,10 +502,6 @@ msgstr "創業者"
 msgid "Founders"
 msgstr "創業者"
 
-#: components/new-landing/sections/EmailClient.tsx
-msgid "Free to use"
-msgstr "無料で利用可能"
-
 #: app/(landing)/home/Footer.tsx
 #: components/new-landing/sections/Footer.tsx
 msgid "Free Tools"
@@ -540,7 +532,6 @@ msgid "Get started for free"
 msgstr "無料で始める"
 
 #: components/new-landing/sections/Header.tsx
-#: components/new-landing/sections/Pricing.tsx
 msgid "Get started free"
 msgstr "無料で始める"
 
@@ -725,10 +716,6 @@ msgstr "エンタープライズ向けのカスタムプランが必要ですか
 #: components/new-landing/sections/Pricing.tsx
 msgid "Need SSO, SCIM, on-premise deployment, or a dedicated account manager?"
 msgstr "SSO、SCIM、オンプレミス展開、専任のアカウントマネージャーが必要ですか?"
-
-#: components/new-landing/sections/Pricing.tsx
-msgid "New"
-msgstr "新着"
 
 #: app/(landing)/home/HomePage.tsx
 msgid "New: Inbox Zero Mail app →"
@@ -1020,10 +1007,6 @@ msgstr "Telegram AI アシスタント"
 msgid "Terms"
 msgstr "利用規約"
 
-#: components/new-landing/sections/EmailClient.tsx
-msgid "The app is free. Add the AI only if you want it."
-msgstr "アプリは無料です。AI は必要な場合にのみ追加できます。"
-
 #: app/(app)/premium/config-messages.ts
 msgid "The knowledge base is used to help draft responses. Store unlimited content in your knowledge base."
 msgstr "ナレッジベースは返信の下書き作成に役立てられます。ナレッジベースには無制限にコンテンツを保存できます。"
@@ -1049,8 +1032,12 @@ msgid "Try free for 7 days"
 msgstr "7 日間無料で試す"
 
 #: components/new-landing/sections/EmailClient.tsx
-msgid "Try the email app free"
-msgstr "メールアプリを無料で試す"
+msgid "Try it free for 7 days"
+msgstr "7 日間無料で試す"
+
+#: components/new-landing/sections/EmailClient.tsx
+msgid "Try the email app free for 7 days"
+msgstr "メールアプリを 7 日間無料で試す"
 
 #: app/(landing)/home/Footer.tsx
 msgid "Twitter"
@@ -1172,20 +1159,20 @@ msgid "Yes! The AI assistant, the web app, and the desktop email app are open so
 msgstr "はい!AI アシスタント、Web アプリ、デスクトップメールアプリは、GitHub リポジトリでオープンソースとして公開されています。iPhone アプリはまだオープンソースではありませんが、公開を予定しています。"
 
 #: app/(landing)/home/FAQs.tsx
+msgid "Yes. Every plan includes a 7-day free trial of the email app and the AI assistant. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged."
+msgstr "はい。すべてのプランに、メールアプリと AI アシスタントの 7 日間の無料トライアルが含まれます。トライアルの開始にはクレジットカードが必要ですが、トライアルが終了するまで請求されることはありません。請求を避けるには、トライアル期間中にいつでもキャンセルしてください。"
+
+#: app/(landing)/pricing/PricingFAQs.tsx
+msgid "Yes. Every plan includes a 7-day free trial of the email app and the AI."
+msgstr "はい。すべてのプランに、メールアプリと AI の 7 日間の無料トライアルが含まれます。"
+
+#: app/(landing)/home/FAQs.tsx
 msgid "Yes. Our native iPhone app lets you triage your inbox and manage your assistant on the go. We also have an Android app, which is due for an update. Learn more on the <0>mobile app</0> page."
 msgstr "はい。ネイティブの iPhone アプリで、外出先でも受信トレイの仕分けやアシスタントの管理ができます。Android アプリもありますが、アップデートが予定されています。詳しくは<0>モバイルアプリ</0>のページをご覧ください。"
 
 #: app/(landing)/home/FAQs.tsx
 msgid "Yes. Our native iPhone app lets you triage your inbox and manage your assistant on the go. We also have an Android app, which is due for an update. Learn more on the mobile app page."
 msgstr "はい。ネイティブの iPhone アプリで、外出先でも受信トレイの仕分けやアシスタントの管理ができます。Android アプリもありますが、アップデートが予定されています。詳しくはモバイルアプリのページをご覧ください。"
-
-#: app/(landing)/home/FAQs.tsx
-msgid "Yes. The email app is free to use. The AI assistant plans include a 7-day free trial. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged."
-msgstr "はい。メールアプリは無料でご利用いただけます。AI アシスタントのプランには 7 日間の無料トライアルが含まれます。トライアルの開始にはクレジットカードが必要ですが、トライアルが終了するまで請求されることはありません。請求を避けるには、トライアル期間中にいつでもキャンセルしてください。"
-
-#: app/(landing)/pricing/PricingFAQs.tsx
-msgid "Yes. The email app is free to use. The AI plans include a 7-day free trial."
-msgstr "はい。メールアプリは無料でご利用いただけます。AI プランには 7 日間の無料トライアルが含まれます。"
 
 #: app/(landing)/pricing/PricingFAQs.tsx
 msgid "You can cancel anytime. Your subscription will remain active until the end of the billing period."

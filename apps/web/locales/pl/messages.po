@@ -1070,8 +1070,8 @@ msgid "a deleted rule"
 msgstr "usunięta reguła"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
-msgid "A fast, free app for reading and sending your email."
-msgstr "Szybka, bezpłatna aplikacja do czytania i wysyłania e-maili."
+msgid "A fast app for reading and sending your email."
+msgstr "Szybka aplikacja do czytania i wysyłania e-maili."
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "a month"
@@ -2177,10 +2177,6 @@ msgstr "Automatycznie archiwizuj przyszłe e-maile"
 msgid "Auto categorize"
 msgstr "Kategoryzuj automatycznie"
 
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
-msgid "Auto draft replies"
-msgstr "Automatyczne wersje robocze odpowiedzi"
-
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions.tsx
 msgid "Auto-archive"
 msgstr "Archiwizuj automatycznie"
@@ -2215,10 +2211,6 @@ msgstr "Automatycznie sortuj załączniki"
 msgid "Auto-filing started!"
 msgstr "Automatyczne sortowanie rozpoczęte!"
 
-#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Auto-generate drafts"
-msgstr "Automatycznie generuj wersje robocze"
-
 #: app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab.tsx
 msgid "Automated notification"
 msgstr "Powiadomienie automatyczne"
@@ -2242,10 +2234,6 @@ msgstr "Automatycznie kategoryzuj nadawców na potrzeby zbiorczego archiwizowani
 #: app/(app)/[emailAccountId]/smart-categories/setup/SmartCategoriesOnboarding.tsx
 msgid "Automatically categorize who emails you for better inbox management and smarter automation."
 msgstr "Automatycznie kategoryzuj, kto do ciebie pisze, aby lepiej zarządzać skrzynką i sprytniej automatyzować."
-
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
-msgid "Automatically draft replies written in your tone to emails needing a reply."
-msgstr "Automatycznie przygotowuj wersje robocze odpowiedzi w twoim stylu dla e-maili wymagających odpowiedzi."
 
 #: app/(app)/[emailAccountId]/settings/BillingSection.tsx
 msgid "Automatically send each Stripe invoice to the billing email."
@@ -4835,10 +4823,6 @@ msgstr "Wersja robocza"
 msgid "Draft a follow-up email"
 msgstr "Przygotuj e-mail przypominający"
 
-#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Draft a nudge when you haven't heard back."
-msgstr "Przygotuj ponaglenie, gdy nie dostaniesz odpowiedzi."
-
 #: app/(app)/[emailAccountId]/assistant/settings/DraftConfidenceSetting.tsx
 msgid "Draft a reply for every email, even when uncertain."
 msgstr "Przygotuj odpowiedź na każdy e-mail, nawet gdy nie ma pewności."
@@ -4863,6 +4847,10 @@ msgstr "Zaktualizowano pewność wersji roboczej"
 msgid "Draft content (optional)"
 msgstr "Treść wersji roboczej (opcjonalnie)"
 
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Draft follow-up emails"
+msgstr ""
+
 #: app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting.tsx
 msgid "Draft knowledge base"
 msgstr "Baza wiedzy dla wersji roboczych"
@@ -4872,9 +4860,14 @@ msgid "Draft ready"
 msgstr "Wersja robocza gotowa"
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "Draft replies"
 msgstr "Wersje robocze odpowiedzi"
+
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+msgid "Draft replies in your tone to emails that need a reply. Turning this off keeps the To Reply label."
+msgstr ""
 
 #: app/(app)/[emailAccountId]/onboarding/illustrations/CustomRulesIllustration.tsx
 msgid "Draft replies to customer questions using our help docs"
@@ -5162,6 +5155,7 @@ msgid "Email and inbox connection"
 msgstr "Połączenie z pocztą i skrzynką odbiorczą"
 
 #: app/(app)/[emailAccountId]/onboarding/StepIntent.tsx
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Email app"
 msgstr "Aplikacja pocztowa"
 
@@ -6033,6 +6027,9 @@ msgid "Failed to save account order"
 msgstr "Nie udało się zapisać kolejności kont"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Failed to save follow-up settings"
+msgstr ""
+
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 #: app/(app)/[emailAccountId]/briefs/page.tsx
 #: app/(app)/[emailAccountId]/meetings/MeetingRecorderSettingsDialog.tsx
@@ -6044,8 +6041,8 @@ msgid "Failed to save signature"
 msgstr "Nie udało się zapisać podpisu"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Failed to scan"
-msgstr "Nie udało się przeskanować"
+msgid "Failed to scan for follow-ups"
+msgstr ""
 
 #: app/(app)/[emailAccountId]/briefs/UpcomingMeetings.tsx
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
@@ -6140,6 +6137,14 @@ msgstr "Nie udało się zaktualizować witryn z dokumentacją"
 msgid "Failed to update draft confidence"
 msgstr "Nie udało się zaktualizować pewności szkicu"
 
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+msgid "Failed to update draft replies"
+msgstr ""
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Failed to update follow-up reminders"
+msgstr ""
+
 #: app/(app)/[emailAccountId]/assistant/settings/HiddenAiDraftLinksSetting.tsx
 msgid "Failed to update hidden AI draft links setting"
 msgstr "Nie udało się zaktualizować ustawienia ukrytych linków w szkicach AI"
@@ -6178,7 +6183,6 @@ msgid "Failed to update setting"
 msgstr "Nie udało się zaktualizować ustawienia"
 
 #: app/(app)/[emailAccountId]/assistant/settings/DigestSetting.tsx
-#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/settings/DecisionModelSection.tsx
 #: app/(app)/[emailAccountId]/settings/OrgAnalyticsConsentSection.tsx
 #: app/(app)/organization/[organizationId]/OrgAnalyticsConsentBanner.tsx
@@ -7894,8 +7898,12 @@ msgid "Label emails from Stripe as @[Stripe] and archive them"
 msgstr "Oznaczaj e-maile ze Stripe etykietą @[Stripe] i archiwizuj je"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
-msgid "Label emails where you haven't heard back or haven't replied."
-msgstr "Oznaczaj e-maile bez odpowiedzi od odbiorcy lub bez twojej odpowiedzi."
+msgid "Label emails where you haven't heard back or haven't replied, and draft a nudge when you haven't heard back."
+msgstr ""
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Label emails where you haven't heard back or haven't replied. Does not draft emails."
+msgstr ""
 
 #: app/(app)/[emailAccountId]/assistant/examples.ts
 msgid "Label emails with feedback from customers about our product as @[Customer Feedback]"
@@ -9839,6 +9847,7 @@ msgstr "Zostali tylko nadawcy bez linku do rezygnacji z subskrypcji"
 msgid "Only the ones I turn on myself"
 msgstr "Tylko te, które sam włączę"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 #: app/(app)/settings/SettingsContent.tsx
 msgid "Open"
 msgstr "Otwórz"
@@ -10544,6 +10553,10 @@ msgstr "Odczytuj zbiorcze statystyki tej skrzynki."
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Read and search mail"
 msgstr "Czytaj i przeszukuj pocztę"
+
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Read and send email from every account in one fast inbox"
+msgstr "Czytaj i wysyłaj e-maile ze wszystkich kont w jednej szybkiej skrzynce"
 
 #: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
 msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
@@ -13032,16 +13045,10 @@ msgstr "Wystąpił błąd podczas przenoszenia e-maili do kosza"
 msgid "There was an error updating the rule."
 msgstr "Wystąpił błąd podczas aktualizowania reguły."
 
-#. placeholder {0}: error.message
 #. placeholder {0}: result.serverError || ""
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
 #: app/(app)/[emailAccountId]/onboarding/StepDraft.tsx
 msgid "There was an error: {0}"
 msgstr "Wystąpił błąd: {0}"
-
-#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
-msgid "There was an error: Unknown error"
-msgstr "Wystąpił błąd: nieznany błąd"
 
 #. placeholder {0}: warning.placeholder
 #: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
@@ -13534,6 +13541,10 @@ msgstr "Spróbuj ponownie albo wybierz inny folder lub rozmowę. Jeśli problem 
 msgid "Try for free, affordable paid plans"
 msgstr "Wypróbuj za darmo, przystępne płatne plany"
 
+#: app/(app)/[emailAccountId]/setup/SetupContent.tsx
+msgid "Try the {BRAND_NAME} email app"
+msgstr "Wypróbuj aplikację pocztową {BRAND_NAME}"
+
 #: app/(app)/[emailAccountId]/calendars/availability-schedule.ts
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 msgid "Tuesday"
@@ -13557,6 +13568,10 @@ msgstr "Wyłącz kartę"
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Turn off the {0} split"
 msgstr "Wyłącz kartę {0}"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Turn on Draft replies to use this."
+msgstr ""
 
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "Turn on split"
@@ -13686,6 +13701,8 @@ msgid "Unknown date"
 msgstr "Nieznana data"
 
 #: app/(app)/[emailAccountId]/assistant/ProcessRules.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/DraftReplies.tsx
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 #: app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup.tsx
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 #: app/(app)/[emailAccountId]/integrations/IntegrationRow.tsx
@@ -14597,6 +14614,10 @@ msgstr "Czy wyczyszczone e-maile mają być archiwizowane, czy oznaczane jako pr
 #: app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx
 msgid "Write a message…"
 msgstr "Napisz wiadomość…"
+
+#: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
+msgid "Write a nudge draft when you haven't heard back."
+msgstr ""
 
 #: app/(app)/[emailAccountId]/settings/api-key-messages.ts
 msgid "Write rules"
