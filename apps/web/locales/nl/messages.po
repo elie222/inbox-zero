@@ -14867,10 +14867,19 @@ msgstr "Je e-mailstatistieken zijn momenteel privé. Schakel toegang in zodat or
 msgid "Your email analytics are currently private. Enable access to let other organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively."
 msgstr "Je e-mailstatistieken zijn momenteel privé. Schakel toegang in zodat andere organisatiebeheerders je inboxstatistieken en gebruiksgegevens kunnen bekijken. Zo begrijpt je team beter hoe productief het is en kan het effectiever samenwerken."
 
+#. placeholder {0}: rateLimitResumeAt.toLocaleTimeString(i18n.locale)
+#: components/StatsRateLimitNotice.tsx
+msgid "Your email provider is limiting requests, so loading your emails is paused. It will continue automatically around {0}."
+msgstr "Je e-mailprovider beperkt het aantal verzoeken, dus het laden van je e-mails is gepauzeerd. Het gaat rond {0} automatisch verder."
+
 #. placeholder {0}: state.rateLimitResumeAt.toLocaleTimeString(i18n.locale)
 #: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
 msgid "Your email provider is limiting requests, so processing is paused. It will continue automatically around {0}."
 msgstr "Je e-mailprovider beperkt het aantal verzoeken, dus de verwerking is gepauzeerd. Ze gaat rond {0} automatisch verder."
+
+#: providers/StatLoaderProvider.tsx
+msgid "Your email provider kept limiting requests, so loading stopped. Try again in a few minutes."
+msgstr "Je e-mailprovider bleef verzoeken beperken, dus het laden is gestopt. Probeer het over een paar minuten opnieuw."
 
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 msgid "Your feedback helps us learn"

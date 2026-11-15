@@ -20,6 +20,7 @@ import { ActionBar } from "@/app/(app)/[emailAccountId]/stats/ActionBar";
 import { DetailedStatsFilter } from "@/app/(app)/[emailAccountId]/stats/DetailedStatsFilter";
 import { LayoutGrid } from "lucide-react";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
+import { StatsRateLimitNotice } from "@/components/StatsRateLimitNotice";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CardBasic } from "@/components/ui/card";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
@@ -152,6 +153,7 @@ export function Stats() {
           ]}
         />
       </ActionBar>
+      <StatsRateLimitNotice className="mt-2 sm:mt-4" />
       <div className="grid gap-2 sm:gap-4 mt-2 sm:mt-4">
         <ErrorBoundary fallback={<SectionError title={t`Summary`} />}>
           <StatsSummary

@@ -63,6 +63,7 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { TextLink } from "@/components/Typography";
 import { DismissibleVideoCard } from "@/components/VideoCard";
+import { StatsRateLimitNotice } from "@/components/StatsRateLimitNotice";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -423,6 +424,8 @@ export function BulkUnsubscribe() {
         />
         <ScanOlderEmailsButton />
       </div>
+
+      <StatsRateLimitNotice className="mt-4" />
 
       <DismissibleVideoCard
         className="my-4"

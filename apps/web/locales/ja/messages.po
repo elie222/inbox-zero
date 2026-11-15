@@ -14867,10 +14867,19 @@ msgstr "現在、メール分析は非公開です。アクセスを有効にす
 msgid "Your email analytics are currently private. Enable access to let other organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively."
 msgstr "現在、メール分析は非公開です。アクセスを有効にすると、組織の他の管理者が受信トレイの統計や使用状況データを確認できます。チームが生産性を把握し、より効果的に連携するのに役立ちます。"
 
+#. placeholder {0}: rateLimitResumeAt.toLocaleTimeString(i18n.locale)
+#: components/StatsRateLimitNotice.tsx
+msgid "Your email provider is limiting requests, so loading your emails is paused. It will continue automatically around {0}."
+msgstr "メールプロバイダーがリクエストを制限しているため、メールの読み込みを一時停止しています。{0} ごろに自動的に再開されます。"
+
 #. placeholder {0}: state.rateLimitResumeAt.toLocaleTimeString(i18n.locale)
 #: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
 msgid "Your email provider is limiting requests, so processing is paused. It will continue automatically around {0}."
 msgstr "メールプロバイダーがリクエストを制限しているため、処理を一時停止しています。{0} ごろに自動的に再開されます。"
+
+#: providers/StatLoaderProvider.tsx
+msgid "Your email provider kept limiting requests, so loading stopped. Try again in a few minutes."
+msgstr "メールプロバイダーによるリクエスト制限が続いたため、読み込みを停止しました。数分後にもう一度お試しください。"
 
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 msgid "Your feedback helps us learn"

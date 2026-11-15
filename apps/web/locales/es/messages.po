@@ -14867,10 +14867,19 @@ msgstr "Tus analíticas de correo son privadas actualmente. Activa el acceso par
 msgid "Your email analytics are currently private. Enable access to let other organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively."
 msgstr "Tus analíticas de correo son privadas actualmente. Activa el acceso para que otros administradores de la organización puedan ver las estadísticas y los datos de uso de tu bandeja de entrada. Esto ayuda a tu equipo a entender la productividad y a colaborar de forma más eficaz."
 
+#. placeholder {0}: rateLimitResumeAt.toLocaleTimeString(i18n.locale)
+#: components/StatsRateLimitNotice.tsx
+msgid "Your email provider is limiting requests, so loading your emails is paused. It will continue automatically around {0}."
+msgstr "Tu proveedor de correo está limitando las solicitudes, así que la carga de tus correos está en pausa. Continuará automáticamente alrededor de {0}."
+
 #. placeholder {0}: state.rateLimitResumeAt.toLocaleTimeString(i18n.locale)
 #: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
 msgid "Your email provider is limiting requests, so processing is paused. It will continue automatically around {0}."
 msgstr "Tu proveedor de correo está limitando las solicitudes, así que el procesamiento está en pausa. Continuará automáticamente alrededor de {0}."
+
+#: providers/StatLoaderProvider.tsx
+msgid "Your email provider kept limiting requests, so loading stopped. Try again in a few minutes."
+msgstr "Tu proveedor de correo siguió limitando las solicitudes, así que la carga se detuvo. Vuelve a intentarlo en unos minutos."
 
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 msgid "Your feedback helps us learn"
