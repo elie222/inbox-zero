@@ -62,11 +62,12 @@ export async function resetBillingState() {
 }
 
 /**
- * Gives the signed-in user the plan the email app requires. Setup grants it so
- * most specs can open mail; specs that need a user without a plan call
- * resetBillingState first and this again when they finish.
+ * Gives a user the plan the email app requires. Setup grants it to the signed-in
+ * user so most specs can open mail; specs that need a user without a plan call
+ * resetBillingState first and this again when they finish. Teammates share it,
+ * like members on one organization plan.
  */
-export async function grantDefaultPlan() {
+export async function grantDefaultPlan(email = PLAYWRIGHT_TEST_EMAIL) {
   await withClient(async (client) => {
     await client.query(
       `INSERT INTO "Premium" (id, "createdAt", "updatedAt", "pendingInvites", tier, "adminGrantTier", "adminGrantExpiresAt")
@@ -77,10 +78,10 @@ export async function grantDefaultPlan() {
     );
     const result = await client.query(
       `UPDATE "User" SET "premiumId" = $2 WHERE email = $1`,
-      [PLAYWRIGHT_TEST_EMAIL, DEFAULT_PLAN_ID],
+      [email, DEFAULT_PLAN_ID],
     );
     if (result.rowCount !== 1) {
-      throw new Error("Could not find the Playwright user to grant a plan");
+      throw new Error(`Could not find the Playwright user ${email} for a plan`);
     }
   });
 }
