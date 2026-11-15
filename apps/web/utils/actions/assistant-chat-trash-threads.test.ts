@@ -248,6 +248,32 @@ describe("chat draft deletion", () => {
     });
   });
 
+  it("still deletes a thread's other drafts when one fails", async () => {
+    getThread.mockImplementation(async (threadId) => ({
+      id: threadId,
+      messages:
+        threadId === "thread-1"
+          ? [
+              { id: "draft-1", labelIds: ["DRAFT"] },
+              { id: "draft-2", labelIds: ["DRAFT"] },
+            ]
+          : [],
+    }));
+    deleteDraft.mockImplementation(
+      async (draftId) => draftId !== "draft-for-draft-1",
+    );
+    mockChatMessage(await runManageInboxTool("delete_drafts", "web"));
+
+    const result = await confirm();
+
+    expect(deleteDraft).toHaveBeenCalledWith("draft-for-draft-2", undefined);
+    expect(result.confirmationResult?.failedThreadIds).toEqual(["thread-1"]);
+    expect(addChatActionTotals).toHaveBeenCalledWith({
+      chatId: "chat-1",
+      counts: { drafts_deleted: 1 },
+    });
+  });
+
   it("deletes only the drafts in each thread and keeps the conversation", async () => {
     getThread.mockImplementation(async (threadId) => ({
       id: threadId,

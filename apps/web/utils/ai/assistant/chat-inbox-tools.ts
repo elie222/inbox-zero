@@ -1838,18 +1838,13 @@ export async function deleteChatDrafts({
       );
       // A thread with no drafts left is already in the requested state, which
       // also lets a retry succeed after an earlier attempt deleted them.
+      let failedDraftCount = 0;
       for (const draft of drafts) {
-        const reference = await emailProvider.getDraftReferenceForMessage(
-          draft.id,
-        );
-        if (!reference) throw new Error("Draft not found");
-        const deleted = await emailProvider.deleteDraft(
-          reference.id,
-          reference.version,
-        );
-        if (!deleted) throw new Error("Draft was not deleted");
-        deletedDraftCount += 1;
+        const deleted = await deleteDraftForMessage(emailProvider, draft.id);
+        if (deleted) deletedDraftCount += 1;
+        else failedDraftCount += 1;
       }
+      if (failedDraftCount) throw new Error("Some drafts were not deleted");
     },
   });
   const failedThreadIds = results
@@ -1860,6 +1855,20 @@ export async function deleteChatDrafts({
     failedThreadIds,
     deletedDraftCount,
   };
+}
+
+async function deleteDraftForMessage(
+  emailProvider: EmailProvider,
+  messageId: string,
+) {
+  try {
+    const reference =
+      await emailProvider.getDraftReferenceForMessage(messageId);
+    if (!reference) return false;
+    return await emailProvider.deleteDraft(reference.id, reference.version);
+  } catch {
+    return false;
+  }
 }
 
 async function runThreadActionsInParallel({
