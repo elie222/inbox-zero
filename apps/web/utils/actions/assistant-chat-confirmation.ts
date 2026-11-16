@@ -155,6 +155,7 @@ export async function confirmAssistantEmailActionForAccount({
   } catch (error) {
     await clearPendingPartProcessing({
       chatMessageId: reservation.chatMessageId,
+      processingAt: reservation.processingAt,
       emailAccountId,
       findPart,
     }).catch((processingError) => {
@@ -367,6 +368,7 @@ export async function confirmAssistantCreateRuleForAccount({
 
     await clearPendingPartProcessing({
       chatMessageId: reservation.chatMessageId,
+      processingAt: reservation.processingAt,
       emailAccountId,
       findPart,
     }).catch((processingError) => {
@@ -447,6 +449,7 @@ export async function confirmAssistantSaveMemoryForAccount({
   } catch (error) {
     await clearPendingPartProcessing({
       chatMessageId: reservation.chatMessageId,
+      processingAt: reservation.processingAt,
       emailAccountId,
       findPart,
     }).catch((processingError) => {
@@ -602,6 +605,7 @@ export async function confirmAssistantBulkInboxActionForAccount({
     }
     await clearPendingPartProcessing({
       chatMessageId: reservation.chatMessageId,
+      processingAt: reservation.processingAt,
       emailAccountId,
       findPart,
     }).catch((processingError) => {
@@ -760,6 +764,7 @@ export async function confirmAssistantTrashThreadsForAccount({
   } catch (error) {
     await clearPendingPartProcessing({
       chatMessageId: reservation.chatMessageId,
+      processingAt: reservation.processingAt,
       emailAccountId,
       findPart,
     }).catch((processingError) => {
@@ -1045,19 +1050,22 @@ function findPendingToolPart<TOutput>({
 }) {
   if (!Array.isArray(parts)) return null;
 
-  const index = parts.findIndex(
-    (part) =>
-      isRecord(part) &&
-      part.type === toolType &&
-      part.toolCallId === toolCallId,
-  );
-  if (index === -1) return null;
+  for (const [index, part] of parts.entries()) {
+    if (
+      !isRecord(part) ||
+      part.type !== toolType ||
+      part.toolCallId !== toolCallId
+    ) {
+      continue;
+    }
 
-  const part = parts[index] as Record<string, unknown>;
-  const parsed = schema.safeParse(part.output);
-  if (!parsed.success) return null;
+    const parsed = schema.safeParse(part.output);
+    if (parsed.success) {
+      return { index, output: parsed.data, parts, toolInput: part.input };
+    }
+  }
 
-  return { index, output: parsed.data, parts, toolInput: part.input };
+  return null;
 }
 
 function findPendingBulkInboxActionPart({
@@ -1273,8 +1281,10 @@ async function dismissPendingAssistantPart({
   if (state !== "pending" && !isAbandonedStart) {
     throw new SafeError("This action has already started.");
   }
-  if (isAbandonedStart) await cancelAbandonedStart(chatMessage.id);
+  const { confirmationProcessingAt } = lookup.output;
 
+  // Saved before cancelling the job, so a confirmation that took over the
+  // expired lease in the meantime makes this dismissal fail instead.
   await persistConfirmedAssistantPart({
     chatMessageId: chatMessage.id,
     emailAccountId,
@@ -1282,7 +1292,11 @@ async function dismissPendingAssistantPart({
     findPart,
     isConfirmed: (current) => current.output.confirmationState === "cancelled",
     buildParts: ({ parts, partIndex }) => {
-      if (findPart(parts)?.output.confirmationState !== state) {
+      const current = findPart(parts)?.output;
+      if (
+        current?.confirmationState !== state ||
+        current.confirmationProcessingAt !== confirmationProcessingAt
+      ) {
         throw new SafeError("This action has already started.");
       }
       return updateAssistantPartOutput({
@@ -1292,6 +1306,8 @@ async function dismissPendingAssistantPart({
       });
     },
   });
+
+  if (isAbandonedStart) await cancelAbandonedStart(chatMessage.id);
 
   return { confirmationState: "cancelled" as const };
 }
@@ -1334,7 +1350,12 @@ async function reservePendingAssistantPart<
   notFoundError: string;
 }): Promise<
   | { status: "confirmed"; value: TConfirmed }
-  | { status: "reserved"; chatMessageId: string; lookup: TLookup }
+  | {
+      status: "reserved";
+      chatMessageId: string;
+      lookup: TLookup;
+      processingAt: string;
+    }
 > {
   const findMessage = () =>
     findChatMessageForPendingAction({
@@ -1377,12 +1398,13 @@ async function reservePendingAssistantPart<
     throw new SafeError(inProgressError);
   }
 
+  const processingAt = new Date().toISOString();
   const processingParts = updateAssistantPartOutput({
     parts: lookup.parts,
     partIndex: lookup.index,
     outputPatch: {
       confirmationState: "processing",
-      confirmationProcessingAt: new Date().toISOString(),
+      confirmationProcessingAt: processingAt,
     },
   });
 
@@ -1402,6 +1424,7 @@ async function reservePendingAssistantPart<
       status: "reserved",
       chatMessageId: chatMessage.id,
       lookup,
+      processingAt,
     };
   }
 
@@ -1424,16 +1447,22 @@ async function reservePendingAssistantPart<
   throw new SafeError(inProgressError);
 }
 
+/** Returns a failed confirmation to pending, unless another request has since taken over its lease. */
 async function clearPendingPartProcessing({
   chatMessageId,
+  processingAt,
   emailAccountId,
   findPart,
 }: {
   chatMessageId?: string;
+  processingAt: string;
   emailAccountId: string;
   findPart: (parts: unknown) => {
     index: number;
-    output: { confirmationState: string };
+    output: {
+      confirmationState: string;
+      confirmationProcessingAt?: string | null;
+    };
     parts: unknown[];
   } | null;
 }) {
@@ -1453,7 +1482,12 @@ async function clearPendingPartProcessing({
   if (!chatMessage) return;
 
   const lookup = findPart(chatMessage.parts);
-  if (lookup?.output.confirmationState !== "processing") return;
+  if (
+    lookup?.output.confirmationState !== "processing" ||
+    lookup.output.confirmationProcessingAt !== processingAt
+  ) {
+    return;
+  }
 
   const pendingParts = updateAssistantPartOutput({
     parts: lookup.parts,

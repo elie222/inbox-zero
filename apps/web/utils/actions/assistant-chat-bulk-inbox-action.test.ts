@@ -126,11 +126,14 @@ describe("confirmAssistantBulkInboxActionForAccount", () => {
     const pending = buildPendingPart();
     prisma.chatMessage.findFirst
       .mockResolvedValueOnce(chatMessage(pending) as any)
-      .mockResolvedValue(
-        chatMessage({
-          ...pending,
-          output: { ...pending.output, confirmationState: "processing" },
-        }) as any,
+      // The reload sees the processing lease this request just saved.
+      .mockImplementation(
+        async () =>
+          ({
+            ...chatMessage(pending),
+            parts: (prisma.chatMessage.updateMany.mock.calls[0][0] as any).data
+              .parts,
+          }) as any,
       );
     vi.mocked(enqueueBulkInboxActionChunk).mockRejectedValue(
       new Error("queue down"),
@@ -262,6 +265,38 @@ describe("dismissAssistantBulkInboxActionForAccount", () => {
     const parts = (prisma.chatMessage.updateMany.mock.calls[0][0] as any).data
       .parts;
     expect(parts[0].output.confirmationState).toBe("cancelled");
+  });
+
+  it("leaves the job running when another confirmation takes over the expired start", async () => {
+    const pending = buildPendingPart();
+    const abandoned = chatMessage({
+      ...pending,
+      output: {
+        ...pending.output,
+        confirmationState: "processing",
+        confirmationProcessingAt: new Date(
+          Date.now() - 10 * 60 * 1000,
+        ).toISOString(),
+      },
+    });
+    prisma.chatMessage.findFirst
+      .mockResolvedValueOnce(abandoned as any)
+      .mockResolvedValue({
+        ...abandoned,
+        parts: [
+          {
+            ...pending,
+            output: {
+              ...pending.output,
+              confirmationState: "processing",
+              confirmationProcessingAt: new Date().toISOString(),
+            },
+          },
+        ],
+      } as any);
+
+    await expect(dismiss()).rejects.toThrow("already started");
+    expect(prisma.bulkInboxActionJob.updateMany).not.toHaveBeenCalled();
   });
 
   it("does not cancel a start that is still in progress", async () => {
