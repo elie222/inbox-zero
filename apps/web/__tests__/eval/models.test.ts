@@ -80,7 +80,7 @@ describe("shouldRunEvalTests", () => {
 
   it("allows openrouter eval presets when only LLM_API_KEY is configured", () => {
     process.env.RUN_AI_TESTS = "true";
-    process.env.EVAL_MODELS = "gemini-3-flash";
+    process.env.EVAL_MODELS = "gemini-3.8-flash";
     process.env.OPENROUTER_API_KEY = undefined;
     process.env.LLM_API_KEY = "shared-key";
 
@@ -104,7 +104,7 @@ describe("shouldRunEvalTests", () => {
 
   it("does not treat unrelated provider keys as valid for openrouter eval presets", () => {
     process.env.RUN_AI_TESTS = "true";
-    process.env.EVAL_MODELS = "gemini-3-flash";
+    process.env.EVAL_MODELS = "gemini-3.8-flash";
     process.env.OPENROUTER_API_KEY = undefined;
     process.env.LLM_API_KEY = undefined;
     process.env.OPENAI_API_KEY = "openai-key";
