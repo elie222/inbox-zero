@@ -365,15 +365,6 @@ function getAccountErrorMessage(
         msg`This account is already linked to your profile.`,
       ),
     },
-    provider_sign_in_required: {
-      title: i18n._(msg`Provider sign-in required`),
-      description: i18n._(
-        msg`Connecting or reconnecting a mailbox isn't available when you signed in with an email code. Sign in with Google or Microsoft and try again.`,
-      ),
-      toastDescription: i18n._(
-        msg`Connecting or reconnecting a mailbox isn't available when you signed in with an email code. Sign in with Google or Microsoft and try again.`,
-      ),
-    },
     invalid_state: {
       title: i18n._(msg`Invalid request`),
       description: i18n._(
