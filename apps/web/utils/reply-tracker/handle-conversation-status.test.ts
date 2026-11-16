@@ -114,7 +114,6 @@ describe("determineConversationStatus", () => {
 
     const args = vi.mocked(aiDetermineThreadStatus).mock.calls[0][0];
     expect(args.userSentLastEmail).toBe(true);
-    expect(args.sendAsEmails).toEqual(["studio@example.com"]);
   });
 
   it("still determines status when send-as addresses can't be loaded", async () => {
@@ -131,7 +130,6 @@ describe("determineConversationStatus", () => {
 
     const args = vi.mocked(aiDetermineThreadStatus).mock.calls[0][0];
     expect(args.userSentLastEmail).toBe(false);
-    expect(args.sendAsEmails).toEqual([]);
     expect(result.rule?.id).toBe("rule-fyi");
   });
 });

@@ -140,7 +140,6 @@ describe.runIf(shouldRunEval)("Eval: determine thread status", () => {
         const result = await aiDetermineThreadStatus({
           emailAccount,
           userSentLastEmail: true,
-          sendAsEmails: [STUDIO_ALIAS],
           threadMessages: getAliasQuoteThread(),
         });
 
@@ -166,7 +165,6 @@ describe.runIf(shouldRunEval)("Eval: determine thread status", () => {
         const result = await aiDetermineThreadStatus({
           emailAccount,
           userSentLastEmail: true,
-          sendAsEmails: [STUDIO_ALIAS],
           threadMessages: getAliasInvoiceThread(),
         });
 

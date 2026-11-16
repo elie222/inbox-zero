@@ -94,14 +94,12 @@ export async function aiDetermineThreadStatus({
   threadMessages,
   modelType,
   userSentLastEmail = false,
-  sendAsEmails = [],
   conversationRules = [],
 }: {
   emailAccount: EmailAccountWithAI;
   threadMessages: EmailForLLM[];
   modelType?: ModelType;
   userSentLastEmail?: boolean;
-  sendAsEmails?: string[];
   conversationRules?: RuleWithActions[];
 }): Promise<{ status: ConversationStatus; rationale: string }> {
   // If the user sent the last email, FYI is not an option: from their
@@ -134,7 +132,6 @@ export async function aiDetermineThreadStatus({
         threadMessages,
         modelType,
         userSentLastEmail,
-        sendAsEmails,
         definitions,
       }),
   });
@@ -145,14 +142,12 @@ export async function determineThreadStatusWithLlm({
   threadMessages,
   modelType,
   userSentLastEmail,
-  sendAsEmails = [],
   definitions,
 }: {
   emailAccount: EmailAccountWithAI;
   threadMessages: EmailForLLM[];
   modelType?: ModelType;
   userSentLastEmail: boolean;
-  sendAsEmails?: string[];
   definitions: { systemType: ConversationStatus; instructions: string }[];
 }): Promise<{ status: ConversationStatus; rationale: string }> {
   const statuses = definitions.map((definition) => definition.systemType);
@@ -162,7 +157,7 @@ export async function determineThreadStatusWithLlm({
     userSentLastEmail,
   });
 
-  const prompt = `${getUserInfoPrompt({ emailAccount, sendAsEmails })}
+  const prompt = `${getUserInfoPrompt({ emailAccount })}
 
 Email thread (in chronological order, oldest to newest):
 
@@ -173,7 +168,7 @@ ${getEmailListPrompt({
 })}
 </thread>
 
-Based on the full thread context above, determine the current status of this thread.`.trim();
+${userSentLastEmail ? "The user sent the latest message in this thread, so the other person owes the answer to any question it asks.\n\n" : ""}Based on the full thread context above, determine the current status of this thread.`.trim();
 
   const modelOptions = getModel(emailAccount.user, modelType);
 

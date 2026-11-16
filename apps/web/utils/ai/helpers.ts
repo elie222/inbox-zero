@@ -9,20 +9,14 @@ export function getTodayForLLM(date: Date = new Date()) {
 export const getUserInfoPrompt = ({
   emailAccount,
   prefix = "The user you are acting on behalf of is:",
-  sendAsEmails = [],
 }: {
   emailAccount: EmailAccountWithAI & { name?: string | null };
   prefix?: string;
-  sendAsEmails?: string[];
 }) => {
   const info = [
     {
       label: "email",
       value: emailAccount.email,
-    },
-    {
-      label: "also_sends_as",
-      value: sendAsEmails.join(", "),
     },
     {
       label: "name",

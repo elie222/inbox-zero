@@ -88,7 +88,6 @@ export async function determineConversationStatus({
     threadMessages: threadMessagesForLLM,
     modelType,
     userSentLastEmail,
-    sendAsEmails,
     conversationRules,
   });
 
