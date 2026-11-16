@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
@@ -130,6 +131,8 @@ async function getUser({
     })),
     hasAiApiKey: !!aiApiKey,
     hasWebhookSecret: !!webhookSecret,
+    // Native apps read plans from `premium`; this tells them the server grants everything.
+    premiumChecksBypassed: Boolean(env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS),
     canManageBilling: canManageBillingAccess,
     billingAccessDenial,
     members,
