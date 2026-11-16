@@ -67,14 +67,15 @@ export function getEvalModels(): EvalModel[] {
     .filter(Boolean)
     .map((name) => {
       const preset = EVAL_MODEL_CATALOG[name];
+      // Throw rather than skip: an empty list falls back to the default
+      // model, which would spend on a run nobody asked for.
       if (!preset) {
-        console.warn(
-          `Unknown eval model shorthand: "${name}". Available: ${Object.keys(EVAL_MODEL_CATALOG).join(", ")}`,
+        throw new Error(
+          `Unknown eval model shorthand: "${name}". Available: ${Object.keys(EVAL_MODEL_CATALOG).join(", ")}. Use a JSON array for other models.`,
         );
       }
       return preset;
-    })
-    .filter((m): m is EvalModel => m != null);
+    });
 }
 
 export function getEmailAccountForModel(

@@ -33,6 +33,12 @@ describe("shouldRunEvalTests", () => {
     ]);
   });
 
+  it("rejects unknown shorthands instead of falling back to the default model", () => {
+    process.env.EVAL_MODELS = "gpt-6-luna,gemini-3.8-flash";
+
+    expect(() => getEvalModels()).toThrow(/gemini-3\.8-flash/);
+  });
+
   it("allows openrouter eval presets when only LLM_API_KEY is configured", () => {
     process.env.RUN_AI_TESTS = "true";
     process.env.EVAL_MODELS = "gpt-6-luna";
