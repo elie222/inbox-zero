@@ -102,6 +102,26 @@ describe("confirmAssistantBulkInboxActionForAccount", () => {
     expect(result.confirmationResult?.jobId).toBe("job-1");
   });
 
+  it("stops its job when the action was dismissed while it was starting", async () => {
+    const pending = buildPendingPart();
+    prisma.chatMessage.findFirst
+      .mockResolvedValueOnce(chatMessage(pending) as any)
+      .mockResolvedValue(
+        chatMessage({
+          ...pending,
+          output: { ...pending.output, confirmationState: "cancelled" },
+        }) as any,
+      );
+    prisma.bulkInboxActionJob.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(confirm()).rejects.toThrow("cancelled");
+
+    expect(prisma.bulkInboxActionJob.updateMany).toHaveBeenCalledWith({
+      where: { id: "job-1", emailAccountId: "ea_1", status: "RUNNING" },
+      data: expect.objectContaining({ status: "CANCELLED" }),
+    });
+  });
+
   it("does not start another job when the action was already confirmed", async () => {
     mockChatMessage({
       ...buildPendingPart(),

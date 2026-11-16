@@ -621,6 +621,7 @@ export async function confirmAssistantBulkInboxActionForAccount({
 
   const confirmationResult = { jobId, confirmedAt: new Date().toISOString() };
 
+  let wasDismissed = false;
   try {
     await persistConfirmedAssistantPart({
       chatMessageId: reservation.chatMessageId,
@@ -629,14 +630,27 @@ export async function confirmAssistantBulkInboxActionForAccount({
       findPart,
       isConfirmed: (lookup) =>
         lookup.output.confirmationResult?.jobId === jobId,
-      buildParts: ({ parts, partIndex }) =>
-        updateAssistantPartOutput({
+      buildParts: ({ parts, partIndex }) => {
+        // The user dismissed it after this request's lease expired.
+        if (findPart(parts)?.output.confirmationState === "cancelled") {
+          wasDismissed = true;
+          throw new Error("Bulk inbox action was dismissed");
+        }
+        return updateAssistantPartOutput({
           parts,
           partIndex,
           outputPatch: { confirmationState: "confirmed", confirmationResult },
-        }),
+        });
+      },
     });
   } catch (error) {
+    if (wasDismissed) {
+      await prisma.bulkInboxActionJob.updateMany({
+        where: { id: jobId, emailAccountId, status: "RUNNING" },
+        data: { status: "CANCELLED", completedAt: new Date() },
+      });
+      throw new SafeError("This action was cancelled.");
+    }
     // The job is queued and runs either way, so the card should show its
     // progress. After a reload the stored part is still processing; once that
     // lease expires, confirming again reuses this job and saves it.
