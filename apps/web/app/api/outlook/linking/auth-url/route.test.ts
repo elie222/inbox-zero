@@ -34,14 +34,9 @@ vi.mock("@/utils/outlook/client", () => ({
   getLinkingOAuth2Url: mockGetLinkingOAuth2Url,
 }));
 
-vi.mock("@/utils/oauth/account-linking", async (importActual) => {
-  const actual =
-    await importActual<typeof import("@/utils/oauth/account-linking")>();
-  return {
-    getMailboxLinkingBlockedResponse: actual.getMailboxLinkingBlockedResponse,
-    hasActiveAccountLinkingUser: mockHasActiveAccountLinkingUser,
-  };
-});
+vi.mock("@/utils/oauth/account-linking", () => ({
+  hasActiveAccountLinkingUser: mockHasActiveAccountLinkingUser,
+}));
 
 vi.mock("@/utils/oauth/reconnect-target", () => ({
   findReconnectTarget: mockFindReconnectTarget,
@@ -67,13 +62,12 @@ describe("outlook linking auth-url route", () => {
     expect(body.url).toContain("https://login.microsoftonline.com/authorize");
   });
 
-  it("does not let an email code session start mailbox linking", async () => {
+  it("lets an email code session start mailbox linking", async () => {
     mockAuthState.emailOtp = true;
 
     const response = await GET(createRequest(), {} as never);
 
-    expect(response.status).toBe(403);
-    expect(mockGetLinkingOAuth2Url).not.toHaveBeenCalled();
-    expect(response.cookies.get("outlook_linking_state")).toBeUndefined();
+    expect(response.status).toBe(200);
+    expect(mockGetLinkingOAuth2Url).toHaveBeenCalled();
   });
 });
