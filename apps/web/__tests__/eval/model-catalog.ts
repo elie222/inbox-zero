@@ -30,11 +30,6 @@ export const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
     model: "google/gemini-3.1-flash-lite",
     label: "Gemini 3.1 Flash Lite",
   },
-  "gemini-3-flash": {
-    provider: "openrouter",
-    model: "google/gemini-3-flash",
-    label: "Gemini 3 Flash",
-  },
   "gemini-2.5-flash": {
     provider: "openrouter",
     model: "google/gemini-2.5-flash",
