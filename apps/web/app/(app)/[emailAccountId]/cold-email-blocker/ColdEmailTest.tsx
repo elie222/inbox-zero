@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import {
   Card,
   CardDescription,
@@ -10,11 +11,15 @@ export function ColdEmailTest() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Test cold email blocker</CardTitle>
+        <CardTitle>
+          <Trans>Test cold email blocker</Trans>
+        </CardTitle>
 
         <CardDescription>
-          Check how your the cold email blocker performs against previous
-          emails.
+          <Trans>
+            Check how your the cold email blocker performs against previous
+            emails.
+          </Trans>
         </CardDescription>
       </CardHeader>
       <TestRulesContent />

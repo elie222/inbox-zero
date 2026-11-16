@@ -16,6 +16,7 @@ import {
   getInboxZeroDesktopApp,
   shouldCheckForDesktopWebUpdate,
 } from "@/utils/desktop-app";
+import { claimAutomaticReload } from "@/utils/automatic-reload";
 import {
   isSafeToReload,
   reloadAtNextSafeMoment,
@@ -23,7 +24,6 @@ import {
 } from "@/utils/safe-reload";
 
 const DESKTOP_WEB_UPDATE_RELOAD_GRACE_MS = 3000;
-const DESKTOP_WEB_UPDATE_ACTIVATION_TIMEOUT_MS = 5000;
 
 export function GlobalProviders(props: { children: React.ReactNode }) {
   return (
@@ -65,7 +65,6 @@ function ManageServiceWorker() {
     let refreshing = false;
     let cancelPendingUpdate: (() => void) | undefined;
     let reloadOnControllerChange = false;
-    let activationTimeout: number | undefined;
 
     const saveOfflineMail = () => {
       saveOfflineMailPage(
@@ -81,6 +80,10 @@ function ManageServiceWorker() {
         return;
       }
       cancelPendingUpdate?.();
+      if (!claimAutomaticReload()) {
+        cancelPendingUpdate = reloadAtNextSafeMoment(reloadForUpdate);
+        return;
+      }
       refreshing = true;
       window.location.reload();
     };
@@ -91,10 +94,6 @@ function ManageServiceWorker() {
       if (!waiting) return;
       reloadOnControllerChange = true;
       waiting.postMessage({ type: SKIP_WAITING });
-      activationTimeout = window.setTimeout(
-        reloadForUpdate,
-        DESKTOP_WEB_UPDATE_ACTIVATION_TIMEOUT_MS,
-      );
     };
 
     const handleWaitingWorker = () => {
@@ -139,7 +138,6 @@ function ManageServiceWorker() {
           isDesktopApp &&
           Date.now() - pageLoadedAt >= DESKTOP_WEB_UPDATE_RELOAD_GRACE_MS)
       ) {
-        window.clearTimeout(activationTimeout);
         reloadForUpdate();
       }
       hadController = true;
@@ -191,7 +189,6 @@ function ManageServiceWorker() {
 
     return () => {
       cancelPendingUpdate?.();
-      window.clearTimeout(activationTimeout);
       stopWatchingForWaiting?.();
       navigator.serviceWorker.removeEventListener(
         "controllerchange",

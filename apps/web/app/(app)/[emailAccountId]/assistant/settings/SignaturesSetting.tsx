@@ -1,5 +1,7 @@
 "use client";
 
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,16 +45,17 @@ type EditingSignature = { id?: string; name: string; html: string };
 type FoundSignature = { html: string; count: number };
 
 export function SignaturesSetting() {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
 
   return (
     <SettingCard
-      title="More signatures"
-      description="Switch between signatures when you write, like one per language."
+      title={t`More signatures`}
+      description={t`Switch between signatures when you write, like one per language.`}
       right={
         <>
           <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-            Manage
+            <Trans>Manage</Trans>
           </Button>
           <SignaturesDialog open={open} onOpenChange={setOpen} />
         </>
@@ -76,11 +79,18 @@ export function SignaturesDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[80vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Signatures</DialogTitle>
+          <DialogTitle>
+            <Trans>Signatures</Trans>
+          </DialogTitle>
           <DialogDescription>
-            {needsDefault
-              ? "Pick the signature to add to emails you send."
-              : "Pick one of these instead of your default signature when you compose."}
+            {needsDefault ? (
+              <Trans>Pick the signature to add to emails you send.</Trans>
+            ) : (
+              <Trans>
+                Pick one of these instead of your default signature when you
+                compose.
+              </Trans>
+            )}
           </DialogDescription>
         </DialogHeader>
         {open && (
@@ -98,6 +108,7 @@ function SignaturesManager({
   initialFound?: FoundSignature[];
   needsDefault: boolean;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { data, error, isLoading, mutate } = useSWR<GetSignatureResponse>(
     getAccountScopedKey("/api/user/signature", emailAccountId),
@@ -117,12 +128,12 @@ function SignaturesManager({
     const result = await saveDefault({ signature: html });
     if (result?.serverError || result?.validationErrors) {
       toastError({
-        title: "Error saving signature",
-        description: result.serverError ?? "This signature is too long.",
+        title: t`Error saving signature`,
+        description: result.serverError ?? t`This signature is too long.`,
       });
       return;
     }
-    toastSuccess({ description: "Signature saved" });
+    toastSuccess({ description: t`Signature saved` });
     setHasDefault(true);
     setFound((items) => items.filter((item) => item.html !== html));
     mutate();
@@ -135,7 +146,7 @@ function SignaturesManager({
     const result = await findSent();
     if (result?.serverError) {
       toastError({
-        title: "Error searching sent mail",
+        title: t`Error searching sent mail`,
         description: result.serverError,
       });
       return;
@@ -143,8 +154,8 @@ function SignaturesManager({
     const sentSignatures = result?.data?.signatures ?? [];
     if (sentSignatures.length === 0)
       toastInfo({
-        title: "No new signatures found",
-        description: "Your recent sent mail only uses signatures you have.",
+        title: t`No new signatures found`,
+        description: t`Your recent sent mail only uses signatures you have.`,
       });
     setFound(sentSignatures);
   };
@@ -154,7 +165,7 @@ function SignaturesManager({
       <div className="flex flex-wrap gap-2">
         <Button size="sm" onClick={() => setEditing({ name: "", html: "" })}>
           <Plus className="mr-2 size-4" />
-          Add
+          <Trans>Add</Trans>
         </Button>
         <Button
           size="sm"
@@ -163,13 +174,15 @@ function SignaturesManager({
           onClick={handleFind}
         >
           <Search className="mr-2 size-4" />
-          Find in sent mail
+          <Trans>Find in sent mail</Trans>
         </Button>
       </div>
 
       {found.length > 0 && (
         <div className="space-y-2">
-          <h4 className="font-medium text-sm">Found in your sent mail</h4>
+          <h4 className="font-medium text-sm">
+            <Trans>Found in your sent mail</Trans>
+          </h4>
           {found.map((item) => (
             <Card key={item.html} className="flex items-start gap-4 p-3">
               <div className="flex-1">
@@ -178,8 +191,10 @@ function SignaturesManager({
                   className="h-28 min-h-0"
                 />
                 <p className="mt-1 text-muted-foreground text-xs">
-                  Used in {item.count} recent{" "}
-                  {item.count === 1 ? "email" : "emails"}
+                  {t`Used in ${plural(item.count, {
+                    one: "# recent email",
+                    other: "# recent emails",
+                  })}`}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -189,7 +204,7 @@ function SignaturesManager({
                     loading={isSavingDefault}
                     onClick={() => handleUseAsDefault(item.html)}
                   >
-                    Use as default
+                    <Trans>Use as default</Trans>
                   </Button>
                 )}
                 <Button
@@ -197,7 +212,7 @@ function SignaturesManager({
                   variant="outline"
                   onClick={() => setEditing({ name: "", html: item.html })}
                 >
-                  Add
+                  <Trans>Add</Trans>
                 </Button>
               </div>
             </Card>
@@ -208,8 +223,10 @@ function SignaturesManager({
       <LoadingContent loading={isLoading} error={error}>
         {signatures.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            No other signatures yet. Add one, or find the ones you already use
-            in your sent mail.
+            <Trans>
+              No other signatures yet. Add one, or find the ones you already use
+              in your sent mail.
+            </Trans>
           </p>
         ) : (
           <div className="space-y-2">
@@ -240,10 +257,14 @@ function SignaturesManager({
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {editing?.id ? "Edit signature" : "Add signature"}
+              {editing?.id ? (
+                <Trans>Edit signature</Trans>
+              ) : (
+                <Trans>Add signature</Trans>
+              )}
             </DialogTitle>
             <DialogDescription className="sr-only">
-              Name the signature and set its content.
+              <Trans>Name the signature and set its content.</Trans>
             </DialogDescription>
           </DialogHeader>
           {editing && (
@@ -271,6 +292,7 @@ function SignatureRow({
   onEdit: () => void;
   onDeleted: () => void;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -285,12 +307,12 @@ function SignatureRow({
       </div>
       <div className="flex gap-2">
         <Button size="sm" variant="outline" onClick={onEdit}>
-          Edit
+          <Trans>Edit</Trans>
         </Button>
         <ConfirmDialog
-          title="Delete signature"
-          description={`Delete ${signature.name}? This cannot be undone.`}
-          confirmText="Delete"
+          title={t`Delete signature`}
+          description={t`Delete ${signature.name}? This cannot be undone.`}
+          confirmText={t`Delete`}
           onConfirm={async () => {
             try {
               setIsDeleting(true);
@@ -299,12 +321,12 @@ function SignatureRow({
               });
               if (result?.serverError) {
                 toastError({
-                  title: "Error deleting signature",
+                  title: t`Error deleting signature`,
                   description: result.serverError,
                 });
                 return;
               }
-              toastSuccess({ description: "Signature deleted" });
+              toastSuccess({ description: t`Signature deleted` });
               onDeleted();
             } finally {
               setIsDeleting(false);
@@ -312,7 +334,7 @@ function SignatureRow({
           }}
           trigger={
             <Button
-              aria-label={`Delete ${signature.name}`}
+              aria-label={t`Delete ${signature.name}`}
               loading={isDeleting}
               size="sm"
               variant="outline"
@@ -333,6 +355,7 @@ function SignatureForm({
   signature: EditingSignature;
   onSaved: (html: string) => void;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const {
     register,
@@ -353,12 +376,12 @@ function SignatureForm({
       : await createSignatureAction(emailAccountId, values);
     if (result?.serverError) {
       toastError({
-        title: "Error saving signature",
+        title: t`Error saving signature`,
         description: result.serverError,
       });
       return;
     }
-    toastSuccess({ description: "Signature saved" });
+    toastSuccess({ description: t`Signature saved` });
     onSaved(signature.html);
   };
 
@@ -367,8 +390,8 @@ function SignatureForm({
       <Input
         type="text"
         name="name"
-        label="Name"
-        placeholder="German"
+        label={t`Name`}
+        placeholder={t`German`}
         registerProps={register("name")}
         error={errors.name}
       />
@@ -378,14 +401,14 @@ function SignatureForm({
           autosizeTextarea
           rows={8}
           name="html"
-          label="Signature (HTML supported)"
+          label={t`Signature (HTML supported)`}
           registerProps={register("html")}
           error={errors.html}
         />
         <SignaturePreview signature={watch("html")} />
       </div>
       <Button type="submit" loading={isSubmitting}>
-        Save signature
+        <Trans>Save signature</Trans>
       </Button>
     </form>
   );

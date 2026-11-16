@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -32,8 +33,12 @@ export function Integrations() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Connection</TableHead>
+              <TableHead>
+                <Trans>Name</Trans>
+              </TableHead>
+              <TableHead>
+                <Trans>Connection</Trans>
+              </TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -49,7 +54,9 @@ export function Integrations() {
             ) : (
               <TableRow>
                 <TableCell colSpan={3}>
-                  <TypographyP>No integrations found</TypographyP>
+                  <TypographyP>
+                    <Trans>No integrations found</Trans>
+                  </TypographyP>
                 </TableCell>
               </TableRow>
             )}
@@ -63,6 +70,7 @@ export function Integrations() {
 function useIntegrationNotifications(
   integrations: GetIntegrationsResponse["integrations"] | undefined,
 ) {
+  const { t } = useLingui();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -80,36 +88,30 @@ function useIntegrationNotifications(
         { title: string; description: string }
       > = {
         cancelled: {
-          title: "Connection cancelled",
-          description:
-            "You cancelled the authorization. Connect again whenever you're ready.",
+          title: t`Connection cancelled`,
+          description: t`You cancelled the authorization. Connect again whenever you're ready.`,
         },
         oauth_error: {
-          title: "Connection failed",
-          description:
-            "The service returned an authorization error. Please try again.",
+          title: t`Connection failed`,
+          description: t`The service returned an authorization error. Please try again.`,
         },
         connection_failed: {
-          title: "Connection failed",
-          description:
-            "We couldn't complete the connection. Please try again or contact support.",
+          title: t`Connection failed`,
+          description: t`We couldn't complete the connection. Please try again or contact support.`,
         },
         tool_sync_failed: {
-          title: "Connected, but tools unavailable",
-          description:
-            "We couldn't load this integration's tools. Reconnect to try again.",
+          title: t`Connected, but tools unavailable`,
+          description: t`We couldn't load this integration's tools. Reconnect to try again.`,
         },
         forbidden: {
-          title: "Connection failed",
-          description:
-            "This account isn't authorized to complete the connection. Please try again.",
+          title: t`Connection failed`,
+          description: t`This account isn't authorized to complete the connection. Please try again.`,
         },
       };
 
       const errorMessage = errorMessages[errorParam] || {
-        title: "Connection failed",
-        description:
-          "We couldn't complete the connection. Please try again or contact support.",
+        title: t`Connection failed`,
+        description: t`We couldn't complete the connection. Please try again or contact support.`,
       };
 
       toastError(errorMessage);
@@ -122,8 +124,8 @@ function useIntegrationNotifications(
     } else if (connectedParam) {
       const displayName = getDisplayName(connectedParam, integrations);
       toastSuccess({
-        title: "Integration connected",
-        description: `Connected to ${displayName}`,
+        title: t`Integration connected`,
+        description: t`Connected to ${displayName}`,
       });
       analytics.captureAction("integration_connected", {
         integration: connectedParam,
@@ -131,8 +133,8 @@ function useIntegrationNotifications(
     } else if (pendingParam) {
       const displayName = getDisplayName(pendingParam, integrations);
       toastInfo({
-        title: "Connection is still finishing",
-        description: `We're still connecting to ${displayName}. Refresh in a moment to see the latest status.`,
+        title: t`Connection is still finishing`,
+        description: t`We're still connecting to ${displayName}. Refresh in a moment to see the latest status.`,
       });
       analytics.captureAction("integration_connection_pending", {
         integration: pendingParam,
@@ -140,7 +142,7 @@ function useIntegrationNotifications(
     }
 
     router.replace(pathname);
-  }, [analytics, integrations, pathname, router, searchParams]);
+  }, [analytics, integrations, pathname, router, searchParams, t]);
 }
 
 function getDisplayName(

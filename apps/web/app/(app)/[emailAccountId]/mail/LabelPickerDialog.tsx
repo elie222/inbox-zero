@@ -1,5 +1,8 @@
 "use client";
 
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useMemo, useRef, useState } from "react";
 import { Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
@@ -15,7 +18,9 @@ import {
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useFolders } from "@/hooks/useFolders";
+import { useLabelCounts } from "@/hooks/useLabelCounts";
 import { isLabelsKey, useLabels } from "@/hooks/useLabels";
+import type { EmailLabel } from "@/providers/email-label-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { createLabelAction } from "@/utils/actions/mail";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
@@ -24,13 +29,15 @@ import {
   FOLDER_SEPARATOR,
   flattenOutlookFolders,
 } from "@/utils/outlook/folders";
+import { getLabelTree, type SidebarLabel } from "./label-tree";
+import { splitLabelsByListVisibility } from "./label-visibility";
 
-const GMAIL_CATEGORY_NAMES: Record<string, string> = {
-  CATEGORY_PERSONAL: "Personal",
-  CATEGORY_SOCIAL: "Social",
-  CATEGORY_PROMOTIONS: "Promotions",
-  CATEGORY_UPDATES: "Updates",
-  CATEGORY_FORUMS: "Forums",
+const GMAIL_CATEGORY_NAMES: Record<string, MessageDescriptor> = {
+  CATEGORY_PERSONAL: msg`Personal`,
+  CATEGORY_SOCIAL: msg`Social`,
+  CATEGORY_PROMOTIONS: msg`Promotions`,
+  CATEGORY_UPDATES: msg`Updates`,
+  CATEGORY_FORUMS: msg`Forums`,
 };
 
 export function LabelPickerDialog({
@@ -48,6 +55,7 @@ export function LabelPickerDialog({
   ) => Promise<string[]>;
   mode?: "label" | "move";
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId, provider } = useAccount();
   const isMove = mode === "move";
   // Outlook categories don't change where a message lives, so moves target real folders.
@@ -57,6 +65,11 @@ export function LabelPickerDialog({
     isLoading: isLoadingLabels,
     error: labelsError,
   } = useLabels(emailAccountId);
+  const { countsById } = useLabelCounts({
+    emailAccountId,
+    labels: userLabels,
+    folders: [],
+  });
   const { mutate } = useSWRConfig();
   const {
     folders,
@@ -70,25 +83,35 @@ export function LabelPickerDialog({
   const createdLabel = useRef<{ name: string; id: string } | null>(null);
   const name = search.trim();
   const labels = useMemo(() => {
-    const options = isFolderMove
-      ? flattenOutlookFolders(folders)
-          .filter((folder) => !folder.systemType)
-          .map((folder) => ({
-            id: folder.id,
-            name: folder.displayName,
-            displayName: folder.path.split(FOLDER_SEPARATOR).join(" / "),
-          }))
-      : userLabels.map((label) => ({
-          id: label.id,
-          name: label.name,
-          displayName: getLabelDisplayName(label.id, label.name),
-        }));
-    return options.sort(
-      (a, b) =>
-        a.displayName.localeCompare(b.displayName, "en") ||
-        a.id.localeCompare(b.id, "en"),
-    );
-  }, [isFolderMove, folders, userLabels]);
+    if (isFolderMove) {
+      return flattenOutlookFolders(folders)
+        .filter((folder) => !folder.systemType)
+        .map((folder) => ({
+          id: folder.id,
+          name: folder.displayName,
+          displayName: folder.path.split(FOLDER_SEPARATOR).join(" / "),
+        }))
+        .sort(
+          (a, b) =>
+            a.displayName.localeCompare(b.displayName, "en") ||
+            a.id.localeCompare(b.id, "en"),
+        );
+    }
+    const { visibleLabels, hiddenLabels } = splitLabelsByListVisibility({
+      labels: userLabels,
+      countsById,
+    });
+    return [
+      ...flattenLabelTree(
+        getLabelTree(visibleLabels, !isMicrosoftProvider(provider)),
+      ),
+      ...hiddenLabels,
+    ].map((label) => ({
+      id: label.id,
+      name: label.name,
+      displayName: getLabelDisplayName(i18n, label.id, label.name),
+    }));
+  }, [isFolderMove, folders, userLabels, countsById, provider, i18n]);
   const canCreate =
     !isFolderMove &&
     name.length > 0 &&
@@ -130,8 +153,8 @@ export function LabelPickerDialog({
         error instanceof Error
           ? error.message
           : isMove
-            ? "Couldn't move conversations. Please try again."
-            : "Couldn't apply label. Please try again.",
+            ? t`Couldn't move conversations. Please try again.`
+            : t`Couldn't apply label. Please try again.`,
       );
     } finally {
       pending.current = false;
@@ -153,13 +176,17 @@ export function LabelPickerDialog({
         onEscapeKeyDown={(event) => event.stopPropagation()}
       >
         <DialogTitle className="sr-only">
-          {isMove ? "Move conversations" : "Label conversations"}
+          {isMove ? (
+            <Trans>Move conversations</Trans>
+          ) : (
+            <Trans>Label conversations</Trans>
+          )}
         </DialogTitle>
         <Command className="[&_[cmdk-input-wrapper]>svg]:hidden">
           <CommandInput
-            aria-label={isFolderMove ? "Search folders" : "Search labels"}
+            aria-label={isFolderMove ? t`Search folders` : t`Search labels`}
             className="pr-8"
-            placeholder={isMove ? "Move to…" : "Label as…"}
+            placeholder={isMove ? t`Move to…` : t`Label as…`}
             value={search}
             onValueChange={setSearch}
             disabled={isPending}
@@ -170,7 +197,11 @@ export function LabelPickerDialog({
           >
             <CommandList aria-busy={isPending}>
               <CommandEmpty>
-                {isFolderMove ? "No matching folders." : "No matching labels."}
+                {isFolderMove ? (
+                  <Trans>No matching folders.</Trans>
+                ) : (
+                  <Trans>No matching labels.</Trans>
+                )}
               </CommandEmpty>
               <CommandGroup>
                 {labels.map((label) => (
@@ -190,7 +221,9 @@ export function LabelPickerDialog({
                     onSelect={() => apply()}
                     disabled={isPending}
                   >
-                    <span className="break-all">Create “{name}”</span>
+                    <span className="break-all">
+                      <Trans>Create “{name}”</Trans>
+                    </span>
                   </CommandItem>
                 )}
               </CommandGroup>
@@ -204,7 +237,7 @@ export function LabelPickerDialog({
           >
             <Loader2Icon aria-hidden className="size-4 animate-spin" />
             <span className="sr-only">
-              {isMove ? "Moving…" : "Applying label…"}
+              {isMove ? <Trans>Moving…</Trans> : <Trans>Applying label…</Trans>}
             </span>
           </div>
         )}
@@ -213,6 +246,14 @@ export function LabelPickerDialog({
   );
 }
 
-function getLabelDisplayName(id: string, name: string) {
-  return GMAIL_CATEGORY_NAMES[id] ?? name;
+function getLabelDisplayName(i18n: I18n, id: string, name: string) {
+  const categoryName = GMAIL_CATEGORY_NAMES[id];
+  return categoryName ? i18n._(categoryName) : name;
+}
+
+function flattenLabelTree(nodes: SidebarLabel[]): EmailLabel[] {
+  return nodes.flatMap((node) => [
+    node.label,
+    ...flattenLabelTree(node.children),
+  ]);
 }

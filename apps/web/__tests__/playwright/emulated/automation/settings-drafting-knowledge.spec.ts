@@ -23,7 +23,7 @@ test.afterEach(async () => {
   settingsCleanup = undefined;
 });
 
-test("enables drafting and manages persisted draft knowledge", async ({
+test("enables drafting, manages draft knowledge, and turns drafting off without stopping To Reply labels", async ({
   page,
 }) => {
   test.setTimeout(360_000);
@@ -51,7 +51,7 @@ test("enables drafting and manages persisted draft knowledge", async ({
     .toBe(true);
 
   await page.goto(`/${emailAccountId}/automation?tab=settings`);
-  const autoDraftItem = getAutomationSettingsCard(page, "Auto draft replies");
+  const autoDraftItem = getAutomationSettingsCard(page, "Draft replies");
   const autoDraftSwitch = autoDraftItem.getByRole("switch");
   await expectVisibleAfterTransientFetch(page, autoDraftSwitch);
   await expect(autoDraftSwitch).not.toBeChecked();
@@ -140,4 +140,23 @@ test("enables drafting and manages persisted draft knowledge", async ({
     })
     .toBeUndefined();
   await expect(updatedRow).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(knowledgeDialog).toBeHidden();
+
+  await autoDraftSwitch.click();
+  await expect
+    .poll(
+      async () => {
+        const state = await getAutomationSettingsState(emailAccountId);
+        return {
+          drafting: state.draftActionTypes.includes("DRAFT_EMAIL"),
+          toReplyRuleEnabled: state.toReplyRuleEnabled,
+        };
+      },
+      { timeout: SERVER_ACTION_TIMEOUT_MS },
+    )
+    .toEqual({ drafting: false, toReplyRuleEnabled: true });
+  await page.reload();
+  await expectVisibleAfterTransientFetch(page, autoDraftSwitch);
+  await expect(autoDraftSwitch).not.toBeChecked();
 });

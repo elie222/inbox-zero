@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
@@ -10,6 +11,8 @@ const DESKTOP_MAILBOX_OPENING_TOAST_ID = "desktop-mailbox-opening";
 const SHOW_AFTER_MS = 1500;
 
 export function DesktopMailboxOpeningToast() {
+  const { t } = useLingui();
+
   useEffect(() => {
     const desktop = getInboxZeroDesktopApp();
     if (!desktop?.onMailEngineOpening) return;
@@ -21,9 +24,9 @@ export function DesktopMailboxOpeningToast() {
         return;
       }
       timer = setTimeout(() => {
-        toast.loading("Updating your mailbox…", {
+        toast.loading(t`Updating your mailbox…`, {
           id: DESKTOP_MAILBOX_OPENING_TOAST_ID,
-          description: "This can take up to a minute after an app update.",
+          description: t`This can take up to a minute after an app update.`,
           duration: Number.POSITIVE_INFINITY,
         });
       }, SHOW_AFTER_MS);
@@ -33,7 +36,7 @@ export function DesktopMailboxOpeningToast() {
       unsubscribe();
       toast.dismiss(DESKTOP_MAILBOX_OPENING_TOAST_ID);
     };
-  }, []);
+  }, [t]);
 
   return null;
 }

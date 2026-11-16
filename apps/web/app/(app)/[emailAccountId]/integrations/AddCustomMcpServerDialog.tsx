@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAction } from "next-safe-action/hooks";
@@ -35,6 +36,7 @@ import { getActionErrorMessage } from "@/utils/error";
 import { startMcpOAuth } from "./startMcpOAuth";
 
 export function AddCustomMcpServerDialog() {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { mutate } = useIntegrations();
   const { isOpen, onToggle, onClose } = useDialogState();
@@ -62,7 +64,7 @@ export function AddCustomMcpServerDialog() {
         onClose();
 
         if (input.authType !== "oauth") {
-          toastSuccess({ description: "Server added" });
+          toastSuccess({ description: t`Server added` });
           return;
         }
 
@@ -75,11 +77,11 @@ export function AddCustomMcpServerDialog() {
           });
         } catch (error) {
           toastError({
-            title: "Error connecting to the server",
+            title: t`Error connecting to the server`,
             description:
               error instanceof Error && error.message
                 ? error.message
-                : "Please try again or contact support if the issue persists.",
+                : t`Please try again or contact support if the issue persists.`,
           });
         }
       },
@@ -92,13 +94,19 @@ export function AddCustomMcpServerDialog() {
   return (
     <Dialog open={isOpen} onOpenChange={onToggle}>
       <DialogTrigger asChild>
-        <Button variant="outline">Add custom server</Button>
+        <Button variant="outline">
+          <Trans>Add custom server</Trans>
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add custom server</DialogTitle>
+          <DialogTitle>
+            <Trans>Add custom server</Trans>
+          </DialogTitle>
           <DialogDescription>
-            Connect your own remote MCP server so drafts can read from it.
+            <Trans>
+              Connect your own remote MCP server so drafts can read from it.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
 
@@ -106,15 +114,15 @@ export function AddCustomMcpServerDialog() {
           <Input
             type="text"
             name="displayName"
-            label="Name"
-            placeholder="Knowledge base"
+            label={t`Name`}
+            placeholder={t`Knowledge base`}
             registerProps={register("displayName")}
             error={errors.displayName}
           />
           <Input
             type="text"
             name="serverUrl"
-            label="Server URL"
+            label={t`Server URL`}
             placeholder="https://mcp.example.com/mcp"
             registerProps={register("serverUrl")}
             error={errors.serverUrl}
@@ -122,7 +130,7 @@ export function AddCustomMcpServerDialog() {
 
           <div className="space-y-1">
             <label className="font-medium text-sm" htmlFor="authType">
-              Authentication
+              <Trans>Authentication</Trans>
             </label>
             <Controller
               name="authType"
@@ -134,8 +142,12 @@ export function AddCustomMcpServerDialog() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="oauth">OAuth</SelectItem>
-                    <SelectItem value="api-token">API key</SelectItem>
-                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="api-token">
+                      <Trans>API key</Trans>
+                    </SelectItem>
+                    <SelectItem value="none">
+                      <Trans>None</Trans>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -146,20 +158,22 @@ export function AddCustomMcpServerDialog() {
             <Input
               type="password"
               name="apiKey"
-              label="API key"
+              label={t`API key`}
               registerProps={register("apiKey")}
               error={errors.apiKey}
             />
           )}
 
           <MutedText>
-            Read-only tools are enabled automatically. Other tools stay off
-            until you turn them on.
+            <Trans>
+              Read-only tools are enabled automatically. Other tools stay off
+              until you turn them on.
+            </Trans>
           </MutedText>
 
           <DialogFooter>
             <Button type="submit" loading={isExecuting}>
-              Add server
+              <Trans>Add server</Trans>
             </Button>
           </DialogFooter>
         </form>

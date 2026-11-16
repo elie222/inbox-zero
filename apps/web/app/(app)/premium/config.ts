@@ -336,37 +336,6 @@ export function getPremiumTierName(
   return tierMap[tier] ?? "Premium";
 }
 
-// Uses the Stripe price rather than the effective tier, which an admin grant
-// can raise above what the subscription actually bills.
-export function getBillingIntervalSwitch(
-  stripePriceId: string | null | undefined,
-): { tier: PremiumTier; label: string; description: string } | null {
-  const currentTier = stripePriceId
-    ? getStripeSubscriptionTier({ priceId: stripePriceId })
-    : null;
-
-  for (const plan of tiers) {
-    const toAnnual = plan.tiers.monthly === currentTier;
-    if (!toAnnual && plan.tiers.annually !== currentTier) continue;
-
-    const tier = plan.tiers[toAnnual ? "annually" : "monthly"];
-    const price = formatPrice(plan.price[toAnnual ? "annually" : "monthly"]);
-    const newPrice = toAnnual ? `${price}/mo, billed annually` : `${price}/mo`;
-    const stripePriceId = getStripePriceId({ tier });
-    const unit =
-      getStripeSeatModel(stripePriceId) === "per_person"
-        ? "per user"
-        : "per email account";
-    const accountBilling = getAddAccountBillingText({ tier, stripePriceId });
-    return {
-      tier,
-      label: toAnnual ? "Switch to annual" : "Switch to monthly",
-      description: `Your ${plan.name} plan will cost ${newPrice} ${unit}. ${accountBilling} The change applies right away, and Stripe prorates your current billing period.`,
-    };
-  }
-  return null;
-}
-
 function discount(monthly: number, annually: number) {
   return ((monthly - annually) / monthly) * 100;
 }

@@ -3,6 +3,8 @@
 import { useState, type ReactElement } from "react";
 import { SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import { bulkCategorizeSendersAction } from "@/utils/actions/categorize";
 import { PremiumTooltip } from "@/components/PremiumAlert";
@@ -18,6 +20,7 @@ export function CategorizeWithAiButton({
 }: {
   buttonProps?: ButtonProps;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const [isCategorizing, setIsCategorizing] = useState(false);
   const { hasAiAccess } = usePremium();
@@ -65,26 +68,29 @@ export function CategorizeWithAiButton({
                 }
               },
               {
-                loading: "Categorizing senders... This might take a while.",
+                loading: t`Categorizing senders... This might take a while.`,
                 success: (
                   data:
                     | { totalUncategorizedSenders: number | undefined }
                     | undefined,
                 ) => {
                   if (!data) {
-                    return "Categorization started.";
+                    return t`Categorization started.`;
                   }
 
                   return data.totalUncategorizedSenders
-                    ? `Categorizing ${data.totalUncategorizedSenders} senders...`
-                    : "No more senders to categorize right now.";
+                    ? t`${plural(data.totalUncategorizedSenders, {
+                        one: "Categorizing # sender...",
+                        other: "Categorizing # senders...",
+                      })}`
+                    : t`No more senders to categorize right now.`;
                 },
                 error: (err: unknown) => {
                   const message =
                     err instanceof Error
                       ? err.message
-                      : "An unknown error occurred.";
-                  return `Error categorizing senders: ${message}`;
+                      : t`An unknown error occurred.`;
+                  return t`Error categorizing senders: ${message}`;
                 },
               },
             );
@@ -94,7 +100,7 @@ export function CategorizeWithAiButton({
           {buttonProps?.children || (
             <>
               <SparklesIcon className="mr-2 size-4" />
-              Categorize
+              <Trans>Categorize</Trans>
             </>
           )}
         </Button>
@@ -113,9 +119,13 @@ function CategorizeWithAiButtonTooltip({
   hasAiAccess: boolean;
   openPremiumModal: () => void;
 }) {
+  const { t } = useLingui();
+
   if (hasAiAccess) {
     return (
-      <Tooltip content="Categorize thousands of senders. This will take a few minutes.">
+      <Tooltip
+        content={t`Categorize thousands of senders. This will take a few minutes.`}
+      >
         {children}
       </Tooltip>
     );

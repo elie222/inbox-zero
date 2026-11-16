@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 
+import { msg } from "@lingui/core/macro";
 import React from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { TagIcon } from "lucide-react";
@@ -171,7 +172,12 @@ describe("MailSidebar", () => {
 
   it("closes the Categories group in the rail once its view is left behind", () => {
     const categories = [
-      { name: "Promotions", type: "CATEGORY_PROMOTIONS", Icon: TagIcon },
+      {
+        name: "Promotions",
+        label: msg`Promotions`,
+        type: "CATEGORY_PROMOTIONS",
+        Icon: TagIcon,
+      },
     ];
     const { rerender } = renderSidebar({
       activeType: "CATEGORY_PROMOTIONS",

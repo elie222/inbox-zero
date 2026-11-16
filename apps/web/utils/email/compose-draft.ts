@@ -1,3 +1,4 @@
+import { completeDraftRecipients } from "@/utils/email/draft-recipients";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { SafeError } from "@/utils/error";
 import type { EmailProvider } from "@/utils/email/types";
@@ -20,6 +21,14 @@ export async function saveComposeDraft({
   /** Lets a send that replaces this draft find and remove it. */
   composeSession?: { id: string; emailAccountId: string; logger: Logger };
 }) {
+  // Local recovery keeps unfinished input; mailbox MIME headers need complete addresses.
+  content = {
+    ...content,
+    to: completeDraftRecipients(content.to),
+    cc: content.cc == null ? content.cc : completeDraftRecipients(content.cc),
+    bcc:
+      content.bcc == null ? content.bcc : completeDraftRecipients(content.bcc),
+  };
   if (!draftId) {
     // Return the reference before syncing the rest of the content so later
     // failures can retry an update without creating another mailbox draft.

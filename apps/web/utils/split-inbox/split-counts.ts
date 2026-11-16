@@ -47,5 +47,5 @@ function predicateForSplit(
   splits: MailSplit[],
   now: Date,
 ): MailPredicate {
-  return threadsQueryToPredicate(splitToThreadsQuery(split, splits, now));
+  return threadsQueryToPredicate(splitToThreadsQuery(split, splits, now), now);
 }

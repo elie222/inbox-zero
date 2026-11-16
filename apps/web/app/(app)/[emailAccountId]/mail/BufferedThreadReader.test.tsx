@@ -16,6 +16,46 @@ afterEach(() => {
 });
 
 describe("BufferedThreadReader", () => {
+  it("keeps an open reply through a same-thread refresh past the reveal deadline", () => {
+    const onReady = vi.fn();
+    const { rerender } = render(
+      <BufferedThreadReader threadKey="one" dataReady onReady={onReady}>
+        {reader("one", "Open reply")}
+      </BufferedThreadReader>,
+    );
+    act(() => vi.advanceTimersByTime(3000));
+    const editor = screen.getByRole("textbox") as HTMLInputElement;
+    editor.value = "Reply in progress";
+    editor.focus();
+
+    rerender(
+      <BufferedThreadReader threadKey="one" dataReady={false} onReady={onReady}>
+        {reader("one", "Loading refreshed thread", undefined, true)}
+      </BufferedThreadReader>,
+    );
+    act(() => vi.advanceTimersByTime(3000));
+    rerender(
+      <BufferedThreadReader threadKey="one" dataReady={false} onReady={onReady}>
+        {reader("one", "Still refreshing thread", undefined, true)}
+      </BufferedThreadReader>,
+    );
+    expect(screen.queryByText("Loading refreshed thread")).toBeNull();
+    expect(screen.getByText("Open reply")).toBeTruthy();
+    expect(screen.getByRole("textbox")).toBe(editor);
+    expect(editor.value).toBe("Reply in progress");
+    expect(document.activeElement).toBe(editor);
+
+    rerender(
+      <BufferedThreadReader threadKey="one" dataReady onReady={onReady}>
+        {reader("one", "Updated thread")}
+      </BufferedThreadReader>,
+    );
+    expect(screen.getByText("Updated thread")).toBeTruthy();
+    expect(screen.getByRole("textbox")).toBe(editor);
+    expect(editor.value).toBe("Reply in progress");
+    expect(document.activeElement).toBe(editor);
+  });
+
   it("reveals the first header and body together once the body is ready", () => {
     const onReady = vi.fn();
     const { rerender } = render(
@@ -162,12 +202,18 @@ describe("BufferedThreadReader", () => {
   });
 });
 
-function reader(threadId: string, text: string, bodyReady?: boolean) {
+function reader(
+  threadId: string,
+  text: string,
+  bodyReady?: boolean,
+  loading = false,
+) {
   return (
     <Reader
       threadId={threadId}
       text={text}
       bodyReady={bodyReady}
+      loading={loading}
       enableMessageNavigation
     />
   ) as unknown as ReactElement<ThreadReaderProps>;
@@ -184,10 +230,12 @@ function Reader({
   text,
   bodyReady,
   enableMessageNavigation,
+  loading,
 }: {
   threadId: string | null;
   text: string;
   bodyReady?: boolean;
+  loading?: boolean;
   enableMessageNavigation: boolean;
 }) {
   return (
@@ -196,6 +244,7 @@ function Reader({
         <div data-testid="selection-bar" data-thread-id={threadId ?? ""} />
       )}
       {text}
+      {!loading && <input aria-label="Reply" />}
       {bodyReady !== undefined && <div data-email-ready={bodyReady} />}
     </div>
   );

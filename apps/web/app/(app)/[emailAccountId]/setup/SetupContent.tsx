@@ -4,6 +4,8 @@ import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ArchiveIcon,
   CheckIcon,
@@ -15,6 +17,7 @@ import {
   MessageSquareIcon,
   InboxIcon,
   Loader2Icon,
+  MailIcon,
 } from "lucide-react";
 import {
   MutedText,
@@ -27,6 +30,7 @@ import { useSetupProgress } from "@/hooks/useSetupProgress";
 import { FeatureIcon } from "@/components/FeatureIcon";
 import { LoadingContent } from "@/components/LoadingContent";
 import { EXTENSION_URL } from "@/utils/config";
+import { env } from "@/env";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
@@ -44,6 +48,7 @@ const SETUP_ACTION_TIMEOUT_MS = 15_000;
 const logger = createClientLogger("setup");
 
 type DismissibleSetupStep =
+  | "emailApp"
   | "aiAssistant"
   | "bulkUnsubscribe"
   | "calendarConnected"
@@ -80,30 +85,39 @@ function FeatureCard({
 
 function getFeatures() {
   const features = [
+    ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
+      ? [
+          {
+            href: "/mail",
+            icon: MailIcon,
+            title: msg`Email app`,
+            description: msg`Read and send email from every account in one fast inbox`,
+          } as const,
+        ]
+      : []),
     {
       href: "/assistant",
       icon: MessageSquareIcon,
-      title: "Chat",
-      description: "Chat with your inbox to find information and take actions",
+      title: msg`Chat`,
+      description: msg`Chat with your inbox to find information and take actions`,
     },
     {
       href: "/automation",
       icon: BotIcon,
-      title: "Assistant",
-      description:
-        "Your personal email assistant that organizes, archives, and drafts replies",
+      title: msg`Assistant`,
+      description: msg`Your personal email assistant that organizes, archives, and drafts replies`,
     },
     {
       href: "/bulk-unsubscribe",
       icon: ArchiveIcon,
-      title: "Bulk Unsubscribe",
-      description: "Easily unsubscribe from unwanted newsletters in one click",
+      title: msg`Bulk Unsubscribe`,
+      description: msg`Easily unsubscribe from unwanted newsletters in one click`,
     },
     {
       href: "/bulk-archive",
       icon: InboxIcon,
-      title: "Bulk Archive",
-      description: "Quickly clean up your inbox by archiving old emails",
+      title: msg`Bulk Archive`,
+      description: msg`Quickly clean up your inbox by archiving old emails`,
     },
   ] as const;
 
@@ -116,6 +130,8 @@ function FeatureGrid({
   emailAccountId: string;
   provider: string;
 }) {
+  const { i18n } = useLingui();
+
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4">
       {getFeatures().map((feature) => (
@@ -123,6 +139,8 @@ function FeatureGrid({
           key={feature.href}
           emailAccountId={emailAccountId}
           {...feature}
+          title={i18n._(feature.title)}
+          description={i18n._(feature.description)}
         />
       ))}
     </div>
@@ -139,7 +157,7 @@ const StepItem = ({
   linkProps,
   onMarkDone,
   showMarkDone,
-  markDoneText = "Mark Done",
+  markDoneText,
   markDoneDisabled,
   markDonePending,
   onActionClick,
@@ -158,6 +176,8 @@ const StepItem = ({
   markDonePending?: boolean;
   onActionClick?: () => void;
 }) => {
+  const { t } = useLingui();
+  const markDoneLabel = markDoneText ?? t`Mark Done`;
   const handleMarkDone = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -216,7 +236,7 @@ const StepItem = ({
                   type="button"
                   onClick={handleMarkDone}
                   disabled={markDoneDisabled}
-                  title={markDoneText}
+                  title={markDoneLabel}
                   className="flex size-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-colors hover:bg-green-100 hover:text-green-600 dark:bg-slate-800 dark:text-slate-500 dark:hover:bg-green-900/50 dark:hover:text-green-400"
                 >
                   {markDonePending ? (
@@ -243,6 +263,8 @@ function Checklist({
   isAiAssistantConfigured,
   isCalendarConnected,
   showCalendarStep,
+  isEmailAppOpened,
+  showEmailAppStep,
   isTabsExtensionCompleted,
   teamInvite,
   onSetupProgressChanged,
@@ -255,6 +277,8 @@ function Checklist({
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
   showCalendarStep: boolean;
+  isEmailAppOpened: boolean;
+  showEmailAppStep: boolean;
   isTabsExtensionCompleted: boolean;
   teamInvite: {
     completed: boolean;
@@ -262,6 +286,7 @@ function Checklist({
   } | null;
   onSetupProgressChanged: (stepKey: DismissibleSetupStep) => void;
 }) {
+  const { t } = useLingui();
   const { executeAsync: dismissSetupStep } = useAction(dismissHintAction);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [pendingStep, setPendingStep] = useState<DismissibleSetupStep | null>(
@@ -286,7 +311,7 @@ function Checklist({
         );
 
         if (result?.serverError || result?.validationErrors) {
-          toastError({ description: "Failed to skip this step" });
+          toastError({ description: t`Failed to skip this step` });
           return;
         }
 
@@ -297,13 +322,13 @@ function Checklist({
           error: error instanceof Error ? error.message : "Unknown error",
         });
         toastError({
-          description: "Failed to skip this step. Please try again.",
+          description: t`Failed to skip this step. Please try again.`,
         });
       } finally {
         setPendingStep(null);
       }
     },
-    [dismissSetupStep, emailAccountId, onSetupProgressChanged, pendingStep],
+    [dismissSetupStep, emailAccountId, onSetupProgressChanged, pendingStep, t],
   );
 
   const handleOpenInviteModal = () => {
@@ -314,10 +339,14 @@ function Checklist({
     <Card className="mb-6 overflow-hidden">
       <div className="border-b border-border p-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-foreground">Complete your setup</h2>
+          <h2 className="font-semibold text-foreground">
+            <Trans>Complete your setup</Trans>
+          </h2>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden sm:block">
-              {completedCount} of {totalSteps} completed
+              <Trans>
+                {completedCount} of {totalSteps} completed
+              </Trans>
             </span>
             <div className="h-2 w-32 overflow-hidden rounded-full bg-muted">
               <div
@@ -329,13 +358,28 @@ function Checklist({
         </div>
       </div>
 
+      {showEmailAppStep && (
+        <StepItem
+          href={prefixPath(emailAccountId, "/mail")}
+          icon={<MailIcon size={18} />}
+          title={t`Try the ${BRAND_NAME} email app`}
+          timeEstimate={t`1 minute`}
+          completed={isEmailAppOpened}
+          actionText={t`Open`}
+          onMarkDone={() => handleMarkStepDone("emailApp")}
+          showMarkDone
+          markDoneDisabled={pendingStep !== null}
+          markDonePending={pendingStep === "emailApp"}
+        />
+      )}
+
       <StepItem
         href={getOnboardingStepHref(emailAccountId, STEP_KEYS.LABELS)}
         icon={<BotIcon size={18} />}
-        title="Set up your Personal Assistant"
-        timeEstimate="5 minutes"
+        title={t`Set up your Personal Assistant`}
+        timeEstimate={t`5 minutes`}
         completed={isAiAssistantConfigured}
-        actionText="Set up"
+        actionText={t`Set up`}
         onMarkDone={() => handleMarkStepDone("aiAssistant")}
         showMarkDone
         markDoneDisabled={pendingStep !== null}
@@ -345,10 +389,10 @@ function Checklist({
       <StepItem
         href={prefixPath(emailAccountId, "/bulk-unsubscribe")}
         icon={<ArchiveIcon size={18} />}
-        title="Unsubscribe from a newsletter you don't read"
-        timeEstimate="2 minutes"
+        title={t`Unsubscribe from a newsletter you don't read`}
+        timeEstimate={t`2 minutes`}
         completed={isBulkUnsubscribeConfigured}
-        actionText="View"
+        actionText={t`View`}
         onMarkDone={() => handleMarkStepDone("bulkUnsubscribe")}
         showMarkDone
         markDoneDisabled={pendingStep !== null}
@@ -359,10 +403,10 @@ function Checklist({
         <StepItem
           href={prefixPath(emailAccountId, "/calendars")}
           icon={<CalendarIcon size={18} />}
-          title="Connect your calendar"
-          timeEstimate="2 minutes"
+          title={t`Connect your calendar`}
+          timeEstimate={t`2 minutes`}
           completed={isCalendarConnected}
-          actionText="Connect"
+          actionText={t`Connect`}
           onMarkDone={() => handleMarkStepDone("calendarConnected")}
           showMarkDone
           markDoneDisabled={pendingStep !== null}
@@ -374,15 +418,15 @@ function Checklist({
         <StepItem
           href={prefixPath(emailAccountId, "/organization")}
           icon={<UsersIcon size={18} />}
-          title="Invite team members"
-          timeEstimate="2 minutes"
+          title={t`Invite team members`}
+          timeEstimate={t`2 minutes`}
           completed={teamInvite.completed}
-          actionText="Invite"
+          actionText={t`Invite`}
           onMarkDone={() => handleMarkStepDone("teamInvite")}
           markDoneDisabled={pendingStep !== null}
           markDonePending={pendingStep === "teamInvite"}
           showMarkDone
-          markDoneText="Skip"
+          markDoneText={t`Skip`}
           onActionClick={handleOpenInviteModal}
         />
       )}
@@ -401,10 +445,10 @@ function Checklist({
           href={EXTENSION_URL}
           linkProps={{ target: "_blank", rel: "noopener noreferrer" }}
           icon={<GlobeIcon size={18} />}
-          title={`Optional: Install the ${BRAND_NAME} Tabs extension`}
-          timeEstimate="1 minute"
+          title={t`Optional: Install the ${BRAND_NAME} Tabs extension`}
+          timeEstimate={t`1 minute`}
           completed={isTabsExtensionCompleted}
-          actionText="Install"
+          actionText={t`Install`}
           onMarkDone={() => handleMarkStepDone("tabsExtension")}
           markDoneDisabled={pendingStep !== null}
           markDonePending={pendingStep === "tabsExtension"}
@@ -443,6 +487,8 @@ export function SetupContent() {
           isBulkUnsubscribeConfigured={data.steps.bulkUnsubscribe}
           isCalendarConnected={data.steps.calendarConnected}
           showCalendarStep={data.showCalendarStep}
+          isEmailAppOpened={data.steps.emailApp}
+          showEmailAppStep={data.showEmailAppStep}
           isTabsExtensionCompleted={data.tabsExtensionCompleted}
           completedCount={data.completed}
           totalSteps={data.total}
@@ -463,6 +509,8 @@ function SetupPageContent({
   isAiAssistantConfigured,
   isCalendarConnected,
   showCalendarStep,
+  isEmailAppOpened,
+  showEmailAppStep,
   isTabsExtensionCompleted,
   completedCount,
   totalSteps,
@@ -477,6 +525,8 @@ function SetupPageContent({
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
   showCalendarStep: boolean;
+  isEmailAppOpened: boolean;
+  showEmailAppStep: boolean;
   isTabsExtensionCompleted: boolean;
   completedCount: number;
   totalSteps: number;
@@ -488,16 +538,17 @@ function SetupPageContent({
   } | null;
   onSetupProgressChanged: (stepKey: DismissibleSetupStep) => void;
 }) {
+  const { t } = useLingui();
   const shouldShowSetupChecklist = forceSetupMode || !isSetupComplete;
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col p-6">
       <div className="mb-4 sm:mb-8">
-        <PageHeading className="text-center">{`Welcome to ${BRAND_NAME}`}</PageHeading>
+        <PageHeading className="text-center">{t`Welcome to ${BRAND_NAME}`}</PageHeading>
         <SectionDescription className="mt-2 text-center text-base">
           {shouldShowSetupChecklist
-            ? `Complete these steps to get the most out of ${BRAND_NAME}`
-            : "What would you like to do?"}
+            ? t`Complete these steps to get the most out of ${BRAND_NAME}`
+            : t`What would you like to do?`}
         </SectionDescription>
       </div>
 
@@ -511,6 +562,8 @@ function SetupPageContent({
           isAiAssistantConfigured={isAiAssistantConfigured}
           isCalendarConnected={isCalendarConnected}
           showCalendarStep={showCalendarStep}
+          isEmailAppOpened={isEmailAppOpened}
+          showEmailAppStep={showEmailAppStep}
           isTabsExtensionCompleted={isTabsExtensionCompleted}
           completedCount={completedCount}
           totalSteps={totalSteps}

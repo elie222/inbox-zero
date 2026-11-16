@@ -4,6 +4,7 @@ import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/ui/button";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -20,6 +21,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { PageWrapper } from "@/components/PageWrapper";
 
 export default function CreateOrganizationPage() {
+  const { t } = useLingui();
   const router = useRouter();
   const { isLoading, mutate, error } = useUser();
   const { emailAccountId } = useAccount();
@@ -50,21 +52,21 @@ export default function CreateOrganizationPage() {
 
       if (result?.serverError) {
         toastError({
-          title: "Error creating organization",
+          title: t`Error creating organization`,
           description: result.serverError,
         });
       } else {
-        toastSuccess({ description: "Organization created successfully!" });
+        toastSuccess({ description: t`Organization created successfully!` });
         mutate();
         router.push(`/organization/${result?.data?.id}`);
       }
     },
-    [mutate, router, emailAccountId],
+    [mutate, router, emailAccountId, t],
   );
 
   return (
     <PageWrapper className="max-w-2xl mx-auto">
-      <PageHeader title="Create Organization" />
+      <PageHeader title={t`Create Organization`} />
       <LoadingContent loading={isLoading} error={error}>
         <form
           className="max-w-sm space-y-4 mt-4"
@@ -73,7 +75,7 @@ export default function CreateOrganizationPage() {
           <Input
             type="text"
             name="name"
-            label="Organization Name"
+            label={t`Organization Name`}
             placeholder="Apple Inc."
             registerProps={register("name")}
             error={errors.name}
@@ -82,14 +84,14 @@ export default function CreateOrganizationPage() {
           <Input
             type="text"
             name="slug"
-            label="URL Slug"
+            label={t`URL Slug`}
             placeholder="apple-inc"
             registerProps={register("slug")}
             error={errors.slug}
           />
 
           <Button type="submit" loading={isSubmitting}>
-            Create Organization
+            <Trans>Create Organization</Trans>
           </Button>
         </form>
       </LoadingContent>

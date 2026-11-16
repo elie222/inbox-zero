@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import type { ReactNode } from "react";
 import {
   AlertDialog,
@@ -27,9 +28,11 @@ export function ConfirmDialog({
   title,
   description,
   onConfirm,
-  confirmText = "Delete",
-  cancelText = "Cancel",
+  confirmText,
+  cancelText,
 }: ConfirmDialogProps) {
+  const { t } = useLingui();
+
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
@@ -39,9 +42,9 @@ export function ConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{cancelText}</AlertDialogCancel>
+          <AlertDialogCancel>{cancelText ?? t`Cancel`}</AlertDialogCancel>
           <AlertDialogAction onClick={onConfirm}>
-            {confirmText}
+            {confirmText ?? t`Delete`}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

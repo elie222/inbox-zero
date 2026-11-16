@@ -25,7 +25,9 @@ export async function resetDefaultLabelColors({
       select: {
         systemType: true,
         actions: {
-          where: { type: ActionType.LABEL, labelId: { not: null } },
+          // Keep label actions without an id so a lone extra label is not
+          // mistaken for the built-in one.
+          where: { type: ActionType.LABEL },
           select: { labelId: true, label: true },
         },
       },

@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { Settings2Icon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
@@ -25,10 +26,14 @@ export function StepLabels({
           </IconCircle>
 
           <div className="text-center mt-4">
-            <PageHeading>How do you want your inbox organized?</PageHeading>
+            <PageHeading>
+              <Trans>How do you want your inbox organized?</Trans>
+            </PageHeading>
             <TypographyP className="mt-2 max-w-lg mx-auto">
-              We'll use these labels to organize your inbox. You can add custom
-              labels and change them later.
+              <Trans>
+                We'll use these labels to organize your inbox. You can add
+                custom labels and change them later.
+              </Trans>
             </TypographyP>
           </div>
 

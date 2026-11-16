@@ -80,6 +80,47 @@ const newsletterMessages = [
   }),
 ];
 
+const draftMessages = [
+  getMockMessage({
+    id: "msg-draft-1",
+    threadId: "thread-draft-1",
+    from: "user@test.com",
+    to: "support@helpdesk.test",
+    subject: "Question about my invoice",
+    snippet: "Hi, I wanted to ask about",
+    labelIds: ["DRAFT"],
+  }),
+  getMockMessage({
+    id: "msg-draft-2",
+    threadId: "thread-draft-2",
+    from: "user@test.com",
+    to: "support@helpdesk.test",
+    subject: "Follow-up on ticket",
+    snippet: "Just checking in on",
+    labelIds: ["DRAFT"],
+  }),
+];
+
+const draftReplyMessages = [
+  getMockMessage({
+    id: "msg-vendor-1",
+    threadId: "thread-vendor-1",
+    from: "sales@vendor.test",
+    subject: "Your quote is ready",
+    snippet: "Please find the quote attached",
+    labelIds: ["INBOX"],
+  }),
+  getMockMessage({
+    id: "msg-vendor-draft-1",
+    threadId: "thread-vendor-1",
+    from: "user@test.com",
+    to: "sales@vendor.test",
+    subject: "Re: Your quote is ready",
+    snippet: "Thanks, we will review",
+    labelIds: ["DRAFT"],
+  }),
+];
+
 const scenarios: EvalScenario[] = [
   {
     title: "uses trash_threads for explicit delete request on spam",
@@ -100,6 +141,27 @@ const scenarios: EvalScenario[] = [
     expectation: {
       kind: "trash_threads",
       threadIds: ["thread-marketing-1"],
+    },
+  },
+  {
+    title: "uses delete_drafts for a request to delete drafts",
+    reportName: "delete drafts uses delete_drafts",
+    prompt: "Delete my drafts to support@helpdesk.test",
+    searchMessages: draftMessages,
+    expectation: {
+      kind: "delete_drafts",
+      threadIds: ["thread-draft-1", "thread-draft-2"],
+    },
+  },
+  {
+    title:
+      "uses delete_drafts for draft replies without trashing the conversation",
+    reportName: "discard draft reply keeps conversation",
+    prompt: "Discard the draft reply I started to the vendor quote",
+    searchMessages: draftReplyMessages,
+    expectation: {
+      kind: "delete_drafts",
+      threadIds: ["thread-vendor-1"],
     },
   },
   {
@@ -192,6 +254,24 @@ vi.mock("@/utils/senders/unsubscribe", () => ({
 
 vi.mock("@/utils/prisma");
 
+// An account that has never run sender categorization, so the category
+// overview tool reports no categories instead of failing on the prisma mock.
+vi.mock("@/utils/categorize/senders/get-category-overview", () => ({
+  getCategoryOverview: vi.fn(async () => ({
+    autoCategorizeSenders: false,
+    categorization: {
+      status: "idle",
+      totalItems: 0,
+      completedItems: 0,
+      remainingItems: 0,
+      message: "Sender categorization has not started.",
+    },
+    categorizedSenderCount: 0,
+    uncategorizedSenderCount: 0,
+    categories: [],
+  })),
+}));
+
 vi.mock("@/env", async () => {
   const { buildAssistantChatEvalEnv } = await vi.importActual<
     typeof import("@/__tests__/eval/assistant-chat-eval-env")
@@ -227,6 +307,9 @@ describe.runIf(shouldRunEval)("Eval: assistant chat trash/delete", () => {
       };
     });
 
+    // clearAllMocks keeps queued *Once values, so a search result a test
+    // queued but the model never consumed would leak into the next test.
+    mockSearchMessages.mockReset();
     mockSearchMessages.mockResolvedValue({
       messages: getDefaultSearchMessages(),
       nextPageToken: undefined,
@@ -360,6 +443,10 @@ type ScenarioExpectation =
       threadIds: string[];
     }
   | {
+      kind: "delete_drafts";
+      threadIds: string[];
+    }
+  | {
       kind: "ambiguous_action";
     };
 
@@ -422,12 +509,96 @@ async function evaluateScenario(
       const hasExactCount =
         isTrash &&
         manageCall.threadIds?.length === expectation.threadIds.length;
+      // Trashing all of a sender's mail as a bulk job also waits for the
+      // user to confirm, so it is an equally valid way to prepare the trash.
+      const expectedSenders = getSendersForThreads(expectation.threadIds);
+      const preparedBulkTrash = result.toolCalls.some(
+        (toolCall) =>
+          toolCall.toolName === "bulkManageInbox" &&
+          isManageInboxInput(toolCall.input) &&
+          toolCall.input.action === "trash_threads" &&
+          targetsExpectedSender(toolCall.input, expectedSenders),
+      );
+
+      const callSummary = manageCall
+        ? `manageInbox(action=${manageCall.action}, threadIds=${JSON.stringify(manageCall.threadIds)})`
+        : result.actual;
+      if (
+        !(isTrash && hasExpectedThreads && hasExactCount) &&
+        !preparedBulkTrash
+      ) {
+        return { pass: false, actual: callSummary };
+      }
+
+      const pendingJudge = await judgeEvalOutput({
+        input: prompt,
+        output: result.finalText,
+        expected:
+          "The assistant presents the trash as waiting for the user's confirmation in the app, without claiming the emails were already deleted or trashed.",
+        criterion: {
+          name: "Trash left pending for user confirmation",
+          description:
+            "Chat never trashes email on its own. The reply must make clear the emails have not been trashed yet and need the user to confirm. It fails if it states or implies the emails are already deleted or in the trash.",
+        },
+      });
 
       return {
-        pass: isTrash && hasExpectedThreads && hasExactCount,
-        actual: manageCall
-          ? `manageInbox(action=${manageCall.action}, threadIds=${JSON.stringify(manageCall.threadIds)})`
-          : result.actual,
+        pass: pendingJudge.pass,
+        actual: `${callSummary} | ${formatSemanticJudgeActual(result.finalText, pendingJudge)}`,
+      };
+    }
+
+    case "delete_drafts": {
+      const manageCall = getLastMatchingToolCall(
+        result.toolCalls,
+        "manageInbox",
+        isManageInboxInput,
+      )?.input;
+      const threadIds = new Set(manageCall?.threadIds);
+      const isExactDraftDeletion =
+        manageCall?.action === "delete_drafts" &&
+        threadIds.size === expectation.threadIds.length &&
+        expectation.threadIds.every((id) => threadIds.has(id));
+      const draftDeletions = result.toolCalls.filter(
+        (toolCall) =>
+          toolCall.toolName === "manageInbox" &&
+          isManageInboxInput(toolCall.input) &&
+          toolCall.input.action === "delete_drafts",
+      );
+      const deletedOnlyExpectedThreads = draftDeletions.every((toolCall) =>
+        (toolCall.input as ManageInboxInput).threadIds?.every((id) =>
+          expectation.threadIds.includes(id),
+        ),
+      );
+      const usedTrash = result.toolCalls.some(
+        (toolCall) =>
+          (toolCall.toolName === "manageInbox" ||
+            toolCall.toolName === "bulkManageInbox") &&
+          isManageInboxInput(toolCall.input) &&
+          toolCall.input.action === "trash_threads",
+      );
+      const callSummary = manageCall
+        ? `manageInbox(action=${manageCall.action}, threadIds=${JSON.stringify(manageCall.threadIds)})`
+        : result.actual;
+      if (!isExactDraftDeletion || !deletedOnlyExpectedThreads || usedTrash) {
+        return { pass: false, actual: callSummary };
+      }
+
+      const pendingJudge = await judgeEvalOutput({
+        input: prompt,
+        output: result.finalText,
+        expected:
+          "The assistant presents the draft deletion as waiting for the user's confirmation in the app, without claiming the drafts were already deleted.",
+        criterion: {
+          name: "Draft deletion left pending for user confirmation",
+          description:
+            "Chat never deletes drafts on its own. The reply must make clear the drafts have not been deleted yet and need the user to confirm. It fails if it states or implies the drafts are already deleted, or if it says it cannot delete drafts.",
+        },
+      });
+
+      return {
+        pass: pendingJudge.pass,
+        actual: `${callSummary} | ${formatSemanticJudgeActual(result.finalText, pendingJudge)}`,
       };
     }
 
@@ -527,6 +698,23 @@ function summarizeToolCall(toolCall: RecordedToolCall) {
   return toolCall.toolName;
 }
 
+function getSendersForThreads(threadIds: string[]) {
+  return [...spamMessages, ...marketingMessages]
+    .filter((message) => threadIds.includes(message.threadId))
+    .map((message) => message.headers.from.toLowerCase());
+}
+
+// A bulk trash must target an expected sender, not some other search.
+function targetsExpectedSender(input: unknown, senders: string[]) {
+  const { query, fromEmail } = input as { query?: string; fromEmail?: string };
+  const target = (fromEmail || query || "").toLowerCase();
+  return (
+    senders.length > 0 &&
+    target.length > 0 &&
+    senders.some((sender) => target.includes(sender))
+  );
+}
+
 function getDefaultLabels() {
   return [
     { id: "INBOX", name: "INBOX" },
@@ -553,6 +741,8 @@ function getMessageById(messageId: string) {
     ...spamMessages,
     ...marketingMessages,
     ...newsletterMessages,
+    ...draftMessages,
+    ...draftReplyMessages,
     getMockMessage({
       id: "msg-default-1",
       threadId: "thread-default-1",

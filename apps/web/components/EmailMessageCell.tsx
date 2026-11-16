@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { ExternalLinkIcon, MailIcon, TagsIcon } from "lucide-react";
 import Link from "next/link";
 import { decodeSnippet } from "@/utils/gmail/decode";
@@ -40,6 +41,7 @@ export function EmailMessageCell({
   filterReplyTrackerLabels?: boolean;
   collapseLabels?: boolean;
 }) {
+  const { t } = useLingui();
   const { userLabels } = useEmailLabels();
   const { provider } = useAccount();
   const { showEmail } = useDisplayedEmail();
@@ -99,18 +101,18 @@ export function EmailMessageCell({
                 href={emailActions.openUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Open in email"
+                aria-label={t`Open in email`}
               >
                 <ExternalLinkIcon className="h-4 w-4" />
               </Link>
             )}
             {emailActions.showViewEmailButton && (
-              <Tooltip content="View email">
+              <Tooltip content={t`View email`}>
                 <button
                   type="button"
                   className="hover:text-foreground"
                   onClick={() => showEmail({ threadId, messageId })}
-                  aria-label="View email"
+                  aria-label={t`View email`}
                 >
                   <MailIcon className="h-4 w-4" />
                 </button>
@@ -137,6 +139,7 @@ export function EmailMessageCellWithData({
   threadId: string;
   messageId: string;
 }) {
+  const { t } = useLingui();
   const { data, isLoading, error } = useThread({ id: threadId });
 
   const firstMessage = data?.thread?.messages?.[0];
@@ -148,11 +151,11 @@ export function EmailMessageCellWithData({
       userEmail={userEmail}
       subject={
         error
-          ? "Error loading email"
+          ? t`Error loading email`
           : isLoading
-            ? "Loading email..."
+            ? t`Loading email...`
             : emailNotFound
-              ? "Email not found"
+              ? t`Email not found`
               : firstMessage?.headers.subject || ""
       }
       snippet={

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { BarChartIcon } from "lucide-react";
 import { useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
@@ -66,6 +67,7 @@ function ModelSectionForm(props: {
   emailAccountId: string;
 }) {
   const { refetchUser, emailAccountId } = props;
+  const { t } = useLingui();
 
   const {
     register,
@@ -97,14 +99,13 @@ function ModelSectionForm(props: {
         });
       } else {
         toastSuccess({
-          description:
-            "Settings updated! Please check it works on the Assistant page.",
+          description: t`Settings updated! Please check it works on the Assistant page.`,
         });
       }
 
       refetchUser();
     },
-    [refetchUser],
+    [refetchUser, t],
   );
 
   const globalError = (errors as Record<string, { message?: string }>)[""];
@@ -120,8 +121,12 @@ function ModelSectionForm(props: {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="max-w-sm space-y-4">
       <Select
-        label="Provider"
-        options={providerOptions}
+        label={t`Provider`}
+        options={providerOptions.map((option) =>
+          option.value === DEFAULT_PROVIDER
+            ? { ...option, label: t`Default` }
+            : option,
+        )}
         {...register("aiProvider")}
         error={errors.aiProvider}
       />
@@ -130,7 +135,7 @@ function ModelSectionForm(props: {
         <>
           {modelSelectOptions.length ? (
             <Select
-              label="Model"
+              label={t`Model`}
               options={modelSelectOptions}
               {...register("aiModel")}
               error={errors.aiModel}
@@ -139,7 +144,7 @@ function ModelSectionForm(props: {
             <Input
               type="text"
               name="aiModel"
-              label="Model"
+              label={t`Model`}
               registerProps={register("aiModel")}
               error={errors.aiModel}
             />
@@ -148,17 +153,17 @@ function ModelSectionForm(props: {
           <Input
             type="password"
             name="aiApiKey"
-            label="API Key"
+            label={t`API Key`}
             registerProps={register("aiApiKey")}
             error={errors.aiApiKey}
             placeholder={
               hasStoredAiApiKey
-                ? "Leave blank to keep the current key"
+                ? t`Leave blank to keep the current key`
                 : undefined
             }
             explainText={
               hasStoredAiApiKey
-                ? "Leave this blank to keep the current API key, or enter a new key to replace it."
+                ? t`Leave this blank to keep the current API key, or enter a new key to replace it.`
                 : undefined
             }
           />
@@ -166,7 +171,7 @@ function ModelSectionForm(props: {
       )}
 
       {globalError?.message && (
-        <AlertError title="Error saving" description={globalError.message} />
+        <AlertError title={t`Error saving`} description={globalError.message} />
       )}
 
       {aiProvider === Provider.OPEN_AI &&
@@ -174,24 +179,24 @@ function ModelSectionForm(props: {
         modelSelectOptions.length === 0 &&
         (hasStoredAiApiKey ? (
           <AlertError
-            title="Invalid API Key"
-            description="We couldn't validate your API key. Please try again."
+            title={t`Invalid API Key`}
+            description={t`We couldn't validate your API key. Please try again.`}
           />
         ) : (
           <AlertBasic
-            title="API Key"
-            description="Click Save to view available models for your API key."
+            title={t`API Key`}
+            description={t`Click Save to view available models for your API key.`}
           />
         ))}
 
       <div className="flex items-center gap-2">
         <Button type="submit" size="sm" loading={isSubmitting}>
-          Save
+          <Trans>Save</Trans>
         </Button>
         <Button asChild variant="outline" size="sm">
           <Link href={prefixPath(emailAccountId, "/usage")}>
             <BarChartIcon className="mr-2 size-4" />
-            View usage
+            <Trans>View usage</Trans>
           </Link>
         </Button>
       </div>

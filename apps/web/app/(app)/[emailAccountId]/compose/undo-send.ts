@@ -1,3 +1,5 @@
+import type { I18n } from "@lingui/core";
+import { t } from "@lingui/core/macro";
 import { toast } from "sonner";
 import { toastError, toastSuccess, toastUndo } from "@/components/Toast";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
@@ -6,7 +8,6 @@ import type { OperationStatus } from "@inboxzero/mail-core/operations";
 
 export const UNDO_SEND_DELAY_MS = 10_000;
 const UNDO_SEND_TOAST_ID = "undo-send";
-const SENT_MESSAGE = "Email sent!";
 const SENT_TOAST_DURATION_MS = 6000;
 // The server holds the send while it is executing or verifying, so undo stays
 // open until the send leaves it or the window ends.
@@ -19,6 +20,7 @@ const UNDOABLE_STATUSES = new Set<OperationStatus>([
 ]);
 
 type PendingUndoSend = {
+  i18n: I18n;
   client: MailClient;
   operationId: string;
   emailAccountId: string;
@@ -35,6 +37,7 @@ export function getUndoSendHoldUntil(online: boolean, now = Date.now()) {
 }
 
 export function beginUndoSend({
+  i18n,
   client,
   operationId,
   emailAccountId,
@@ -46,6 +49,7 @@ export function beginUndoSend({
   emailAccountId: string;
   restoreComposer: () => void;
   holdUntil: number;
+  i18n: I18n;
 }) {
   const duration = holdUntil - Date.now();
   if (duration <= 0) return;
@@ -57,6 +61,7 @@ export function beginUndoSend({
   let unsubscribe = () => {};
   const toastId = undoSendToastId(operationId);
   const current: PendingUndoSend = {
+    i18n,
     client,
     operationId,
     emailAccountId,
@@ -79,7 +84,7 @@ export function beginUndoSend({
   unsubscribe = handle.subscribe(inspect);
   toastUndo({
     id: toastId,
-    message: SENT_MESSAGE,
+    message: t(i18n)`Email sent!`,
     shortcut: getShortcutHint("undo"),
     duration,
     // A dismissed toast can still fire during its exit animation, after a
@@ -95,6 +100,7 @@ export function beginUndoSend({
 export function finishUndoSendToast(
   operationId: string,
   outcome: { sent: false } | { sent: true; onView: (() => void) | null },
+  i18n: I18n,
 ) {
   const toastId = undoSendToastId(operationId);
   if (!outcome.sent) {
@@ -103,10 +109,10 @@ export function finishUndoSendToast(
   }
   toastSuccess({
     id: toastId,
-    description: SENT_MESSAGE,
+    description: t(i18n)`Email sent!`,
     duration: SENT_TOAST_DURATION_MS,
     action: outcome.onView
-      ? { label: "View", onClick: outcome.onView }
+      ? { label: t(i18n)`View`, onClick: outcome.onView }
       : undefined,
   });
 }
@@ -123,7 +129,9 @@ export async function undoPendingSend() {
     // The send is still held, so the user can try again within the window.
     current.undone = false;
     toastError({
-      description: "Couldn't reach the server to undo. Try again.",
+      description: t(
+        current.i18n,
+      )`Couldn't reach the server to undo. Try again.`,
     });
     return false;
   }
@@ -137,8 +145,8 @@ export async function undoPendingSend() {
     toastError({
       description:
         result.status === "too_late"
-          ? "Too late to undo. This email was already sent."
-          : "Couldn't undo send",
+          ? t(current.i18n)`Too late to undo. This email was already sent.`
+          : t(current.i18n)`Couldn't undo send`,
     });
     return false;
   }
@@ -163,7 +171,7 @@ function clearUndoSendOffer(offer: PendingUndoSend) {
   // the toast doesn't vanish and reappear when the send goes out.
   toastSuccess({
     id: offer.toastId,
-    description: SENT_MESSAGE,
+    description: t(offer.i18n)`Email sent!`,
     duration: Number.POSITIVE_INFINITY,
   });
 }

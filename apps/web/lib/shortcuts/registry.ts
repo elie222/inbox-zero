@@ -6,6 +6,8 @@ import {
   StarIcon,
   type LucideIcon,
 } from "lucide-react";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import type { Command, CommandSection } from "@/lib/commands/types";
 import { createClientLogger } from "@/utils/logger-client";
 
@@ -35,6 +37,14 @@ export const SHORTCUT_GROUPS = [
 
 export type ShortcutGroup = (typeof SHORTCUT_GROUPS)[number];
 
+export const SHORTCUT_GROUP_LABELS: Record<ShortcutGroup, MessageDescriptor> = {
+  Navigate: msg`Navigate`,
+  Triage: msg`Triage`,
+  View: msg`View`,
+  Compose: msg`Compose`,
+  "Assistant & rules": msg`Assistant & rules`,
+};
+
 /** `g` then `a`: the second key has to land inside this window. */
 export const SEQUENCE_TIMEOUT_MS = 900;
 
@@ -47,7 +57,7 @@ export type ShortcutHandlers = Partial<Record<ShortcutId, ShortcutHandler>>;
 
 type ShortcutPalette = {
   section: CommandSection;
-  description?: string;
+  description?: MessageDescriptor;
   keywords?: readonly string[];
   priority?: number;
   icon?: LucideIcon;
@@ -62,7 +72,7 @@ export type ShortcutEntry = {
   keys: readonly string[];
   scope: ShortcutScope;
   group: ShortcutGroup;
-  label: string;
+  label: MessageDescriptor;
   /** Overrides the keys rendered in the help dialog and the palette. */
   display?: readonly string[];
   /** Fires even while typing. Only for modifier combos and Escape. */
@@ -83,42 +93,42 @@ const SHORTCUT_DEFINITIONS = [
     keys: ["shift+u"],
     scope: "mail",
     group: "Triage",
-    label: "Unsubscribe or block sender",
+    label: msg`Unsubscribe or block sender`,
   },
   {
     id: "toggleAutoArchive",
     keys: ["shift+e"],
     scope: "mail",
     group: "Triage",
-    label: "Toggle auto archive for sender",
+    label: msg`Toggle auto archive for sender`,
   },
   {
     id: "next",
     keys: ["j", "arrowdown"],
     scope: "mail",
     group: "Navigate",
-    label: "Next message",
+    label: msg`Next message`,
   },
   {
     id: "previous",
     keys: ["k", "arrowup"],
     scope: "mail",
     group: "Navigate",
-    label: "Previous message",
+    label: msg`Previous message`,
   },
   {
     id: "open",
     keys: ["enter"],
     scope: "mail",
     group: "Navigate",
-    label: "Open message",
+    label: msg`Open message`,
   },
   {
     id: "backToList",
     keys: ["escape"],
     scope: "mail",
     group: "Navigate",
-    label: "Back to the list",
+    label: msg`Back to the list`,
     allowWhileTyping: true,
   },
   {
@@ -126,14 +136,14 @@ const SHORTCUT_DEFINITIONS = [
     keys: ["tab"],
     scope: "mail",
     group: "Navigate",
-    label: "Next split",
+    label: msg`Next split`,
   },
   {
     id: "previousSplit",
     keys: ["shift+tab"],
     scope: "mail",
     group: "Navigate",
-    label: "Previous split",
+    label: msg`Previous split`,
   },
   {
     id: "switchAccount",
@@ -151,7 +161,7 @@ const SHORTCUT_DEFINITIONS = [
     display: ["modorctrl+1–9"],
     scope: "mail",
     group: "Navigate",
-    label: "Switch account",
+    label: msg`Switch account`,
     allowWhileTyping: true,
     desktopOnly: true,
   },
@@ -161,7 +171,7 @@ const SHORTCUT_DEFINITIONS = [
     display: ["modorctrl+0"],
     scope: "mail",
     group: "Navigate",
-    label: "All accounts",
+    label: msg`All accounts`,
     allowWhileTyping: true,
     desktopOnly: true,
   },
@@ -170,21 +180,21 @@ const SHORTCUT_DEFINITIONS = [
     keys: ["g>a"],
     scope: "mail",
     group: "Navigate",
-    label: "Back to the app",
+    label: msg`Back to the app`,
   },
   {
     id: "openExternal",
     keys: ["g>g"],
     scope: "mail",
     group: "Navigate",
-    label: "Open in email provider",
+    label: msg`Open in email provider`,
   },
   {
     id: "commandPalette",
     keys: ["mod+k"],
     scope: "global",
     group: "Navigate",
-    label: "Command palette",
+    label: msg`Command palette`,
     allowWhileTyping: true,
     capture: true,
   },
@@ -193,45 +203,45 @@ const SHORTCUT_DEFINITIONS = [
     keys: ["/"],
     scope: "mail",
     group: "Navigate",
-    label: "Search",
+    label: msg`Search`,
   },
   {
     id: "select",
     keys: ["x"],
     scope: "mail",
     group: "Triage",
-    label: "Select",
+    label: msg`Select`,
   },
   {
     id: "selectAll",
     keys: ["mod+a"],
     scope: "mail",
     group: "Triage",
-    label: "Select all",
+    label: msg`Select all`,
   },
   {
     id: "extendSelectionDown",
     keys: ["shift+arrowdown", "shift+j"],
     scope: "mail",
     group: "Triage",
-    label: "Extend the selection down",
+    label: msg`Extend the selection down`,
   },
   {
     id: "extendSelectionUp",
     keys: ["shift+arrowup", "shift+k"],
     scope: "mail",
     group: "Triage",
-    label: "Extend the selection up",
+    label: msg`Extend the selection up`,
   },
   {
     id: "archive",
     keys: ["e"],
     scope: "mail",
     group: "Triage",
-    label: "Archive",
+    label: msg`Archive`,
     palette: {
       section: "actions",
-      description: "Archive current email",
+      description: msg`Archive current email`,
       keywords: ["archive", "remove", "delete"],
       priority: 0,
       icon: ArchiveIcon,
@@ -242,7 +252,7 @@ const SHORTCUT_DEFINITIONS = [
     keys: ["s"],
     scope: "mail",
     group: "Triage",
-    label: "Star / unstar",
+    label: msg`Star / unstar`,
     palette: {
       section: "actions",
       keywords: ["star", "unstar"],
@@ -254,21 +264,21 @@ const SHORTCUT_DEFINITIONS = [
     keys: ["l"],
     scope: "mail",
     group: "Triage",
-    label: "Label",
+    label: msg`Label`,
   },
   {
     id: "markUnread",
     keys: ["u"],
     scope: "mail",
     group: "Triage",
-    label: "Mark as unread",
+    label: msg`Mark as unread`,
   },
   {
     id: "move",
     keys: ["v"],
     scope: "mail",
     group: "Triage",
-    label: "Move",
+    label: msg`Move`,
   },
   {
     // `!` sits behind shift on US layouts and in front of it on others.
@@ -277,14 +287,14 @@ const SHORTCUT_DEFINITIONS = [
     display: ["!"],
     scope: "mail",
     group: "Triage",
-    label: "Mark as spam",
+    label: msg`Mark as spam`,
   },
   {
     id: "snooze",
     keys: ["h"],
     scope: "mail",
     group: "Triage",
-    label: "Snooze",
+    label: msg`Snooze`,
   },
   {
     // `#` sits behind shift on US layouts and in front of it on others.
@@ -293,28 +303,28 @@ const SHORTCUT_DEFINITIONS = [
     display: ["#"],
     scope: "mail",
     group: "Triage",
-    label: "Delete",
+    label: msg`Delete`,
   },
   {
     id: "reply",
     keys: ["r"],
     scope: "mail",
     group: "Triage",
-    label: "Reply",
+    label: msg`Reply`,
   },
   {
     id: "replyAll",
     keys: ["a"],
     scope: "mail",
     group: "Triage",
-    label: "Reply all",
+    label: msg`Reply all`,
   },
   {
     id: "forward",
     keys: ["f"],
     scope: "mail",
     group: "Triage",
-    label: "Forward",
+    label: msg`Forward`,
     palette: {
       section: "actions",
       keywords: ["forward", "send", "share"],
@@ -327,42 +337,42 @@ const SHORTCUT_DEFINITIONS = [
     keys: ["."],
     scope: "mail",
     group: "Triage",
-    label: "More actions",
+    label: msg`More actions`,
   },
   {
     id: "openTeamComments",
     keys: ["m"],
     scope: "mail",
     group: "View",
-    label: "Comment",
+    label: msg`Comment`,
   },
   {
     id: "undo",
     keys: ["z"],
     scope: "mail",
     group: "Triage",
-    label: "Undo last action",
+    label: msg`Undo last action`,
   },
   {
     id: "translate",
     keys: ["shift+t"],
     scope: "mail",
     group: "View",
-    label: "Translate / show original",
+    label: msg`Translate / show original`,
   },
   {
     id: "toggleLayout",
     keys: ["shift+v"],
     scope: "mail",
     group: "View",
-    label: "List view / split view",
+    label: msg`List view / split view`,
   },
   {
     id: "togglePreview",
     keys: ["shift+p"],
     scope: "mail",
     group: "View",
-    label: "Short / expanded preview text",
+    label: msg`Short / expanded preview text`,
   },
   {
     id: "help",
@@ -370,7 +380,7 @@ const SHORTCUT_DEFINITIONS = [
     display: ["?"],
     scope: "mail",
     group: "View",
-    label: "Keyboard shortcuts",
+    label: msg`Keyboard shortcuts`,
     palette: {
       section: "settings",
       keywords: ["shortcuts", "keyboard", "hotkeys", "help"],
@@ -382,7 +392,7 @@ const SHORTCUT_DEFINITIONS = [
     keys: ["c"],
     scope: "global",
     group: "Compose",
-    label: "New message",
+    label: msg`New message`,
     palette: {
       section: "actions",
       keywords: ["compose", "write", "email"],
@@ -395,7 +405,7 @@ const SHORTCUT_DEFINITIONS = [
     keys: ["mod+enter"],
     scope: "mail",
     group: "Compose",
-    label: "Send",
+    label: msg`Send`,
     allowWhileTyping: true,
     capture: true,
   },
@@ -404,7 +414,7 @@ const SHORTCUT_DEFINITIONS = [
     keys: ["mod+shift+enter"],
     scope: "mail",
     group: "Compose",
-    label: "Send and mark done",
+    label: msg`Send and mark done`,
     allowWhileTyping: true,
     capture: true,
   },
@@ -413,7 +423,7 @@ const SHORTCUT_DEFINITIONS = [
     keys: ["mod+shift+l"],
     scope: "mail",
     group: "Compose",
-    label: "Send later",
+    label: msg`Send later`,
     allowWhileTyping: true,
     capture: true,
   },
@@ -422,7 +432,7 @@ const SHORTCUT_DEFINITIONS = [
     keys: ["mod+shift+h"],
     scope: "mail",
     group: "Compose",
-    label: "Remind me",
+    label: msg`Remind me`,
     allowWhileTyping: true,
     capture: true,
   },
@@ -431,7 +441,7 @@ const SHORTCUT_DEFINITIONS = [
     keys: ["mod+shift+u"],
     scope: "mail",
     group: "Compose",
-    label: "Attach files",
+    label: msg`Attach files`,
     allowWhileTyping: true,
     capture: true,
   },
@@ -440,7 +450,7 @@ const SHORTCUT_DEFINITIONS = [
     keys: ["mod+shift+p"],
     scope: "mail",
     group: "Compose",
-    label: "Pop out draft",
+    label: msg`Pop out draft`,
     allowWhileTyping: true,
     capture: true,
   },
@@ -450,7 +460,7 @@ const SHORTCUT_DEFINITIONS = [
     display: ["mod+shift+,"],
     scope: "mail",
     group: "Compose",
-    label: "Discard draft",
+    label: msg`Discard draft`,
     allowWhileTyping: true,
     capture: true,
   },
@@ -459,7 +469,7 @@ const SHORTCUT_DEFINITIONS = [
     keys: ["mod+j"],
     scope: "mail",
     group: "Assistant & rules",
-    label: "Assistant",
+    label: msg`Assistant`,
     allowWhileTyping: true,
   },
 ] as const satisfies readonly ShortcutEntry[];
@@ -539,6 +549,7 @@ export function getShortcutKeyLabels(id: ShortcutId): string[] {
 /** Feeds ⌘K: an entry appears once its handler is registered. */
 export function buildShortcutPaletteCommands(
   handlers: ShortcutHandlers,
+  i18n: I18n,
 ): Command[] {
   const commands: (Command & { priority: number })[] = [];
 
@@ -551,8 +562,8 @@ export function buildShortcutPaletteCommands(
 
     commands.push({
       id: entry.id,
-      label: entry.label,
-      description: palette.description,
+      label: i18n._(entry.label),
+      description: palette.description && i18n._(palette.description),
       icon: palette.icon,
       shortcut: formatShortcutKeys(entry),
       section: palette.section,

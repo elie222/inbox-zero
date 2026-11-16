@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { useCallback, useEffect, useState } from "react";
 import { usePostHog, useActiveFeatureFlags } from "posthog-js/react";
 import type { EarlyAccessFeature } from "posthog-js";
@@ -45,17 +46,23 @@ export function EarlyAccessFeatures() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Early access features</CardTitle>
+        <CardTitle>
+          <Trans>Early access features</Trans>
+        </CardTitle>
         <CardDescription>
-          You can enable and disable early access features here.
+          <Trans>You can enable and disable early access features here.</Trans>
         </CardDescription>
       </CardHeader>
 
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Feature</TableHead>
-            <TableHead className="w-24">Enabled</TableHead>
+            <TableHead>
+              <Trans>Feature</Trans>
+            </TableHead>
+            <TableHead className="w-24">
+              <Trans>Enabled</Trans>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
+import { deletionCancelsStripeSubscription } from "@/ee/billing/stripe/account-deletion";
 import { auth } from "@/utils/auth";
 import {
   isDecisionModelAvailable,
@@ -53,6 +54,7 @@ async function getUser({
           emailAccountsAccess: true,
           lemonLicenseKey: true,
           pendingInvites: true,
+          _count: { select: { users: true } },
         },
       },
       emailAccounts: {
@@ -94,10 +96,18 @@ async function getUser({
   const canManageBillingAccess = billingAccessDenial === null;
   let premium = null;
   if (user.premium) {
-    const { admins: _admins, id: _premiumId, ...premiumData } = user.premium;
+    const {
+      admins: _admins,
+      id: _premiumId,
+      _count: _memberCount,
+      ...premiumData
+    } = user.premium;
     premium = {
       ...premiumData,
       isAdmin: canManageBillingAccess,
+      deletionCancelsStripeSubscription: deletionCancelsStripeSubscription(
+        user.premium,
+      ),
     };
   }
 

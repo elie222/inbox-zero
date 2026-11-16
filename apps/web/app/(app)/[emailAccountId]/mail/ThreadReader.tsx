@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import dynamic from "next/dynamic";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { AlertCircleIcon, Loader2Icon, MailIcon } from "lucide-react";
 import { latestShownMessage } from "@/app/(app)/[emailAccountId]/mail/latest-shown-message";
 import { ReaderToolbar } from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
@@ -124,6 +125,7 @@ export function ThreadReader({
   showChat = true,
   renderMessageMenu,
 }: ThreadReaderProps) {
+  const { t } = useLingui();
   const [senderContext, setSenderContext] = useState<{
     messageId: string;
     senderEmail: string;
@@ -145,7 +147,12 @@ export function ThreadReader({
     ? undefined
     : translation?.subject;
 
-  if (error || (!headerMessage && !localAvailability)) {
+  // A failed refresh must not tear down a conversation and its active reply
+  // when we already have messages to display.
+  if (
+    (error && messages.length === 0) ||
+    (!headerMessage && !localAvailability)
+  ) {
     return (
       <div
         className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 px-6 py-16 text-center"
@@ -158,15 +165,17 @@ export function ThreadReader({
           errorComponent={<ThreadReaderError error={error} onRetry={refetch} />}
           loadingComponent={
             <Loader2Icon
-              aria-label="Loading email"
+              aria-label={t`Loading email`}
               className="size-6 animate-spin text-muted-foreground"
             />
           }
         >
           <MailIcon className="size-6 text-muted-foreground" />
-          <div className="text-foreground text-sm">Nothing selected</div>
+          <div className="text-foreground text-sm">
+            <Trans>Nothing selected</Trans>
+          </div>
           <div className="text-muted-foreground text-xs">
-            Pick another view, or head back to the inbox.
+            <Trans>Pick another view, or head back to the inbox.</Trans>
           </div>
         </LoadingContent>
       </div>
@@ -203,7 +212,7 @@ export function ThreadReader({
         getConversationSubject(
           thread?.messages.length ? thread.messages : messages,
         ) ??
-        "Conversation"
+        t`Conversation`
       }
     />
   );
@@ -221,7 +230,11 @@ export function ThreadReader({
           onClick={onClick}
           variant="outline"
         >
-          {loading ? "Loading messages…" : "Load older messages"}
+          {loading ? (
+            <Trans>Loading messages…</Trans>
+          ) : (
+            <Trans>Load older messages</Trans>
+          )}
         </Button>
       )}
       sidePanel={
@@ -301,13 +314,13 @@ function ThreadReaderError({
     <>
       <AlertCircleIcon className="size-6 text-muted-foreground" />
       <div className="text-foreground text-sm">
-        Couldn't open this conversation
+        <Trans>Couldn't open this conversation</Trans>
       </div>
       <div className="text-muted-foreground text-xs">
         {getSWRFetchErrorMessage(error?.info)}
       </div>
       <Button className="mt-2" onClick={onRetry} size="sm" variant="outline">
-        Try again
+        <Trans>Try again</Trans>
       </Button>
     </>
   );

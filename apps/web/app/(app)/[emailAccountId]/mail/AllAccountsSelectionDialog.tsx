@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
@@ -27,6 +28,7 @@ export function AllAccountsSelectionDialog({
   onClose: () => void;
   onSaved: () => Promise<unknown>;
 }) {
+  const { t } = useLingui();
   const [selectedAccountIds, setSelectedAccountIds] = useState(
     () =>
       new Set(
@@ -38,13 +40,13 @@ export function AllAccountsSelectionDialog({
   const { execute, isExecuting } = useAction(updateAllAccountsSelectionAction, {
     onSuccess: async () => {
       await onSaved();
-      toastSuccess({ description: "All Accounts updated" });
+      toastSuccess({ description: t`All Accounts updated` });
       onClose();
     },
     onError: (error) => {
       toastError({
         description: getActionErrorMessage(error.error, {
-          prefix: "Couldn't update All Accounts",
+          prefix: t`Couldn't update All Accounts`,
         }),
       });
     },
@@ -54,9 +56,11 @@ export function AllAccountsSelectionDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Choose accounts</DialogTitle>
+          <DialogTitle>
+            <Trans>Choose accounts</Trans>
+          </DialogTitle>
           <DialogDescription>
-            Choose which accounts appear in All Accounts.
+            <Trans>Choose which accounts appear in All Accounts.</Trans>
           </DialogDescription>
         </DialogHeader>
 
@@ -109,7 +113,7 @@ export function AllAccountsSelectionDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isExecuting}>
-            Cancel
+            <Trans>Cancel</Trans>
           </Button>
           <Button
             loading={isExecuting}
@@ -117,7 +121,7 @@ export function AllAccountsSelectionDialog({
               execute({ emailAccountIds: [...selectedAccountIds] })
             }
           >
-            Save
+            <Trans>Save</Trans>
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,3 +1,4 @@
+import type { I18n } from "@lingui/core";
 import { GmailLabel } from "@/utils/gmail/label";
 import { formatDateGroupLabel } from "@/utils/date";
 import { getThreadTimestamp } from "@/utils/threads/sort";
@@ -175,7 +176,7 @@ export function scrollElementIntoContainer(
  */
 export function groupThreadsByDate<
   T extends { messages: Array<{ internalDate?: string | null }> },
->(threads: T[], now?: Date) {
+>(threads: T[], i18n: I18n, now?: Date) {
   const groups: {
     label: string | null;
     startIndex: number;
@@ -185,7 +186,7 @@ export function groupThreadsByDate<
   threads.forEach((thread, index) => {
     const timestamp = getThreadTimestamp(thread);
     const label = timestamp
-      ? formatDateGroupLabel(new Date(timestamp), now)
+      ? formatDateGroupLabel(new Date(timestamp), i18n, now)
       : null;
 
     const openGroup = groups.at(-1);

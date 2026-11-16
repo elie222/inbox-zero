@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import { atom, useAtom } from "jotai";
+import { plural } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import useSWR from "swr";
 import { ProgressPanel } from "@/components/ProgressPanel";
 import type { CategorizeProgress } from "@/app/api/user/categorize/senders/progress/route";
@@ -20,6 +22,7 @@ export function CategorizeSendersProgress({
 }: {
   refresh: boolean;
 }) {
+  const { t } = useLingui();
   const { isBulkCategorizing } = useCategorizeProgress();
 
   const { data } = useSWR<CategorizeProgress>(
@@ -51,9 +54,12 @@ export function CategorizeSendersProgress({
     <ProgressPanel
       totalItems={totalItems}
       remainingItems={totalItems - completedItems}
-      inProgressText="Categorizing senders..."
-      completedText={`Categorization complete! ${completedItems} categorized!`}
-      itemLabel="senders"
+      inProgressText={t`Categorizing senders...`}
+      completedText={t`${plural(completedItems, {
+        one: "Categorization complete! # categorized!",
+        other: "Categorization complete! # categorized!",
+      })}`}
+      itemLabel={t`senders`}
     />
   );
 }

@@ -9,6 +9,7 @@ type PreviousOnboardingState = {
   completedOnboardingAt: Date | null;
   emailAccountId: string;
   onboardingAnswers: unknown;
+  premiumId: string | null;
   role: string | null;
   signupIntent: string | null;
   surveyCompanySize: number | null;
@@ -30,6 +31,7 @@ export async function setupOnboardingTestState() {
          u."completedOnboardingAt",
          u."onboardingAnswers",
          u."signupIntent",
+         u."premiumId",
          u."surveyRole",
          u."surveyCompanySize",
          u."surveySource",
@@ -55,9 +57,11 @@ export async function setupOnboardingTestState() {
     }
 
     previousState = candidateState;
+    // Onboarding starts as a new user without a plan, who ends on the upgrade page.
     await client.query(
       `UPDATE "User"
        SET "completedOnboardingAt" = NULL,
+           "premiumId" = NULL,
            "onboardingAnswers" = NULL,
            "signupIntent" = NULL,
            "surveyRole" = NULL,
@@ -88,7 +92,8 @@ export async function resetOnboardingTestState() {
              "surveyRole" = $4,
              "surveyCompanySize" = $5,
              "surveySource" = $6,
-             "signupIntent" = $7
+             "signupIntent" = $7,
+             "premiumId" = $8
          WHERE id = $1`,
         [
           state.userId,
@@ -100,6 +105,7 @@ export async function resetOnboardingTestState() {
           state.surveyCompanySize,
           state.surveySource,
           state.signupIntent,
+          state.premiumId,
         ],
       );
       await client.query(`UPDATE "EmailAccount" SET role = $2 WHERE id = $1`, [

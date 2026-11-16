@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { type ReactNode, useState } from "react";
 import { cn } from "@/utils";
 
@@ -23,6 +24,7 @@ export function SidebarCardStack({
   collapsed: boolean;
   className?: string;
 }) {
+  const { t } = useLingui();
   const [expanded, setExpanded] = useState(false);
   const [top, ...rest] = cards;
   if (collapsed && expanded) setExpanded(false);
@@ -47,7 +49,7 @@ export function SidebarCardStack({
 
   return (
     <section
-      aria-label="Notices"
+      aria-label={t`Notices`}
       className={className}
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={() => setExpanded(false)}

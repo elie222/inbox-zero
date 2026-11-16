@@ -50,10 +50,14 @@ export async function prepareCleanupFixture(
     await deleteCleanupRows(client, emailAccountId);
 
     await client.query(
-      `INSERT INTO "Premium" (id, "createdAt", "updatedAt", "pendingInvites", tier)
-       VALUES ($1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ARRAY[]::text[], 'PRO_MONTHLY')
+      // The admin grant keeps the plan active, which opening mail requires.
+      `INSERT INTO "Premium" (id, "createdAt", "updatedAt", "pendingInvites", tier, "adminGrantTier", "adminGrantExpiresAt")
+       VALUES ($1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ARRAY[]::text[], 'PRO_MONTHLY', 'PRO_MONTHLY', CURRENT_TIMESTAMP + interval '1 day')
        ON CONFLICT (id) DO UPDATE
-       SET tier = EXCLUDED.tier, "updatedAt" = CURRENT_TIMESTAMP`,
+       SET tier = EXCLUDED.tier,
+           "adminGrantTier" = EXCLUDED."adminGrantTier",
+           "adminGrantExpiresAt" = EXCLUDED."adminGrantExpiresAt",
+           "updatedAt" = CURRENT_TIMESTAMP`,
       [premiumId],
     );
     await client.query(

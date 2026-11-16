@@ -25,6 +25,7 @@ import {
   buildCompactionSummaryMessage,
   extractMemories,
 } from "@/utils/ai/assistant/compact";
+import { toChatActionTotals } from "@/utils/ai/assistant/chat-action-totals";
 import { getInboxStatsForChatContext } from "@/utils/ai/assistant/get-inbox-stats-for-chat-context";
 import { formatUtcDate } from "@/utils/date";
 import {
@@ -252,6 +253,7 @@ export const POST = withEmailAccount("chat", async (request) => {
           recentUserMessageCount,
         } = await compactMessages({
           messages: modelMessages,
+          actionTotals: toChatActionTotals(chat.actionTotals),
           user,
           logger: request.logger,
         });
@@ -549,6 +551,7 @@ async function createNewChat({
       include: {
         messages: { orderBy: { createdAt: "asc" } },
         compactions: { orderBy: { createdAt: "desc" }, take: 1 },
+        actionTotals: { select: { action: true, count: true } },
       },
     });
     logger.info("New chat created", { chatId: newChat.id, emailAccountId });
@@ -565,6 +568,7 @@ async function getChatWithCompactions(chatId: string) {
     include: {
       messages: { orderBy: { createdAt: "asc" } },
       compactions: { orderBy: { createdAt: "desc" }, take: 1 },
+      actionTotals: { select: { action: true, count: true } },
     },
   });
 }

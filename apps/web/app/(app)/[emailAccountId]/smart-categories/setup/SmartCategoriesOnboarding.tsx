@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { useOnboarding } from "@/components/OnboardingModal";
 import {
   Dialog,
@@ -19,30 +20,34 @@ export function SmartCategoriesOnboarding() {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Welcome to Sender Categories</DialogTitle>
+          <DialogTitle>
+            <Trans>Welcome to Sender Categories</Trans>
+          </DialogTitle>
           <DialogDescription>
-            Automatically categorize who emails you for better inbox management
-            and smarter automation.
+            <Trans>
+              Automatically categorize who emails you for better inbox
+              management and smarter automation.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-2 sm:gap-4">
           <CardBasic className="flex items-center">
             <TagsIcon className="mr-3 h-5 w-5" />
-            Auto-categorize who emails you
+            <Trans>Auto-categorize who emails you</Trans>
           </CardBasic>
           <CardBasic className="flex items-center">
             <ArchiveIcon className="mr-3 h-5 w-5" />
-            Bulk archive by category
+            <Trans>Bulk archive by category</Trans>
           </CardBasic>
           <CardBasic className="flex items-center">
             <ZapIcon className="mr-3 h-5 w-5" />
-            Use categories to optimize the AI assistant
+            <Trans>Use categories to optimize the AI assistant</Trans>
           </CardBasic>
         </div>
         <div>
           <Button className="w-full" onClick={onClose}>
-            Get Started
+            <Trans>Get Started</Trans>
           </Button>
         </div>
       </DialogContent>

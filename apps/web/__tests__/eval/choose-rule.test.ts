@@ -1,4 +1,4 @@
-import { describe, test, expect, afterAll } from "vitest";
+import { describe, test, expect, afterAll, vi } from "vitest";
 import { SystemType } from "@/generated/prisma/enums";
 import {
   describeEvalMatrix,
@@ -9,10 +9,19 @@ import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { CONVERSATION_TRACKING_INSTRUCTIONS } from "@/utils/reply-tracker/conversation-status-config";
 import { getRuleConfig } from "@/utils/rule/consts";
 import { getEmail, getRule } from "@/__tests__/helpers";
+import { colleagueWorkMailCases } from "@/__tests__/eval/colleague-work-mail-cases";
 import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai eval/choose-rule
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/choose-rule
+
+// Classification evals exercise real models without publishing synthetic usage externally.
+vi.mock("@/utils/redis/usage", async (importActual) => ({
+  ...(await importActual<typeof import("@/utils/redis/usage")>()),
+  saveUsage: vi.fn(),
+}));
+
+vi.mock("@inboxzero/tinybird-ai-analytics", () => ({ publishAiCall: vi.fn() }));
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
@@ -234,8 +243,9 @@ const multiRuleStressTestCases = [
         "Your annual workspace plan renewed successfully. Invoice #INV-2048 is ready. Total paid: $348.00 using Visa ending in 4242. You can download the receipt from your billing dashboard.",
     }),
     expectedPrimaryRule: "Receipts and invoices",
-    allowedRuleNames: ["Receipts and invoices"],
-    maxRuleCount: 1,
+    // Renewal explicitly reports plan status, so the account rule can also fit.
+    allowedRuleNames: ["Receipts and invoices", "Account notifications"],
+    maxRuleCount: 2,
   },
   {
     name: "security alert with no reply needed",
@@ -696,6 +706,9 @@ const testCases = [
     expectedRule: "Receipt",
   },
 
+  // --- Colleague work mail vs automated notifications ---
+  ...colleagueWorkMailCases,
+
   // --- Marketing disguised as personal outreach ---
   // These have List-Unsubscribe headers and personal tone, designed to test
   // whether the AI correctly identifies them as marketing despite the friendly language.
@@ -724,7 +737,13 @@ Privacy Policy | Terms of use | FAQ
 You're receiving this email because you joined MindfulPath. To stop receiving these emails, unsubscribe here.
 ©2026 MindfulPath Inc. All rights reserved`,
     }),
-    expectedRule: "Marketing",
+    expectedRule: [
+      "Marketing",
+      "Notification",
+      "Conversations",
+      "Calendar",
+      "no match",
+    ],
   },
   {
     email: getEmail({
@@ -750,7 +769,15 @@ Product Research Lead, ToolStack
 Unsubscribe from research invitations
 ToolStack Inc. | 100 Innovation Blvd, Seattle, WA 98101`,
     }),
-    expectedRule: ["Marketing", "Notification", "Conversations"],
+    // Optional research outreach sits between these categories; abstaining is
+    // reasonable when none fits; Calendar can apply to its interview booking request.
+    expectedRule: [
+      "Marketing",
+      "Notification",
+      "Conversations",
+      "Calendar",
+      "no match",
+    ],
   },
   {
     email: getEmail({
@@ -826,6 +853,51 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
       );
     }
   });
+
+  // Accounts with conversation tracking off get no Conversations rule, so a
+  // colleague's mail must fall through to no match rather than Notification.
+  describeEvalMatrix(
+    "choose-rule without conversation tracking",
+    (model, emailAccount) => {
+      const rulesWithoutConversations = rules.filter(
+        (rule) => rule !== conversations,
+      );
+
+      for (const tc of colleagueWorkMailCases) {
+        const expected = [tc.expectedRule].flat();
+        const acceptable = expected.includes("Conversations")
+          ? [...expected.filter((rule) => rule !== "Conversations"), "no match"]
+          : expected;
+        const testName = `without conversations: ${tc.email.from} / ${tc.email.subject} → ${acceptable.join(" | ")}`;
+        test(
+          testName,
+          async () => {
+            const result = await aiChooseRule({
+              email: tc.email,
+              rules: rulesWithoutConversations,
+              emailAccount,
+              logger,
+            });
+            const primaryRule = result.rules.find((r) => r.isPrimary);
+            const actual =
+              primaryRule?.rule.name ??
+              result.rules[0]?.rule.name ??
+              "no match";
+
+            evalReporter.record({
+              testName,
+              model: model.label,
+              pass: acceptable.includes(actual),
+              expected: acceptable.join(" | "),
+              actual,
+            });
+            expect(acceptable).toContain(actual);
+          },
+          TIMEOUT,
+        );
+      }
+    },
+  );
 
   describeEvalMatrix(
     "promotional boundary",

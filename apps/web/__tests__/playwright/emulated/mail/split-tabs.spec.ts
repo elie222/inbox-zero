@@ -11,6 +11,7 @@ import {
   openMail,
   seedDefaultSplitRule,
   withClient,
+  toggleMailLayout,
 } from "./mail-test-helpers";
 
 const isMicrosoft = playwrightMailProvider === "microsoft";
@@ -162,9 +163,6 @@ test("keeps many split tabs in one scrolling row", async ({
   await expect(lastTab).toBeAttached();
   const strip = tabs.first().locator("xpath=../../..");
   const newSplit = page.getByRole("button", { name: "New split", exact: true });
-  const layoutToggle = page.getByRole("button", {
-    name: "Switch list or split view",
-  });
   const emptyReader = page.getByText("Nothing selected", { exact: true });
 
   const tabTops = await tabs.evaluateAll((buttons) =>
@@ -174,7 +172,7 @@ test("keeps many split tabs in one scrolling row", async ({
   await expect(newSplit).toBeInViewport();
   await capturePlaywrightCheckpoint(strip, testInfo, "mail-split-tabs-start");
 
-  await layoutToggle.click();
+  await toggleMailLayout(page);
   await expect(emptyReader).toBeVisible();
   await expect(newSplit).toBeInViewport();
   const splitLayoutTops = await tabs.evaluateAll((buttons) =>
@@ -199,7 +197,7 @@ test("keeps many split tabs in one scrolling row", async ({
     "mail-split-tabs-split-layout-end",
   );
 
-  await layoutToggle.click();
+  await toggleMailLayout(page);
   await expect(emptyReader).toBeHidden();
   await expect(lastTab).toBeInViewport({ ratio: 1 });
   await capturePlaywrightCheckpoint(page, testInfo, "mail-split-tabs-list-end");

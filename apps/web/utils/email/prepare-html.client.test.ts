@@ -157,7 +157,9 @@ describe("preparing html for the image proxy", () => {
     const proxied = "<p>proxied</p>";
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValue(Response.json({ html: proxied }));
+      .mockResolvedValue(
+        Response.json({ html: proxied, remoteAssetsProxied: true }),
+      );
     const sourceHtml = sanitizeEmailHtml(html);
     const messageId = `remote-${_case}`;
 
@@ -178,6 +180,16 @@ describe("preparing remote images when the proxy fails", () => {
       () => Promise.resolve(new Response(null, { status: 502 })),
     ],
     ["cannot be reached", () => Promise.reject(new TypeError("fetch failed"))],
+    [
+      "is not configured to proxy",
+      () =>
+        Promise.resolve(
+          Response.json({
+            html: '<p>Hi</p><img src="https://tracker.example/p.png">',
+            remoteAssetsProxied: false,
+          }),
+        ),
+    ],
   ])("keeps remote images blocked when the proxy %s", async (_case, reply) => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(reply);
     const sourceHtml = sanitizeEmailHtml(

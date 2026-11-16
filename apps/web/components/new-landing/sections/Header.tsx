@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Trans } from "@lingui/react/macro";
 import { usePostHog } from "posthog-js/react";
 import { cn } from "@/utils";
 import { Logo } from "@/components/new-landing/common/Logo";
@@ -36,7 +37,7 @@ export function Header({ className }: HeaderProps) {
               href="/login"
               onClick={() => landingPageAnalytics.logInClicked(posthog)}
             >
-              Log in
+              <Trans>Log in</Trans>
             </Link>
           </Button>
         </div>
@@ -45,7 +46,9 @@ export function Header({ className }: HeaderProps) {
             href="/login"
             onClick={() => landingPageAnalytics.getStartedClicked(posthog)}
           >
-            <span className="relative z-10">Get started free</span>
+            <span className="relative z-10">
+              <Trans>Get started free</Trans>
+            </span>
           </Link>
         </Button>
       </div>

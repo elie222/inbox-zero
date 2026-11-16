@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -33,6 +34,10 @@ import {
   DEFAULT_API_KEY_SCOPES,
 } from "@/utils/api-key-scopes";
 import {
+  API_KEY_EXPIRY_MESSAGES,
+  API_KEY_SCOPE_MESSAGES,
+} from "./api-key-messages";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -47,15 +52,19 @@ export function ApiKeysCreateButtonModal({ mutate }: { mutate: () => void }) {
     <Dialog>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
-          Create key
+          <Trans>Create key</Trans>
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create new secret key</DialogTitle>
+          <DialogTitle>
+            <Trans>Create new secret key</Trans>
+          </DialogTitle>
           <DialogDescription>
-            This will create a new secret key for your account. You will need to
-            use this secret key to authenticate your requests to the API.
+            <Trans>
+              This will create a new secret key for your account. You will need
+              to use this secret key to authenticate your requests to the API.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
 
@@ -66,6 +75,7 @@ export function ApiKeysCreateButtonModal({ mutate }: { mutate: () => void }) {
 }
 
 function ApiKeysForm({ mutate }: { mutate: () => void }) {
+  const { i18n, t } = useLingui();
   const [secretKey, setSecretKey] = useState("");
   const [selectedScopes, setSelectedScopes] = useState<
     CreateApiKeyBody["scopes"]
@@ -87,17 +97,17 @@ function ApiKeysForm({ mutate }: { mutate: () => void }) {
     {
       onSuccess: (result) => {
         if (!result?.data?.secretKey) {
-          toastError({ description: "Failed to create API key" });
+          toastError({ description: t`Failed to create API key` });
           return;
         }
 
         setSecretKey(result.data.secretKey);
-        toastSuccess({ description: "API key created!" });
+        toastSuccess({ description: t`API key created!` });
       },
       onError: (error) => {
         toastError({
           description: getActionErrorMessage(error.error, {
-            prefix: "Failed to create API key",
+            prefix: t`Failed to create API key`,
           }),
         });
       },
@@ -141,10 +151,12 @@ function ApiKeysForm({ mutate }: { mutate: () => void }) {
     <form onSubmit={onSubmit} className="space-y-4">
       {emailAccounts.length > 1 && (
         <div className="space-y-2">
-          <p className="text-sm font-medium">Email account</p>
+          <p className="text-sm font-medium">
+            <Trans>Email account</Trans>
+          </p>
           <Select value={emailAccountId} onValueChange={setSelectedAccountId}>
             <SelectTrigger>
-              <SelectValue placeholder="Select an account" />
+              <SelectValue placeholder={t`Select an account`} />
             </SelectTrigger>
             <SelectContent>
               {emailAccounts.map((account) => (
@@ -160,14 +172,16 @@ function ApiKeysForm({ mutate }: { mutate: () => void }) {
       <Input
         type="text"
         name="name"
-        label="Name (optional)"
-        placeholder="My API key"
+        label={t`Name (optional)`}
+        placeholder={t`My API key`}
         registerProps={register("name")}
         error={errors.name}
       />
 
       <div className="space-y-2">
-        <p className="text-sm font-medium">Permissions</p>
+        <p className="text-sm font-medium">
+          <Trans>Permissions</Trans>
+        </p>
         <div className="space-y-3 rounded-md border p-3">
           {API_KEY_SCOPE_OPTIONS.map((scope) => (
             <div key={scope.value} className="flex items-start gap-3 text-sm">
@@ -179,8 +193,12 @@ function ApiKeysForm({ mutate }: { mutate: () => void }) {
                 aria-labelledby={`${scope.value}-label`}
               />
               <div className="space-y-1" id={`${scope.value}-label`}>
-                <div className="font-medium">{scope.label}</div>
-                <p className="text-muted-foreground">{scope.description}</p>
+                <div className="font-medium">
+                  {i18n._(API_KEY_SCOPE_MESSAGES[scope.value].label)}
+                </div>
+                <p className="text-muted-foreground">
+                  {i18n._(API_KEY_SCOPE_MESSAGES[scope.value].description)}
+                </p>
               </div>
             </div>
           ))}
@@ -191,7 +209,9 @@ function ApiKeysForm({ mutate }: { mutate: () => void }) {
       </div>
 
       <div className="space-y-2">
-        <p className="text-sm font-medium">Expiry</p>
+        <p className="text-sm font-medium">
+          <Trans>Expiry</Trans>
+        </p>
         <Select
           value={expiresIn}
           onValueChange={(value: CreateApiKeyBody["expiresIn"]) =>
@@ -204,7 +224,7 @@ function ApiKeysForm({ mutate }: { mutate: () => void }) {
           <SelectContent>
             {API_KEY_EXPIRY_OPTIONS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                {option.label}
+                {i18n._(API_KEY_EXPIRY_MESSAGES[option.value])}
               </SelectItem>
             ))}
           </SelectContent>
@@ -212,7 +232,7 @@ function ApiKeysForm({ mutate }: { mutate: () => void }) {
       </div>
 
       <SectionDescription>
-        This key will only work for the selected inbox account.
+        <Trans>This key will only work for the selected inbox account.</Trans>
       </SectionDescription>
 
       <Button
@@ -220,13 +240,15 @@ function ApiKeysForm({ mutate }: { mutate: () => void }) {
         loading={isExecuting}
         disabled={!emailAccountId || selectedScopes.length === 0}
       >
-        Create
+        <Trans>Create</Trans>
       </Button>
     </form>
   ) : (
     <div className="space-y-2">
       <SectionDescription>
-        This will only be shown once. Please copy it. Your secret key is:
+        <Trans>
+          This will only be shown once. Please copy it. Your secret key is:
+        </Trans>
       </SectionDescription>
       <CopyInput value={secretKey} />
     </div>
@@ -242,16 +264,17 @@ export function ApiKeysDeactivateButton({
   emailAccountId: string;
   mutate: () => void;
 }) {
+  const { t } = useLingui();
   const { execute, isExecuting } = useAction(
     deactivateApiKeyAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "API key deactivated!" });
+        toastSuccess({ description: t`API key deactivated!` });
       },
       onError: (error) => {
         toastError({
           description: getActionErrorMessage(error.error, {
-            prefix: "Failed to deactivate API key",
+            prefix: t`Failed to deactivate API key`,
           }),
         });
       },
@@ -269,7 +292,7 @@ export function ApiKeysDeactivateButton({
       disabled={!emailAccountId}
       onClick={() => execute({ id })}
     >
-      Revoke
+      <Trans>Revoke</Trans>
     </Button>
   );
 }

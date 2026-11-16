@@ -26,7 +26,7 @@ export function OnboardingPermissionsGate({
     if (!isAccountOwner) return;
 
     // Results are not discarded when the step changes, so a user who clicks
-    // ahead is still stopped by an earlier step's check. Failed checks fail open.
+    // ahead is still stopped by an earlier step's check. Failed requests fail open.
     checkPermissionsAction(emailAccountId)
       .then((result) => {
         if (needsPermissionsReconnect(result?.data)) {

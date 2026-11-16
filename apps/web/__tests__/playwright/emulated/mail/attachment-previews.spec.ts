@@ -13,20 +13,20 @@ test("downloads opened attachment previews over the network", async ({
     conversations,
     "Reader Visual Message",
   ).click();
-  await expect(
-    page.getByText("reader-preview.png", { exact: true }),
-  ).toBeVisible();
+  const downloadButton = page.getByRole("button", {
+    name: "Download reader-preview.png",
+  });
+  await page
+    .getByRole("button", { name: "Preview reader-preview.png" })
+    .hover();
+  await expect(downloadButton).toBeVisible();
   const downloadRequest = page.waitForRequest(
     (request) =>
       request.method() === "GET" &&
       request.url().includes("/attachment-content"),
   );
   const download = page.waitForEvent("download");
-  await page
-    .getByText("reader-preview.png", { exact: true })
-    .locator("..")
-    .getByRole("button", { name: "Download" })
-    .click();
+  await downloadButton.click();
   const savedFile = await download;
   expect(savedFile.suggestedFilename()).toBe("reader-preview.png");
   expect(await savedFile.failure()).toBeNull();
@@ -72,6 +72,46 @@ test("opens an attachment preview from its card", async ({
     page,
     testInfo,
     "mail-attachment-preview-dialog",
+  );
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+});
+
+test("keeps the preview open when its source message unmounts", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Reader Visual Message",
+  ).click();
+  const previewButton = page.getByRole("button", {
+    name: "Preview reader-preview.png",
+    includeHidden: true,
+  });
+  const message = previewButton.locator(
+    "xpath=ancestor::li[@data-thread-message-id]",
+  );
+  await previewButton.click();
+  const dialog = page.getByRole("dialog", { name: "reader-preview.png" });
+  await expect(
+    dialog.getByRole("img", { name: "reader-preview.png" }),
+  ).toBeVisible();
+
+  // Force the attachment subtree to unmount while the modal owns interaction;
+  // a real pointer cannot reach the message header behind it.
+  await message.locator(':scope > [role="button"]').evaluate((header) => {
+    (header as HTMLElement).click();
+  });
+  await expect(previewButton).toHaveCount(0);
+  await expect(
+    dialog.getByRole("img", { name: "reader-preview.png" }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-preview-after-source-unmount",
   );
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();

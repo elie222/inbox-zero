@@ -110,11 +110,9 @@ export async function createLabel({
       logger.warn("Label already exists", { name: sanitizedName });
       const label = await getLabel({ client, name: sanitizedName });
       if (label) return label;
-      throw new Error(`Label conflict but not found: ${sanitizedName}`);
+      throw new Error("Label conflict but not found");
     }
-    throw new Error(
-      `Failed to create Outlook category "${sanitizedName}": ${errorMessage}`,
-    );
+    throw new Error(`Failed to create Outlook category: ${errorMessage}`);
   }
 }
 

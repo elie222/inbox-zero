@@ -1,7 +1,11 @@
 import { expect } from "@playwright/test";
 import { test } from "../playwright-test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  conversationWithSubject,
+  openMail,
+  toggleMailLayout,
+} from "./mail-test-helpers";
 
 test("updates the draft indicator at once after deletion and retains remaining drafts", async ({
   page,
@@ -12,9 +16,7 @@ test("updates the draft indicator at once after deletion and retains remaining d
   if (
     !(await page.getByText("Nothing selected", { exact: true }).isVisible())
   ) {
-    await page
-      .getByRole("button", { name: "Switch list or split view" })
-      .click();
+    await toggleMailLayout(page);
   }
   const row = conversationWithSubject(
     page,

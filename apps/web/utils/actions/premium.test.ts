@@ -281,85 +281,11 @@ describe("getBillingPortalUrlAction", () => {
     });
   });
 
-  it.each([
-    [
-      "the interval change",
-      stripeInvalidRequestError(
-        "The customer portal cannot update this subscription to a price with a different billing interval.",
-        "flow_data[subscription_update_confirm][items][0][price]",
-      ),
-    ],
-    [
-      "a price missing from the portal configuration",
-      stripeInvalidRequestError(
-        "The item `si_live` cannot be updated to price `price_annual` because the configuration `bpc_test` does not include the price in its `features[subscription_update][products]`.",
-      ),
-    ],
-  ])("still switches to the annual price when Stripe cannot confirm %s in the portal", async (_case, portalError) => {
-    prisma.user.findUnique.mockResolvedValue(billingPortalUser());
-    mocks.retrieveSubscription.mockResolvedValue(stripeSubscription());
-    mocks.createBillingPortalSession.mockRejectedValue(portalError);
-    mocks.updateSubscription.mockResolvedValue({
-      id: "sub_test",
-      status: "active",
-      latest_invoice: {
-        status: "open",
-        hosted_invoice_url: "https://invoice.stripe.test/annual",
-      },
-    });
-
-    const result = await getBillingPortalUrlAction({
-      tier: "BASIC_ANNUALLY",
-    });
-
-    expect(result?.serverError).toBeUndefined();
-    expect(result?.data).toEqual({
-      url: "https://invoice.stripe.test/annual",
-    });
-    expect(mocks.createCheckoutSession).not.toHaveBeenCalled();
-    expect(mocks.updateSubscription).toHaveBeenCalledWith("sub_test", {
-      items: [
-        {
-          id: "si_live",
-          price: getStripePriceId({ tier: "BASIC_ANNUALLY" }),
-          quantity: 1,
-        },
-      ],
-      cancel_at_period_end: false,
-      proration_behavior: "create_prorations",
-      payment_behavior: "pending_if_incomplete",
-      expand: ["latest_invoice"],
-    });
-  });
-
-  it("returns the app billing page after a direct annual switch that does not need another payment", async () => {
+  it("surfaces a portal session error without changing the subscription", async () => {
     prisma.user.findUnique.mockResolvedValue(billingPortalUser());
     mocks.retrieveSubscription.mockResolvedValue(stripeSubscription());
     mocks.createBillingPortalSession.mockRejectedValue(
-      stripeInvalidRequestError(
-        "The specified price is not available in the customer portal.",
-      ),
-    );
-    mocks.updateSubscription.mockResolvedValue({
-      id: "sub_test",
-      status: "active",
-      latest_invoice: { status: "paid", hosted_invoice_url: null },
-    });
-
-    const result = await getBillingPortalUrlAction({
-      tier: "BASIC_ANNUALLY",
-    });
-
-    expect(result?.data).toEqual({ url: "http://localhost:3000/premium" });
-  });
-
-  it("does not change the subscription when the portal fails for an unrelated reason", async () => {
-    prisma.user.findUnique.mockResolvedValue(billingPortalUser());
-    mocks.retrieveSubscription.mockResolvedValue(stripeSubscription());
-    mocks.createBillingPortalSession.mockRejectedValue(
-      Object.assign(new Error("Stripe is temporarily unavailable"), {
-        type: "api_error",
-      }),
+      new Error("Stripe is temporarily unavailable"),
     );
 
     const result = await getBillingPortalUrlAction({
@@ -525,6 +451,43 @@ describe("generateCheckoutSessionAction", () => {
     ).toHaveProperty("trial_period_days", 7);
   });
 
+  it("returns desktop checkouts to a page that works without a browser session", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      utms: null,
+      emailAccounts: [],
+      premium: {
+        id: "premium-1",
+        stripeCustomerId: "cus_test",
+        stripeSubscriptionId: null,
+        stripeSubscriptionStatus: null,
+        stripeEndedAt: null,
+        users: [{ _count: { emailAccounts: 1 } }],
+        admins: [{ id: "user-1" }],
+      },
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    mocks.createCheckoutSession.mockResolvedValue({
+      id: "cs_test",
+      url: "https://stripe.test",
+    });
+
+    await generateCheckoutSessionAction({
+      tier: "BASIC_MONTHLY",
+      fromDesktopApp: true,
+    });
+    await generateCheckoutSessionAction({ tier: "BASIC_MONTHLY" });
+
+    const [desktopParams] = mocks.createCheckoutSession.mock.calls[0];
+    const [webParams] = mocks.createCheckoutSession.mock.calls[1];
+    expect(new URL(desktopParams.success_url).pathname).toBe(
+      "/checkout-complete",
+    );
+    expect(new URL(desktopParams.cancel_url).pathname).toBe(
+      "/checkout-complete",
+    );
+    expect(new URL(webParams.success_url).pathname).toBe("/api/stripe/success");
+  });
+
   it("uses a new idempotency key when the checkout quantity changes", async () => {
     let emailAccounts = 1;
     prisma.user.findUnique.mockImplementation(
@@ -624,13 +587,6 @@ function stripeSubscription({
       data: [{ id: itemId, quantity }],
     },
   };
-}
-
-function stripeInvalidRequestError(message: string, param?: string) {
-  return Object.assign(new Error(message), {
-    type: "invalid_request_error",
-    ...(param ? { param } : {}),
-  });
 }
 
 describe("adminChangePremiumStatusAction", () => {

@@ -11,13 +11,24 @@ import {
   trackKeyAfterEditorRemoved,
 } from "@/utils/analytics/composer-stability";
 
-// keep bundle size down by importing dynamically on use
-const ComposeEmailForm = dynamic(
-  () => import("./ComposeEmailForm").then((mod) => mod.ComposeEmailForm),
-  {
-    loading: () => <Loading />,
-  },
-);
+// Kept out of the initial bundle, then fetched ahead of use by
+// preloadComposeEmailForm so the download is usually done before compose opens.
+const loadComposeEmailForm = () =>
+  import("./ComposeEmailForm").then((mod) => mod.ComposeEmailForm);
+
+const ComposeEmailForm = dynamic(loadComposeEmailForm, {
+  loading: () => <Loading />,
+});
+
+export function preloadComposeEmailForm() {
+  loadComposeEmailForm().catch(() => {
+    // Opening compose retries the download and shows its own loading state.
+  });
+  // The form loads its editor separately, behind a loading state of its own.
+  import("@inboxzero/email-editor/web")
+    .then((mod) => mod.preloadEmailEditor())
+    .catch(() => {});
+}
 
 export function ComposeEmailFormLazy(
   props: ComponentProps<typeof ComposeEmailForm>,

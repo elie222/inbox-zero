@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,9 +19,13 @@ export function TeamSection({ organizationId }: { organizationId?: string }) {
     <>
       <Item size="sm">
         <ItemContent>
-          <ItemTitle>Invite members</ItemTitle>
+          <ItemTitle>
+            <Trans>Invite members</Trans>
+          </ItemTitle>
           <ItemDescription>
-            Share your plan by inviting teammates to your organization.
+            <Trans>
+              Share your plan by inviting teammates to your organization.
+            </Trans>
           </ItemDescription>
         </ItemContent>
         <ItemActions>
@@ -29,7 +34,7 @@ export function TeamSection({ organizationId }: { organizationId?: string }) {
             variant="outline"
             onClick={() => setIsInviteDialogOpen(true)}
           >
-            Invite
+            <Trans>Invite</Trans>
           </Button>
         </ItemActions>
       </Item>

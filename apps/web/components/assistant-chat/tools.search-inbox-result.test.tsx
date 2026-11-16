@@ -12,6 +12,9 @@ vi.mock("@/utils/actions/rule", () => ({
   deleteRuleAction: vi.fn(),
   toggleRuleAction: vi.fn(),
 }));
+vi.mock("@/utils/actions/mail-split", () => ({
+  deleteMailSplitAction: vi.fn(),
+}));
 vi.mock("next-safe-action/hooks", () => ({
   useAction: vi.fn(),
 }));

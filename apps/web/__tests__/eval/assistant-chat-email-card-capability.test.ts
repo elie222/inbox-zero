@@ -1,14 +1,16 @@
-import { afterAll, describe, expect, test } from "vitest";
-import { captureAssistantChatTrace } from "@/__tests__/eval/assistant-chat-eval-utils";
+// Import first: its vi.mock calls must register before the chat code loads.
 import {
   setupInboxWorkflowEval,
   shouldRunEval,
   TIMEOUT,
 } from "@/__tests__/eval/assistant-chat-inbox-workflows-test-utils";
+import { afterAll, describe, expect, test } from "vitest";
+import { captureAssistantChatTrace } from "@/__tests__/eval/assistant-chat-eval-utils";
 import { describeEvalMatrix } from "@/__tests__/eval/models";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { judgeEvalOutput } from "@/__tests__/eval/semantic-judge";
 import { createScopedLogger } from "@/utils/logger";
+import { normalizeAssistantTagMarkup } from "@/components/assistant-chat/assistant-tag-normalization";
 
 // pnpm --filter inbox-zero-ai test-ai eval/assistant-chat-email-card-capability
 
@@ -54,7 +56,7 @@ describe.runIf(shouldRunEval)("Eval: email card capability", () => {
           input: userPrompt,
           output,
           expected: supportsInlineEmailCards
-            ? "Summarizes the retrieved emails using inline email cards."
+            ? "Writes its own readable text about each retrieved email and places an inline email card after that text. The card does not restate what the text already says."
             : "Summarizes the retrieved emails in readable markdown without custom email card markup, even if previous replies used cards.",
           criterion: {
             name: "Client-compatible email formatting",
@@ -65,8 +67,17 @@ describe.runIf(shouldRunEval)("Eval: email card capability", () => {
         const hasCardMarkup = /<\/?(?:emails|email|email-detail)\b/i.test(
           output,
         );
+        // The model's text carries the meaning, so cards must stay empty.
+        const cardsAreEmpty = [
+          // Same normalization the renderer applies, e.g. self-closing cards.
+          ...normalizeAssistantTagMarkup(output).matchAll(
+            /<(email-detail|email)(?![-\w])[^>]*>([\s\S]*?)<\/\1>/gi,
+          ),
+        ].every((match) => match[2].trim() === "");
         const pass =
-          judgement.pass && hasCardMarkup === supportsInlineEmailCards;
+          judgement.pass &&
+          hasCardMarkup === supportsInlineEmailCards &&
+          cardsAreEmpty;
         reporter.record({
           testName: `email summaries (support=${supportsInlineEmailCards}, history=${hasCardHistory})`,
           model: model.label,

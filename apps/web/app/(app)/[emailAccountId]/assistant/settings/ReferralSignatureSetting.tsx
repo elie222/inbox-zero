@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { useCallback } from "react";
 import { Toggle } from "@/components/Toggle";
 import { toastSuccess } from "@/components/Toast";
@@ -15,6 +16,7 @@ import { env } from "@/env";
 import { BRAND_NAME } from "@/utils/branding";
 
 export function ReferralSignatureSetting() {
+  const { t } = useLingui();
   const { data, isLoading, error, mutate } = useEmailAccountFull();
   const { emailAccountId } = useAccount();
 
@@ -23,12 +25,12 @@ export function ReferralSignatureSetting() {
     {
       onSuccess: () => {
         toastSuccess({
-          description: "Referral signature setting updated!",
+          description: t`Referral signature setting updated!`,
         });
       },
       onError: createSettingActionErrorHandler({
         mutate,
-        prefix: "Failed to update referral signature setting",
+        prefix: t`Failed to update referral signature setting`,
       }),
       onSettled: () => {
         mutate();
@@ -57,8 +59,8 @@ export function ReferralSignatureSetting() {
 
   return (
     <SettingCard
-      title="Include referral signature"
-      description={`Add 'Drafted by ${BRAND_NAME}' with your referral link to emails we draft for you. Earn a month of credit for each person who signs up with your link.`}
+      title={t`Include referral signature`}
+      description={t`Add 'Drafted by ${BRAND_NAME}' with your referral link to emails we draft for you. Earn a month of credit for each person who signs up with your link.`}
       right={
         <LoadingContent
           loading={isLoading}

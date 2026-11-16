@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import {
   Empty,
   EmptyDescription,
@@ -11,9 +12,11 @@ export function RuleNotFoundState() {
   return (
     <Empty className="min-h-56 border">
       <EmptyHeader>
-        <EmptyTitle>Rule not found</EmptyTitle>
+        <EmptyTitle>
+          <Trans>Rule not found</Trans>
+        </EmptyTitle>
         <EmptyDescription>
-          This rule no longer exists. It may have been deleted.
+          <Trans>This rule no longer exists. It may have been deleted.</Trans>
         </EmptyDescription>
       </EmptyHeader>
     </Empty>

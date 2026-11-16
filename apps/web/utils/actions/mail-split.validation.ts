@@ -14,7 +14,7 @@ export const createMailSplitBody = z
     matchAll: z.boolean().default(true),
   })
   .refine(validConjunction, {
-    message: "Use match any for multiple senders or inbox sections",
+    message: "Use match any for multiple senders, recipients or inbox sections",
     path: ["filters"],
   });
 export type CreateMailSplitBody = z.infer<typeof createMailSplitBody>;
@@ -27,7 +27,7 @@ export const updateMailSplitBody = z
     matchAll: z.boolean().default(true),
   })
   .refine(validConjunction, {
-    message: "Use match any for multiple senders or inbox sections",
+    message: "Use match any for multiple senders, recipients or inbox sections",
     path: ["filters"],
   });
 export type UpdateMailSplitBody = z.infer<typeof updateMailSplitBody>;
@@ -109,11 +109,12 @@ function validConjunction(split: {
   filters: { kind: string; value?: string | null }[];
 }) {
   if (!split.matchAll) return true;
-  const senders = new Set(
-    split.filters
-      .filter((filter) => filter.kind === "FROM")
-      .map((filter) => filter.value),
-  );
+  const addressCount = (kind: string) =>
+    new Set(
+      split.filters
+        .filter((filter) => filter.kind === kind)
+        .map((filter) => filter.value),
+    ).size;
   const sections = new Set(
     split.filters
       .filter(
@@ -123,5 +124,7 @@ function validConjunction(split: {
       )
       .map((filter) => filter.value),
   );
-  return senders.size <= 1 && sections.size <= 1;
+  return (
+    addressCount("FROM") <= 1 && addressCount("TO") <= 1 && sections.size <= 1
+  );
 }

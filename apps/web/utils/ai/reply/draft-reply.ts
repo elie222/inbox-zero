@@ -88,6 +88,8 @@ type DraftEmailAccount = EmailAccountWithAI & {
 export type DraftReplyInput = {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: DraftEmailAccount;
+  /** The user's other send-as addresses, besides `emailAccount.email`. */
+  sendAsEmails?: string[];
   knowledgeBaseContent: string | null;
   replyMemoryContent?: string | null;
   emailHistorySummary: string | null;
@@ -147,6 +149,7 @@ ${temporalAndIdentityContext}`;
 export function buildDraftReplyModelEvidence({
   messages,
   emailAccount,
+  sendAsEmails = [],
   currentDate = new Date(),
   replyMemoryContent = null,
   senderReplyExamples = null,
@@ -168,7 +171,7 @@ export function buildDraftReplyModelEvidence({
   });
   const thread = getEmailListPrompt({ messages, messageMaxLength: 3000 });
   const temporalAndIdentityContext = `${getTodayForLLM(currentDate)}
-IMPORTANT: You are writing an email as ${emailAccount.email}. Write the reply from their perspective.`;
+IMPORTANT: You are writing an email as ${emailAccount.email}${sendAsEmails.length ? ` (also sends as ${sendAsEmails.join(", ")})` : ""}. Write the reply from their perspective.`;
 
   return {
     thread,

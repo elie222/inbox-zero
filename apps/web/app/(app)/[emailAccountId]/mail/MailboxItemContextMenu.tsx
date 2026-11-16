@@ -3,6 +3,8 @@
 import { type FormEvent, type ReactNode, useState } from "react";
 import { PencilIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,14 +67,14 @@ export type MailboxItemVisibility = {
 };
 
 const LABEL_LIST_OPTIONS = [
-  { value: labelVisibility.labelShow, name: "Show" },
-  { value: labelVisibility.labelShowIfUnread, name: "Show if unread" },
-  { value: labelVisibility.labelHide, name: "Hide" },
+  { value: labelVisibility.labelShow, name: msg`Show` },
+  { value: labelVisibility.labelShowIfUnread, name: msg`Show if unread` },
+  { value: labelVisibility.labelHide, name: msg`Hide` },
 ] as const;
 
 const MESSAGE_LIST_OPTIONS = [
-  { value: messageVisibility.show, name: "Show" },
-  { value: messageVisibility.hide, name: "Hide" },
+  { value: messageVisibility.show, name: msg`Show` },
+  { value: messageVisibility.hide, name: msg`Hide` },
 ] as const;
 
 export type MailboxItemColorOption = EmailLabelColor & { name: string };
@@ -102,6 +104,7 @@ export function MailboxItemContextMenu({
   onEdit: (edit: MailboxItemEdit) => Promise<boolean>;
   onDelete: (item: MailboxItem) => Promise<boolean>;
 }) {
+  const { t, i18n } = useLingui();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -158,7 +161,7 @@ export function MailboxItemContextMenu({
       const success = await onEdit(edit);
       if (success) setIsEditOpen(false);
     } catch {
-      toast.error(`Failed to update ${typeName}. Please try again.`);
+      toast.error(t`Failed to update ${typeName}. Please try again.`);
     } finally {
       setIsSaving(false);
     }
@@ -173,7 +176,7 @@ export function MailboxItemContextMenu({
     try {
       await onEdit({ kind: "label", id: item.id, ...update });
     } catch {
-      toast.error(`Failed to update ${typeName}. Please try again.`);
+      toast.error(t`Failed to update ${typeName}. Please try again.`);
     }
   };
 
@@ -183,7 +186,7 @@ export function MailboxItemContextMenu({
       const success = await onDelete(item);
       if (success) setIsDeleteOpen(false);
     } catch {
-      toast.error(`Failed to delete ${typeName}. Please try again.`);
+      toast.error(t`Failed to delete ${typeName}. Please try again.`);
     } finally {
       setIsDeleting(false);
     }
@@ -198,20 +201,20 @@ export function MailboxItemContextMenu({
         <ContextMenuContent className="w-48">
           <ContextMenuItem className="gap-2" onSelect={openEditor}>
             <PencilIcon className="size-4" />
-            Edit
+            <Trans>Edit</Trans>
           </ContextMenuItem>
           <ContextMenuItem
             className="gap-2 text-destructive focus:text-destructive"
             onSelect={() => setIsDeleteOpen(true)}
           >
             <Trash2Icon className="size-4" />
-            Delete
+            <Trans>Delete</Trans>
           </ContextMenuItem>
           {visibility && (
             <>
               <ContextMenuSeparator />
               <ContextMenuLabel className="text-muted-foreground text-xs">
-                In {typeName} list
+                <Trans>In {typeName} list</Trans>
               </ContextMenuLabel>
               <ContextMenuRadioGroup
                 value={visibility.labelList ?? labelVisibility.labelShow}
@@ -223,13 +226,13 @@ export function MailboxItemContextMenu({
               >
                 {LABEL_LIST_OPTIONS.map((option) => (
                   <ContextMenuRadioItem key={option.value} value={option.value}>
-                    {option.name}
+                    {i18n._(option.name)}
                   </ContextMenuRadioItem>
                 ))}
               </ContextMenuRadioGroup>
               <ContextMenuSeparator />
               <ContextMenuLabel className="text-muted-foreground text-xs">
-                In message list
+                <Trans>In message list</Trans>
               </ContextMenuLabel>
               <ContextMenuRadioGroup
                 value={visibility.messageList ?? messageVisibility.show}
@@ -241,7 +244,7 @@ export function MailboxItemContextMenu({
               >
                 {MESSAGE_LIST_OPTIONS.map((option) => (
                   <ContextMenuRadioItem key={option.value} value={option.value}>
-                    {option.name}
+                    {i18n._(option.name)}
                   </ContextMenuRadioItem>
                 ))}
               </ContextMenuRadioGroup>
@@ -253,14 +256,16 @@ export function MailboxItemContextMenu({
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle>Edit {typeName}</DialogTitle>
+            <DialogTitle>
+              <Trans>Edit {typeName}</Trans>
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={submitEdit}>
             {showsName && (
               <Input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                aria-label={`${typeName} name`}
+                aria-label={t`${typeName} name`}
                 autoFocus
                 maxLength={255}
               />
@@ -268,7 +273,7 @@ export function MailboxItemContextMenu({
             {showsColor && (
               <div
                 role="radiogroup"
-                aria-label={`${typeName} color`}
+                aria-label={t`${typeName} color`}
                 className={cn(
                   "grid grid-cols-[repeat(auto-fit,minmax(2rem,1fr))] gap-3 py-1",
                   showsName && "mt-5",
@@ -303,7 +308,7 @@ export function MailboxItemContextMenu({
                 onClick={() => setIsEditOpen(false)}
                 disabled={isSaving}
               >
-                Cancel
+                <Trans>Cancel</Trans>
               </Button>
               <Button
                 type="submit"
@@ -313,7 +318,7 @@ export function MailboxItemContextMenu({
                   (editMode === "color" && !color)
                 }
               >
-                Save
+                <Trans>Save</Trans>
               </Button>
             </DialogFooter>
           </form>
@@ -323,15 +328,27 @@ export function MailboxItemContextMenu({
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {typeName}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              <Trans>Delete {typeName}?</Trans>
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {item.kind === "folder"
-                ? `“${item.name}” and its contents will be removed from your mailbox.`
-                : `“${item.name}” will be removed from your mailbox. Emails using it will remain.`}
+              {item.kind === "folder" ? (
+                <Trans>
+                  “{item.name}” and its contents will be removed from your
+                  mailbox.
+                </Trans>
+              ) : (
+                <Trans>
+                  “{item.name}” will be removed from your mailbox. Emails using
+                  it will remain.
+                </Trans>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>
+              <Trans>Cancel</Trans>
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={async (event) => {
                 event.preventDefault();
@@ -340,7 +357,7 @@ export function MailboxItemContextMenu({
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              {isDeleting ? <Trans>Deleting...</Trans> : <Trans>Delete</Trans>}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

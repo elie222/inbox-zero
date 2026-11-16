@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
@@ -5,13 +6,18 @@ import { MeetingBriefsOnboardingContent } from "./MeetingBriefsOnboardingContent
 import { registerUtmTracking } from "@/app/(landing)/welcome/utms";
 import { auth } from "@/utils/auth";
 import { getBrandTitle } from "@/utils/branding";
+import { initLingui } from "@/utils/i18n/server";
 
-export const metadata: Metadata = {
-  title: getBrandTitle("Meeting Briefs Setup"),
-  description:
-    "Set up meeting briefs to receive personalized briefings before your meetings.",
-  alternates: { canonical: "/onboarding-brief" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const i18n = await initLingui();
+  return {
+    title: getBrandTitle(t(i18n)`Meeting Briefs Setup`),
+    description: t(
+      i18n,
+    )`Set up meeting briefs to receive personalized briefings before your meetings.`,
+    alternates: { canonical: "/onboarding-brief" },
+  };
+}
 
 export default async function MeetingBriefsOnboardingPage(props: {
   params: Promise<{ emailAccountId: string }>;

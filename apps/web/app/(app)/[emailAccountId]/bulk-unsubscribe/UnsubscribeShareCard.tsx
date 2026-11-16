@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { MailOpenIcon, SparklesIcon } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { BRAND_NAME } from "@/utils/branding";
@@ -12,18 +13,36 @@ export const UnsubscribeShareCard = forwardRef<
     className?: string;
   }
 >(function UnsubscribeShareCard({ senderCount, yearlyEmails, className }, ref) {
-  const senders = senderCount === 1 ? "sender" : "senders";
+  const { i18n } = useLingui();
   // Lead with the future emails avoided (the real win); fall back to the
   // sender count when we can't project a yearly figure.
   const hero = yearlyEmails
     ? {
         number: yearlyEmails,
-        label: `fewer ${yearlyEmails === 1 ? "email" : "emails"} a year`,
-        caption: `after unsubscribing from ${senderCount} ${senders}`,
+        label: (
+          <Plural
+            value={yearlyEmails}
+            one="fewer email a year"
+            other="fewer emails a year"
+          />
+        ),
+        caption: (
+          <Plural
+            value={senderCount}
+            one="after unsubscribing from # sender"
+            other="after unsubscribing from # senders"
+          />
+        ),
       }
     : {
         number: senderCount,
-        label: `${senders} unsubscribed`,
+        label: (
+          <Plural
+            value={senderCount}
+            one="sender unsubscribed"
+            other="senders unsubscribed"
+          />
+        ),
         caption: null,
       };
 
@@ -45,7 +64,7 @@ export const UnsubscribeShareCard = forwardRef<
 
       <div className="relative mt-7">
         <div className="bg-gradient-to-b from-white to-sky-100 bg-clip-text text-7xl font-bold leading-none tracking-tight text-transparent tabular-nums sm:text-8xl">
-          {hero.number.toLocaleString("en-US")}
+          {i18n.number(hero.number)}
         </div>
         <div className="mt-2 text-2xl font-semibold tracking-tight">
           {hero.label}
@@ -60,7 +79,7 @@ export const UnsubscribeShareCard = forwardRef<
       )}
 
       <div className="relative mt-7 text-sm font-medium text-white/70">
-        Cleaned up with {BRAND_NAME}
+        <Trans>Cleaned up with {BRAND_NAME}</Trans>
       </div>
     </div>
   );

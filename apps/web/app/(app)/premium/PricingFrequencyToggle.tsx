@@ -1,18 +1,20 @@
 "use client";
 
 import { Label, Radio, RadioGroup } from "@headlessui/react";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { cn } from "@/utils";
 
 export const frequencies = [
   {
     value: "monthly" as const,
-    label: "Monthly",
-    priceSuffix: "/month, billed monthly",
+    label: msg`Monthly`,
+    priceSuffix: msg`/month, billed monthly`,
   },
   {
     value: "annually" as const,
-    label: "Annually",
-    priceSuffix: "/month, billed annually",
+    label: msg`Annually`,
+    priceSuffix: msg`/month, billed annually`,
   },
 ];
 
@@ -29,6 +31,8 @@ export function PricingFrequencyToggle({
   className?: string;
   children?: React.ReactNode;
 }) {
+  const { i18n } = useLingui();
+
   return (
     <div className={cn("flex items-center justify-center", className)}>
       <RadioGroup
@@ -36,7 +40,9 @@ export function PricingFrequencyToggle({
         onChange={setFrequency}
         className="grid grid-cols-2 gap-x-1 rounded-full p-1 text-center text-xs font-semibold leading-5 ring-1 ring-inset ring-gray-200"
       >
-        <Label className="sr-only">Payment frequency</Label>
+        <Label className="sr-only">
+          <Trans>Payment frequency</Trans>
+        </Label>
         {frequencies.map((option) => (
           <Radio
             key={option.value}
@@ -48,7 +54,7 @@ export function PricingFrequencyToggle({
               )
             }
           >
-            <span>{option.label}</span>
+            <span>{i18n._(option.label)}</span>
           </Radio>
         ))}
       </RadioGroup>

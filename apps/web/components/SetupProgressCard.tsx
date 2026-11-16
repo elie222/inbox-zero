@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronRightIcon } from "lucide-react";
+import { Trans } from "@lingui/react/macro";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -24,9 +25,13 @@ export function SetupProgressCard() {
               <ProgressCircle completed={data.completed} total={data.total} />
 
               <div>
-                <h3 className="text-sm font-semibold">Complete setup</h3>
+                <h3 className="text-sm font-semibold">
+                  <Trans>Complete setup</Trans>
+                </h3>
                 <p className="text-xs text-muted-foreground">
-                  {data.completed}/{data.total} Completed
+                  <Trans>
+                    {data.completed}/{data.total} Completed
+                  </Trans>
                 </p>
               </div>
             </div>

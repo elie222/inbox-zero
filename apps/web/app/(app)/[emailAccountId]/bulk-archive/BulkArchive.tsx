@@ -3,6 +3,7 @@
 import { useMemo, useCallback, useState } from "react";
 import useSWR from "swr";
 import { parseAsBoolean, useQueryState } from "nuqs";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { AutoCategorizationSetup } from "@/app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup";
 import { BulkArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveProgress";
 import {
@@ -22,6 +23,7 @@ import { EmailStatsPreloader } from "@/components/EmailStatsPreloader";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
 export function BulkArchive() {
+  const { t } = useLingui();
   const analytics = useProductAnalytics("bulk_archive");
   const { isBulkCategorizing } = useCategorizeProgress();
   const [onboarding] = useQueryState("onboarding", parseAsBoolean);
@@ -67,13 +69,16 @@ export function BulkArchive() {
       <PageWrapper>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <PageHeading>Bulk Archive</PageHeading>
-            <TooltipExplanation text="Archive, delete, or mark emails as read in bulk by category to quickly clean up your inbox." />
+            <PageHeading>
+              <Trans>Bulk Archive</Trans>
+            </PageHeading>
+            <TooltipExplanation
+              text={t`Archive, delete, or mark emails as read in bulk by category to quickly clean up your inbox.`}
+            />
             <PageHeaderVideoButton
               video={{
-                title: "Getting started with Bulk Archive",
-                description:
-                  "Learn how to archive whole categories of old email at once.",
+                title: t`Getting started with Bulk Archive`,
+                description: t`Learn how to archive whole categories of old email at once.`,
                 muxPlaybackId:
                   "jyy00xnJVvyjVsyNKjclj02r023p200rOyDMAFNUE6Lwnpo",
               }}

@@ -138,6 +138,20 @@ describe("getThreadSenders", () => {
     ).toEqual(["new@x.com"]);
   });
 
+  it("goes by array order when a message has no date", () => {
+    expect(
+      getThreadSenders(
+        [
+          [
+            { headers: { from: "old@y.com" }, internalDate: "1000" },
+            { headers: { from: "new@x.com" } },
+          ],
+        ],
+        ["me@example.com"],
+      ),
+    ).toEqual(["new@x.com"]);
+  });
+
   it("skips malformed addresses and deduplicates", () => {
     expect(
       getThreadSenders(
@@ -145,5 +159,19 @@ describe("getThreadSenders", () => {
         ["me@example.com"],
       ),
     ).toEqual(["a@x.com"]);
+  });
+
+  it("falls back to an earlier valid sender when the latest is malformed", () => {
+    expect(
+      getThreadSenders(
+        [
+          [
+            { headers: { from: "old@y.com" }, internalDate: "1000" },
+            { headers: { from: "not an address" } },
+          ],
+        ],
+        ["me@example.com"],
+      ),
+    ).toEqual(["old@y.com"]);
   });
 });

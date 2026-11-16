@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { setupI18n } from "@lingui/core";
 import {
   getCalendarOptions,
   getDefaultDestinationCalendarId,
   type BookingLinkCalendarData,
 } from "./booking-calendar-helpers";
+
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
 
 describe("booking calendar helpers", () => {
   it("only offers enabled calendars as booking destinations", () => {
@@ -14,7 +17,7 @@ describe("booking calendar helpers", () => {
       ],
     });
 
-    expect(getCalendarOptions(data)).toEqual([
+    expect(getCalendarOptions(data, i18n)).toEqual([
       { label: "Enabled calendar", value: "enabled-calendar-id" },
     ]);
     expect(getDefaultDestinationCalendarId(data)).toBe("enabled-calendar-id");
@@ -27,7 +30,7 @@ describe("booking calendar helpers", () => {
       ],
     });
 
-    expect(getCalendarOptions(data)).toEqual([]);
+    expect(getCalendarOptions(data, i18n)).toEqual([]);
     expect(getDefaultDestinationCalendarId(data)).toBe("");
   });
 });

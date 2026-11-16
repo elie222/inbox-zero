@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/switch";
@@ -11,6 +12,7 @@ import {
 } from "@/components/ui/item";
 
 export function AppearanceSection() {
+  const { t } = useLingui();
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -23,11 +25,13 @@ export function AppearanceSection() {
   return (
     <Item size="sm">
       <ItemContent>
-        <ItemTitle>Dark mode</ItemTitle>
+        <ItemTitle>
+          <Trans>Dark mode</Trans>
+        </ItemTitle>
       </ItemContent>
       <ItemActions>
         <Switch
-          aria-label="Toggle dark mode"
+          aria-label={t`Toggle dark mode`}
           checked={isDarkMode}
           onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
           disabled={!mounted}

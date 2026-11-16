@@ -67,6 +67,54 @@ describe("mobile auth start route", () => {
     );
   });
 
+  it.each([
+    { header: "Retry-After", retryAfter: "30" },
+    { header: "X-Retry-After", retryAfter: "45" },
+    { header: "Retry-After", retryAfter: null },
+  ])("preserves rate limits with $header $retryAfter", async ({
+    header,
+    retryAfter,
+  }) => {
+    handlerMock.mockResolvedValue(
+      new Response("synthetic upstream detail", {
+        status: 429,
+        headers: retryAfter ? { [header]: retryAfter } : {},
+      }),
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const response = await POST(
+        new NextRequest("https://www.getinboxzero.com/api/mobile-auth/start", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            provider: "google",
+            codeChallenge: "a".repeat(43),
+          }),
+        }),
+        {} as never,
+      );
+      expect(response.status).toBe(429);
+      expect(response.headers.get("retry-after")).toBe(retryAfter);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      await expect(response.json()).resolves.toEqual({
+        error: "Too many sign-in attempts. Please try again later.",
+        isKnownError: true,
+      });
+      expect(storeMobileAuthStateMock).not.toHaveBeenCalled();
+      expect(handlerMock).toHaveBeenCalledOnce();
+      expect(warn).toHaveBeenCalledOnce();
+      expect(JSON.stringify(warn.mock.calls)).not.toContain(
+        "synthetic upstream detail",
+      );
+      expect(error).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      error.mockRestore();
+    }
+  });
+
   it("rejects clients that omit codeChallenge", async () => {
     await expect(
       POST(

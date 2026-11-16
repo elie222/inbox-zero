@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR from "swr";
+import { useLingui } from "@lingui/react/macro";
 import type { DateRange } from "react-day-picker";
 import type { RecipientsResponse } from "@/app/api/user/stats/recipients/route";
 import type { SendersResponse } from "@/app/api/user/stats/senders/route";
@@ -16,6 +17,7 @@ export function EmailAnalytics(props: {
   dateRange?: DateRange | undefined;
   refreshInterval: number;
 }) {
+  const { t } = useLingui();
   const { provider, userEmail } = useAccount();
 
   const params = getDateRangeParams(props.dateRange);
@@ -66,16 +68,16 @@ export function EmailAnalytics(props: {
             icon={
               <Mail className="size-4 text-neutral-500 translate-y-[-0.5px]" />
             }
-            title="Received"
+            title={t`Received`}
             tabs={[
               {
                 id: "emailAddress",
-                label: "Email address",
+                label: t`Email address`,
                 data: data.mostActiveSenderEmails.map(formatEmailItem),
               },
               {
                 id: "domain",
-                label: "Domain",
+                label: t`Domain`,
                 data: data.mostActiveSenderDomains.map(formatEmailItem),
               },
             ]}
@@ -90,11 +92,11 @@ export function EmailAnalytics(props: {
         {dataRecipients && (
           <BarListCard
             icon={<Send className="size-4 text-neutral-500" />}
-            title="Sent"
+            title={t`Sent`}
             tabs={[
               {
                 id: "emailAddress",
-                label: "Email address",
+                label: t`Email address`,
                 data:
                   dataRecipients.mostActiveRecipientEmails.map(
                     formatRecipientItem,
