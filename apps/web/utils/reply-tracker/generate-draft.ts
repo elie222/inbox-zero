@@ -25,6 +25,7 @@ import {
   formatRecordedMeetingContextForPrompt,
 } from "@/utils/meeting-recorder/reply-context";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
+import { getSendAsEmails, isSentByUser } from "@/utils/email/send-as";
 import { meetsDraftReplyConfidenceRequirement } from "@/utils/ai/reply/draft-confidence";
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 import { selectDraftAttachmentsForRule } from "@/utils/attachments/draft-attachments";
@@ -91,7 +92,11 @@ export async function fetchMessagesAndGenerateDraftWithConfidenceThreshold(
       : client
           .getThreadMessages(threadId)
           .then((messages) => messages.sort(sortByInternalDate("asc"))),
-    getSendAsEmails({ client, userEmail: emailAccount.email, logger }),
+    getSendAsEmails({
+      provider: client,
+      userEmail: emailAccount.email,
+      logger,
+    }),
   ]);
 
   const lastMessage = threadMessages.at(-1);
@@ -524,28 +529,6 @@ async function generateDraftContent(
   };
 }
 
-// The user's other addresses, so mail from or to an alias is treated as the
-// user's own. Outlook can't list aliases, so this is empty there.
-async function getSendAsEmails({
-  client,
-  userEmail,
-  logger,
-}: {
-  client: EmailProvider;
-  userEmail: string;
-  logger: Logger;
-}): Promise<string[]> {
-  try {
-    const addresses = await client.getSendAsAddresses();
-    return [
-      ...new Set(addresses.map((address) => address.email.toLowerCase())),
-    ].filter((email) => email !== userEmail.toLowerCase());
-  } catch (error) {
-    logger.warn("Failed to load send-as addresses for drafting", { error });
-    return [];
-  }
-}
-
 function getNoReplyNeededReason({
   message,
   userEmails,
@@ -558,10 +541,7 @@ function getNoReplyNeededReason({
   const ownEmails = new Set(userEmails.map((email) => email.toLowerCase()));
   const isOwn = (email: string) => ownEmails.has(email.toLowerCase());
 
-  if (
-    client.isSentMessage(message) ||
-    isOwn(extractEmailAddress(message.headers.from))
-  ) {
+  if (isSentByUser({ message, userEmails, provider: client })) {
     return "sent_by_user";
   }
 
