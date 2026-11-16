@@ -210,18 +210,28 @@ ${stringifyEmail(email, 500)}
     ...modelOptions,
     instructions: system,
     prompt,
-    schema: z.object({
-      reasoning: z
-        .string()
-        .describe("The reason you chose the rule. Keep it concise"),
-      ruleId: z
-        .enum(rules.map((rule) => rule.selectionId))
-        .nullable()
-        .describe("The ID of the rule you want to apply"),
-      noMatchFound: z
-        .boolean()
-        .describe("True if no match was found, false otherwise"),
-    }),
+    schema: z
+      .object({
+        reasoning: z
+          .string()
+          .describe("The reason you chose the rule. Keep it concise"),
+        ruleId: z
+          .enum(rules.map((rule) => rule.selectionId))
+          .nullable()
+          .describe(
+            "The ID of the rule you want to apply; required unless noMatchFound is true",
+          ),
+        noMatchFound: z
+          .boolean()
+          .describe("True if no match was found, false otherwise"),
+      })
+      .refine(
+        (selection) => selection.noMatchFound || selection.ruleId !== null,
+        {
+          message: "A claimed match must include a rule ID",
+          path: ["ruleId"],
+        },
+      ),
   });
 
   const hasRuleId = !!aiResponse.object?.ruleId;
@@ -324,30 +334,41 @@ ${stringifyEmail(email, 500)}
       OLLAMA_MULTI_RULE_SELECTION_GUIDANCE,
     ).instructions,
     prompt,
-    schema: z.object({
-      matchedRules: z
-        .array(
-          z.object({
-            ruleId: z
-              .enum(rules.map((rule) => rule.selectionId))
-              .describe("The ID of the rule"),
-            isPrimary: z
-              .boolean()
-              .describe(
-                "True if the rule is the primary match, false otherwise",
-              ),
-          }),
-        )
-        .describe("Array of all matching rules"),
-      reasoning: z
-        .string()
-        .describe(
-          "The reasoning you used to choose the rules. Keep it concise",
-        ),
-      noMatchFound: z
-        .boolean()
-        .describe("True if no match was found, false otherwise"),
-    }),
+    schema: z
+      .object({
+        matchedRules: z
+          .array(
+            z.object({
+              ruleId: z
+                .enum(rules.map((rule) => rule.selectionId))
+                .describe("The ID of the rule"),
+              isPrimary: z
+                .boolean()
+                .describe(
+                  "True if the rule is the primary match, false otherwise",
+                ),
+            }),
+          )
+          .describe(
+            "Array of all matching rules; must be nonempty unless noMatchFound is true",
+          ),
+        reasoning: z
+          .string()
+          .describe(
+            "The reasoning you used to choose the rules. Keep it concise",
+          ),
+        noMatchFound: z
+          .boolean()
+          .describe("True if no match was found, false otherwise"),
+      })
+      .refine(
+        (selection) =>
+          selection.noMatchFound || selection.matchedRules.length > 0,
+        {
+          message: "A claimed match must include at least one rule",
+          path: ["matchedRules"],
+        },
+      ),
   });
 
   const response = {
