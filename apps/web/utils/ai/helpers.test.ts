@@ -29,6 +29,26 @@ describe("getUserInfoPrompt", () => {
 </user_info>`);
   });
 
+  it("lists the user's send-as aliases after their email", () => {
+    const emailAccount = {
+      ...getEmailAccount(),
+      email: "test@example.com",
+      name: null,
+      about: null,
+    };
+
+    const result = getUserInfoPrompt({
+      emailAccount,
+      prefix: "",
+      sendAsEmails: ["studio@example.com", "sales@example.com"],
+    });
+
+    expect(result).toBe(`<user_info>
+<email>test@example.com</email>
+<also_sends_as>studio@example.com, sales@example.com</also_sends_as>
+</user_info>`);
+  });
+
   it("should format user info with only email when other fields are null", () => {
     const emailAccount = {
       ...getEmailAccount(),
