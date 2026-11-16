@@ -2,11 +2,23 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 
-const { authMock } = vi.hoisted(() => ({
+const { authMock, mockEnv } = vi.hoisted(() => ({
   authMock: vi.fn(),
+  mockEnv: { bypassPremiumChecks: false },
 }));
 
 vi.mock("@/utils/prisma");
+vi.mock("@/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/env")>();
+  return {
+    env: new Proxy(actual.env, {
+      get: (target, key) =>
+        key === "NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS"
+          ? mockEnv.bypassPremiumChecks
+          : Reflect.get(target, key),
+    }),
+  };
+});
 vi.mock("@/utils/auth", () => ({
   auth: authMock,
 }));
@@ -23,6 +35,7 @@ import { GET } from "./route";
 describe("user/me route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnv.bypassPremiumChecks = false;
     authMock.mockResolvedValue({
       user: { id: "user-1" },
     });
@@ -65,6 +78,16 @@ describe("user/me route", () => {
         },
       ],
     } as unknown as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+  });
+
+  it("tells native apps when the server bypasses premium checks", async () => {
+    const request = () =>
+      GET(new NextRequest("http://localhost:3000/api/user/me"), {} as never);
+
+    expect((await (await request()).json()).premiumChecksBypassed).toBe(false);
+
+    mockEnv.bypassPremiumChecks = true;
+    expect((await (await request()).json()).premiumChecksBypassed).toBe(true);
   });
 
   it("returns 401 with isKnownError when not authenticated", async () => {
