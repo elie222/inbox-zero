@@ -1010,7 +1010,9 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
             const prepared = await prepareStep(params);
             return {
               ...prepared,
-              messages: coalesceConsecutiveMessages(prepared.messages),
+              messages: coalesceConsecutiveMessages(
+                prepared?.messages ?? params.messages,
+              ),
             };
           }
         : ({ messages: stepMessages }) => ({
