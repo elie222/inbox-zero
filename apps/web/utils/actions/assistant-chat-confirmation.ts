@@ -39,6 +39,7 @@ import {
   trashChatThreads,
 } from "@/utils/ai/assistant/chat-inbox-tools";
 import { addChatActionTotals } from "@/utils/ai/assistant/chat-action-totals";
+import { notifyMailboxChanged } from "@/utils/mailbox-push";
 
 const CONFIRMATION_IN_PROGRESS_ERROR =
   "Email action confirmation already in progress";
@@ -793,6 +794,10 @@ export async function confirmAssistantTrashThreadsForAccount({
         : "Couldn't delete these drafts. Try again.",
     );
   }
+
+  // Gmail push skips draft changes, so open mail views would keep showing
+  // deleted drafts until their next idle sync.
+  await notifyMailboxChanged({ emailAccountId, logger });
 
   const confirmationResult = {
     successCount: threadResult.successCount,

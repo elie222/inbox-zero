@@ -61,6 +61,7 @@ import {
 } from "@/utils/outlook/page-token";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { SafeError } from "@/utils/error";
+import { notifyMailboxChanged } from "@/utils/mailbox-push";
 
 const SEARCH_INBOX_MAX_RESULTS = 20;
 const SEARCH_INBOX_PAGE_TOKEN_PREFIX = "search:";
@@ -1127,6 +1128,9 @@ const buildManageInboxTool = ({
     result: T,
     counts: ChatActionTotals,
   ) => {
+    // Provider pushes miss some of these changes, so open mail views would
+    // otherwise keep showing the old state until their next idle sync.
+    await notifyMailboxChanged({ emailAccountId, logger });
     if (!chatId) return result;
     try {
       const totalsInThisChat = await addChatActionTotals({ chatId, counts });

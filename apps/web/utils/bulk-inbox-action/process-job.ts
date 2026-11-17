@@ -17,6 +17,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { applyLabelToThread } from "@/utils/label/apply-label-to-thread";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
+import { notifyMailboxChanged } from "@/utils/mailbox-push";
 import prisma from "@/utils/prisma";
 import { sleep } from "@/utils/sleep";
 import type { ParsedMessage } from "@/utils/types";
@@ -250,6 +251,14 @@ async function runChunk({
         rateLimitedUntil: result.rateLimitError ? rateLimitedUntil : null,
         totals: result.totals,
       });
+      // Provider pushes miss some of these changes (drafts, labels outside
+      // the watched folders), so open mail views would lag behind the card.
+      if (result.totals.acted > 0) {
+        await notifyMailboxChanged({
+          emailAccountId: job.emailAccountId,
+          logger,
+        });
+      }
 
       if (result.cancelled) return { status: "stopped" };
       if (result.rateLimitError) break;
