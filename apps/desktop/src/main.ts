@@ -40,6 +40,7 @@ import {
   findDesktopProtocolUrl,
   getDesktopAppOrigin,
   getDesktopBrowserStartUrl,
+  getDesktopAccountLinkingBrowserUrl,
   getDesktopHomeUrl,
   getDesktopLocalMailUrl,
   getDesktopMailAccountId,
@@ -900,7 +901,9 @@ function getStartAuthCallbackPath(options: unknown): string | null {
 
 async function openExternal(url: string) {
   if (!isAllowedExternalUrl(url)) return;
-  await shell.openExternal(url);
+  await shell.openExternal(
+    getDesktopAccountLinkingBrowserUrl(url, appOrigin) ?? url,
+  );
 }
 
 function reportSignInError(error: unknown) {

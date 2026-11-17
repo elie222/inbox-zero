@@ -26,6 +26,41 @@ export function getDesktopLoginUrl(appOrigin: string): string {
   return new URL("/login", appOrigin).toString();
 }
 
+export function getDesktopAccountLinkingBrowserUrl(
+  url: string,
+  appOrigin: string,
+): string | null {
+  try {
+    const authorization = new URL(url);
+    const callback = authorization.searchParams.get("redirect_uri");
+    const state = authorization.searchParams.get("state");
+    if (!callback || !state) return null;
+    const redirect = new URL(callback);
+    if (redirect.origin !== appOrigin) return null;
+
+    let provider: "google" | "microsoft";
+    if (
+      authorization.origin === "https://accounts.google.com" &&
+      redirect.pathname === "/api/google/linking/callback"
+    ) {
+      provider = "google";
+    } else if (
+      authorization.origin === "https://login.microsoftonline.com" &&
+      redirect.pathname === "/api/outlook/linking/callback"
+    ) {
+      provider = "microsoft";
+    } else {
+      return null;
+    }
+    const browserStart = new URL("/api/oauth/linking/browser-start", appOrigin);
+    browserStart.searchParams.set("provider", provider);
+    browserStart.searchParams.set("state", state);
+    return browserStart.href;
+  } catch {
+    return null;
+  }
+}
+
 export function getDesktopHomeUrl(appOrigin: string): string {
   return new URL("/welcome-redirect?mode=mail", appOrigin).toString();
 }

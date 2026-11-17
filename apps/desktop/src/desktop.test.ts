@@ -3,6 +3,7 @@ import {
   findDesktopProtocolUrl,
   getDesktopAppOrigin,
   getDesktopBrowserStartUrl,
+  getDesktopAccountLinkingBrowserUrl,
   getDesktopHomeUrl,
   getDesktopLocalMailUrl,
   getDesktopLoginUrl,
@@ -24,6 +25,49 @@ import {
 } from "./desktop";
 
 describe("desktop shell helpers", () => {
+  it.each([
+    "google",
+    "outlook",
+  ])("starts %s account linking in the system browser", (provider) => {
+    const origin = "https://www.getinboxzero.com";
+    const authorization = new URL(
+      provider === "google"
+        ? "https://accounts.google.com/o/oauth2/v2/auth"
+        : "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+    );
+    authorization.searchParams.set(
+      "redirect_uri",
+      `${origin}/api/${provider}/linking/callback`,
+    );
+    authorization.searchParams.set("state", "signed-state");
+    const result = new URL(
+      getDesktopAccountLinkingBrowserUrl(authorization.href, origin)!,
+    );
+    expect(result.origin).toBe(origin);
+    expect(result.pathname).toBe("/api/oauth/linking/browser-start");
+    expect(result.searchParams.get("provider")).toBe(
+      provider === "outlook" ? "microsoft" : "google",
+    );
+    expect(result.searchParams.get("state")).toBe("signed-state");
+  });
+
+  it("does not intercept login, calendar, or untrusted OAuth redirects", () => {
+    const origin = "https://www.getinboxzero.com";
+    for (const callback of [
+      "/api/auth/callback/google",
+      "/api/google/calendar/callback",
+      "https://evil.test/api/google/linking/callback",
+    ]) {
+      const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+      url.searchParams.set("redirect_uri", new URL(callback, origin).href);
+      url.searchParams.set("state", "signed-state");
+      expect(getDesktopAccountLinkingBrowserUrl(url.href, origin)).toBeNull();
+    }
+    expect(
+      getDesktopAccountLinkingBrowserUrl("https://evil.test/", origin),
+    ).toBeNull();
+    expect(getDesktopAccountLinkingBrowserUrl("invalid", origin)).toBeNull();
+  });
   it("uses the production origin by default", () => {
     expect(getDesktopAppOrigin("https://www.getinboxzero.com/ignored")).toBe(
       "https://www.getinboxzero.com",
