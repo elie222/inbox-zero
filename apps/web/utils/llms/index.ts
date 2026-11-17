@@ -617,7 +617,7 @@ export function createGenerateObject({
               messages: coalesceConsecutiveMessages(
                 (request as { messages: ModelMessage[] }).messages,
               ),
-            } as typeof request)
+            } as unknown as typeof request)
           : request;
 
       try {
