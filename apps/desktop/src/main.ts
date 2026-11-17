@@ -57,6 +57,7 @@ import {
   shouldSmokeLocalMail,
   shouldUseLocalMailRenderer,
 } from "./desktop";
+import { installDesktopWindowFocus } from "./window-focus";
 import { createMailNotifier } from "./mail-notifications";
 import { captureDesktopError, initDesktopSentry } from "./sentry";
 import { startEventLoopDelayMonitor } from "./health";
@@ -488,13 +489,10 @@ function createAppWindow(options?: {
   window.on("resize", () => layoutActiveTab(appWindow));
   window.on("focus", () => {
     lastFocused = appWindow;
-    // A BaseWindow does not hand keyboard focus to its views by itself.
-    appWindow.activeTab.contents.focus();
     applyUnreadBadge();
     syncUpdateProgressBar();
   });
-  // The window can take focus before the listener above exists.
-  if (window.isFocused()) tab.contents.focus();
+  installDesktopWindowFocus(window, () => appWindow.activeTab.contents);
   if (options?.isMaximized) window.maximize();
   window.on("blur", () => {
     syncUpdateProgressBar();
