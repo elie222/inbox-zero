@@ -59,6 +59,7 @@ export async function getOutlookMailboxSyncPage({
   if (folderId && decoded.folderId && folderId !== decoded.folderId) {
     throw new InvalidMailboxSyncCursorError();
   }
+  let deltaFetched = false;
   try {
     const deltaResponse = await withMicrosoftGraphRetry<DeltaResponse>(
       () =>
@@ -69,16 +70,18 @@ export async function getOutlookMailboxSyncPage({
           .get(),
       logger,
     );
-    const response = await resolveAmbiguousDeltaMessages({
-      client,
-      logger,
-      response: deltaResponse,
-    });
+    deltaFetched = true;
+    const { response, missingMessageCount } =
+      await resolveAmbiguousDeltaMessages({
+        client,
+        logger,
+        response: deltaResponse,
+      });
     const [categoryMap, folderIds] = await Promise.all([
       getCategoryMap(client, logger),
       getFolderIds(client, logger),
     ]);
-    return buildOutlookMailboxSyncPage({
+    const page = buildOutlookMailboxSyncPage({
       response,
       after: decoded.after,
       folderId: decoded.folderId ?? folderId,
@@ -87,15 +90,28 @@ export async function getOutlookMailboxSyncPage({
       categoryMap,
       folderIds,
     });
+    if (missingMessageCount > 0) {
+      mailboxSyncDiagnosticLogger(logger).info(
+        "Outlook delta page handled missing messages",
+        { missingMessageCount, checkpointAdvanced: page.cursor !== cursor },
+      );
+    }
+    return page;
   } catch (error) {
     const { status, code } = extractErrorInfo(error);
-    if (
-      status !== 410 &&
-      code !== "SyncStateNotFound" &&
-      code !== "resyncRequired"
-    ) {
-      throw error;
+    const restart =
+      status === 410 ||
+      code === "SyncStateNotFound" ||
+      code === "resyncRequired";
+    if (!deltaFetched) {
+      mailboxSyncDiagnosticLogger(logger).warn("Outlook delta request failed", {
+        status: typeof status === "number" ? status : undefined,
+        code: mailboxSyncDiagnosticCode(code),
+        checkpointAdvanced: false,
+        restart,
+      });
     }
+    if (!restart) throw error;
     return getInitialPage({
       client,
       logger,
@@ -201,7 +217,7 @@ async function getInitialPage({
         .get(),
     logger,
   );
-  const response = await resolveAmbiguousDeltaMessages({
+  const { response } = await resolveAmbiguousDeltaMessages({
     client,
     logger,
     response: snapshotResponse,
@@ -232,10 +248,13 @@ async function resolveAmbiguousDeltaMessages({
   client: OutlookClient;
   logger: Logger;
   response: DeltaResponse;
-}): Promise<DeltaResponse> {
+}) {
   const messages = response.value ?? [];
-  if (!messages.some(needsMessageRefetch)) return response;
+  if (!messages.some(needsMessageRefetch)) {
+    return { response, missingMessageCount: 0 };
+  }
 
+  let missingMessageCount = 0;
   const refetched = await mapWithConcurrency(
     messages,
     MESSAGE_REFETCH_CONCURRENCY,
@@ -247,6 +266,7 @@ async function resolveAmbiguousDeltaMessages({
         messageId: message.id,
       });
       if (currentMessage) return currentMessage;
+      missingMessageCount++;
 
       // Folder deltas use `deleted` for both permanent deletion and moving a
       // message out of the folder. Keep the removal when the message is gone.
@@ -265,7 +285,10 @@ async function resolveAmbiguousDeltaMessages({
     });
   }
 
-  return { ...response, value: completeMessages };
+  return {
+    response: { ...response, value: completeMessages },
+    missingMessageCount,
+  };
 }
 
 function isPartialMessage(
@@ -309,5 +332,27 @@ async function getSyncMessage({
   } catch (error) {
     if (isNotFoundError(error)) return null;
     throw error;
+  }
+}
+
+function mailboxSyncDiagnosticLogger(logger: Logger) {
+  // Keep the request ID for correlation without inheriting mailbox identifiers.
+  return logger.with({
+    email: undefined,
+    emailAccountId: undefined,
+    userId: undefined,
+    url: undefined,
+  });
+}
+
+function mailboxSyncDiagnosticCode(code: string | undefined) {
+  switch (code) {
+    case "ErrorItemNotFound":
+    case "ErrorInvalidSyncStateData":
+    case "SyncStateNotFound":
+    case "resyncRequired":
+      return code;
+    default:
+      return "other";
   }
 }
