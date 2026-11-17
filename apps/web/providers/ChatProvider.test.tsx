@@ -728,6 +728,69 @@ describe("ChatProvider", () => {
     );
   });
 
+  it("sends a queued message with the next one after an error", async () => {
+    chatState.status = "streaming";
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    act(() => latestContext?.setInput("First follow-up"));
+    act(() => latestContext?.handleSubmit());
+
+    chatState.status = "error";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+    expect(mockSendMessage).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await latestContext?.submitTextMessage("Second follow-up");
+    });
+
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      {
+        role: "user",
+        parts: [{ type: "text", text: "First follow-up\n\nSecond follow-up" }],
+      },
+      undefined,
+    );
+    expect(latestContext?.queuedMessage).toBeNull();
+  });
+
+  it("keeps both messages when the queued one and the next are too long together", async () => {
+    chatState.status = "streaming";
+    const half = "a".repeat(Math.ceil(ASSISTANT_CHAT_MAX_TEXT_LENGTH / 2) + 1);
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    act(() => latestContext?.setInput(half));
+    act(() => latestContext?.handleSubmit());
+
+    chatState.status = "error";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+    act(() => latestContext?.setInput(half));
+    act(() => latestContext?.handleSubmit());
+
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(latestContext?.queuedMessage).toBeNull();
+    expect(latestContext?.input).toBe(`${half}\n\n${half}`);
+  });
+
   it("returns a queued message to the input when the chat changes", async () => {
     chatState.status = "streaming";
     let latestContext: ReturnType<typeof useChat> | undefined;

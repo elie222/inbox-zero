@@ -578,27 +578,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     [emailAccountId],
   );
 
-  const submitTextMessage = useCallback(
-    async (text: string) => {
-      const trimmedText = text.trim();
-      if (!trimmedText) return;
-
-      // Callers such as the rule card treat a resolved call as sent, so a
-      // queued message settles only once it actually goes out.
-      if (shouldQueue || queuedMessage) {
-        await new Promise<void>((resolve, reject) => {
-          queuedWaitersRef.current.push({ resolve, reject });
-          queueDraft({ text: trimmedText, attachments: [] });
-        });
-        return;
-      }
-
-      await sendMessageParts([{ type: "text", text: trimmedText }]);
-      setInput("");
-    },
-    [queueDraft, queuedMessage, sendMessageParts, shouldQueue],
-  );
-
   const stopRun = useCallback(async () => {
     stoppedRef.current = true;
     interruptedRef.current = false;
@@ -731,13 +710,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     if (!input.trim() && attachments.length === 0) return;
     const draft = { text: input, attachments };
 
-    if (shouldQueue) {
-      queueDraft(draft);
-    } else if (queuedMessage) {
+    if (queuedMessage && !shouldQueue) {
+      // Cleared first: if the merged message can't be sent, the queue puts
+      // all of it back in the input.
+      setAttachments([]);
+      setInput("");
       sendQueuedMessage(mergeQueuedMessages(queuedMessage, draft));
-    } else if (!sendDraft(draft)) {
       return;
     }
+    if (shouldQueue) queueDraft(draft);
+    else if (!sendDraft(draft)) return;
 
     setAttachments([]);
     setInput("");
@@ -750,6 +732,36 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     sendQueuedMessage,
     shouldQueue,
   ]);
+
+  const submitTextMessage = useCallback(
+    async (text: string) => {
+      const trimmedText = text.trim();
+      if (!trimmedText) return;
+
+      // Callers such as the rule card treat a resolved call as sent, so a
+      // queued message settles only once it actually goes out.
+      if (shouldQueue || queuedMessage) {
+        const draft = { text: trimmedText, attachments: [] };
+        await new Promise<void>((resolve, reject) => {
+          queuedWaitersRef.current.push({ resolve, reject });
+          // After an error the queue waits for the user, and this is them.
+          if (shouldQueue || !queuedMessage) queueDraft(draft);
+          else sendQueuedMessage(mergeQueuedMessages(queuedMessage, draft));
+        });
+        return;
+      }
+
+      await sendMessageParts([{ type: "text", text: trimmedText }]);
+      setInput("");
+    },
+    [
+      queueDraft,
+      queuedMessage,
+      sendMessageParts,
+      sendQueuedMessage,
+      shouldQueue,
+    ],
+  );
 
   // Takes the queued message back into the input, unsent.
   const unqueueMessage = useCallback(() => {
