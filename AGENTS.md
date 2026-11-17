@@ -2,7 +2,7 @@
 
 ## Build & Test Commands
 - Development: `pnpm dev`
-- Build: `pnpm build`
+- Build (includes database migrations): `pnpm build`
 - Lint: `pnpm lint`
 - Format: Biome (`pnpm check` / `pnpm fix` via ultracite)
 - Run all tests: `pnpm test`
@@ -18,6 +18,7 @@
 - Type-check build (skips Prisma migrate): `pnpm --filter inbox-zero-ai exec next build`
 - Do not use root `tsc --noEmit`; it is not a supported validation step in this monorepo and surfaces unrelated repo-wide debt. If you need the app's CI-aligned type/build check, use `pnpm --filter inbox-zero-ai build:ci` instead when local build validation is needed.
 - Prefer focused local tests and let CI run broader builds and checks. Builds and development services are allowed when needed to implement, reproduce, or validate an authorized task; no separate confirmation is required.
+- For local web build validation, use `pnpm --filter inbox-zero-ai build:ci`. Root and web `build` scripts run `prisma migrate deploy`; do not use them solely for validation. Run database migrations only when explicitly authorized for the target database.
 - Run `pnpm install` before running tests or build if not already done
 - Before writing or updating tests, review `.claude/skills/testing/SKILL.md`.
 - For core bug-fix tasks, default to TDD when practical (red/green/refactor); AI prompt improvements should generally be backed by evals too, and TDD is often useful there as well.
