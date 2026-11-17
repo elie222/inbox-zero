@@ -245,7 +245,10 @@ function groupActivity(parts: ChatMessage["parts"]): PartSegment[] {
 function isActivityPart(part: ChatMessage["parts"][number]) {
   if (part.type === "reasoning") return true;
   if (!ACTIVITY_TOOL_TYPES.has(part.type)) return false;
-  // A failed lookup the user should see is not routine work.
+  // Search failures already render inside the search card, which merges
+  // neighbouring searches, so they fold with them.
+  if (part.type === "tool-searchInbox") return true;
+  // Any other failed lookup the user should see is not routine work.
   const output = "output" in part ? part.output : undefined;
   return !(
     output &&
@@ -257,6 +260,8 @@ function isActivityPart(part: ChatMessage["parts"][number]) {
 
 function isVisibleActivityStep(part: ChatMessage["parts"][number]) {
   if (part.type === "step-start") return false;
+  // A call that threw renders nothing, so it isn't a step the user can see.
+  if ("state" in part && part.state === "output-error") return false;
   if (part.type === "reasoning") {
     return !!part.text && part.text !== "[REDACTED]";
   }

@@ -55,6 +55,23 @@ describe("Messages", () => {
     expect(screen.getByText("tool-getUserRulesAndSettings")).toBeTruthy();
   });
 
+  it("does not count a lookup that threw, since it renders nothing", () => {
+    renderMessages([
+      finishedTool("tool-getUserRulesAndSettings", { rules: [] }),
+      {
+        type: "tool-readEmail",
+        toolCallId: "read-1",
+        state: "output-error",
+        input: {},
+        errorText: "Timed out",
+      },
+      finishedTool("tool-getLearnedPatterns", { patterns: [] }),
+      { type: "text", text: "Done.", state: "done" },
+    ]);
+
+    expect(screen.getByText("Worked through 2 steps")).toBeTruthy();
+  });
+
   it("leaves a lone lookup as its own row", () => {
     renderMessages([
       finishedTool("tool-getUserRulesAndSettings", { rules: [] }),

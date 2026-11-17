@@ -693,6 +693,41 @@ describe("ChatProvider", () => {
     expect(mockSendMessage).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps a new message behind one still waiting for the reply to save", async () => {
+    chatState.status = "streaming";
+    chatState.messages = [
+      { id: "message-from-account-a", role: "user" },
+      { id: "reply-1", role: "assistant" },
+    ];
+    mockUseChatMessages.mockImplementation(() => ({
+      data: { activeStreamId: "reply-1", messages: [] },
+    }));
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    act(() => latestContext?.setInput("First follow-up"));
+    act(() => latestContext?.handleSubmit());
+
+    chatState.status = "ready";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+    act(() => latestContext?.setInput("Second follow-up"));
+    act(() => latestContext?.handleSubmit());
+
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(latestContext?.queuedMessage?.text).toBe(
+      "First follow-up\n\nSecond follow-up",
+    );
+  });
+
   it("returns a queued message to the input when the chat changes", async () => {
     chatState.status = "streaming";
     let latestContext: ReturnType<typeof useChat> | undefined;

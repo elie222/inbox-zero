@@ -139,6 +139,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   );
   const [isStopping, setIsStopping] = useState(false);
   const queuedWaitersRef = useRef<QueuedMessageWaiter[]>([]);
+  const queuedAccountIdRef = useRef<string | null>(null);
   const previousQueueChatIdRef = useRef(chatId);
   const [inlineActions, setInlineActions] = useState<InlineEmailAction[]>([]);
   const inlineActionsRef = useRef(inlineActions);
@@ -564,6 +565,19 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
+  // A queued message goes first, so a new one joins it until the chat is free.
+  // After an error the queue waits for the user, and sending is that signal.
+  const shouldQueue =
+    isRunActive || isStopping || (!!queuedMessage && chat.status !== "error");
+
+  const queueDraft = useCallback(
+    (draft: QueuedMessage) => {
+      queuedAccountIdRef.current = emailAccountId;
+      setQueuedMessage((current) => mergeQueuedMessages(current, draft));
+    },
+    [emailAccountId],
+  );
+
   const submitTextMessage = useCallback(
     async (text: string) => {
       const trimmedText = text.trim();
@@ -571,15 +585,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       // Callers such as the rule card treat a resolved call as sent, so a
       // queued message settles only once it actually goes out.
-      if (isRunActive) {
+      if (shouldQueue || queuedMessage) {
         await new Promise<void>((resolve, reject) => {
           queuedWaitersRef.current.push({ resolve, reject });
-          setQueuedMessage((current) =>
-            mergeQueuedMessages(current, {
-              text: trimmedText,
-              attachments: [],
-            }),
-          );
+          queueDraft({ text: trimmedText, attachments: [] });
         });
         return;
       }
@@ -587,7 +596,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       await sendMessageParts([{ type: "text", text: trimmedText }]);
       setInput("");
     },
-    [isRunActive, sendMessageParts],
+    [queueDraft, queuedMessage, sendMessageParts, shouldQueue],
   );
 
   const stopRun = useCallback(async () => {
@@ -698,20 +707,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
-  const handleSubmit = useCallback(() => {
-    if (!input.trim() && attachments.length === 0) return;
-    const draft = { text: input, attachments };
-
-    if (isRunActive) {
-      setQueuedMessage((current) => mergeQueuedMessages(current, draft));
-    } else if (!sendDraft(draft)) {
-      return;
-    }
-
-    setAttachments([]);
-    setInput("");
-  }, [attachments, input, isRunActive, sendDraft]);
-
   const sendQueuedMessage = useCallback(
     (draft: QueuedMessage) => {
       const waiters = takeQueuedWaiters(queuedWaitersRef);
@@ -731,6 +726,30 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     },
     [restoreDraft, sendDraft],
   );
+
+  const handleSubmit = useCallback(() => {
+    if (!input.trim() && attachments.length === 0) return;
+    const draft = { text: input, attachments };
+
+    if (shouldQueue) {
+      queueDraft(draft);
+    } else if (queuedMessage) {
+      sendQueuedMessage(mergeQueuedMessages(queuedMessage, draft));
+    } else if (!sendDraft(draft)) {
+      return;
+    }
+
+    setAttachments([]);
+    setInput("");
+  }, [
+    attachments,
+    input,
+    queueDraft,
+    queuedMessage,
+    sendDraft,
+    sendQueuedMessage,
+    shouldQueue,
+  ]);
 
   // Takes the queued message back into the input, unsent.
   const unqueueMessage = useCallback(() => {
@@ -764,8 +783,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     !data?.activeStreamId;
 
   useEffect(() => {
-    if (queuedMessage && isChatFree) sendQueuedMessage(queuedMessage);
-  }, [isChatFree, queuedMessage, sendQueuedMessage]);
+    if (!queuedMessage || !isChatFree) return;
+    // An account switch clears the queue in this same commit; the chat shown
+    // as free may still be the previous account's.
+    if (queuedAccountIdRef.current !== emailAccountId) return;
+    sendQueuedMessage(queuedMessage);
+  }, [emailAccountId, isChatFree, queuedMessage, sendQueuedMessage]);
 
   // A reply that just ended can still be saving; check again until it's done.
   const isWaitingForSave = !!queuedMessage && isChatSettled && !isChatFree;
