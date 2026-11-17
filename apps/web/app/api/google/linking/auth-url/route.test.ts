@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { parseSignedOAuthState } from "@/utils/oauth/state";
 
 const {
   mockAuthState,
@@ -60,6 +61,12 @@ describe("google linking auth-url route", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       url: "https://accounts.google.com/o/oauth2/auth",
+    });
+    const state = response.cookies.get("google_linking_state")?.value;
+    expect(parseSignedOAuthState(state!)).toMatchObject({
+      type: "account-linking",
+      provider: "google",
+      userId: "user-1",
     });
   });
 
