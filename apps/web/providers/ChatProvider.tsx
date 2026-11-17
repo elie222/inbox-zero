@@ -70,6 +70,11 @@ type QueuedMessage = {
   text: string;
 };
 
+type QueuedMessageWaiter = {
+  reject: (error: unknown) => void;
+  resolve: () => void;
+};
+
 type ChatSendError = {
   chatId: string;
   message: string;
@@ -133,6 +138,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     null,
   );
   const [isStopping, setIsStopping] = useState(false);
+  const queuedWaitersRef = useRef<QueuedMessageWaiter[]>([]);
+  const previousQueueChatIdRef = useRef(chatId);
   const [inlineActions, setInlineActions] = useState<InlineEmailAction[]>([]);
   const inlineActionsRef = useRef(inlineActions);
   const pendingInlineActionsRef = useRef<InlineEmailAction[] | null>(null);
@@ -435,7 +442,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     previousChatIdRef.current = chatId;
     stoppedRef.current = false;
     interruptedRef.current = false;
-    setQueuedMessage(null);
     if (pendingRequestRef.current?.chatId === chatId) return;
 
     pendingInlineActionsRef.current = null;
@@ -465,6 +471,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setAmbientContext(null);
     setAttachments([]);
     setInlineActions([]);
+    rejectQueuedWaiters(takeQueuedWaiters(queuedWaitersRef));
     setQueuedMessage(null);
   }, [chat.setMessages, emailAccountId, setChatId]);
 
@@ -562,10 +569,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       const trimmedText = text.trim();
       if (!trimmedText) return;
 
+      // Callers such as the rule card treat a resolved call as sent, so a
+      // queued message settles only once it actually goes out.
       if (isRunActive) {
-        setQueuedMessage((current) =>
-          mergeQueuedMessages(current, { text: trimmedText, attachments: [] }),
-        );
+        await new Promise<void>((resolve, reject) => {
+          queuedWaitersRef.current.push({ resolve, reject });
+          setQueuedMessage((current) =>
+            mergeQueuedMessages(current, {
+              text: trimmedText,
+              attachments: [],
+            }),
+          );
+        });
         return;
       }
 
@@ -637,7 +652,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setAttachments((current) => mergeAttachments(draft.attachments, current));
   }, []);
 
-  // Returns false when the message could not be sent at all.
+  // Returns null when the message could not be sent at all.
   const sendDraft = useCallback(
     (draft: QueuedMessage) => {
       const text = draft.text.trim();
@@ -666,11 +681,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             offerNewChat: true,
           });
         }
-        return false;
+        return null;
       }
 
       sendPromise.catch(() => restoreDraft(draft));
-      return true;
+      return sendPromise;
     },
     [
       chat.id,
@@ -697,25 +712,63 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setInput("");
   }, [attachments, input, isRunActive, sendDraft]);
 
+  const sendQueuedMessage = useCallback(
+    (draft: QueuedMessage) => {
+      const waiters = takeQueuedWaiters(queuedWaitersRef);
+      setQueuedMessage(null);
+      const sendPromise = sendDraft(draft);
+      if (!sendPromise) {
+        restoreDraft(draft);
+        rejectQueuedWaiters(waiters);
+        return;
+      }
+      sendPromise.then(
+        () => {
+          for (const waiter of waiters) waiter.resolve();
+        },
+        () => rejectQueuedWaiters(waiters),
+      );
+    },
+    [restoreDraft, sendDraft],
+  );
+
+  // Takes the queued message back into the input, unsent.
+  const unqueueMessage = useCallback(() => {
+    if (!queuedMessage) return;
+    rejectQueuedWaiters(takeQueuedWaiters(queuedWaitersRef));
+    setQueuedMessage(null);
+    restoreDraft(queuedMessage);
+  }, [queuedMessage, restoreDraft]);
+
+  // The draft input survives a chat switch, so a queued message rejoins it
+  // rather than being dropped.
+  const unqueueMessageRef = useRef(unqueueMessage);
+  useEffect(() => {
+    unqueueMessageRef.current = unqueueMessage;
+  }, [unqueueMessage]);
+  useEffect(() => {
+    if (previousQueueChatIdRef.current === chatId) return;
+    previousQueueChatIdRef.current = chatId;
+    unqueueMessageRef.current();
+  }, [chatId]);
+
   // The server frees the chat only after saving the reply, so a queued message
-  // waits until the refetched chat has the reply and no run.
+  // waits until the refetched chat has the reply and no run. After an error it
+  // waits for the user, since the failed message may need to go first.
   const lastMessageId = chat.messages.at(-1)?.id;
-  const isReplySaved =
+  const isChatSettled = !isRunActive && !isStopping && chat.status !== "error";
+  const isChatFree =
+    isChatSettled &&
     !!lastMessageId &&
     persistedMessageIds.has(lastMessageId) &&
     !data?.activeStreamId;
-  const isChatFree =
-    !isRunActive && !isStopping && (chat.status === "error" || isReplySaved);
 
   useEffect(() => {
-    if (!queuedMessage || !isChatFree) return;
-    setQueuedMessage(null);
-    if (!sendDraft(queuedMessage)) restoreDraft(queuedMessage);
-  }, [isChatFree, queuedMessage, restoreDraft, sendDraft]);
+    if (queuedMessage && isChatFree) sendQueuedMessage(queuedMessage);
+  }, [isChatFree, queuedMessage, sendQueuedMessage]);
 
   // A reply that just ended can still be saving; check again until it's done.
-  const isWaitingForSave =
-    !!queuedMessage && !isRunActive && !isStopping && !isChatFree;
+  const isWaitingForSave = !!queuedMessage && isChatSettled && !isChatFree;
   useEffect(() => {
     if (!isWaitingForSave) return;
     // Each check waits for the last: SWR drops a response once a newer request
@@ -740,16 +793,19 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       await stop();
       return;
     }
-    if (!queuedMessage) return;
-    setQueuedMessage(null);
-    if (!sendDraft(queuedMessage)) restoreDraft(queuedMessage);
-  }, [isRunActive, queuedMessage, restoreDraft, sendDraft, stop]);
-
-  const unqueueMessage = useCallback(() => {
-    if (!queuedMessage) return;
-    setQueuedMessage(null);
-    restoreDraft(queuedMessage);
-  }, [queuedMessage, restoreDraft]);
+    // A finished reply still being saved is sent by the effect above. After an
+    // error nothing else will send it, so the user's click does.
+    if (queuedMessage && chat.status === "error" && !isStopping) {
+      sendQueuedMessage(queuedMessage);
+    }
+  }, [
+    chat.status,
+    isRunActive,
+    isStopping,
+    queuedMessage,
+    sendQueuedMessage,
+    stop,
+  ]);
 
   return (
     <ChatContext.Provider
@@ -812,6 +868,25 @@ function getChatTextLength(parts: ChatMessagePart[]) {
     (length, part) => length + (part.type === "text" ? part.text.length : 0),
     0,
   );
+}
+
+function takeQueuedWaiters(ref: { current: QueuedMessageWaiter[] }) {
+  const waiters = ref.current;
+  ref.current = [];
+  return waiters;
+}
+
+// The queue puts an unsent message back in the input itself.
+function rejectQueuedWaiters(waiters: QueuedMessageWaiter[]) {
+  for (const waiter of waiters) waiter.reject(new QueuedMessageNotSentError());
+}
+
+/** A queued message didn't go out; its text is already back in the input. */
+export class QueuedMessageNotSentError extends Error {
+  constructor() {
+    super("The queued message was not sent");
+    this.name = "QueuedMessageNotSentError";
+  }
 }
 
 function mergeQueuedMessages(

@@ -28,7 +28,7 @@ import {
 import { useChats } from "@/hooks/useChats";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
-import { useChat } from "@/providers/ChatProvider";
+import { QueuedMessageNotSentError, useChat } from "@/providers/ChatProvider";
 import type { Attachment } from "@/providers/ChatProvider";
 import {
   PromptInput,
@@ -293,7 +293,8 @@ export function Chat({
               via_voice: true,
             });
             // A dictated message has no draft, so keep it for a retry.
-            submitTextMessage(text).catch(() => {
+            submitTextMessage(text).catch((error: unknown) => {
+              if (error instanceof QueuedMessageNotSentError) return;
               setInput((current) =>
                 current.trim() ? `${text}\n\n${current}` : text,
               );

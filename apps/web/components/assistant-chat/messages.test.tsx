@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Messages } from "@/components/assistant-chat/messages";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 
 vi.mock("@/components/assistant-chat/overview", () => ({
@@ -27,8 +28,6 @@ vi.mock("@/components/ai-elements/conversation", () => ({
   ),
   ConversationScrollButton: () => null,
 }));
-
-import { Messages } from "@/components/assistant-chat/messages";
 
 afterEach(() => {
   cleanup();

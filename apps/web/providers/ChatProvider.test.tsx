@@ -648,6 +648,74 @@ describe("ChatProvider", () => {
     );
   });
 
+  it("settles a message submitted mid-reply only once it is sent", async () => {
+    chatState.status = "streaming";
+    chatState.messages = [
+      { id: "message-from-account-a", role: "user" },
+      { id: "reply-1", role: "assistant" },
+    ];
+    let savedData: { activeStreamId: string | null; messages: unknown[] } = {
+      activeStreamId: "reply-1",
+      messages: [{ id: "message-from-account-a", role: "user", parts: [] }],
+    };
+    mockUseChatMessages.mockImplementation(() => ({ data: savedData }));
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    let settled = false;
+    act(() => {
+      latestContext?.submitTextMessage("Create this rule").then(() => {
+        settled = true;
+      });
+    });
+
+    chatState.status = "ready";
+    savedData = {
+      activeStreamId: null,
+      messages: [
+        { id: "message-from-account-a", role: "user", parts: [] },
+        { id: "reply-1", role: "assistant", parts: [] },
+      ],
+    };
+    expect(settled).toBe(false);
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+
+    await waitFor(() => expect(settled).toBe(true));
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a queued message to the input when the chat changes", async () => {
+    chatState.status = "streaming";
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    renderWithProvider(<Consumer />);
+    act(() => latestContext?.setInput("Also add a split inbox tab"));
+    act(() => latestContext?.handleSubmit());
+    expect(latestContext?.queuedMessage).not.toBeNull();
+
+    act(() => latestContext?.setChatId("another-chat"));
+
+    await waitFor(() => {
+      expect(latestContext?.queuedMessage).toBeNull();
+    });
+    expect(latestContext?.input).toBe("Also add a split inbox tab");
+    expect(mockSendMessage).not.toHaveBeenCalled();
+  });
+
   it("treats a connection drop after the reply started streaming as sent", async () => {
     let dropConnection: (error: Error) => void = () => {};
     mockSendMessage.mockImplementationOnce(
