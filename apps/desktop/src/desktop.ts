@@ -29,11 +29,7 @@ export function getDesktopLoginUrl(appOrigin: string): string {
 export function getDesktopAccountLinkingBrowserUrl(
   url: string,
   appOrigin: string,
-  env: {
-    NODE_ENV?: string;
-    GOOGLE_BASE_URL?: string;
-    MICROSOFT_BASE_URL?: string;
-  } = process.env,
+  env: NodeJS.ProcessEnv = process.env,
 ): string | null {
   try {
     const authorization = new URL(url);
