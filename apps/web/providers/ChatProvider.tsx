@@ -140,6 +140,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [isStopping, setIsStopping] = useState(false);
   const queuedWaitersRef = useRef<QueuedMessageWaiter[]>([]);
   const queuedAccountIdRef = useRef<string | null>(null);
+  // Read when a send fails, after the render that started it.
+  const queuedMessageRef = useRef(queuedMessage);
+  useEffect(() => {
+    queuedMessageRef.current = queuedMessage;
+  }, [queuedMessage]);
   const previousQueueChatIdRef = useRef(chatId);
   const [inlineActions, setInlineActions] = useState<InlineEmailAction[]>([]);
   const inlineActionsRef = useRef(inlineActions);
@@ -672,7 +677,19 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
 
-      sendPromise.catch(() => restoreDraft(draft));
+      sendPromise.catch(() => {
+        // A message queued behind this one was meant to follow it, so both
+        // go back in the input in that order rather than the queue sending
+        // ahead of the retry.
+        const queued = queuedMessageRef.current;
+        if (!queued) {
+          restoreDraft(draft);
+          return;
+        }
+        rejectQueuedWaiters(takeQueuedWaiters(queuedWaitersRef));
+        setQueuedMessage(null);
+        restoreDraft(mergeQueuedMessages(draft, queued));
+      });
       return sendPromise;
     },
     [

@@ -791,6 +791,43 @@ describe("ChatProvider", () => {
     expect(latestContext?.input).toBe(`${half}\n\n${half}`);
   });
 
+  it("puts a message queued behind a failed send after it in the input", async () => {
+    let failSend: (error: Error) => void = () => {};
+    mockSendMessage.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          failSend = reject;
+        }),
+    );
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    act(() => latestContext?.setInput("First message"));
+    act(() => latestContext?.handleSubmit());
+
+    chatState.status = "submitted";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+    act(() => latestContext?.setInput("Follow-up"));
+    act(() => latestContext?.handleSubmit());
+    expect(latestContext?.queuedMessage?.text).toBe("Follow-up");
+
+    await act(async () => {
+      failSend(new Error("Network request failed"));
+    });
+
+    expect(latestContext?.queuedMessage).toBeNull();
+    expect(latestContext?.input).toBe("First message\n\nFollow-up");
+  });
+
   it("returns a queued message to the input when the chat changes", async () => {
     chatState.status = "streaming";
     let latestContext: ReturnType<typeof useChat> | undefined;
