@@ -170,6 +170,42 @@ describe("buildOutlookMailboxSyncPage", () => {
 });
 
 describe("getOutlookMailboxSyncPage", () => {
+  it("reports a failed folder delta without mailbox identifiers or cursor data", async () => {
+    using warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { client } = createGraphClient({});
+
+    await expect(
+      getOutlookMailboxSyncPage({
+        client,
+        logger: logger.with({
+          email: "fixture@example.com",
+          emailAccountId: "fixture-account",
+          userId: "fixture-user",
+          url: "/api/mail/v1/accounts/fixture-account/changes",
+          requestId: "fixture-request",
+        }),
+        cursor: encodeMailboxSyncCursor({
+          version: 1,
+          provider: "microsoft",
+          deltaLink: DELTA_LINK,
+          after: "2026-07-01T00:00:00.000Z",
+          snapshot: false,
+        }),
+        limit: 50,
+      }),
+    ).rejects.toMatchObject({ code: "ErrorItemNotFound" });
+
+    const diagnostic = warn.mock.calls
+      .map(([line]) => line)
+      .find((line) => line.includes("Outlook delta request failed"));
+    expect(diagnostic).toContain('"code": "ErrorItemNotFound"');
+    expect(diagnostic).toContain('"checkpointAdvanced": false');
+    expect(diagnostic).toContain('"requestId": "fixture-request"');
+    expect(diagnostic).not.toMatch(
+      /fixture@example\.com|fixture-account|fixture-user|deltatoken/,
+    );
+  });
+
   it("keeps a restored message when a delayed folder removal arrives", async () => {
     const { client, requestedUrls } = createGraphClient({
       [DELTA_LINK]: {
@@ -220,6 +256,8 @@ describe("getOutlookMailboxSyncPage", () => {
   });
 
   it("refetches delta messages that omit their conversation", async () => {
+    using info = vi.spyOn(console, "log").mockImplementation(() => {});
+    using warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { client, requestedUrls } = createGraphClient({
       [DELTA_LINK]: {
         value: [
@@ -227,7 +265,7 @@ describe("getOutlookMailboxSyncPage", () => {
           { id: "missing-message", isRead: true },
           { id: "full-message", conversationId: "thread-2", isRead: true },
         ],
-        "@odata.deltaLink": DELTA_LINK,
+        "@odata.deltaLink": DELTA_LINK.replace("=abc", "=next"),
       },
       "/me/messages/partial-message": {
         id: "partial-message",
@@ -259,6 +297,16 @@ describe("getOutlookMailboxSyncPage", () => {
       expect.objectContaining({ id: "full-message", threadId: "thread-2" }),
     ]);
     expect(requestedUrls).not.toContain("/me/messages/full-message");
+    const diagnostic = info.mock.calls
+      .map(([line]) => line)
+      .find((line) =>
+        line.includes("Outlook delta page handled missing messages"),
+      );
+    expect(diagnostic).toContain('"missingMessageCount": 1');
+    expect(diagnostic).toContain('"checkpointAdvanced": true');
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.stringContaining("Outlook delta request failed"),
+    );
   });
 });
 
