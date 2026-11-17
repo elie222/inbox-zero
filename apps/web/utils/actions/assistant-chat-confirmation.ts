@@ -774,8 +774,13 @@ export async function confirmAssistantTrashThreadsForAccount({
       : await deleteChatDrafts({ emailProvider, threadIds });
     // Gmail push skips draft changes, so open mail views would keep showing
     // deleted drafts until their next idle sync. A thread that failed can
-    // still have had some of its drafts deleted.
-    if (threadResult.successCount > 0 || threadResult.deletedDraftCount) {
+    // still have had some of its drafts deleted, and one with no drafts left
+    // succeeds without changing anything.
+    if (
+      isTrash
+        ? threadResult.successCount > 0
+        : (threadResult.deletedDraftCount ?? 0) > 0
+    ) {
       await notifyMailboxChanged({ emailAccountId, logger });
     }
     // Nothing changed, so the card stays pending and can be confirmed again.

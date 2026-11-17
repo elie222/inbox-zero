@@ -1128,11 +1128,6 @@ const buildManageInboxTool = ({
     result: T,
     counts: ChatActionTotals,
   ) => {
-    // Provider pushes miss some of these changes, so open mail views would
-    // otherwise keep showing the old state until their next idle sync.
-    if (Object.values(counts).some((count) => count > 0)) {
-      await notifyMailboxChanged({ emailAccountId, logger });
-    }
     if (!chatId) return result;
     try {
       const totalsInThisChat = await addChatActionTotals({ chatId, counts });
@@ -1141,6 +1136,13 @@ const buildManageInboxTool = ({
       logger.error("Failed to update chat action totals", { error });
       return result;
     }
+  };
+
+  // Provider pushes miss some of these changes, so open mail views would
+  // otherwise keep showing the old state until their next idle sync.
+  const refreshOpenMailViews = async (changedCount: number) => {
+    if (changedCount > 0)
+      await notifyMailboxChanged({ emailAccountId, logger });
   };
 
   return tool({
@@ -1224,6 +1226,7 @@ const buildManageInboxTool = ({
                 email,
                 emailAccountId,
               );
+            await refreshOpenMailViews(archivedMessagesCount);
 
             return withChatTotals(
               {
@@ -1251,6 +1254,7 @@ const buildManageInboxTool = ({
               email,
               emailAccountId,
             );
+          await refreshOpenMailViews(archivedMessagesCount);
 
           return withChatTotals(
             {
@@ -1336,6 +1340,7 @@ const buildManageInboxTool = ({
           .map((result) => result.threadId);
         const successCount =
           threadActionResults.length - failedThreadIds.length;
+        await refreshOpenMailViews(successCount);
 
         return withChatTotals(
           {
