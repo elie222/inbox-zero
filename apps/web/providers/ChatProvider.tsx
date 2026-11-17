@@ -47,6 +47,7 @@ import {
 } from "@/utils/ai/assistant/mail-screen-action";
 
 const logger = createClientLogger("assistant-chat");
+const SAVE_POLL_MS = 1000;
 
 const CHAT_SEND_FAILED_MESSAGE = msg`We couldn't send your message. Please try again.`;
 const CHAT_ACCOUNT_MISMATCH_MESSAGE = msg`That chat belongs to another email account, so we started a new one. Send your message again.`;
@@ -63,6 +64,11 @@ export type Chat = ReturnType<typeof useAiChat<ChatMessage>>;
 type ChatMessagePart =
   | { type: "file"; url: string; filename: string; mediaType: string }
   | { type: "text"; text: string };
+
+type QueuedMessage = {
+  attachments: Attachment[];
+  text: string;
+};
 
 type ChatSendError = {
   chatId: string;
@@ -92,6 +98,9 @@ type ChatContextType = {
   setNewChat: () => void;
   submitTextMessage: (text: string) => Promise<void>;
   handleSubmit: () => void;
+  queuedMessage: QueuedMessage | null;
+  sendQueuedMessageNow: () => Promise<void>;
+  unqueueMessage: () => void;
   stop: () => Promise<void>;
   context: MessageContext | null;
   setContext: (context: MessageContext | null) => void;
@@ -119,6 +128,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   );
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [sendError, setSendError] = useState<ChatSendError | null>(null);
+  // Sent while a reply runs; goes out as soon as the chat is free again.
+  const [queuedMessage, setQueuedMessage] = useState<QueuedMessage | null>(
+    null,
+  );
+  const [isStopping, setIsStopping] = useState(false);
   const [inlineActions, setInlineActions] = useState<InlineEmailAction[]>([]);
   const inlineActionsRef = useRef(inlineActions);
   const pendingInlineActionsRef = useRef<InlineEmailAction[] | null>(null);
@@ -147,7 +161,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [draftChatId, setDraftChatId] = useState(generateUUID);
   if (chatId === draftChatId) setDraftChatId(generateUUID());
 
-  const { data, error: chatLoadError } = useChatMessages(chatId);
+  const {
+    data,
+    error: chatLoadError,
+    mutate: mutateChatMessages,
+  } = useChatMessages(chatId);
   const persistedMessageIds = useMemo(
     () => new Set(data?.messages.map((message) => message.id) ?? []),
     [data?.messages],
@@ -417,6 +435,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     previousChatIdRef.current = chatId;
     stoppedRef.current = false;
     interruptedRef.current = false;
+    setQueuedMessage(null);
     if (pendingRequestRef.current?.chatId === chatId) return;
 
     pendingInlineActionsRef.current = null;
@@ -446,6 +465,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setAmbientContext(null);
     setAttachments([]);
     setInlineActions([]);
+    setQueuedMessage(null);
   }, [chat.setMessages, emailAccountId, setChatId]);
 
   const setMailView = useCallback((mailView: MailViewContext | null) => {
@@ -542,13 +562,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       const trimmedText = text.trim();
       if (!trimmedText) return;
 
+      if (isRunActive) {
+        setQueuedMessage((current) =>
+          mergeQueuedMessages(current, { text: trimmedText, attachments: [] }),
+        );
+        return;
+      }
+
       await sendMessageParts([{ type: "text", text: trimmedText }]);
       setInput("");
     },
-    [sendMessageParts],
+    [isRunActive, sendMessageParts],
   );
 
-  const stop = useCallback(async () => {
+  const stopRun = useCallback(async () => {
     stoppedRef.current = true;
     interruptedRef.current = false;
     if (!chatId) {
@@ -594,65 +621,135 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     persistedMessageIds,
   ]);
 
-  const handleSubmit = useCallback(() => {
-    const text = input.trim();
-    if (!text && attachments.length === 0) return;
-    const submittedInput = input;
-    const submittedAttachments = attachments;
-
-    const fileParts = attachments.map((attachment) => ({
-      type: "file" as const,
-      url: attachment.url,
-      filename: attachment.name,
-      mediaType: attachment.contentType,
-    }));
-
-    const parts: ChatMessagePart[] = [...fileParts];
-
-    if (text) {
-      parts.push({ type: "text", text });
-    }
-
-    let sendPromise: Promise<void>;
+  const stop = useCallback(async () => {
+    setIsStopping(true);
     try {
-      sendPromise = sendMessageParts(parts);
-    } catch (error) {
-      if (!(error instanceof ChatInputValidationError)) {
-        reportChatRequestError({
-          emailAccountId,
-          error,
-          fallbackChatId: chatId ?? chat.id,
-          request: pendingRequestRef.current,
-        });
-        showSendError({
-          chatId: chatId ?? chat.id,
-          message: i18n._(CHAT_SEND_FAILED_MESSAGE),
-          offerNewChat: true,
-        });
+      await stopRun();
+    } finally {
+      setIsStopping(false);
+    }
+  }, [stopRun]);
+
+  const restoreDraft = useCallback((draft: QueuedMessage) => {
+    setInput((current) =>
+      current ? `${draft.text}\n\n${current}` : draft.text,
+    );
+    setAttachments((current) => mergeAttachments(draft.attachments, current));
+  }, []);
+
+  // Returns false when the message could not be sent at all.
+  const sendDraft = useCallback(
+    (draft: QueuedMessage) => {
+      const text = draft.text.trim();
+      const parts: ChatMessagePart[] = draft.attachments.map((attachment) => ({
+        type: "file" as const,
+        url: attachment.url,
+        filename: attachment.name,
+        mediaType: attachment.contentType,
+      }));
+      if (text) parts.push({ type: "text", text });
+
+      let sendPromise: Promise<void>;
+      try {
+        sendPromise = sendMessageParts(parts);
+      } catch (error) {
+        if (!(error instanceof ChatInputValidationError)) {
+          reportChatRequestError({
+            emailAccountId,
+            error,
+            fallbackChatId: chatId ?? chat.id,
+            request: pendingRequestRef.current,
+          });
+          showSendError({
+            chatId: chatId ?? chat.id,
+            message: i18n._(CHAT_SEND_FAILED_MESSAGE),
+            offerNewChat: true,
+          });
+        }
+        return false;
       }
+
+      sendPromise.catch(() => restoreDraft(draft));
+      return true;
+    },
+    [
+      chat.id,
+      chatId,
+      emailAccountId,
+      i18n,
+      restoreDraft,
+      sendMessageParts,
+      showSendError,
+    ],
+  );
+
+  const handleSubmit = useCallback(() => {
+    if (!input.trim() && attachments.length === 0) return;
+    const draft = { text: input, attachments };
+
+    if (isRunActive) {
+      setQueuedMessage((current) => mergeQueuedMessages(current, draft));
+    } else if (!sendDraft(draft)) {
       return;
     }
 
     setAttachments([]);
     setInput("");
-    sendPromise.catch(() => {
-      setInput((current) =>
-        current ? `${submittedInput}\n\n${current}` : submittedInput,
-      );
-      setAttachments((current) =>
-        mergeAttachments(submittedAttachments, current),
-      );
-    });
-  }, [
-    attachments,
-    chat.id,
-    chatId,
-    emailAccountId,
-    i18n,
-    input,
-    sendMessageParts,
-    showSendError,
-  ]);
+  }, [attachments, input, isRunActive, sendDraft]);
+
+  // The server frees the chat only after saving the reply, so a queued message
+  // waits until the refetched chat has the reply and no run.
+  const lastMessageId = chat.messages.at(-1)?.id;
+  const isReplySaved =
+    !!lastMessageId &&
+    persistedMessageIds.has(lastMessageId) &&
+    !data?.activeStreamId;
+  const isChatFree =
+    !isRunActive && !isStopping && (chat.status === "error" || isReplySaved);
+
+  useEffect(() => {
+    if (!queuedMessage || !isChatFree) return;
+    setQueuedMessage(null);
+    if (!sendDraft(queuedMessage)) restoreDraft(queuedMessage);
+  }, [isChatFree, queuedMessage, restoreDraft, sendDraft]);
+
+  // A reply that just ended can still be saving; check again until it's done.
+  const isWaitingForSave =
+    !!queuedMessage && !isRunActive && !isStopping && !isChatFree;
+  useEffect(() => {
+    if (!isWaitingForSave) return;
+    // Each check waits for the last: SWR drops a response once a newer request
+    // starts, so overlapping checks on a slow server would never land.
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const check = async () => {
+      await mutateChatMessages().catch(() => undefined);
+      if (!cancelled) timer = setTimeout(check, SAVE_POLL_MS);
+    };
+    timer = setTimeout(check, SAVE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isWaitingForSave, mutateChatMessages]);
+
+  const sendQueuedMessageNow = useCallback(async () => {
+    // Stopping keeps the partial reply, so the queued message steers from
+    // where the run left off; the effect above sends it once the run ends.
+    if (isRunActive) {
+      await stop();
+      return;
+    }
+    if (!queuedMessage) return;
+    setQueuedMessage(null);
+    if (!sendDraft(queuedMessage)) restoreDraft(queuedMessage);
+  }, [isRunActive, queuedMessage, restoreDraft, sendDraft, stop]);
+
+  const unqueueMessage = useCallback(() => {
+    if (!queuedMessage) return;
+    setQueuedMessage(null);
+    restoreDraft(queuedMessage);
+  }, [queuedMessage, restoreDraft]);
 
   return (
     <ChatContext.Provider
@@ -673,6 +770,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setNewChat,
         submitTextMessage,
         handleSubmit,
+        queuedMessage,
+        sendQueuedMessageNow,
+        unqueueMessage,
         stop,
         context: context ?? ambientContext,
         setContext: setDisplayedContext,
@@ -712,6 +812,17 @@ function getChatTextLength(parts: ChatMessagePart[]) {
     (length, part) => length + (part.type === "text" ? part.text.length : 0),
     0,
   );
+}
+
+function mergeQueuedMessages(
+  current: QueuedMessage | null,
+  next: QueuedMessage,
+): QueuedMessage {
+  if (!current) return next;
+  return {
+    text: [current.text.trim(), next.text.trim()].filter(Boolean).join("\n\n"),
+    attachments: [...current.attachments, ...next.attachments],
+  };
 }
 
 function mergeAttachments(

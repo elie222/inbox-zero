@@ -348,6 +348,10 @@ msgstr "{archivedEmailCount, plural, one {# email} other {# email}}"
 msgid "{archivedMessagesCount, plural, one {# message} other {# messages}}"
 msgstr "{archivedMessagesCount, plural, one {# messaggio} other {# messaggi}}"
 
+#: components/assistant-chat/chat.tsx
+msgid "{attachmentCount, plural, one {# image} other {# images}}"
+msgstr "{attachmentCount, plural, one {# immagine} other {# immagini}}"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "{completed} of {total} completed"
 msgstr "{completed} di {total} completati"
@@ -702,6 +706,10 @@ msgstr "{splitName} include già {senderCount, plural, one {questo mittente} oth
 #: components/PremiumAlert.tsx
 msgid "{starterTierName} Plan Required"
 msgstr "Piano {starterTierName} richiesto"
+
+#: components/assistant-chat/activity-group.tsx
+msgid "{stepCount, plural, one {Worked through # step} other {Worked through # steps}}"
+msgstr "{stepCount, plural, one {Completato # passaggio} other {Completati # passaggi}}"
 
 #: app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer.ts
 msgid "{stoppedCount, plural, one {Processed # email} other {Processed # emails}}"
@@ -3654,10 +3662,6 @@ msgstr "Collegato, ma gli strumenti non sono disponibili"
 #: app/(app)/[emailAccountId]/integrations/IntegrationRow.tsx
 msgid "Connected. {toolsCount, plural, one {# tool available.} other {# tools available.}}"
 msgstr "Collegato. {toolsCount, plural, one {# strumento disponibile.} other {# strumenti disponibili.}}"
-
-#: app/(app)/accounts/page.tsx
-msgid "Connecting or reconnecting a mailbox isn't available when you signed in with an email code. Sign in with Google or Microsoft and try again."
-msgstr "Non puoi collegare o ricollegare una casella di posta se hai effettuato l'accesso con un codice email. Accedi con Google o Microsoft e riprova."
 
 #: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
 #: app/(app)/[emailAccountId]/drive/ConnectDrive.tsx
@@ -10497,10 +10501,6 @@ msgstr "Prompt"
 msgid "Provider"
 msgstr "Provider"
 
-#: app/(app)/accounts/page.tsx
-msgid "Provider sign-in required"
-msgstr "Accesso al provider richiesto"
-
 #: app/(app)/[emailAccountId]/assistant/FixWithChat.tsx
 msgid "Providing an explanation helps the AI understand your intent better"
 msgstr "Fornire una spiegazione aiuta l'IA a capire meglio cosa intendi"
@@ -10925,6 +10925,10 @@ msgstr "Rimuovi invece un solo account"
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Remove optional access below, or disconnect to remove all access. To add permissions, reconnect from the application and approve the new access."
 msgstr "Rimuovi gli accessi facoltativi qui sotto, oppure disconnetti per rimuovere ogni accesso. Per aggiungere autorizzazioni, ricollega dall'applicazione e approva il nuovo accesso."
+
+#: components/assistant-chat/chat.tsx
+msgid "Remove queued message"
+msgstr "Rimuovi messaggio in coda"
 
 #: app/(app)/[emailAccountId]/calendars/WeeklyHoursEditor.tsx
 msgid "Remove range"
@@ -11809,6 +11813,14 @@ msgstr "Invia più tardi"
 msgid "Send later date and time"
 msgstr "Data e ora di invio posticipato"
 
+#: components/assistant-chat/chat.tsx
+msgid "Send message"
+msgstr "Invia messaggio"
+
+#: components/assistant-chat/chat.tsx
+msgid "Send now"
+msgstr "Invia ora"
+
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 msgid "Send replies"
 msgstr "Invia risposte"
@@ -11946,6 +11958,10 @@ msgstr "Invio…"
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Sends an automated notification from {BRAND_NAME} informing the sender their email was filtered as cold outreach."
 msgstr "Invia una notifica automatica da {BRAND_NAME} per informare il mittente che la sua email è stata filtrata come cold email."
+
+#: components/assistant-chat/chat.tsx
+msgid "Sends when the assistant finishes"
+msgstr "Verrà inviato quando l'assistente avrà finito"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
 msgid "Sensitive data protection"
@@ -12600,6 +12616,10 @@ msgstr "Interrompi"
 #: components/voice/VoiceOverlay.tsx
 msgid "Stop recording"
 msgstr "Interrompi registrazione"
+
+#: components/assistant-chat/chat.tsx
+msgid "Stop response"
+msgstr "Interrompi risposta"
 
 #: components/team-comments/ConversationDiscussion.tsx
 msgid "Stop sharing"
@@ -14639,6 +14659,10 @@ msgstr "Perché questa regola avrebbe dovuto essere applicata? (facoltativo)"
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "Within 1 Hour"
 msgstr "Entro 1 ora"
+
+#: components/assistant-chat/activity-group.tsx
+msgid "Working..."
+msgstr "In corso..."
 
 #: app/(app)/[emailAccountId]/clean/ActionSelectionStep.tsx
 msgid "Would you like cleaned emails to be archived or marked as read?"

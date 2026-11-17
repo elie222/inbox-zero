@@ -199,6 +199,9 @@ vi.mock("@/providers/ChatProvider", () => ({
     setAttachments: mockSetAttachments,
     setChatId: mockSetChatId,
     submitTextMessage: mockSubmitTextMessage,
+    queuedMessage: null,
+    sendQueuedMessageNow: vi.fn(),
+    unqueueMessage: vi.fn(),
     stop: mockStop,
   }),
 }));

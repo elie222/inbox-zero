@@ -348,6 +348,10 @@ msgstr "{archivedEmailCount, plural, other {# 封邮件}}"
 msgid "{archivedMessagesCount, plural, one {# message} other {# messages}}"
 msgstr "{archivedMessagesCount, plural, other {# 条消息}}"
 
+#: components/assistant-chat/chat.tsx
+msgid "{attachmentCount, plural, one {# image} other {# images}}"
+msgstr "{attachmentCount, plural, other {# 张图片}}"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "{completed} of {total} completed"
 msgstr "已完成 {completed}/{total}"
@@ -702,6 +706,10 @@ msgstr "{splitName} 已包含{senderCount, plural, other {这些发件人}}"
 #: components/PremiumAlert.tsx
 msgid "{starterTierName} Plan Required"
 msgstr "需要 {starterTierName} 套餐"
+
+#: components/assistant-chat/activity-group.tsx
+msgid "{stepCount, plural, one {Worked through # step} other {Worked through # steps}}"
+msgstr "{stepCount, plural, other {已完成 # 个步骤}}"
 
 #: app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer.ts
 msgid "{stoppedCount, plural, one {Processed # email} other {Processed # emails}}"
@@ -3654,10 +3662,6 @@ msgstr "已连接，但工具不可用"
 #: app/(app)/[emailAccountId]/integrations/IntegrationRow.tsx
 msgid "Connected. {toolsCount, plural, one {# tool available.} other {# tools available.}}"
 msgstr "已连接。{toolsCount, plural, other {有 # 个工具可用。}}"
-
-#: app/(app)/accounts/page.tsx
-msgid "Connecting or reconnecting a mailbox isn't available when you signed in with an email code. Sign in with Google or Microsoft and try again."
-msgstr "使用邮箱验证码登录时，无法连接或重新连接邮箱。请使用 Google 或 Microsoft 登录后重试。"
 
 #: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
 #: app/(app)/[emailAccountId]/drive/ConnectDrive.tsx
@@ -10497,10 +10501,6 @@ msgstr "提示词"
 msgid "Provider"
 msgstr "服务商"
 
-#: app/(app)/accounts/page.tsx
-msgid "Provider sign-in required"
-msgstr "需要服务商登录"
-
 #: app/(app)/[emailAccountId]/assistant/FixWithChat.tsx
 msgid "Providing an explanation helps the AI understand your intent better"
 msgstr "提供说明有助于 AI 更好地理解你的意图"
@@ -10925,6 +10925,10 @@ msgstr "改为只移除一个账号"
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Remove optional access below, or disconnect to remove all access. To add permissions, reconnect from the application and approve the new access."
 msgstr "在下方移除可选访问权限，或断开连接以移除所有访问权限。要添加权限，请从应用重新连接并批准新的访问权限。"
+
+#: components/assistant-chat/chat.tsx
+msgid "Remove queued message"
+msgstr "移除排队的消息"
 
 #: app/(app)/[emailAccountId]/calendars/WeeklyHoursEditor.tsx
 msgid "Remove range"
@@ -11809,6 +11813,14 @@ msgstr "稍后发送"
 msgid "Send later date and time"
 msgstr "稍后发送的日期和时间"
 
+#: components/assistant-chat/chat.tsx
+msgid "Send message"
+msgstr "发送消息"
+
+#: components/assistant-chat/chat.tsx
+msgid "Send now"
+msgstr "立即发送"
+
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 msgid "Send replies"
 msgstr "发送回复"
@@ -11946,6 +11958,10 @@ msgstr "正在发送…"
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Sends an automated notification from {BRAND_NAME} informing the sender their email was filtered as cold outreach."
 msgstr "由 {BRAND_NAME} 自动发送通知，告知发件人其邮件已被过滤为陌生推销邮件。"
+
+#: components/assistant-chat/chat.tsx
+msgid "Sends when the assistant finishes"
+msgstr "助手完成后发送"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
 msgid "Sensitive data protection"
@@ -12600,6 +12616,10 @@ msgstr "停止"
 #: components/voice/VoiceOverlay.tsx
 msgid "Stop recording"
 msgstr "停止录制"
+
+#: components/assistant-chat/chat.tsx
+msgid "Stop response"
+msgstr "停止回复"
 
 #: components/team-comments/ConversationDiscussion.tsx
 msgid "Stop sharing"
@@ -14639,6 +14659,10 @@ msgstr "为什么应该应用这条规则？（可选）"
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "Within 1 Hour"
 msgstr "1 小时内"
+
+#: components/assistant-chat/activity-group.tsx
+msgid "Working..."
+msgstr "处理中..."
 
 #: app/(app)/[emailAccountId]/clean/ActionSelectionStep.tsx
 msgid "Would you like cleaned emails to be archived or marked as read?"

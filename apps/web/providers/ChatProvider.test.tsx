@@ -74,8 +74,9 @@ vi.mock("@ai-sdk/react", () => ({
       setMessages: mockSetMessages,
       sendMessage: (message: unknown, requestOptions?: { body?: unknown }) =>
         // Like the AI SDK, report request errors via onError and resolve.
+        // useChat calls the latest onError, not the one from this render.
         mockSendMessage(message, requestOptions).catch((error) => {
-          options.onError?.(error);
+          chatState.onError?.(error);
         }),
       stop: mockChatStop,
       resumeStream: mockResumeStream,
@@ -502,9 +503,9 @@ describe("ChatProvider", () => {
   });
 
   it("keeps showing a send failure after moving off another account's chat", async () => {
-    chatState.status = "submitted";
+    let isMismatchLoaded = false;
     mockUseChatMessages.mockImplementation((chatId: string | null) =>
-      chatId === "chat-from-account-a"
+      chatId === "chat-from-account-a" && isMismatchLoaded
         ? {
             data: undefined,
             error: Object.assign(new Error("Forbidden"), {
@@ -534,6 +535,7 @@ describe("ChatProvider", () => {
     });
 
     chatState.status = "error";
+    isMismatchLoaded = true;
     rerender(
       <ChatProvider>
         <Consumer />
@@ -647,8 +649,13 @@ describe("ChatProvider", () => {
   });
 
   it("treats a connection drop after the reply started streaming as sent", async () => {
-    chatState.status = "streaming";
-    mockSendMessage.mockRejectedValueOnce(new TypeError("Load failed"));
+    let dropConnection: (error: Error) => void = () => {};
+    mockSendMessage.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          dropConnection = reject;
+        }),
+    );
     let latestContext: ReturnType<typeof useChat> | undefined;
 
     function Consumer() {
@@ -656,15 +663,86 @@ describe("ChatProvider", () => {
       return null;
     }
 
-    renderWithProvider(<Consumer />);
+    const { rerender } = renderWithProvider(<Consumer />);
+
+    let sendPromise: Promise<void> | undefined;
+    act(() => {
+      sendPromise = latestContext?.submitTextMessage("Create these rules");
+    });
+    chatState.status = "streaming";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
 
     await act(async () => {
-      await expect(
-        latestContext?.submitTextMessage("Create these rules"),
-      ).resolves.toBeUndefined();
+      dropConnection(new TypeError("Load failed"));
+      await expect(sendPromise).resolves.toBeUndefined();
     });
 
     expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it("queues a message sent mid-reply and sends it once the reply is saved", async () => {
+    chatState.status = "streaming";
+    chatState.messages = [
+      { id: "message-from-account-a", role: "user" },
+      { id: "reply-1", role: "assistant" },
+    ];
+    let savedData: { activeStreamId: string | null; messages: unknown[] } = {
+      activeStreamId: "reply-1",
+      messages: [{ id: "message-from-account-a", role: "user", parts: [] }],
+    };
+    mockUseChatMessages.mockImplementation(() => ({ data: savedData }));
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    const rerenderProvider = () =>
+      rerender(
+        <ChatProvider>
+          <Consumer />
+        </ChatProvider>,
+      );
+
+    act(() => latestContext?.setInput("Also add a split inbox tab"));
+    act(() => latestContext?.handleSubmit());
+
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(latestContext?.input).toBe("");
+    expect(latestContext?.queuedMessage?.text).toBe(
+      "Also add a split inbox tab",
+    );
+
+    // The stream ended but the server hasn't saved the reply yet.
+    chatState.status = "ready";
+    rerenderProvider();
+    expect(mockSendMessage).not.toHaveBeenCalled();
+
+    savedData = {
+      activeStreamId: null,
+      messages: [
+        { id: "message-from-account-a", role: "user", parts: [] },
+        { id: "reply-1", role: "assistant", parts: [] },
+      ],
+    };
+    rerenderProvider();
+
+    await waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        {
+          role: "user",
+          parts: [{ type: "text", text: "Also add a split inbox tab" }],
+        },
+        undefined,
+      );
+    });
+    expect(latestContext?.queuedMessage).toBeNull();
   });
 
   it("does not resend inline actions or report an unsent message once the server accepted it", async () => {

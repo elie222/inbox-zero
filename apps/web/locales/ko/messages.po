@@ -348,6 +348,10 @@ msgstr "{archivedEmailCount, plural, one {이메일 #개} other {이메일 #개}
 msgid "{archivedMessagesCount, plural, one {# message} other {# messages}}"
 msgstr "{archivedMessagesCount, plural, one {메시지 #개} other {메시지 #개}}"
 
+#: components/assistant-chat/chat.tsx
+msgid "{attachmentCount, plural, one {# image} other {# images}}"
+msgstr "{attachmentCount, plural, other {이미지 #개}}"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "{completed} of {total} completed"
 msgstr "{total}개 중 {completed}개 완료"
@@ -702,6 +706,10 @@ msgstr "{splitName}에 {senderCount, plural, one {이 보낸 사람이} other {�
 #: components/PremiumAlert.tsx
 msgid "{starterTierName} Plan Required"
 msgstr "{starterTierName} 요금제가 필요해요"
+
+#: components/assistant-chat/activity-group.tsx
+msgid "{stepCount, plural, one {Worked through # step} other {Worked through # steps}}"
+msgstr "{stepCount, plural, other {#단계 진행함}}"
 
 #: app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer.ts
 msgid "{stoppedCount, plural, one {Processed # email} other {Processed # emails}}"
@@ -3654,10 +3662,6 @@ msgstr "연결되었지만 도구를 사용할 수 없어요"
 #: app/(app)/[emailAccountId]/integrations/IntegrationRow.tsx
 msgid "Connected. {toolsCount, plural, one {# tool available.} other {# tools available.}}"
 msgstr "연결됨. {toolsCount, plural, one {사용 가능한 도구 #개.} other {사용 가능한 도구 #개.}}"
-
-#: app/(app)/accounts/page.tsx
-msgid "Connecting or reconnecting a mailbox isn't available when you signed in with an email code. Sign in with Google or Microsoft and try again."
-msgstr "이메일 코드로 로그인한 경우에는 메일함을 연결하거나 다시 연결할 수 없어요. Google 또는 Microsoft로 로그인한 후 다시 시도해 주세요."
 
 #: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
 #: app/(app)/[emailAccountId]/drive/ConnectDrive.tsx
@@ -10497,10 +10501,6 @@ msgstr "프롬프트"
 msgid "Provider"
 msgstr "제공업체"
 
-#: app/(app)/accounts/page.tsx
-msgid "Provider sign-in required"
-msgstr "제공업체 로그인 필요"
-
 #: app/(app)/[emailAccountId]/assistant/FixWithChat.tsx
 msgid "Providing an explanation helps the AI understand your intent better"
 msgstr "설명을 입력하면 AI가 의도를 더 잘 이해해요"
@@ -10925,6 +10925,10 @@ msgstr "계정 하나만 대신 제거"
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Remove optional access below, or disconnect to remove all access. To add permissions, reconnect from the application and approve the new access."
 msgstr "아래에서 선택 액세스를 제거하거나, 연결을 해제해 모든 액세스를 제거하세요. 권한을 추가하려면 애플리케이션에서 다시 연결해 새 액세스를 승인하세요."
+
+#: components/assistant-chat/chat.tsx
+msgid "Remove queued message"
+msgstr "대기 중인 메시지 삭제"
 
 #: app/(app)/[emailAccountId]/calendars/WeeklyHoursEditor.tsx
 msgid "Remove range"
@@ -11809,6 +11813,14 @@ msgstr "나중에 보내기"
 msgid "Send later date and time"
 msgstr "나중에 보낼 날짜 및 시간"
 
+#: components/assistant-chat/chat.tsx
+msgid "Send message"
+msgstr "메시지 보내기"
+
+#: components/assistant-chat/chat.tsx
+msgid "Send now"
+msgstr "지금 보내기"
+
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 msgid "Send replies"
 msgstr "답장 보내기"
@@ -11946,6 +11958,10 @@ msgstr "보내는 중…"
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Sends an automated notification from {BRAND_NAME} informing the sender their email was filtered as cold outreach."
 msgstr "발신자의 이메일이 콜드 아웃리치로 분류되었다는 {BRAND_NAME}의 자동 알림을 보내요."
+
+#: components/assistant-chat/chat.tsx
+msgid "Sends when the assistant finishes"
+msgstr "어시스턴트가 끝나면 전송됩니다"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
 msgid "Sensitive data protection"
@@ -12600,6 +12616,10 @@ msgstr "중지"
 #: components/voice/VoiceOverlay.tsx
 msgid "Stop recording"
 msgstr "녹화 중지"
+
+#: components/assistant-chat/chat.tsx
+msgid "Stop response"
+msgstr "응답 중지"
 
 #: components/team-comments/ConversationDiscussion.tsx
 msgid "Stop sharing"
@@ -14639,6 +14659,10 @@ msgstr "이 규칙이 적용되었어야 하는 이유는 무엇인가요? (선�
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "Within 1 Hour"
 msgstr "1시간 이내"
+
+#: components/assistant-chat/activity-group.tsx
+msgid "Working..."
+msgstr "작업 중..."
 
 #: app/(app)/[emailAccountId]/clean/ActionSelectionStep.tsx
 msgid "Would you like cleaned emails to be archived or marked as read?"
