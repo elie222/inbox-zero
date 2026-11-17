@@ -43,9 +43,10 @@ describe("desktop window focus", () => {
   });
 
   it("ignores a stale focus event after another window became active", () => {
-    const { window, contents } = setup();
+    const { window, contents, onFocus } = setup();
     window.emit("focus");
     expect(contents.focus).not.toHaveBeenCalled();
+    expect(onFocus).not.toHaveBeenCalled();
   });
 
   it("does not reactivate a window whose view already has keyboard focus", () => {
@@ -55,6 +56,16 @@ describe("desktop window focus", () => {
     });
     window.emit("focus");
     expect(contents.focus).not.toHaveBeenCalled();
+  });
+
+  it("updates active-window bookkeeping even when the view already has focus", () => {
+    const { window, onFocus } = setup({
+      windowFocused: true,
+      contentsFocused: true,
+    });
+    onFocus.mockClear();
+    window.emit("focus");
+    expect(onFocus).toHaveBeenCalledOnce();
   });
 
   it("hands keyboard focus to the view when the window becomes active", () => {
@@ -80,9 +91,11 @@ function setup({ windowFocused = false, contentsFocused = false } = {}) {
     isFocused: vi.fn(() => contentsFocused),
     focus: vi.fn(),
   };
+  const onFocus = vi.fn();
   installDesktopWindowFocus(
     window as unknown as BaseWindow,
     () => contents as unknown as WebContents,
+    onFocus,
   );
-  return { window, contents };
+  return { window, contents, onFocus };
 }

@@ -487,12 +487,15 @@ function createAppWindow(options?: {
   applyUnreadBadge();
 
   window.on("resize", () => layoutActiveTab(appWindow));
-  window.on("focus", () => {
-    lastFocused = appWindow;
-    applyUnreadBadge();
-    syncUpdateProgressBar();
-  });
-  installDesktopWindowFocus(window, () => appWindow.activeTab.contents);
+  installDesktopWindowFocus(
+    window,
+    () => appWindow.activeTab.contents,
+    () => {
+      lastFocused = appWindow;
+      applyUnreadBadge();
+      syncUpdateProgressBar();
+    },
+  );
   if (options?.isMaximized) window.maximize();
   window.on("blur", () => {
     syncUpdateProgressBar();
