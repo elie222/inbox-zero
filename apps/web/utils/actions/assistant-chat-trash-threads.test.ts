@@ -8,11 +8,13 @@ import {
 import { manageInboxTool } from "@/utils/ai/assistant/chat-inbox-tools";
 import { addChatActionTotals } from "@/utils/ai/assistant/chat-action-totals";
 import { createEmailProvider } from "@/utils/email/provider";
+import { notifyMailboxChanged } from "@/utils/mailbox-push";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/email/provider");
 vi.mock("@/utils/ai/assistant/chat-action-totals");
+vi.mock("@/utils/mailbox-push");
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn(),
   getPosthogLlmClient: () => null,
@@ -38,6 +40,7 @@ describe("chat trash confirmation", () => {
 
     expect(trashThread).not.toHaveBeenCalled();
     expect(addChatActionTotals).not.toHaveBeenCalled();
+    expect(notifyMailboxChanged).not.toHaveBeenCalled();
     expect(output).toMatchObject({
       actionType: "trash_threads",
       requiresConfirmation: true,
@@ -274,6 +277,26 @@ describe("chat draft deletion", () => {
     });
   });
 
+  it("refreshes open mail views when every thread failed but some drafts were deleted", async () => {
+    getThread.mockImplementation(async (threadId) => ({
+      id: threadId,
+      messages: [
+        { id: `${threadId}-ok`, labelIds: ["DRAFT"] },
+        { id: `${threadId}-bad`, labelIds: ["DRAFT"] },
+      ],
+    }));
+    deleteDraft.mockImplementation(
+      async (draftId: string) => !draftId.endsWith("-bad"),
+    );
+    mockChatMessage(await runManageInboxTool("delete_drafts", "web"));
+
+    await expect(confirm()).rejects.toThrow();
+
+    expect(notifyMailboxChanged).toHaveBeenCalledWith(
+      expect.objectContaining({ emailAccountId: "ea_1" }),
+    );
+  });
+
   it("deletes only the drafts in each thread and keeps the conversation", async () => {
     getThread.mockImplementation(async (threadId) => ({
       id: threadId,
@@ -305,6 +328,10 @@ describe("chat draft deletion", () => {
       chatId: "chat-1",
       counts: { drafts_deleted: 2 },
     });
+    // Open mail views sync, so the deleted drafts disappear from the list.
+    expect(notifyMailboxChanged).toHaveBeenCalledWith(
+      expect.objectContaining({ emailAccountId: "ea_1" }),
+    );
   });
 });
 

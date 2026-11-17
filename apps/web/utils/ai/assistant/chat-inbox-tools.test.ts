@@ -19,6 +19,7 @@ import {
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/ai/assistant/chat-action-totals");
+vi.mock("@/utils/mailbox-push");
 vi.mock("@/utils/email/provider");
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn().mockResolvedValue(undefined),

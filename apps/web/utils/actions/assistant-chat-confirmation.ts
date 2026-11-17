@@ -39,6 +39,7 @@ import {
   trashChatThreads,
 } from "@/utils/ai/assistant/chat-inbox-tools";
 import { addChatActionTotals } from "@/utils/ai/assistant/chat-action-totals";
+import { notifyMailboxChanged } from "@/utils/mailbox-push";
 
 const CONFIRMATION_IN_PROGRESS_ERROR =
   "Email action confirmation already in progress";
@@ -771,6 +772,17 @@ export async function confirmAssistantTrashThreadsForAccount({
           email: emailAccount.email,
         })
       : await deleteChatDrafts({ emailProvider, threadIds });
+    // Gmail push skips draft changes, so open mail views would keep showing
+    // deleted drafts until their next idle sync. A thread that failed can
+    // still have had some of its drafts deleted, and one with no drafts left
+    // succeeds without changing anything.
+    if (
+      isTrash
+        ? threadResult.successCount > 0
+        : (threadResult.deletedDraftCount ?? 0) > 0
+    ) {
+      await notifyMailboxChanged({ emailAccountId, logger });
+    }
     // Nothing changed, so the card stays pending and can be confirmed again.
     if (threadResult.successCount === 0) {
       throw new Error(`No threads were changed by ${actionType}`);
