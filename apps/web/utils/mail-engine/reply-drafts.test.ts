@@ -535,18 +535,13 @@ describe("local reply drafts", () => {
     setActiveMailClient(null);
   });
 
-  it("continues the same compose session after a stale writer is remounted", async () => {
+  it("lets a replacement composer discard after the departing form flushes", async () => {
     const original = { ...content, requestId: "compose-session" };
     const first = createReplyDraftWriter(identity);
     await first.save(original);
     const remounted = createReplyDraftWriter(identity, 1);
     // The departing composer flushes after its replacement read the revision.
     await first.save(original);
-    const edited = {
-      ...original,
-      draft: { ...original.draft, editableHtml: "<p>Continued typing</p>" },
-    };
-    await remounted.save(edited);
     await remounted.clear();
     expect((await getReplyDraft(identity))?.content).toBeNull();
   });

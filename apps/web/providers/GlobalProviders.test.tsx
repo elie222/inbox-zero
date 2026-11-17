@@ -228,8 +228,10 @@ describe("service worker updates", () => {
     await waitFor(() => expect(registration.update).toHaveBeenCalled());
     vi.useFakeTimers();
     act(() => vi.advanceTimersByTime(3000));
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
     act(() => serviceWorker.dispatchEvent(new Event("controllerchange")));
     expect(reload).not.toHaveBeenCalled();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
     act(() => vi.advanceTimersByTime(5 * 60_000));
     serwistState.pathname += "/next";
     view.rerender(<GlobalProviders>mail</GlobalProviders>);
