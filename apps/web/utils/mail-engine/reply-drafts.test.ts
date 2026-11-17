@@ -535,6 +535,68 @@ describe("local reply drafts", () => {
     setActiveMailClient(null);
   });
 
+  it("continues the same compose session after a stale writer is remounted", async () => {
+    const original = { ...content, requestId: "compose-session" };
+    const first = createReplyDraftWriter(identity);
+    await first.save(original);
+    const remounted = createReplyDraftWriter(identity, 1);
+    // The departing composer flushes after its replacement read the revision.
+    await first.save(original);
+    const edited = {
+      ...original,
+      draft: { ...original.draft, editableHtml: "<p>Continued typing</p>" },
+    };
+    await remounted.save(edited);
+    await remounted.clear();
+    expect((await getReplyDraft(identity))?.content).toBeNull();
+  });
+
+  it("serializes overlapping saves from replacement composers", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    const original = { ...content, requestId: "compose-session" };
+    const first = createReplyDraftWriter(identity);
+    await first.save(original);
+    const replacement = createReplyDraftWriter(identity, 1);
+    const saveDraft = client.saveDraft.bind(client);
+    let finishSave!: () => void;
+    client.saveDraft.mockImplementationOnce(async (input) => {
+      await new Promise<void>((resolve) => {
+        finishSave = resolve;
+      });
+      return saveDraft(input);
+    });
+    const departing = first.save(original);
+    await vi.waitFor(() => expect(finishSave).toBeDefined());
+    const edited = {
+      ...original,
+      draft: { ...original.draft, editableHtml: "<p>Latest edits</p>" },
+    };
+    const continued = replacement.save(edited);
+    finishSave();
+    await Promise.all([departing, continued]);
+    expect((await getReplyDraft(identity))?.content).toEqual(edited);
+    expect(
+      (await client.readDraft({ accountId: "account", draftId: "parent" }))
+        .content?.editableHtml,
+    ).toBe("<p>Latest edits</p>");
+    expect(client.conflicts).toBe(0);
+  });
+
+  it("does not let a stale composer overwrite a different session or revive a discard", async () => {
+    const first = createReplyDraftWriter(identity);
+    const stale = createReplyDraftWriter(identity);
+    await first.save({ ...content, requestId: "new-session" });
+    await expect(
+      stale.save({ ...content, requestId: "old-session" }),
+    ).rejects.toThrow();
+    await first.clear();
+    await expect(
+      stale.save({ ...content, requestId: "new-session" }),
+    ).rejects.toThrow();
+    expect((await getReplyDraft(identity))?.content).toBeNull();
+  });
+
   it("saves edits after the first save without a revision conflict", async () => {
     const { setActiveMailClient } = await import("./active-client");
     const client = createRevisionCheckingClient();

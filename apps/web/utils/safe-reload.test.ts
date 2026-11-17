@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isSafeToReload,
   registerOpenComposer,
   reloadAtNextSafeMoment,
   runPendingReloads,
 } from "./safe-reload";
+
+beforeEach(() => {
+  vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+});
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -44,6 +48,7 @@ describe("safe reload", () => {
     document.dispatchEvent(new Event("visibilitychange"));
     expect(reload).not.toHaveBeenCalled();
     close();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
     document.dispatchEvent(new Event("visibilitychange"));
     expect(reload).not.toHaveBeenCalled();
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
@@ -74,7 +79,20 @@ describe("safe reload", () => {
     cancel();
   });
 
-  it("runs on a safe route change and supports cancellation", () => {
+  it("does not refresh a visible window during navigation", () => {
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const reload = vi.fn();
+    const cancel = reloadAtNextSafeMoment(reload);
+    runPendingReloads();
+    expect(reload).not.toHaveBeenCalled();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(reload).toHaveBeenCalledOnce();
+    cancel();
+  });
+
+  it("runs when hidden and supports cancellation", () => {
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
     const reload = vi.fn();
     const cancel = reloadAtNextSafeMoment(reload);
     cancel();

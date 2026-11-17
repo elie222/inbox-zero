@@ -12,7 +12,7 @@ export function registerOpenComposer() {
 }
 
 export function isSafeToReload() {
-  if (openComposers.size) return false;
+  if (document.visibilityState !== "hidden" || openComposers.size) return false;
   const element = document.activeElement;
   if (!(element instanceof HTMLElement)) return true;
   return !(
@@ -38,7 +38,8 @@ export function reloadAtNextSafeMoment(reload: () => void) {
   };
 }
 
-// Called after client navigation, once the departing compose surface has unmounted.
+// Navigation may drain the queue only after the window is hidden. A visible
+// route change is still active use and must never flash a full-page reload.
 export function runPendingReloads() {
   if (!isSafeToReload()) return;
   const reloads = [...pendingReloads];
