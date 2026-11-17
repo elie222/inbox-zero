@@ -161,41 +161,31 @@ describe("global user-data fetching", () => {
 });
 
 describe("service worker updates", () => {
-  it.each([
-    "hidden",
-    "route",
-  ])("activates a waiting worker only at a safe %s moment", async (moment) => {
+  it("activates a waiting worker only when hidden and no composer is open", async () => {
     const { registration, serviceWorker, waiting, reload } =
       setUpDesktopUpdate();
     const view = render(<GlobalProviders>mail</GlobalProviders>);
     await waitFor(() => expect(registration.update).toHaveBeenCalled());
     vi.useFakeTimers();
     expect(toast.info).not.toHaveBeenCalled();
-    expect(waiting.postMessage).not.toHaveBeenCalled();
     const close = registerOpenComposer();
-    const nextMoment = () => {
-      if (moment === "hidden") {
-        vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
-        document.dispatchEvent(new Event("visibilitychange"));
-      } else {
-        serwistState.pathname += "/next";
-        view.rerender(<GlobalProviders>mail</GlobalProviders>);
-      }
-    };
-    act(nextMoment);
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
     expect(waiting.postMessage).not.toHaveBeenCalled();
     close();
-    act(nextMoment);
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
     expect(waiting.postMessage).toHaveBeenCalledExactlyOnceWith({
       type: SKIP_WAITING,
     });
-    // Editing can begin while the worker is activating.
-    const stopEditing = registerOpenComposer();
+    // Returning while activation is in flight must not flash a reload.
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
     act(() => serviceWorker.dispatchEvent(new Event("controllerchange")));
     act(() => vi.advanceTimersByTime(5000));
+    serwistState.pathname += "/next";
+    view.rerender(<GlobalProviders>mail</GlobalProviders>);
     expect(reload).not.toHaveBeenCalled();
-    stopEditing();
-    act(nextMoment);
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
@@ -206,6 +196,9 @@ describe("service worker updates", () => {
     vi.useFakeTimers();
     serwistState.pathname += "/next";
     view.rerender(<GlobalProviders>mail</GlobalProviders>);
+    expect(waiting.postMessage).not.toHaveBeenCalled();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
     expect(waiting.postMessage).toHaveBeenCalledOnce();
     act(() => vi.advanceTimersByTime(60_000));
     expect(reload).not.toHaveBeenCalled();
@@ -218,6 +211,7 @@ describe("service worker updates", () => {
       await waitFor(() => expect(registration.update).toHaveBeenCalled());
       vi.useFakeTimers();
       act(() => vi.advanceTimersByTime(3000));
+      vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
       act(() => serviceWorker.dispatchEvent(new Event("controllerchange")));
       view.unmount();
       vi.useRealTimers();
@@ -234,11 +228,16 @@ describe("service worker updates", () => {
     await waitFor(() => expect(registration.update).toHaveBeenCalled());
     vi.useFakeTimers();
     act(() => vi.advanceTimersByTime(3000));
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
     act(() => serviceWorker.dispatchEvent(new Event("controllerchange")));
     expect(reload).not.toHaveBeenCalled();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
     act(() => vi.advanceTimersByTime(5 * 60_000));
     serwistState.pathname += "/next";
     view.rerender(<GlobalProviders>mail</GlobalProviders>);
+    expect(reload).not.toHaveBeenCalled();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
     expect(reload).toHaveBeenCalledOnce();
   });
 
@@ -264,6 +263,9 @@ describe("service worker updates", () => {
     close();
     serwistState.pathname = "/account/automation";
     view.rerender(<GlobalProviders>mail</GlobalProviders>);
+    expect(reload).not.toHaveBeenCalled();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
     expect(reload).toHaveBeenCalledTimes(1);
   });
 });
