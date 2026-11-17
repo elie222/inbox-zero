@@ -91,6 +91,29 @@ describe("safe reload", () => {
     cancel();
   });
 
+  it("runs updates queued after the window became hidden", async () => {
+    const reload = vi.fn();
+    const cancel = reloadAtNextSafeMoment(reload);
+    await Promise.resolve();
+    expect(reload).toHaveBeenCalledOnce();
+    cancel();
+  });
+
+  it("retries a hidden update when a focused input stops blocking it", async () => {
+    const input = document.createElement("input");
+    document.body.append(input);
+    input.focus();
+    const reload = vi.fn();
+    const cancel = reloadAtNextSafeMoment(reload);
+
+    await Promise.resolve();
+    expect(reload).not.toHaveBeenCalled();
+    input.blur();
+    await Promise.resolve();
+    expect(reload).toHaveBeenCalledOnce();
+    cancel();
+  });
+
   it("runs when hidden and supports cancellation", () => {
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
     const reload = vi.fn();

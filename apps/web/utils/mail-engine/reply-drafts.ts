@@ -1,3 +1,4 @@
+import isEqual from "lodash/isEqual";
 import type {
   DraftContent,
   DraftSaveResult,
@@ -489,29 +490,23 @@ export function createReplyDraftWriter(
       assertAccountEpoch(identity.emailAccountId, epoch);
       const previous = drafts.get(draftKey(identity));
       if ((previous?.revision ?? 0) !== revision) {
-        // A departing form may finish flushing after its replacement opened.
-        // Continue that session, but never revive a discard or replace a
-        // different composer session with an outdated snapshot.
-        if (
-          content?.requestId &&
-          previous?.content?.requestId === content.requestId
-        ) {
-          revision = previous.revision;
-        } else {
-          throw new Error(
-            "This draft has newer edits. Reopen the composer to load them.",
-          );
-        }
+        throw new Error(
+          "This draft has newer edits. Reopen the composer to load them.",
+        );
       }
       const nextContent =
         content && withProviderReferences(content, previous?.content);
-      drafts.set(draftKey(identity), {
-        ...identity,
-        content: nextContent,
-        revision: revision + 1,
-        updatedAt,
-      });
-      revision += 1;
+      // Flushing the same snapshot mustn't invalidate a composer that just
+      // loaded it. Still try to persist it in case the last write failed.
+      if (!previous || !isEqual(previous.content, nextContent)) {
+        revision += 1;
+        drafts.set(draftKey(identity), {
+          ...identity,
+          content: nextContent,
+          revision,
+          updatedAt,
+        });
+      }
       // The list marks the thread as a draft from this change, so it
       // mustn't wait on the local save.
       if (Boolean(previous?.content) !== Boolean(content)) {

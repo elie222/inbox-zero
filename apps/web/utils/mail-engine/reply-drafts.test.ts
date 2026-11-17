@@ -583,6 +583,21 @@ describe("local reply drafts", () => {
     expect(client.conflicts).toBe(0);
   });
 
+  it("protects newer edits when two composers share a request id", async () => {
+    const original = { ...content, requestId: "compose-session" };
+    const first = createReplyDraftWriter(identity);
+    await first.save(original);
+    const stale = createReplyDraftWriter(identity, 1);
+    const edited = {
+      ...original,
+      values: { ...original.values, subject: "Newer" },
+    };
+    await first.save(edited);
+
+    await expect(stale.save(original)).rejects.toThrow();
+    expect((await getReplyDraft(identity))?.content).toEqual(edited);
+  });
+
   it("does not let a stale composer overwrite a different session or revive a discard", async () => {
     const first = createReplyDraftWriter(identity);
     const stale = createReplyDraftWriter(identity);
