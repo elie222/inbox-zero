@@ -111,8 +111,14 @@ describe("desktop shell helpers", () => {
       url.searchParams.set("state", "signed-state");
       expect(getDesktopAccountLinkingBrowserUrl(url.href, origin)).toBeNull();
     }
+    const untrustedAuthorization = new URL("https://evil.test/authorize");
+    untrustedAuthorization.searchParams.set(
+      "redirect_uri",
+      `${origin}/api/google/linking/callback`,
+    );
+    untrustedAuthorization.searchParams.set("state", "signed-state");
     expect(
-      getDesktopAccountLinkingBrowserUrl("https://evil.test/", origin),
+      getDesktopAccountLinkingBrowserUrl(untrustedAuthorization.href, origin),
     ).toBeNull();
     expect(getDesktopAccountLinkingBrowserUrl("invalid", origin)).toBeNull();
   });
