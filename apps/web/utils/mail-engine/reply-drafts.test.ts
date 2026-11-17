@@ -578,6 +578,17 @@ describe("local reply drafts", () => {
     expect(client.conflicts).toBe(0);
   });
 
+  it("invalidates older writers when discarding an already-empty draft", async () => {
+    const first = createReplyDraftWriter(identity);
+    await first.clear();
+    const empty = await getReplyDraft(identity);
+    const stale = createReplyDraftWriter(identity, empty?.revision);
+    await createReplyDraftWriter(identity, empty?.revision).clear();
+
+    await expect(stale.save(content)).rejects.toThrow();
+    expect((await getReplyDraft(identity))?.content).toBeNull();
+  });
+
   it("protects newer edits when two composers share a request id", async () => {
     const original = { ...content, requestId: "compose-session" };
     const first = createReplyDraftWriter(identity);

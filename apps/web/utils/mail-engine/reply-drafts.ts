@@ -498,7 +498,11 @@ export function createReplyDraftWriter(
         content && withProviderReferences(content, previous?.content);
       // Flushing the same snapshot mustn't invalidate a composer that just
       // loaded it. Still try to persist it in case the last write failed.
-      if (!previous || !isEqual(previous.content, nextContent)) {
+      if (
+        !nextContent ||
+        !previous ||
+        !isEqual(previous.content, nextContent)
+      ) {
         revision += 1;
         drafts.set(draftKey(identity), {
           ...identity,
