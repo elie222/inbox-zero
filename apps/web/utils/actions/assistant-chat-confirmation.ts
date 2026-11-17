@@ -772,6 +772,12 @@ export async function confirmAssistantTrashThreadsForAccount({
           email: emailAccount.email,
         })
       : await deleteChatDrafts({ emailProvider, threadIds });
+    // Gmail push skips draft changes, so open mail views would keep showing
+    // deleted drafts until their next idle sync. A thread that failed can
+    // still have had some of its drafts deleted.
+    if (threadResult.successCount > 0 || threadResult.deletedDraftCount) {
+      await notifyMailboxChanged({ emailAccountId, logger });
+    }
     // Nothing changed, so the card stays pending and can be confirmed again.
     if (threadResult.successCount === 0) {
       throw new Error(`No threads were changed by ${actionType}`);
@@ -794,10 +800,6 @@ export async function confirmAssistantTrashThreadsForAccount({
         : "Couldn't delete these drafts. Try again.",
     );
   }
-
-  // Gmail push skips draft changes, so open mail views would keep showing
-  // deleted drafts until their next idle sync.
-  await notifyMailboxChanged({ emailAccountId, logger });
 
   const confirmationResult = {
     successCount: threadResult.successCount,

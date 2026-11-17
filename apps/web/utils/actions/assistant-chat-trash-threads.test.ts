@@ -277,6 +277,26 @@ describe("chat draft deletion", () => {
     });
   });
 
+  it("refreshes open mail views when every thread failed but some drafts were deleted", async () => {
+    getThread.mockImplementation(async (threadId) => ({
+      id: threadId,
+      messages: [
+        { id: `${threadId}-ok`, labelIds: ["DRAFT"] },
+        { id: `${threadId}-bad`, labelIds: ["DRAFT"] },
+      ],
+    }));
+    deleteDraft.mockImplementation(
+      async (draftId: string) => !draftId.endsWith("-bad"),
+    );
+    mockChatMessage(await runManageInboxTool("delete_drafts", "web"));
+
+    await expect(confirm()).rejects.toThrow();
+
+    expect(notifyMailboxChanged).toHaveBeenCalledWith(
+      expect.objectContaining({ emailAccountId: "ea_1" }),
+    );
+  });
+
   it("deletes only the drafts in each thread and keeps the conversation", async () => {
     getThread.mockImplementation(async (threadId) => ({
       id: threadId,

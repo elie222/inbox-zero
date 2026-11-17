@@ -1130,7 +1130,9 @@ const buildManageInboxTool = ({
   ) => {
     // Provider pushes miss some of these changes, so open mail views would
     // otherwise keep showing the old state until their next idle sync.
-    await notifyMailboxChanged({ emailAccountId, logger });
+    if (Object.values(counts).some((count) => count > 0)) {
+      await notifyMailboxChanged({ emailAccountId, logger });
+    }
     if (!chatId) return result;
     try {
       const totalsInThisChat = await addChatActionTotals({ chatId, counts });
