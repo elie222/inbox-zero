@@ -28,6 +28,54 @@ describe("desktop shell helpers", () => {
   it.each([
     "google",
     "outlook",
+  ])("hands off configured local %s emulator authorization", (provider) => {
+    const origin = "http://localhost:3000";
+    const emulator =
+      provider === "google" ? "http://localhost:4002" : "http://127.0.0.1:4003";
+    const url = new URL("/authorize", emulator);
+    url.searchParams.set(
+      "redirect_uri",
+      `${origin}/api/${provider}/linking/callback`,
+    );
+    url.searchParams.set("state", "signed-state");
+    const config = {
+      NODE_ENV: "development",
+      GOOGLE_BASE_URL: emulator,
+      MICROSOFT_BASE_URL: emulator,
+    };
+    const handoff = getDesktopAccountLinkingBrowserUrl(
+      url.href,
+      origin,
+      config,
+    );
+    expect(new URL(handoff!).pathname).toBe("/api/oauth/linking/browser-start");
+    expect(getDesktopAccountLinkingBrowserUrl(url.href, origin, {})).toBeNull();
+    expect(
+      getDesktopAccountLinkingBrowserUrl(url.href, origin, {
+        ...config,
+        NODE_ENV: "production",
+      }),
+    ).toBeNull();
+  });
+
+  it("does not trust configured non-loopback OAuth origins", () => {
+    const origin = "http://localhost:3000";
+    const url = new URL("https://evil.test/authorize");
+    url.searchParams.set(
+      "redirect_uri",
+      `${origin}/api/google/linking/callback`,
+    );
+    url.searchParams.set("state", "signed-state");
+    expect(
+      getDesktopAccountLinkingBrowserUrl(url.href, origin, {
+        NODE_ENV: "development",
+        GOOGLE_BASE_URL: "https://evil.test",
+      }),
+    ).toBeNull();
+  });
+  it.each([
+    "google",
+    "outlook",
   ])("starts %s account linking in the system browser", (provider) => {
     const origin = "https://www.getinboxzero.com";
     const authorization = new URL(
