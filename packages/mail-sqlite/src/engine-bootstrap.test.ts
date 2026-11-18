@@ -453,6 +453,60 @@ describe("engine bootstrap coverage", () => {
     await engine.close();
   });
 
+  it("honors a folder's retry delay while other folders continue syncing", async () => {
+    let now = 1000;
+    const scopes: ScopeDescriptor[] = [
+      { id: "inbox", kind: "folder", folderId: "inbox" },
+      { id: "custom", kind: "folder", folderId: "custom" },
+    ];
+    const readStreams: string[] = [];
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "microsoft",
+      generation: "g1",
+    });
+    const engine = createMailEngine({
+      store,
+      source: {
+        ...slowBootstrapSource({ onBootstrap() {}, onEnumerate() {}, scopes }),
+        async readChanges({ position }) {
+          readStreams.push(position.streamId);
+          return {
+            status: "paused",
+            retryAfterMs: position.streamId === "custom" ? 10 * 60_000 : 0,
+            reason: "unavailable",
+          };
+        },
+      },
+      executor: uncertainExecutor(),
+      runtime: createHostRuntime({ nowMs: () => now }),
+    });
+    try {
+      await engine.runUntil(now + 1000);
+      now += 61_000;
+      await engine.runUntil(now + 1000);
+      expect(readStreams).toEqual(["custom", "inbox"]);
+
+      now += 61_000;
+      await engine.requestSync(["acc-1"]);
+      await engine.runUntil(now + 1000);
+      expect(readStreams).toEqual(["custom", "inbox", "inbox"]);
+
+      now += 10 * 60_000;
+      await engine.runUntil(now + 1000);
+      expect(readStreams).toEqual([
+        "custom",
+        "inbox",
+        "inbox",
+        "custom",
+        "inbox",
+      ]);
+    } finally {
+      await engine.close();
+    }
+  });
+
   it("starts every discovered folder in one pass after the time budget runs out", async () => {
     let now = 1000;
     const receivedScopes: string[] = [];

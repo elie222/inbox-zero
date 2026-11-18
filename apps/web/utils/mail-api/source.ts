@@ -23,6 +23,7 @@ import {
 } from "@/utils/mail-api/observations";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import { extractErrorInfo as extractGmailErrorInfo } from "@/utils/gmail/retry";
+import { OutlookSyncFolderUnavailableError } from "@/utils/outlook/errors";
 import { extractErrorInfo as extractOutlookErrorInfo } from "@/utils/outlook/retry";
 import type { ParsedMessage } from "@/utils/types";
 import { mapWithConcurrency } from "@/utils/async";
@@ -240,6 +241,13 @@ export function createEmailProviderMailboxSource(input: {
       } catch (error) {
         if (error instanceof InvalidMailboxSyncCursorError) {
           return { status: "reset_required", scopeId: position.streamId };
+        }
+        if (error instanceof OutlookSyncFolderUnavailableError) {
+          return {
+            status: "paused",
+            reason: "unavailable",
+            retryAfterMs: 10 * 60_000,
+          };
         }
         return mapProviderError(error);
       }

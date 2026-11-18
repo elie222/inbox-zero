@@ -17,13 +17,17 @@ import {
   extractErrorInfo,
   withMicrosoftGraphRetry,
 } from "@/utils/outlook/retry";
-import { isNotFoundError } from "@/utils/outlook/errors";
+import {
+  isNotFoundError,
+  OutlookSyncFolderUnavailableError,
+} from "@/utils/outlook/errors";
 import { mapWithConcurrency } from "@/utils/async";
 
 const MESSAGE_SELECT_FIELDS =
   "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,flag,categories,parentFolderId,hasAttachments,webLink,inferenceClassification";
 
 const MESSAGE_REFETCH_CONCURRENCY = 5;
+const SYNC_FOLDER_NOT_FOUND = "ErrorSyncFolderNotFound";
 
 type DeltaMessage = Message & {
   "@removed"?: { reason?: string };
@@ -99,10 +103,13 @@ export async function getOutlookMailboxSyncPage({
     return page;
   } catch (error) {
     const { status, code } = extractErrorInfo(error);
+    const folderNotFound =
+      !deltaFetched && status === 404 && code === SYNC_FOLDER_NOT_FOUND;
     const restart =
       status === 410 ||
       code === "SyncStateNotFound" ||
-      code === "resyncRequired";
+      code === "resyncRequired" ||
+      folderNotFound;
     if (!deltaFetched) {
       mailboxSyncDiagnosticLogger(logger).warn("Outlook delta request failed", {
         status: typeof status === "number" ? status : undefined,
@@ -112,13 +119,20 @@ export async function getOutlookMailboxSyncPage({
       });
     }
     if (!restart) throw error;
-    return getInitialPage({
-      client,
-      logger,
-      after: new Date(decoded.after),
-      folderId: decoded.folderId ?? folderId,
-      limit,
-    });
+    try {
+      return await getInitialPage({
+        client,
+        logger,
+        after: new Date(decoded.after),
+        folderId: decoded.folderId ?? folderId,
+        limit,
+      });
+    } catch (restartError) {
+      if (folderNotFound && extractErrorInfo(restartError).status === 404) {
+        throw new OutlookSyncFolderUnavailableError();
+      }
+      throw restartError;
+    }
   }
 }
 
@@ -349,6 +363,7 @@ function mailboxSyncDiagnosticCode(code: string | undefined) {
   switch (code) {
     case "ErrorItemNotFound":
     case "ErrorInvalidSyncStateData":
+    case SYNC_FOLDER_NOT_FOUND:
     case "SyncStateNotFound":
     case "resyncRequired":
       return code;

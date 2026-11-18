@@ -1174,6 +1174,13 @@ export function createMailEngine(input: {
       bootstrapStarted && runtime.nowMs() >= bootstrapDeadlineMs;
     for (const stream of streams) {
       if (signal.aborted) return;
+      // A scheduled or manual catch-up can advance the normal polling time,
+      // but it must still wait for a provider-requested pause to expire.
+      const retryAtMs = idleGate.streamRetryAtMs.get(stream.streamId);
+      if (retryAtMs !== undefined) {
+        if (runtime.nowMs() < retryAtMs) continue;
+        idleGate.streamRetryAtMs.delete(stream.streamId);
+      }
       if (!stream.checkpoint && bootstrapSliceSpent()) {
         idleGate.nextBootstrapStreamId ??= stream.streamId;
         continue;
@@ -1377,9 +1384,16 @@ export function createMailEngine(input: {
       });
       await rememberBootstrapContinuation(idleGate, session, changes.scopeId);
     } else {
+      const nowMs = runtime.nowMs();
+      if (changes.status === "paused" && changes.retryAfterMs > 0) {
+        idleGate.streamRetryAtMs.set(
+          stream.streamId,
+          nowMs + changes.retryAfterMs,
+        );
+      }
       idleGate.nextStreamCatchUpAtMs.set(
         stream.streamId,
-        runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
+        nowMs + streamCatchUpInterval(idleGate, stream.streamId),
       );
       await noteConnection(session.accountId, changes.status);
     }
@@ -1503,8 +1517,9 @@ export function createMailEngine(input: {
       nextStreamCatchUpAtMs: new Map(),
       requestCount: 0,
       scopesDiscoveredAt: null,
-      streamCheckedAt: new Map(),
       streamBacklogPages: new Map(),
+      streamCheckedAt: new Map(),
+      streamRetryAtMs: new Map(),
       newestPageIngested: new Set(),
     };
     idleCatchUpGates.set(accountId, created);
@@ -1723,8 +1738,9 @@ type IdleCatchUpGate = {
   nextStreamCatchUpAtMs: Map<string, number>;
   requestCount: number;
   scopesDiscoveredAt: CheckStamp | null;
-  streamCheckedAt: Map<string, CheckStamp>;
   streamBacklogPages: Map<string, number>;
+  streamCheckedAt: Map<string, CheckStamp>;
+  streamRetryAtMs: Map<string, number>;
   /** Streams whose current backlog already has its newest page in. */
   newestPageIngested: Set<string>;
 };
