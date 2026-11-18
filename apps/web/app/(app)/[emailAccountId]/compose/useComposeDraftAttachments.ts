@@ -73,7 +73,7 @@ export function useComposeDraftAttachments({
     loadDraftAttachments(inputs.current).then((value) => {
       if (cancelled) {
         for (const attachment of value.attachments)
-          if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+          if (attachment.preview) URL.revokeObjectURL(attachment.preview.url);
         return;
       }
       setLoaded({ key, value });
@@ -135,10 +135,10 @@ async function loadDraftAttachments({
         size: attachment.size,
         signal,
       }).catch(() => null);
-      if (bytes)
-        attachment.previewUrl = URL.createObjectURL(
-          new Blob([bytes], { type: attachment.mimeType }),
-        );
+      if (bytes) {
+        const blob = new Blob([bytes], { type: attachment.mimeType });
+        attachment.preview = { url: URL.createObjectURL(blob), blob };
+      }
     }
     return { draftId, attachments };
   } catch {

@@ -19,7 +19,7 @@ import {
 } from "@/hooks/useHiddenDraftMessageIds";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
-import { prepareOutgoingInlineImages } from "@/utils/email/outgoing-inline-images";
+import { publishOutgoingInlineImages } from "@/utils/email/outgoing-inline-images";
 import { getActionErrorMessage } from "@/utils/error";
 import {
   getDraftSessionMessageIds,
@@ -428,10 +428,7 @@ export function useComposeSend({
           showSavedDraft();
         };
         try {
-          const publishInlineImages = await prepareOutgoingInlineImages(
-            selectedEmailAccountId,
-            attachmentsRef.current,
-          );
+          const attachments = attachmentsRef.current;
           outcome = await queueReaderEmail({
             client,
             email: enrichedData,
@@ -440,11 +437,15 @@ export function useComposeSend({
             holdForUndo: online,
             messageIds: isNewCompose ? [] : [readerMessageId],
             providerDraftMessageIds: draftMessageIds,
-            attachments: attachmentsRef.current.flatMap(toAttachmentReference),
+            attachments: attachments.flatMap(toAttachmentReference),
             online,
             threadId: readerThreadId,
             onSubmitting: (operationId) => {
-              publishInlineImages(operationId);
+              publishOutgoingInlineImages(
+                selectedEmailAccountId,
+                operationId,
+                attachments,
+              );
               return onSubmitting?.(operationId) ?? (() => {});
             },
             onQueued: async (operationId) => {
