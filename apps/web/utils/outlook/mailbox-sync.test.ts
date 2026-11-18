@@ -5,6 +5,7 @@ import {
 } from "@/utils/email/mailbox-sync";
 import { createScopedLogger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
+import { OutlookSyncFolderUnavailableError } from "@/utils/outlook/errors";
 import {
   buildOutlookMailboxSyncPage,
   getOutlookMailboxSyncPage,
@@ -170,6 +171,133 @@ describe("buildOutlookMailboxSyncPage", () => {
 });
 
 describe("getOutlookMailboxSyncPage", () => {
+  it("restarts a folder delta when Graph no longer recognizes the saved sync folder", async () => {
+    const controller = new AbortController();
+    const freshDeltaLink = DELTA_LINK.replace("=abc", "=fresh");
+    const { client, requestedUrls, requestOptions } = createGraphClient({
+      [DELTA_LINK]: Object.assign(new Error("Sync folder not found"), {
+        code: "ErrorSyncFolderNotFound",
+        statusCode: 404,
+      }),
+      "/me/mailFolders/inbox/messages/delta": {
+        value: [{ id: "partial-message", isRead: true }],
+        "@odata.deltaLink": freshDeltaLink,
+      },
+      "/me/messages/partial-message": {
+        id: "partial-message",
+        conversationId: "thread-1",
+      },
+    });
+
+    const page = await getOutlookMailboxSyncPage({
+      client,
+      logger,
+      cursor: encodeMailboxSyncCursor({
+        version: 1,
+        provider: "microsoft",
+        deltaLink: DELTA_LINK,
+        after: "2026-07-01T00:00:00.000Z",
+        folderId: "inbox",
+        snapshot: false,
+      }),
+      folderId: "inbox",
+      limit: 20,
+      signal: controller.signal,
+    });
+
+    expect(page.reset).toBe(true);
+    expect(decodeMailboxSyncCursor(page.cursor, "microsoft").deltaLink).toBe(
+      freshDeltaLink,
+    );
+    expect(requestedUrls).toEqual([
+      DELTA_LINK,
+      "/me/mailFolders/inbox/messages/delta",
+      "/me/messages/partial-message",
+    ]);
+    controller.abort();
+    expect(requestOptions).toHaveLength(2);
+    expect(requestOptions.map(({ signal }) => signal.aborted)).toEqual([
+      true,
+      true,
+    ]);
+  });
+
+  it("reports an unavailable folder when Graph also rejects the fresh delta request", async () => {
+    const folderId = "custom-folder";
+    const savedLink = DELTA_LINK.replace("/inbox/", `/${folderId}/`);
+    const freshPath = `/me/mailFolders/${folderId}/messages/delta`;
+    const { client, requestedUrls } = createGraphClient({
+      [savedLink]: Object.assign(new Error("Sync folder not found"), {
+        code: "ErrorSyncFolderNotFound",
+        statusCode: 404,
+      }),
+      [freshPath]: Object.assign(new Error("Folder not found"), {
+        code: "ErrorItemNotFound",
+        statusCode: 404,
+      }),
+    });
+
+    await expect(
+      getOutlookMailboxSyncPage({
+        client,
+        logger,
+        cursor: encodeMailboxSyncCursor({
+          version: 1,
+          provider: "microsoft",
+          deltaLink: savedLink,
+          after: "2026-07-01T00:00:00.000Z",
+          folderId,
+          snapshot: false,
+        }),
+        folderId,
+        limit: 20,
+      }),
+    ).rejects.toBeInstanceOf(OutlookSyncFolderUnavailableError);
+    expect(requestedUrls).toEqual([savedLink, freshPath]);
+  });
+
+  it.each([
+    "caller cancellation",
+    "recovery deadline",
+  ])("stops waiting for a pending folder recovery on %s", async (trigger) => {
+    const controller = new AbortController();
+    const deadline = new AbortController();
+    using timeout = vi
+      .spyOn(AbortSignal, "timeout")
+      .mockReturnValue(deadline.signal);
+    const freshPath = "/me/mailFolders/inbox/messages/delta";
+    const { client, requestedUrls } = createGraphClient({
+      [DELTA_LINK]: Object.assign(new Error("Sync folder not found"), {
+        code: "ErrorSyncFolderNotFound",
+        statusCode: 404,
+      }),
+      [freshPath]: new Promise(() => {}),
+    });
+    const read = getOutlookMailboxSyncPage({
+      client,
+      logger,
+      cursor: encodeMailboxSyncCursor({
+        version: 1,
+        provider: "microsoft",
+        deltaLink: DELTA_LINK,
+        after: "2026-07-01T00:00:00.000Z",
+        snapshot: false,
+      }),
+      limit: 20,
+      signal: controller.signal,
+    });
+
+    await vi.waitFor(() => expect(requestedUrls).toContain(freshPath));
+    expect(timeout).toHaveBeenCalledWith(5000);
+    const aborter = trigger === "caller cancellation" ? controller : deadline;
+    const reason = new DOMException(
+      trigger,
+      aborter === deadline ? "TimeoutError" : "AbortError",
+    );
+    aborter.abort(reason);
+    await expect(read).rejects.toBe(reason);
+  });
+
   it("reports a failed folder delta without mailbox identifiers or cursor data", async () => {
     using warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { client } = createGraphClient({});
@@ -312,13 +440,25 @@ describe("getOutlookMailboxSyncPage", () => {
 
 function createGraphClient(responses: Record<string, unknown>) {
   const requestedUrls: string[] = [];
+  const requestOptions: Array<{ signal: AbortSignal }> = [];
   const api = vi.fn((url: string) => {
     requestedUrls.push(url);
     const request = {
       select: () => request,
       header: () => request,
+      filter: () => request,
+      top: () => request,
+      options: (options: { signal: AbortSignal }) => {
+        requestOptions.push(options);
+        return request;
+      },
+      middlewareOptions: () => request,
       get: async () => {
-        if (url in responses) return responses[url];
+        if (url in responses) {
+          const response = responses[url];
+          if (response instanceof Error) throw response;
+          return response;
+        }
         throw Object.assign(new Error("Not found"), {
           statusCode: 404,
           code: "ErrorItemNotFound",
@@ -338,5 +478,6 @@ function createGraphClient(responses: Record<string, unknown>) {
       }),
     } as unknown as OutlookClient,
     requestedUrls,
+    requestOptions,
   };
 }
