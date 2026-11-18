@@ -320,7 +320,9 @@ export function MessagePart({
             key={toolCallId}
             text={getSplitInboxLabel(
               part.input?.action,
-              part.input?.name,
+              part.output && "split" in part.output
+                ? part.output.split?.name
+                : part.input?.name,
               i18n,
             )}
           />
@@ -1304,6 +1306,8 @@ function getSplitInboxLabel(
         ? i18n._(msg`Created split "${name}"`)
         : i18n._(msg`Created split`);
     case "update":
+    case "hideFromAll":
+    case "showInAll":
       return name
         ? i18n._(msg`Updated split "${name}"`)
         : i18n._(msg`Updated split`);

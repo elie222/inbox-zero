@@ -33,6 +33,10 @@ export const mailPredicateSchema: z.ZodType<MailPredicate> = z.lazy(() =>
     }),
     z.object({ kind: z.literal("not"), predicate: mailPredicateSchema }),
     z.object({
+      kind: z.literal("no_matching_message"),
+      predicate: mailPredicateSchema,
+    }),
+    z.object({
       kind: z.literal("role"),
       role: z.enum(["inbox", "sent", "draft", "trash", "spam"]),
     }),
@@ -81,6 +85,7 @@ export type MailPredicate =
   | { kind: "all"; predicates: MailPredicate[] }
   | { kind: "any"; predicates: MailPredicate[] }
   | { kind: "not"; predicate: MailPredicate }
+  | { kind: "no_matching_message"; predicate: MailPredicate }
   | { kind: "role"; role: "inbox" | "sent" | "draft" | "trash" | "spam" }
   | { kind: "mailbox"; mailbox: WellKnownMailbox }
   | { kind: "read"; value: boolean }

@@ -22,6 +22,7 @@ import {
   updateMailSplit,
   deleteMailSplit,
   reorderMailSplits,
+  setMailSplitHideFromAll,
 } from "@/utils/split-inbox/splits.server";
 import { seedDefaultInboxBundles } from "@/utils/split-inbox/inbox-bundles.server";
 
@@ -164,10 +165,6 @@ export const setMailSplitHideFromAllAction = actionClient
   .inputSchema(setMailSplitHideFromAllBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { id, hideFromAll } }) => {
-      const { count } = await prisma.mailSplit.updateMany({
-        where: { id, emailAccountId },
-        data: { hideFromAll },
-      });
-      if (!count) throw new SafeError("Split not found");
+      await setMailSplitHideFromAll({ emailAccountId, id, hideFromAll });
     },
   );

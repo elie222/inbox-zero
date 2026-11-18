@@ -34,6 +34,19 @@ export function compilePredicate(
       const inner = compilePredicate(predicate.predicate, search, alias);
       return { sql: `(NOT ${inner.sql})`, bindings: inner.bindings };
     }
+    case "no_matching_message": {
+      const member = `${alias}_member`;
+      const inner = compilePredicate(predicate.predicate, search, member);
+      return {
+        sql: `NOT EXISTS (
+          SELECT 1 FROM effective_messages ${member}
+          WHERE ${member}.account_id = ${alias}.account_id
+            AND ${member}.conversation_id = ${alias}.conversation_id
+            AND ${inner.sql}
+        )`,
+        bindings: inner.bindings,
+      };
+    }
     case "role": {
       const column = {
         inbox: "in_inbox",

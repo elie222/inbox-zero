@@ -6,7 +6,10 @@ import {
   updateMailSplitBody,
 } from "@/utils/actions/mail-split.validation";
 import { createEmailProvider } from "@/utils/email/provider";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 import { SafeError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { posthogCaptureEvent } from "@/utils/posthog";
@@ -18,6 +21,7 @@ import {
 } from "@/utils/split-inbox/split-filters";
 import {
   createMailSplitOrThrow,
+  setMailSplitHideFromAll,
   updateMailSplit,
 } from "@/utils/split-inbox/splits.server";
 import { OLDER_THAN_OPTIONS } from "@/utils/split-inbox/split-query";
@@ -34,16 +38,18 @@ const conditionKinds = [
 
 const manageSplitInboxInputSchema = z.object({
   action: z
-    .enum(["list", "create", "update", "delete"])
+    .enum(["list", "create", "update", "hideFromAll", "showInAll", "delete"])
     .describe(
-      "list: show the user's splits with their ids and conditions. create: add a split. update: change a split's name, matching or conditions. delete: ask the user to confirm removing a split.",
+      "list: read split IDs, conditions and hideFromAll status (null where unsupported). create: add a split. update: edit its name, matching or conditions. hideFromAll: exclude inbox mail matching the split from All. showInAll: stop excluding matches for this split. delete: request confirmation to remove the split.",
     ),
   splitId: z
     .string()
     .trim()
     .min(1)
     .nullish()
-    .describe("Required for update and delete: a split id from list."),
+    .describe(
+      "The split ID from list. Required for update, hideFromAll, showInAll and delete.",
+    ),
   name: z
     .string()
     .trim()
@@ -93,7 +99,7 @@ export const manageSplitInboxTool = ({
 }) =>
   tool({
     description:
-      "Read and change the user's split inbox: the tabs on the mail screen that each show the slice of the inbox matching some conditions, such as mail from a sender, mail sent to an address or domain, or mail with a label. A split only filters what a tab shows; it never moves, labels or changes mail, so create and update apply right away without asking first, and the mail screen switches to a split after it is created or updated. delete only shows the user a confirmation card: the split stays until they confirm it there. The All tab and the Other tab (inbox mail no other split matches) are built in and cannot be changed. Use list before update or delete to get the split id.",
+      "Read and configure the mail screen’s inbox tabs. For Gmail’s single-account All tab, hideFromAll and showInAll change the split’s “What should All show?” toggle without archiving, moving or labeling any mail. Only mail that matches an excluded split’s conditions is filtered out of All. Create, update and visibility changes apply immediately. Create and update switch the mail screen to the affected split. Delete shows a confirmation card. All and Other are built-in tabs. Use list to resolve existing split IDs and inspect their settings before changing them.",
     inputSchema: manageSplitInboxInputSchema,
     execute: async (input) => {
       logger.info("Tracking tool call", { tool: "manage_split_inbox", email });
@@ -117,6 +123,9 @@ export const manageSplitInboxTool = ({
                     id: split.id,
                     name: split.name,
                     matchAll: split.matchAll,
+                    hideFromAll: isGoogleProvider(provider)
+                      ? split.hideFromAll
+                      : null,
                     conditions: await Promise.all(
                       split.filters.map(async (filter) => ({
                         kind: filter.kind,
@@ -185,6 +194,22 @@ export const manageSplitInboxTool = ({
               action: "update" as const,
               split: { id: body.data.id, name: body.data.name },
             };
+          }
+          case "hideFromAll":
+          case "showInAll": {
+            if (!isGoogleProvider(provider))
+              return failure(
+                "Split visibility in All is available for Gmail accounts.",
+              );
+            if (!input.splitId)
+              return failure("Changing split visibility requires a splitId.");
+
+            const split = await setMailSplitHideFromAll({
+              emailAccountId,
+              id: input.splitId,
+              hideFromAll: input.action === "hideFromAll",
+            });
+            return { success: true as const, action: input.action, split };
           }
           case "delete": {
             if (!input.splitId) return failure("delete requires a splitId.");

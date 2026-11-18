@@ -165,6 +165,46 @@ test("the assistant creates a split and shows it", async ({
 
   await expect(page).toHaveURL(/[?&]split=/);
   const splitId = new URL(page.url()).searchParams.get("split");
+  const allTab = page.locator("button[data-split-tab]").filter({
+    has: page.locator("[data-split-name]", { hasText: /^All$/ }),
+  });
+  await allTab.click();
+  const danaMessage = conversations
+    .locator("[data-mail-thread-key]")
+    .filter({ hasText: "Reader Navigation Message" });
+  await expect(danaMessage).toHaveCount(1);
+
+  for (const { action, request, reply, count } of [
+    {
+      action: "hideFromAll",
+      request: "Hide Dana from All",
+      reply: "I hid Dana from All.",
+      count: 0,
+    },
+    {
+      action: "showInAll",
+      request: "Show Dana in All",
+      reply: "I restored Dana in All.",
+      count: 1,
+    },
+  ]) {
+    await scriptReply({
+      match: request.toLowerCase(),
+      toolCall: { name: "manageSplitInbox", arguments: { action, splitId } },
+    });
+    await scriptReply({ match: `"action":"${action}"`, text: reply });
+    await sendChatMessage(page, request);
+    await expect(page.getByText(reply, { exact: true })).toBeVisible();
+    await expect(
+      page.getByText('Updated split "Dana"', { exact: true }).last(),
+    ).toBeVisible();
+    await expect(danaMessage).toHaveCount(count);
+    await expect(allTab).toHaveAttribute("aria-current", "true");
+    await capturePlaywrightCheckpoint(page, testInfo, `chat-split-${action}`);
+  }
+
+  const danaTab = page.getByRole("button", { name: "Dana", exact: true });
+  await danaTab.click();
   await scriptReply({
     match: "delete the dana split",
     toolCall: {
@@ -181,7 +221,6 @@ test("the assistant creates a split and shows it", async ({
     page.getByText("Confirm below to delete the Dana split."),
   ).toBeVisible({ timeout: 60_000 });
   // Nothing is deleted until the user confirms.
-  const danaTab = page.getByRole("button", { name: "Dana", exact: true });
   await expect(danaTab).toBeVisible();
 
   const confirm = page.getByRole("button", { name: "Delete split" });

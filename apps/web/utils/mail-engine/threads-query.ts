@@ -153,15 +153,21 @@ export function threadsQueryToPredicate(
   }
   if (query.excludeSplits?.length) {
     clauses.push({
-      kind: "not",
+      kind: "no_matching_message",
       predicate: {
-        kind: "any",
-        predicates: query.excludeSplits.map((split) => ({
-          kind: split.matchAll ? "all" : "any",
-          predicates: split.filters.map((filter) =>
-            splitFilterToPredicate(filter, now),
-          ),
-        })),
+        kind: "all",
+        predicates: [
+          { kind: "role", role: "inbox" },
+          {
+            kind: "any",
+            predicates: query.excludeSplits.map((split) => ({
+              kind: split.matchAll ? "all" : "any",
+              predicates: split.filters.map((filter) =>
+                splitFilterToPredicate(filter, now),
+              ),
+            })),
+          },
+        ],
       },
     });
   }
