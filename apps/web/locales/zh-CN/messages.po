@@ -476,7 +476,6 @@ msgstr "{enabled, plural, other {已启用 #}}"
 msgid "{error} Your draft is saved here; retry when ready."
 msgstr "{error} 你的草稿已保存在此处；准备好后请重试。"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "{errorCount, plural, one {Failed to send # invitation} other {Failed to send # invitations}}"
 msgstr "{errorCount, plural, other {# 封邀请发送失败}}"
@@ -719,7 +718,6 @@ msgstr "{stoppedCount, plural, other {已处理 # 封邮件}}"
 msgid "{succeeded} of {total} succeeded"
 msgstr "{total} 个中有 {succeeded} 个成功"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "{successCount, plural, one {# invitation sent successfully!} other {# invitations sent successfully!}}"
 msgstr "{successCount, plural, other {已成功发送 # 封邀请！}}"
@@ -1314,10 +1312,6 @@ msgstr "添加知识"
 #: app/(app)/accounts/AddAccount.tsx
 msgid "Add Microsoft"
 msgstr "添加 Microsoft"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Add more anytime from settings."
-msgstr "之后可随时在设置中添加更多。"
 
 #: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
 msgid "Add new rules"
@@ -5394,10 +5388,6 @@ msgstr "周末"
 msgid "End your free trial and pay now?"
 msgstr "结束免费试用并立即付款？"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Enter a valid email"
-msgstr "请输入有效的邮箱地址"
-
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "Enter a valid recipient email address."
 msgstr "请输入有效的收件人邮箱地址。"
@@ -5883,7 +5873,6 @@ msgstr "创建 API 密钥失败"
 msgid "Failed to create booking link"
 msgstr "创建预约链接失败"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "Failed to create organization and send invitations"
 msgstr "创建组织并发送邀请失败"
@@ -6077,10 +6066,6 @@ msgstr "无法扫描跟进邮件"
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Failed to send brief"
 msgstr "发送简报失败"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Failed to send invitations"
-msgstr "发送邀请失败"
 
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 msgid "Failed to send test check-in"
@@ -7346,6 +7331,10 @@ msgstr "未找到 Inbox Zero Tabs 扩展程序。请先安装。"
 msgid "Inbox Zero where you work."
 msgstr "Inbox Zero，随你工作的地方。"
 
+#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
+msgid "Inbox Zero works in Gmail or Outlook, so you don't need to switch. If you want, use our email app on web, desktop, iPhone, and Android."
+msgstr "Inbox Zero 可在 Gmail 或 Outlook 中使用，所以你无需切换。如果你愿意，也可以在网页、桌面端、iPhone 和 Android 上使用我们的邮件应用。"
+
 #: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
 msgid "Inbox: {label}"
 msgstr "收件箱：{label}"
@@ -7525,10 +7514,6 @@ msgstr "邀请队友"
 #: components/SlackNotificationTargetSelect.tsx
 msgid "Invite the bot with <0>/invite @{botName}</0>"
 msgstr "使用 <0>/invite @{botName}</0> 邀请机器人"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Invite your team"
-msgstr "邀请你的团队"
 
 #: app/(app)/organization/[organizationId]/Members.tsx
 msgid "Invited by {inviterName}"
@@ -10592,8 +10577,8 @@ msgid "Read and send email from every account in one fast inbox"
 msgstr "在一个快速收件箱中阅读和发送所有账号的邮件"
 
 #: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
-msgstr "在网页、桌面端和 iPhone 上阅读和发送邮件。随时添加 AI 助手。"
+msgid "Read and send email on web, desktop, iPhone, and Android. Add the AI assistant anytime."
+msgstr "在网页、桌面端、iPhone 和 Android 上阅读和发送邮件。随时添加 AI 助手。"
 
 #: components/assistant-chat/tools.tsx
 msgid "Read Email"
@@ -11799,7 +11784,6 @@ msgstr "发送反馈"
 msgid "Send History"
 msgstr "发送记录"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "Send invites"
 msgstr "发送邀请"
@@ -12341,7 +12325,6 @@ msgstr "大小比较"
 msgid "Size unit"
 msgstr "大小单位"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Skip"
 msgstr "跳过"
@@ -14262,6 +14245,10 @@ msgstr "等待加入"
 #: components/EndTrialButton.tsx
 msgid "Want a different plan or to pay monthly? <0>Change your plan first</0>."
 msgstr "想换其他套餐或按月付费？<0>请先更改你的套餐</0>。"
+
+#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
+msgid "Want a faster inbox too?"
+msgstr "也想要更快的收件箱吗？"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Want pings in your chat app? <0>Configure on the Channels page</0>."

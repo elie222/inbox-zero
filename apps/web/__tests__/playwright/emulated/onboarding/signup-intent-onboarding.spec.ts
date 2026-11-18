@@ -17,7 +17,7 @@ test.afterEach(async () => {
   await resetOnboardingTestState();
 });
 
-test("email app users get a short intro, then pick a plan", async ({
+test("email app users get a short intro and the survey, then pick a plan", async ({
   page,
 }, testInfo) => {
   const emailAccountId = await getEmailAccountId(page);
@@ -31,6 +31,16 @@ test("email app users get a short intro, then pick a plan", async ({
   ).toBeVisible({ timeout: 60_000 });
   await capturePlaywrightCheckpoint(page, testInfo, "mail-app-step");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "What do you do?" }),
+  ).toBeVisible({ timeout: 60_000 });
+  await page.getByRole("button", { name: "Founder", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page
+    .getByRole("button", { name: "11-100 people", exact: true })
+    .click();
+  await page.getByRole("button", { name: "GitHub", exact: true }).click();
 
   await expect(page).toHaveURL(/\/welcome-upgrade(?:\?.*)?$/, {
     timeout: 60_000,

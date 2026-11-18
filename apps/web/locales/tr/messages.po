@@ -476,7 +476,6 @@ msgstr "{enabled, plural, one {# etkin} other {# etkin}}"
 msgid "{error} Your draft is saved here; retry when ready."
 msgstr "{error} Taslağınız burada kayıtlı; hazır olduğunuzda yeniden deneyin."
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "{errorCount, plural, one {Failed to send # invitation} other {Failed to send # invitations}}"
 msgstr "{errorCount, plural, one {# davet gönderilemedi} other {# davet gönderilemedi}}"
@@ -719,7 +718,6 @@ msgstr "{stoppedCount, plural, one {# e-posta işlendi} other {# e-posta işlend
 msgid "{succeeded} of {total} succeeded"
 msgstr "{total} öğeden {succeeded} tanesi başarılı oldu"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "{successCount, plural, one {# invitation sent successfully!} other {# invitations sent successfully!}}"
 msgstr "{successCount, plural, one {# davet başarıyla gönderildi!} other {# davet başarıyla gönderildi!}}"
@@ -1314,10 +1312,6 @@ msgstr "Bilgi ekle"
 #: app/(app)/accounts/AddAccount.tsx
 msgid "Add Microsoft"
 msgstr "Microsoft ekle"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Add more anytime from settings."
-msgstr "Dilediğiniz zaman ayarlardan daha fazlasını ekleyin."
 
 #: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
 msgid "Add new rules"
@@ -5394,10 +5388,6 @@ msgstr "Hafta sonu"
 msgid "End your free trial and pay now?"
 msgstr "Ücretsiz denemeniz sona erip şimdi ödeme yapılsın mı?"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Enter a valid email"
-msgstr "Geçerli bir e-posta girin"
-
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "Enter a valid recipient email address."
 msgstr "Geçerli bir alıcı e-posta adresi girin."
@@ -5883,7 +5873,6 @@ msgstr "API anahtarı oluşturulamadı"
 msgid "Failed to create booking link"
 msgstr "Rezervasyon bağlantısı oluşturulamadı"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "Failed to create organization and send invitations"
 msgstr "Kuruluş oluşturulamadı ve davetiyeler gönderilemedi"
@@ -6077,10 +6066,6 @@ msgstr "Takipler taranamadı"
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Failed to send brief"
 msgstr "Brifing gönderilemedi"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Failed to send invitations"
-msgstr "Davetiyeler gönderilemedi"
 
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 msgid "Failed to send test check-in"
@@ -7346,6 +7331,10 @@ msgstr "Inbox Zero Tabs uzantısı bulunamadı. Önce yükleyin."
 msgid "Inbox Zero where you work."
 msgstr "Inbox Zero, çalıştığınız her yerde."
 
+#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
+msgid "Inbox Zero works in Gmail or Outlook, so you don't need to switch. If you want, use our email app on web, desktop, iPhone, and Android."
+msgstr "Inbox Zero, Gmail veya Outlook içinde çalışır, bu yüzden geçiş yapmanıza gerek yok. İsterseniz e-posta uygulamamızı web, masaüstü, iPhone ve Android'de kullanın."
+
 #: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
 msgid "Inbox: {label}"
 msgstr "Gelen kutusu: {label}"
@@ -7525,10 +7514,6 @@ msgstr "Ekip arkadaşlarını davet et"
 #: components/SlackNotificationTargetSelect.tsx
 msgid "Invite the bot with <0>/invite @{botName}</0>"
 msgstr "Botu <0>/invite @{botName}</0> ile davet edin"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Invite your team"
-msgstr "Ekibinizi davet edin"
 
 #: app/(app)/organization/[organizationId]/Members.tsx
 msgid "Invited by {inviterName}"
@@ -10592,8 +10577,8 @@ msgid "Read and send email from every account in one fast inbox"
 msgstr "Tüm hesaplarınızdaki e-postaları tek ve hızlı bir gelen kutusunda okuyun ve gönderin"
 
 #: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
-msgstr "E-postaları web, masaüstü ve iPhone'da okuyun ve gönderin. Yapay zeka asistanını istediğiniz zaman ekleyin."
+msgid "Read and send email on web, desktop, iPhone, and Android. Add the AI assistant anytime."
+msgstr "E-postaları web, masaüstü, iPhone ve Android'de okuyun ve gönderin. Yapay zeka asistanını istediğiniz zaman ekleyin."
 
 #: components/assistant-chat/tools.tsx
 msgid "Read Email"
@@ -11799,7 +11784,6 @@ msgstr "Geri bildirim gönder"
 msgid "Send History"
 msgstr "Gönderim geçmişi"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "Send invites"
 msgstr "Davet gönder"
@@ -12341,7 +12325,6 @@ msgstr "Boyut karşılaştırması"
 msgid "Size unit"
 msgstr "Boyut birimi"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Skip"
 msgstr "Atla"
@@ -14262,6 +14245,10 @@ msgstr "Katılmayı bekliyor"
 #: components/EndTrialButton.tsx
 msgid "Want a different plan or to pay monthly? <0>Change your plan first</0>."
 msgstr "Farklı bir plan mı istiyorsunuz veya aylık mı ödemek istiyorsunuz? <0>Önce planınızı değiştirin</0>."
+
+#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
+msgid "Want a faster inbox too?"
+msgstr "Daha hızlı bir gelen kutusu da ister misiniz?"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Want pings in your chat app? <0>Configure on the Channels page</0>."

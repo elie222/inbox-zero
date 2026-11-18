@@ -17,40 +17,41 @@ export const STEP_KEYS = {
   LABELS: "labels",
   DRAFT: "draft",
   CUSTOM_RULES: "customRules",
-  INVITE_TEAM: "inviteTeam",
   INBOX_PROCESSED: "inboxProcessed",
   INTENT: "intent",
   MAIL_APP: "mailApp",
+  EMAIL_APP: "emailApp",
 } as const;
 
 export type StepKey = (typeof STEP_KEYS)[keyof typeof STEP_KEYS];
 
-// The survey comes first so every user answers it, then the intent question
-// picks which branch follows.
+// The intent question comes first and picks the branch. Each branch shows
+// what the product does before asking the survey questions.
 const surveyStepOrder: readonly StepKey[] = [
   STEP_KEYS.WHO,
   STEP_KEYS.COMPANY_SIZE,
   STEP_KEYS.HOW_YOU_HEARD,
 ];
 
-const aiAssistantStepOrder: readonly StepKey[] = [
+const aiAssistantTourStepOrder: readonly StepKey[] = [
   STEP_KEYS.EMAILS_SORTED,
   STEP_KEYS.CHAT,
   STEP_KEYS.DRAFT_REPLIES,
   STEP_KEYS.BULK_UNSUBSCRIBE,
-  // STEP_KEYS.FEATURES,
+  STEP_KEYS.EMAIL_APP,
+];
+
+const aiAssistantSetupStepOrder: readonly StepKey[] = [
   STEP_KEYS.LABELS,
   STEP_KEYS.DRAFT,
   STEP_KEYS.CUSTOM_RULES,
-  STEP_KEYS.INVITE_TEAM,
   STEP_KEYS.INBOX_PROCESSED,
 ];
 
-const mailAppStepOrder: readonly StepKey[] = [STEP_KEYS.MAIL_APP];
-
 // Frozen pre-intent order so old numeric `?step=N` links keep resolving.
-const legacyNumericOnboardingStepOrder: readonly (StepKey | "welcome")[] = [
-  "welcome",
+// Null marks steps that no longer exist.
+const legacyNumericOnboardingStepOrder: readonly (StepKey | null)[] = [
+  null,
   STEP_KEYS.EMAILS_SORTED,
   STEP_KEYS.CHAT,
   STEP_KEYS.DRAFT_REPLIES,
@@ -61,40 +62,33 @@ const legacyNumericOnboardingStepOrder: readonly (StepKey | "welcome")[] = [
   STEP_KEYS.LABELS,
   STEP_KEYS.DRAFT,
   STEP_KEYS.CUSTOM_RULES,
-  STEP_KEYS.INVITE_TEAM,
+  null,
   STEP_KEYS.INBOX_PROCESSED,
 ];
 
 export function getVisibleOnboardingStepKeys({
-  canInviteTeam,
   autoDraftDisabled,
   isSelfHosted,
   signupIntent,
 }: {
-  canInviteTeam: boolean;
   autoDraftDisabled: boolean;
   isSelfHosted?: boolean;
   signupIntent: SignupIntent | null;
 }) {
+  // The sales survey is irrelevant for self-hosted deployments.
+  const survey = isSelfHosted ? [] : surveyStepOrder;
   // Until the user picks, the AI branch stands in as the most common path.
   const branchStepOrder =
-    signupIntent === "MAIL_CLIENT" ? mailAppStepOrder : aiAssistantStepOrder;
-  const stepOrder = [
-    // The sales survey is irrelevant for self-hosted deployments.
-    ...(isSelfHosted ? [] : surveyStepOrder),
-    STEP_KEYS.INTENT,
-    ...branchStepOrder,
-  ];
+    signupIntent === "MAIL_CLIENT"
+      ? [STEP_KEYS.MAIL_APP, ...survey]
+      : [...aiAssistantTourStepOrder, ...survey, ...aiAssistantSetupStepOrder];
+  const stepOrder = [STEP_KEYS.INTENT, ...branchStepOrder];
 
   return stepOrder.filter((stepKey) => {
     if (
       autoDraftDisabled &&
       (stepKey === STEP_KEYS.DRAFT_REPLIES || stepKey === STEP_KEYS.DRAFT)
     ) {
-      return false;
-    }
-
-    if (!canInviteTeam && stepKey === STEP_KEYS.INVITE_TEAM) {
       return false;
     }
 
@@ -146,7 +140,7 @@ export function getOnboardingStepIndex(
   const numericStep = Number.parseInt(stepParam, 10);
   if (Number.isFinite(numericStep)) {
     const legacyStepKey = legacyNumericOnboardingStepOrder[numericStep - 1];
-    if (legacyStepKey && legacyStepKey !== "welcome") {
+    if (legacyStepKey) {
       const legacyStepIndex = visibleStepKeys.indexOf(legacyStepKey);
       if (legacyStepIndex !== -1) return legacyStepIndex;
     }
@@ -156,10 +150,6 @@ export function getOnboardingStepIndex(
 
   const stepIndex = visibleStepKeys.indexOf(stepParam as StepKey);
   return stepIndex === -1 ? 0 : stepIndex;
-}
-
-export function isOptionalOnboardingStep(stepKey: StepKey) {
-  return stepKey === STEP_KEYS.INVITE_TEAM;
 }
 
 function clampStepIndex(stepIndex: number, totalSteps: number) {
