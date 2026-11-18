@@ -978,9 +978,15 @@ export function createMailEngine(input: {
       const aborted = new Promise<void>((resolve) => {
         abort.signal.addEventListener("abort", () => resolve(), { once: true });
       });
+      const deferralErrors: unknown[] = [];
+      const catchUp = catchUpAccount(
+        account,
+        abort.signal,
+        deferralErrors,
+      ).finally(() => syncLaneErrors.push(...deferralErrors));
       const lane: SyncLane = {
         abort,
-        done: Promise.race([catchUpAccount(account, abort.signal), aborted])
+        done: Promise.race([catchUp, aborted])
           .then(() => {
             if (timedOut && !slept) {
               failSyncLane(accountId, new Error("Mail sync lane timed out"));
@@ -1078,6 +1084,7 @@ export function createMailEngine(input: {
   async function catchUpAccount(
     account: AccountSyncState,
     signal: AbortSignal,
+    deferralErrors: unknown[],
   ) {
     let visitedStreams = 0;
     const session = {
@@ -1164,7 +1171,6 @@ export function createMailEngine(input: {
     }
     const dueStreams: typeof streams = [];
     const behindStreams: SyncStreamPosition[] = [];
-    const deferralErrors: unknown[] = [];
     // Bootstrap scans share one slice per pass, so a mailbox with many
     // folders can't run the lane into its timeout before later folders get a
     // turn. Folders left over go first on the next pass.
@@ -1183,12 +1189,14 @@ export function createMailEngine(input: {
           pendingDeferral.checkpoint === stream.checkpoint &&
           runtime.nowMs() < pendingDeferral.retryAtMs
         ) {
-          await persistStreamDeferral({
-            idleGate,
-            stream,
-            retryAtMs: pendingDeferral.retryAtMs,
-            errors: deferralErrors,
-          });
+          if (pendingDeferral.state === "retry") {
+            await persistStreamDeferral({
+              idleGate,
+              stream,
+              retryAtMs: pendingDeferral.retryAtMs,
+              errors: deferralErrors,
+            });
+          }
           continue;
         }
         idleGate.pendingStreamDeferrals.delete(stream.streamId);
@@ -1323,7 +1331,6 @@ export function createMailEngine(input: {
         }
       }
     }
-    syncLaneErrors.push(...deferralErrors);
     // Every page read in this pass is applied first, so the newest page is
     // the latest state written and the replay after it only reads later state.
     for (const position of behindStreams) {
@@ -1438,20 +1445,23 @@ export function createMailEngine(input: {
     retryAtMs: number;
     errors: unknown[];
   }) {
+    const deferral: StreamDeferral = {
+      checkpoint: stream.checkpoint,
+      retryAtMs,
+      state: "writing",
+    };
+    idleGate.pendingStreamDeferrals.set(stream.streamId, deferral);
     try {
       await store.deferSyncStream({
         accountId: stream.accountId,
         position: stream,
         retryAtMs,
       });
-      idleGate.pendingStreamDeferrals.delete(stream.streamId);
+      deferral.state = "stored";
     } catch (error) {
       // Keep the deadline in memory until SQLite accepts the write. A local
       // write failure should not discard the other results from this batch.
-      idleGate.pendingStreamDeferrals.set(stream.streamId, {
-        checkpoint: stream.checkpoint,
-        retryAtMs,
-      });
+      deferral.state = "retry";
       errors.push(error);
     }
   }
@@ -1792,10 +1802,7 @@ type IdleCatchUpGate = {
   nextBootstrapStreamId: string | null;
   nextScopeDiscoveryAtMs: number;
   nextStreamCatchUpAtMs: Map<string, number>;
-  pendingStreamDeferrals: Map<
-    string,
-    { checkpoint: string | null; retryAtMs: number }
-  >;
+  pendingStreamDeferrals: Map<string, StreamDeferral>;
   requestCount: number;
   scopesDiscoveredAt: CheckStamp | null;
   streamBacklogPages: Map<string, number>;
@@ -1805,6 +1812,12 @@ type IdleCatchUpGate = {
 };
 
 type CheckStamp = { atMs: number; requestCount: number };
+
+type StreamDeferral = {
+  checkpoint: string | null;
+  retryAtMs: number;
+  state: "writing" | "stored" | "retry";
+};
 
 function idleGateDue(nextAtMs: number, nowMs: number, intervalMs: number) {
   return nextAtMs <= nowMs || nextAtMs - nowMs > intervalMs;

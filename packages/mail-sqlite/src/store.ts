@@ -46,6 +46,7 @@ import type {
   MailStore,
   MailStoreInspectionInput,
   MailStoreInspection,
+  SyncStreamPosition,
 } from "@inboxzero/mail-core/ports/mail-store";
 import type {
   BodyObservation,
@@ -682,24 +683,10 @@ export async function createSqliteMailStore(
           digest,
           bodyCodec,
         });
-        await tx.execute(
-          `INSERT INTO sync_streams(account_id, stream_id, generation, checkpoint)
-           VALUES (?, ?, ?, ?)
-           ON CONFLICT(account_id, stream_id) DO UPDATE SET
-             generation = excluded.generation,
-             checkpoint = excluded.checkpoint,
-             retry_at_ms = CASE
-               WHEN sync_streams.generation = excluded.generation
-                 AND sync_streams.checkpoint IS excluded.checkpoint
-               THEN sync_streams.retry_at_ms
-               ELSE NULL
-             END`,
-          [
-            input.page.session.accountId,
-            input.page.to.streamId,
-            input.page.to.generation,
-            input.page.to.checkpoint,
-          ],
+        await writeSyncStreamPosition(
+          tx,
+          input.page.session.accountId,
+          input.page.to,
         );
         if (input.page.roundComplete) {
           await tx.execute(
@@ -1699,19 +1686,10 @@ export async function createSqliteMailStore(
           );
         } else {
           const nextStream = input.catchUpFrom ?? input.from;
-          await tx.execute(
-            `INSERT INTO sync_streams(account_id, stream_id, generation, checkpoint)
-             VALUES (?, ?, ?, ?)
-             ON CONFLICT(account_id, stream_id) DO UPDATE SET
-               generation = excluded.generation,
-               checkpoint = excluded.checkpoint,
-               retry_at_ms = NULL`,
-            [
-              input.session.accountId,
-              nextStream.streamId,
-              nextStream.generation,
-              nextStream.checkpoint,
-            ],
+          await writeSyncStreamPosition(
+            tx,
+            input.session.accountId,
+            nextStream,
           );
           if (scopeAllowsMissingDeletion(input.scopeId)) {
             await tx.execute(
@@ -3072,6 +3050,27 @@ async function bumpRevision(tx: SqlTransaction): Promise<LocalRevision> {
     "UPDATE profile_state SET sequence = sequence + 1 WHERE id = 1",
   );
   return readRevision(tx);
+}
+
+async function writeSyncStreamPosition(
+  tx: SqlTransaction,
+  accountId: string,
+  position: SyncStreamPosition,
+) {
+  await tx.execute(
+    `INSERT INTO sync_streams(account_id, stream_id, generation, checkpoint)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(account_id, stream_id) DO UPDATE SET
+       generation = excluded.generation,
+       checkpoint = excluded.checkpoint,
+       retry_at_ms = CASE
+         WHEN sync_streams.generation = excluded.generation
+           AND sync_streams.checkpoint IS excluded.checkpoint
+         THEN sync_streams.retry_at_ms
+         ELSE NULL
+       END`,
+    [accountId, position.streamId, position.generation, position.checkpoint],
+  );
 }
 
 async function accountGenerationMatches(

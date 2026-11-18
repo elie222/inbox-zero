@@ -180,8 +180,12 @@ describe("getOutlookMailboxSyncPage", () => {
         statusCode: 404,
       }),
       "/me/mailFolders/inbox/messages/delta": {
-        value: [],
+        value: [{ id: "partial-message", isRead: true }],
         "@odata.deltaLink": freshDeltaLink,
+      },
+      "/me/messages/partial-message": {
+        id: "partial-message",
+        conversationId: "thread-1",
       },
     });
 
@@ -208,9 +212,14 @@ describe("getOutlookMailboxSyncPage", () => {
     expect(requestedUrls).toEqual([
       DELTA_LINK,
       "/me/mailFolders/inbox/messages/delta",
+      "/me/messages/partial-message",
     ]);
     controller.abort();
-    expect(requestOptions[0]?.signal.aborted).toBe(true);
+    expect(requestOptions).toHaveLength(2);
+    expect(requestOptions.map(({ signal }) => signal.aborted)).toEqual([
+      true,
+      true,
+    ]);
   });
 
   it("reports an unavailable folder when Graph also rejects the fresh delta request", async () => {

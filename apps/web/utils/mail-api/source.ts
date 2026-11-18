@@ -32,6 +32,7 @@ import { convertEmailHtmlToText } from "@/utils/mail";
 // Outlook allows four concurrent Graph requests per mailbox, shared with
 // webhook processing, so batched folder reads stay below that.
 const CHANGES_BATCH_CONCURRENCY = 3;
+const OUTLOOK_BOOTSTRAP_CHECKPOINT_TIMEOUT_MS = 15_000;
 
 const SUPPORTED_CHANGES = [
   "archive",
@@ -101,7 +102,7 @@ export function createEmailProviderMailboxSource(input: {
         },
       };
     },
-    async beginBootstrap({ afterMs, scope, session }) {
+    async beginBootstrap({ afterMs, scope, session, signal }) {
       try {
         const token: BootstrapToken = {
           afterMs: afterMs ?? 0,
@@ -116,6 +117,7 @@ export function createEmailProviderMailboxSource(input: {
             [],
             token.folderId ?? undefined,
             token.afterMs ?? 0,
+            signal,
           ),
         };
         token.catchUpFrom = catchUpFrom;
@@ -463,12 +465,21 @@ async function catchUpCheckpoint(
   messages: ParsedMessage[],
   folderId?: string,
   afterMs = 0,
+  signal?: AbortSignal,
 ): Promise<string | null> {
   try {
+    const checkpointSignal =
+      provider.name === "microsoft" && signal
+        ? AbortSignal.any([
+            signal,
+            AbortSignal.timeout(OUTLOOK_BOOTSTRAP_CHECKPOINT_TIMEOUT_MS),
+          ])
+        : undefined;
     const page = await provider.getMailboxSyncPage({
       after: new Date(afterMs),
       folderId,
       limit: 1,
+      ...(checkpointSignal ? { signal: checkpointSignal } : {}),
     });
     if (page.cursor) {
       return provider.name === "google"

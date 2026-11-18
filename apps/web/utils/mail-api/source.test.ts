@@ -430,6 +430,7 @@ describe("createEmailProviderMailboxSource", () => {
       after: new Date(0),
       folderId: "archive",
       limit: 1,
+      signal: expect.any(AbortSignal),
     });
   });
 

@@ -1,4 +1,7 @@
-import { RetryHandlerOptions } from "@microsoft/microsoft-graph-client";
+import {
+  type GraphRequest,
+  RetryHandlerOptions,
+} from "@microsoft/microsoft-graph-client";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import {
   compactMailboxSyncMessage,
@@ -60,7 +63,7 @@ export async function getOutlookMailboxSyncPage({
 }): Promise<MailboxSyncPage> {
   if (!cursor) {
     if (!after) throw new Error("after is required for initial mailbox sync");
-    return getInitialPage({ client, logger, after, folderId, limit });
+    return readInitialPage({ client, logger, after, folderId, limit, signal });
   }
 
   const decoded = decodeMailboxSyncCursor(cursor, "microsoft");
@@ -128,21 +131,15 @@ export async function getOutlookMailboxSyncPage({
       const timeout = AbortSignal.timeout(FOLDER_RECOVERY_TIMEOUT_MS);
       recoverySignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
     }
-    try {
-      return await getInitialPage({
-        client,
-        logger,
-        after: new Date(decoded.after),
-        folderId: decoded.folderId ?? folderId,
-        limit,
-        signal: recoverySignal,
-      });
-    } catch (restartError) {
-      if (folderNotFound && extractErrorInfo(restartError).status === 404) {
-        throw new OutlookSyncFolderUnavailableError();
-      }
-      throw restartError;
-    }
+    return readInitialPage({
+      client,
+      logger,
+      after: new Date(decoded.after),
+      folderId: decoded.folderId ?? folderId,
+      limit,
+      signal: recoverySignal,
+      recoveringMissingFolder: folderNotFound,
+    });
   }
 }
 
@@ -220,6 +217,7 @@ async function getInitialPage({
   folderId,
   limit,
   signal,
+  recoveringMissingFolder,
 }: {
   client: OutlookClient;
   logger: Logger;
@@ -227,38 +225,38 @@ async function getInitialPage({
   folderId?: string;
   limit: number;
   signal?: AbortSignal;
+  recoveringMissingFolder?: boolean;
 }) {
   const resolvedFolderId = folderId ?? "inbox";
-  const readSnapshot = (): Promise<DeltaResponse> => {
-    signal?.throwIfAborted();
-    const request = client
-      .getClient()
-      .api(
-        `/me/mailFolders/${encodeURIComponent(resolvedFolderId)}/messages/delta`,
-      )
-      .select(MESSAGE_SELECT_FIELDS)
-      .filter(`receivedDateTime ge ${after.toISOString()}`)
-      .top(limit)
-      .header("Prefer", `IdType="ImmutableId", odata.maxpagesize=${limit}`);
-    return signal
-      ? request
-          .options({ signal })
-          .middlewareOptions([new RetryHandlerOptions(0, 0)])
-          .get()
-      : request.get();
-  };
-  const snapshotResponse = signal
-    ? await readSnapshot()
-    : await withMicrosoftGraphRetry(readSnapshot, logger);
+  const snapshotResponse = await readSyncRequest<DeltaResponse>(
+    () =>
+      client
+        .getClient()
+        .api(
+          `/me/mailFolders/${encodeURIComponent(resolvedFolderId)}/messages/delta`,
+        )
+        .select(MESSAGE_SELECT_FIELDS)
+        .filter(`receivedDateTime ge ${after.toISOString()}`)
+        .top(limit)
+        .header("Prefer", `IdType="ImmutableId", odata.maxpagesize=${limit}`),
+    logger,
+    signal,
+  ).catch((error: unknown) => {
+    if (recoveringMissingFolder && extractErrorInfo(error).status === 404) {
+      throw new OutlookSyncFolderUnavailableError();
+    }
+    throw error;
+  });
   const { response } = await resolveAmbiguousDeltaMessages({
     client,
     logger,
     response: snapshotResponse,
+    signal,
   });
 
   const [categoryMap, folderIds] = await Promise.all([
-    getCategoryMap(client, logger),
-    getFolderIds(client, logger),
+    getCategoryMap(client, logger, signal),
+    getFolderIds(client, logger, { signal }),
   ]);
   return buildOutlookMailboxSyncPage({
     response,
@@ -277,10 +275,12 @@ async function resolveAmbiguousDeltaMessages({
   client,
   logger,
   response,
+  signal,
 }: {
   client: OutlookClient;
   logger: Logger;
   response: DeltaResponse;
+  signal?: AbortSignal;
 }) {
   const messages = response.value ?? [];
   if (!messages.some(needsMessageRefetch)) {
@@ -297,6 +297,7 @@ async function resolveAmbiguousDeltaMessages({
         client,
         logger,
         messageId: message.id,
+        signal,
       });
       if (currentMessage) return currentMessage;
       missingMessageCount++;
@@ -346,26 +347,58 @@ async function getSyncMessage({
   client,
   logger,
   messageId,
+  signal,
 }: {
   client: OutlookClient;
   logger: Logger;
   messageId: string;
+  signal?: AbortSignal;
 }): Promise<DeltaMessage | null> {
   try {
-    return await withMicrosoftGraphRetry<DeltaMessage>(
+    return await readSyncRequest<DeltaMessage>(
       () =>
         client
           .getClient()
           .api(`/me/messages/${encodeURIComponent(messageId)}`)
           .select(MESSAGE_SELECT_FIELDS)
-          .header("Prefer", 'IdType="ImmutableId"')
-          .get(),
+          .header("Prefer", 'IdType="ImmutableId"'),
       logger,
+      signal,
     );
   } catch (error) {
     if (isNotFoundError(error)) return null;
     throw error;
   }
+}
+
+async function readInitialPage(input: Parameters<typeof getInitialPage>[0]) {
+  const { signal } = input;
+  if (!signal) return getInitialPage(input);
+
+  signal.throwIfAborted();
+  // Lookup retry waits can outlive the HTTP request they were retrying.
+  const { promise, reject } = Promise.withResolvers<never>();
+  const onAbort = () => reject(signal.reason);
+  signal.addEventListener("abort", onAbort, { once: true });
+  try {
+    return await Promise.race([getInitialPage(input), promise]);
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+  }
+}
+
+async function readSyncRequest<T>(
+  request: () => GraphRequest,
+  logger: Logger,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (!signal) return withMicrosoftGraphRetry<T>(() => request().get(), logger);
+
+  signal.throwIfAborted();
+  return request()
+    .options({ signal })
+    .middlewareOptions([new RetryHandlerOptions(0, 0)])
+    .get();
 }
 
 function mailboxSyncDiagnosticLogger(logger: Logger) {
