@@ -1176,10 +1176,11 @@ export function createMailEngine(input: {
       if (signal.aborted) return;
       // A scheduled or manual catch-up can advance the normal polling time,
       // but it must still wait for a provider-requested pause to expire.
-      const retryAtMs = idleGate.streamRetryAtMs.get(stream.streamId);
-      if (retryAtMs !== undefined) {
-        if (runtime.nowMs() < retryAtMs) continue;
-        idleGate.streamRetryAtMs.delete(stream.streamId);
+      if (
+        stream.retryAtMs !== undefined &&
+        runtime.nowMs() < stream.retryAtMs
+      ) {
+        continue;
       }
       if (!stream.checkpoint && bootstrapSliceSpent()) {
         idleGate.nextBootstrapStreamId ??= stream.streamId;
@@ -1386,10 +1387,11 @@ export function createMailEngine(input: {
     } else {
       const nowMs = runtime.nowMs();
       if (changes.status === "paused" && changes.retryAfterMs > 0) {
-        idleGate.streamRetryAtMs.set(
-          stream.streamId,
-          nowMs + changes.retryAfterMs,
-        );
+        await store.deferSyncStream({
+          accountId: session.accountId,
+          position: stream,
+          retryAtMs: nowMs + changes.retryAfterMs,
+        });
       }
       idleGate.nextStreamCatchUpAtMs.set(
         stream.streamId,
@@ -1519,7 +1521,6 @@ export function createMailEngine(input: {
       scopesDiscoveredAt: null,
       streamBacklogPages: new Map(),
       streamCheckedAt: new Map(),
-      streamRetryAtMs: new Map(),
       newestPageIngested: new Set(),
     };
     idleCatchUpGates.set(accountId, created);
@@ -1740,7 +1741,6 @@ type IdleCatchUpGate = {
   scopesDiscoveredAt: CheckStamp | null;
   streamBacklogPages: Map<string, number>;
   streamCheckedAt: Map<string, CheckStamp>;
-  streamRetryAtMs: Map<string, number>;
   /** Streams whose current backlog already has its newest page in. */
   newestPageIngested: Set<string>;
 };

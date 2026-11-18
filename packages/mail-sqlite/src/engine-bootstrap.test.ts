@@ -453,7 +453,7 @@ describe("engine bootstrap coverage", () => {
     await engine.close();
   });
 
-  it("honors a folder's retry delay while other folders continue syncing", async () => {
+  it("honors a folder's retry delay across an engine restart", async () => {
     let now = 1000;
     const scopes: ScopeDescriptor[] = [
       { id: "inbox", kind: "folder", folderId: "inbox" },
@@ -466,28 +466,36 @@ describe("engine bootstrap coverage", () => {
       provider: "microsoft",
       generation: "g1",
     });
-    const engine = createMailEngine({
-      store,
-      source: {
-        ...slowBootstrapSource({ onBootstrap() {}, onEnumerate() {}, scopes }),
-        async readChanges({ position }) {
-          readStreams.push(position.streamId);
-          return {
-            status: "paused",
-            retryAfterMs: position.streamId === "custom" ? 10 * 60_000 : 0,
-            reason: "unavailable",
-          };
+    const createEngine = () =>
+      createMailEngine({
+        store: { ...store, async close() {} },
+        source: {
+          ...slowBootstrapSource({
+            onBootstrap() {},
+            onEnumerate() {},
+            scopes,
+          }),
+          async readChanges({ position }) {
+            readStreams.push(position.streamId);
+            return {
+              status: "paused",
+              retryAfterMs: position.streamId === "custom" ? 10 * 60_000 : 0,
+              reason: "unavailable",
+            };
+          },
         },
-      },
-      executor: uncertainExecutor(),
-      runtime: createHostRuntime({ nowMs: () => now }),
-    });
+        executor: uncertainExecutor(),
+        runtime: createHostRuntime({ nowMs: () => now }),
+      });
+    let engine = createEngine();
     try {
       await engine.runUntil(now + 1000);
       now += 61_000;
       await engine.runUntil(now + 1000);
       expect(readStreams).toEqual(["custom", "inbox"]);
 
+      await engine.close();
+      engine = createEngine();
       now += 61_000;
       await engine.requestSync(["acc-1"]);
       await engine.runUntil(now + 1000);
@@ -504,6 +512,7 @@ describe("engine bootstrap coverage", () => {
       ]);
     } finally {
       await engine.close();
+      await store.close();
     }
   });
 

@@ -685,7 +685,10 @@ export async function createSqliteMailStore(
         await tx.execute(
           `INSERT INTO sync_streams(account_id, stream_id, generation, checkpoint)
            VALUES (?, ?, ?, ?)
-           ON CONFLICT(account_id, stream_id) DO UPDATE SET generation = excluded.generation, checkpoint = excluded.checkpoint`,
+           ON CONFLICT(account_id, stream_id) DO UPDATE SET
+             generation = excluded.generation,
+             checkpoint = excluded.checkpoint,
+             retry_at_ms = NULL`,
           [
             input.page.session.accountId,
             input.page.to.streamId,
@@ -1442,13 +1445,29 @@ export async function createSqliteMailStore(
         return inserted > 0;
       });
     },
+    async deferSyncStream({ accountId, position, retryAtMs }) {
+      await driver.write(async (tx) => {
+        await tx.execute(
+          `UPDATE sync_streams
+           SET retry_at_ms = MAX(COALESCE(retry_at_ms, 0), ?)
+           WHERE account_id = ? AND stream_id = ? AND generation = ? AND checkpoint IS ?`,
+          [
+            retryAtMs,
+            accountId,
+            position.streamId,
+            position.generation,
+            position.checkpoint,
+          ],
+        );
+      });
+    },
     async readAccountSyncStates() {
       return driver.read(async (tx) => {
         const accounts = await tx.query(
           "SELECT account_id, generation, assistant_cursor FROM accounts ORDER BY account_id",
         );
         const streams = await tx.query(
-          "SELECT account_id, stream_id, generation, checkpoint FROM sync_streams ORDER BY account_id, stream_id",
+          "SELECT account_id, stream_id, generation, checkpoint, retry_at_ms FROM sync_streams ORDER BY account_id, stream_id",
         );
         const streamsByAccount = new Map<
           string,
@@ -1457,6 +1476,7 @@ export async function createSqliteMailStore(
             streamId: string;
             generation: string;
             checkpoint: string | null;
+            retryAtMs?: number;
           }>
         >();
         for (const stream of streams) {
@@ -1467,6 +1487,9 @@ export async function createSqliteMailStore(
             streamId: String(stream.stream_id),
             generation: String(stream.generation),
             checkpoint: nullableString(stream.checkpoint),
+            ...(stream.retry_at_ms != null
+              ? { retryAtMs: Number(stream.retry_at_ms) }
+              : {}),
           });
           streamsByAccount.set(accountId, list);
         }
@@ -1676,7 +1699,8 @@ export async function createSqliteMailStore(
              VALUES (?, ?, ?, ?)
              ON CONFLICT(account_id, stream_id) DO UPDATE SET
                generation = excluded.generation,
-               checkpoint = excluded.checkpoint`,
+               checkpoint = excluded.checkpoint,
+               retry_at_ms = NULL`,
             [
               input.session.accountId,
               nextStream.streamId,
