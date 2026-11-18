@@ -2496,8 +2496,8 @@ msgid "Bulk Unsubscriber"
 msgstr "批量退订工具"
 
 #: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
-msgid "Bundle in Inbox"
-msgstr "在收件箱中归拢"
+msgid "Bundle in All"
+msgstr "在“全部”中归拢"
 
 #: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
 msgid "Bundle low-priority email?"
@@ -3233,6 +3233,11 @@ msgstr "选择角色"
 #: app/(app)/[emailAccountId]/compose/ComposeSignaturePicker.tsx
 msgid "Choose signature"
 msgstr "选择签名"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
+msgid "Choose what All shows"
+msgstr "选择“全部”中显示的内容"
 
 #: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
 msgid "Choose what happens when you click the action buttons on each category"

@@ -2496,8 +2496,8 @@ msgid "Bulk Unsubscriber"
 msgstr "일괄 구독 취소 도구"
 
 #: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
-msgid "Bundle in Inbox"
-msgstr "받은편지함에 묶어 보기"
+msgid "Bundle in All"
+msgstr "전체에 묶어 보기"
 
 #: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
 msgid "Bundle low-priority email?"
@@ -3233,6 +3233,11 @@ msgstr "페르소나 선택"
 #: app/(app)/[emailAccountId]/compose/ComposeSignaturePicker.tsx
 msgid "Choose signature"
 msgstr "서명 선택"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
+msgid "Choose what All shows"
+msgstr "전체에 표시할 항목 선택"
 
 #: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
 msgid "Choose what happens when you click the action buttons on each category"

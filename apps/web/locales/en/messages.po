@@ -2496,8 +2496,8 @@ msgid "Bulk Unsubscriber"
 msgstr "Bulk Unsubscriber"
 
 #: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
-msgid "Bundle in Inbox"
-msgstr "Bundle in Inbox"
+msgid "Bundle in All"
+msgstr "Bundle in All"
 
 #: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
 msgid "Bundle low-priority email?"
@@ -3233,6 +3233,11 @@ msgstr "Choose persona"
 #: app/(app)/[emailAccountId]/compose/ComposeSignaturePicker.tsx
 msgid "Choose signature"
 msgstr "Choose signature"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
+msgid "Choose what All shows"
+msgstr "Choose what All shows"
 
 #: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
 msgid "Choose what happens when you click the action buttons on each category"
