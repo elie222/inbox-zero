@@ -54,7 +54,10 @@ export function createInitialComposeContent({
       );
       if (attachment && contentId) {
         // Without a preview the image still goes out as its attachment.
-        image.setAttribute("src", attachment.previewUrl ?? `cid:${contentId}`);
+        image.setAttribute(
+          "src",
+          attachment.preview?.url ?? `cid:${contentId}`,
+        );
         image.setAttribute("data-content-id", contentId);
         attachment.managed = true;
       }
