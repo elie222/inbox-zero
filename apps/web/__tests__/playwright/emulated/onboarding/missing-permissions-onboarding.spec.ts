@@ -56,8 +56,7 @@ test("asks to reconnect at the next step when Gmail access is missing", async ({
 
   restoreScope = await revokeGmailScopes();
 
-  await page.getByRole("button", { name: "Founder", exact: true }).click();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("button", { name: "See how it works" }).click();
 
   await expect(
     page.getByRole("heading", { name: /We are missing permissions/ }),

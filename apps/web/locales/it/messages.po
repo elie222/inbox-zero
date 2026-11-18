@@ -476,7 +476,6 @@ msgstr "{enabled, plural, one {# attivata} other {# attivate}}"
 msgid "{error} Your draft is saved here; retry when ready."
 msgstr "{error} La tua bozza è salvata qui; riprova quando vuoi."
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "{errorCount, plural, one {Failed to send # invitation} other {Failed to send # invitations}}"
 msgstr "{errorCount, plural, one {Impossibile inviare # invito} other {Impossibile inviare # inviti}}"
@@ -719,7 +718,6 @@ msgstr "{stoppedCount, plural, one {# email elaborata} other {# email elaborate}
 msgid "{succeeded} of {total} succeeded"
 msgstr "{succeeded} di {total} completati correttamente"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "{successCount, plural, one {# invitation sent successfully!} other {# invitations sent successfully!}}"
 msgstr "{successCount, plural, one {# invito inviato correttamente!} other {# inviti inviati correttamente!}}"
@@ -1314,10 +1312,6 @@ msgstr "Aggiungi conoscenza"
 #: app/(app)/accounts/AddAccount.tsx
 msgid "Add Microsoft"
 msgstr "Aggiungi Microsoft"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Add more anytime from settings."
-msgstr "Puoi aggiungerne altri in qualsiasi momento dalle impostazioni."
 
 #: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
 msgid "Add new rules"
@@ -5394,10 +5388,6 @@ msgstr "Fine settimana"
 msgid "End your free trial and pay now?"
 msgstr "Terminare la prova gratuita e pagare ora?"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Enter a valid email"
-msgstr "Inserisci un'email valida"
-
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "Enter a valid recipient email address."
 msgstr "Inserisci un indirizzo email del destinatario valido."
@@ -5883,7 +5873,6 @@ msgstr "Impossibile creare la chiave API"
 msgid "Failed to create booking link"
 msgstr "Impossibile creare il link di prenotazione"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "Failed to create organization and send invitations"
 msgstr "Impossibile creare l'organizzazione e inviare gli inviti"
@@ -6077,10 +6066,6 @@ msgstr "Impossibile cercare i follow-up"
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Failed to send brief"
 msgstr "Impossibile inviare il brief"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Failed to send invitations"
-msgstr "Impossibile inviare gli inviti"
 
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 msgid "Failed to send test check-in"
@@ -7346,6 +7331,10 @@ msgstr "Estensione Inbox Zero Tabs non trovata. Installala prima."
 msgid "Inbox Zero where you work."
 msgstr "Inbox Zero dove lavori."
 
+#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
+msgid "Inbox Zero works in Gmail or Outlook, so you don't need to switch. If you want, use our email app on web, desktop, iPhone, and Android."
+msgstr "Inbox Zero funziona in Gmail o Outlook, quindi non devi cambiare. Se vuoi, usa la nostra app email da web, desktop, iPhone e Android."
+
 #: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
 msgid "Inbox: {label}"
 msgstr "Posta in arrivo: {label}"
@@ -7525,10 +7514,6 @@ msgstr "Invita i colleghi"
 #: components/SlackNotificationTargetSelect.tsx
 msgid "Invite the bot with <0>/invite @{botName}</0>"
 msgstr "Invita il bot con <0>/invite @{botName}</0>"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Invite your team"
-msgstr "Invita il tuo team"
 
 #: app/(app)/organization/[organizationId]/Members.tsx
 msgid "Invited by {inviterName}"
@@ -8641,14 +8626,6 @@ msgstr "Risposta mediana"
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "Median Response Time"
 msgstr "Tempo di risposta mediano"
-
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet the Inbox Zero email app"
-msgstr "Scopri l'app email Inbox Zero"
-
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet your new email app"
-msgstr "Scopri la tua nuova app email"
 
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 msgid "Meeting"
@@ -10591,10 +10568,6 @@ msgstr "Leggi e cerca nella posta"
 msgid "Read and send email from every account in one fast inbox"
 msgstr "Leggi e invia le email di tutti i tuoi account in un'unica posta in arrivo veloce"
 
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
-msgstr "Leggi e invia email da web, desktop e iPhone. Aggiungi l'assistente IA quando vuoi."
-
 #: components/assistant-chat/tools.tsx
 msgid "Read Email"
 msgstr "Leggi email"
@@ -11571,6 +11544,10 @@ msgstr "Ricerca nei ricordi..."
 msgid "See examples"
 msgstr "Vedi esempi"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "See how it works"
+msgstr "Scopri come funziona"
+
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "See when recipients open emails you send from the mail client."
 msgstr "Scopri quando i destinatari aprono le email che invii dal client di posta."
@@ -11799,7 +11776,6 @@ msgstr "Invia feedback"
 msgid "Send History"
 msgstr "Cronologia invii"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "Send invites"
 msgstr "Invia inviti"
@@ -12341,7 +12317,6 @@ msgstr "Confronto dimensioni"
 msgid "Size unit"
 msgstr "Unità di dimensione"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Skip"
 msgstr "Salta"
@@ -14263,6 +14238,10 @@ msgstr "In attesa di partecipare"
 msgid "Want a different plan or to pay monthly? <0>Change your plan first</0>."
 msgstr "Vuoi un piano diverso o pagare mensilmente? <0>Cambia prima il tuo piano</0>."
 
+#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
+msgid "Want a faster inbox too?"
+msgstr "Vuoi anche una casella di posta più veloce?"
+
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Want pings in your chat app? <0>Configure on the Channels page</0>."
 msgstr "Vuoi ricevere notifiche nella tua app di chat? <0>Configura nella pagina Canali</0>."
@@ -14501,6 +14480,7 @@ msgstr "Riepilogo settimanale"
 msgid "Weekly Response Time Trend"
 msgstr "Andamento settimanale del tempo di risposta"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Welcome to {BRAND_NAME}"
 msgstr "Benvenuto in {BRAND_NAME}"
@@ -14874,6 +14854,10 @@ msgstr "I tuoi account sono stati uniti."
 #: app/(app)/[emailAccountId]/assistant/AllRulesDisabledBanner.tsx
 msgid "Your AI Assistant isn't processing emails because all rules are disabled. Enable them to get started."
 msgstr "Il tuo assistente IA non sta elaborando le email perché tutte le regole sono disattivate. Attivale per iniziare."
+
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "Your AI email assistant. It sorts your inbox, drafts your replies, and clears out the clutter, right inside Gmail or Outlook."
+msgstr "Il tuo assistente email con IA. Ordina la tua casella, scrive le bozze delle risposte e fa pulizia, direttamente in Gmail o Outlook."
 
 #: app/(app)/[emailAccountId]/assistant/RulesTabNew.tsx
 msgid "Your assistant automatically organizes incoming emails using these rules."

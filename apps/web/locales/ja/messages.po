@@ -476,7 +476,6 @@ msgstr "{enabled, plural, other {# 件が有効}}"
 msgid "{error} Your draft is saved here; retry when ready."
 msgstr "{error} 下書きはここに保存されています。準備ができたら再試行してください。"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "{errorCount, plural, one {Failed to send # invitation} other {Failed to send # invitations}}"
 msgstr "{errorCount, plural, other {# 件の招待を送信できませんでした}}"
@@ -719,7 +718,6 @@ msgstr "{stoppedCount, plural, other {# 件のメールを処理しました}}"
 msgid "{succeeded} of {total} succeeded"
 msgstr "{total} 件中 {succeeded} 件が成功"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "{successCount, plural, one {# invitation sent successfully!} other {# invitations sent successfully!}}"
 msgstr "{successCount, plural, other {# 件の招待を送信しました！}}"
@@ -1314,10 +1312,6 @@ msgstr "ナレッジを追加"
 #: app/(app)/accounts/AddAccount.tsx
 msgid "Add Microsoft"
 msgstr "Microsoft を追加"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Add more anytime from settings."
-msgstr "設定からいつでも追加できます。"
 
 #: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
 msgid "Add new rules"
@@ -5394,10 +5388,6 @@ msgstr "週末"
 msgid "End your free trial and pay now?"
 msgstr "無料トライアルを終了して今すぐ支払いますか？"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Enter a valid email"
-msgstr "有効なメールアドレスを入力してください"
-
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "Enter a valid recipient email address."
 msgstr "有効な宛先メールアドレスを入力してください。"
@@ -5883,7 +5873,6 @@ msgstr "APIキーの作成に失敗しました"
 msgid "Failed to create booking link"
 msgstr "予約リンクの作成に失敗しました"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "Failed to create organization and send invitations"
 msgstr "組織の作成と招待の送信に失敗しました"
@@ -6077,10 +6066,6 @@ msgstr "フォローアップをスキャンできませんでした"
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Failed to send brief"
 msgstr "ブリーフの送信に失敗しました"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Failed to send invitations"
-msgstr "招待の送信に失敗しました"
 
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 msgid "Failed to send test check-in"
@@ -7346,6 +7331,10 @@ msgstr "Inbox Zero Tabs拡張機能が見つかりません。先にインスト
 msgid "Inbox Zero where you work."
 msgstr "あなたの仕事場にInbox Zeroを。"
 
+#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
+msgid "Inbox Zero works in Gmail or Outlook, so you don't need to switch. If you want, use our email app on web, desktop, iPhone, and Android."
+msgstr "Inbox Zero は Gmail や Outlook で動作するので、乗り換える必要はありません。必要なら、ウェブ、デスクトップ、iPhone、Android で私たちのメールアプリを使えます。"
+
 #: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
 msgid "Inbox: {label}"
 msgstr "受信トレイ:{label}"
@@ -7525,10 +7514,6 @@ msgstr "チームメイトを招待"
 #: components/SlackNotificationTargetSelect.tsx
 msgid "Invite the bot with <0>/invite @{botName}</0>"
 msgstr "<0>/invite @{botName}</0>でボットを招待してください"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Invite your team"
-msgstr "チームを招待"
 
 #: app/(app)/organization/[organizationId]/Members.tsx
 msgid "Invited by {inviterName}"
@@ -8641,14 +8626,6 @@ msgstr "返信時間の中央値"
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "Median Response Time"
 msgstr "返信時間の中央値"
-
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet the Inbox Zero email app"
-msgstr "Inbox Zeroのメールアプリをご紹介"
-
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet your new email app"
-msgstr "新しいメールアプリをご紹介"
 
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 msgid "Meeting"
@@ -10591,10 +10568,6 @@ msgstr "メールの読み取りと検索"
 msgid "Read and send email from every account in one fast inbox"
 msgstr "すべてのアカウントのメールを 1 つの高速な受信トレイで閲覧・送信"
 
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
-msgstr "ウェブ、デスクトップ、iPhoneでメールの閲覧と送信ができます。AIアシスタントはいつでも追加できます。"
-
 #: components/assistant-chat/tools.tsx
 msgid "Read Email"
 msgstr "メールを読む"
@@ -11571,6 +11544,10 @@ msgstr "メモリを検索中..."
 msgid "See examples"
 msgstr "例を見る"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "See how it works"
+msgstr "使い方を見る"
+
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "See when recipients open emails you send from the mail client."
 msgstr "メールクライアントから送信したメールが開封されたタイミングを確認できます。"
@@ -11799,7 +11776,6 @@ msgstr "フィードバックを送信"
 msgid "Send History"
 msgstr "送信履歴"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "Send invites"
 msgstr "招待を送信"
@@ -12341,7 +12317,6 @@ msgstr "サイズの比較"
 msgid "Size unit"
 msgstr "サイズの単位"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Skip"
 msgstr "スキップ"
@@ -14263,6 +14238,10 @@ msgstr "参加を待機中"
 msgid "Want a different plan or to pay monthly? <0>Change your plan first</0>."
 msgstr "別のプランや月払いをご希望ですか?<0>先にプランを変更してください</0>。"
 
+#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
+msgid "Want a faster inbox too?"
+msgstr "もっと速い受信トレイも欲しいですか？"
+
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Want pings in your chat app? <0>Configure on the Channels page</0>."
 msgstr "チャットアプリで通知を受け取りますか?<0>チャンネルページで設定</0>。"
@@ -14501,6 +14480,7 @@ msgstr "週次ダイジェスト"
 msgid "Weekly Response Time Trend"
 msgstr "週ごとの応答時間の推移"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Welcome to {BRAND_NAME}"
 msgstr "{BRAND_NAME} へようこそ"
@@ -14874,6 +14854,10 @@ msgstr "アカウントを統合しました。"
 #: app/(app)/[emailAccountId]/assistant/AllRulesDisabledBanner.tsx
 msgid "Your AI Assistant isn't processing emails because all rules are disabled. Enable them to get started."
 msgstr "すべてのルールが無効になっているため、AI アシスタントはメールを処理していません。有効にして始めましょう。"
+
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "Your AI email assistant. It sorts your inbox, drafts your replies, and clears out the clutter, right inside Gmail or Outlook."
+msgstr "AIメールアシスタントです。受信トレイを整理し、返信の下書きを作成し、不要なメールを片付けます。GmailやOutlookのままで使えます。"
 
 #: app/(app)/[emailAccountId]/assistant/RulesTabNew.tsx
 msgid "Your assistant automatically organizes incoming emails using these rules."

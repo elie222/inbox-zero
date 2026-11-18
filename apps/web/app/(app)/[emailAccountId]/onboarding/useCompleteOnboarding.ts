@@ -28,71 +28,77 @@ export function useCompleteOnboarding(signupIntent: SignupIntent | null) {
 
   const destination = getDestination({ signupIntent, isPremium });
 
-  const completeAndRedirect = useCallback(async () => {
-    let result: Awaited<ReturnType<typeof completeOnboarding>>;
-    try {
-      result = await completeOnboarding();
-    } catch (error) {
-      captureException(error, {
-        extra: { context: "onboarding", step: "complete", destination },
-      });
-      toastError({
-        description: getActionErrorMessage(
-          {},
-          { prefix: "There was an error finishing onboarding" },
-        ),
-      });
-      return false;
-    }
-    if (result?.serverError || result?.validationErrors) {
-      captureException(new Error("Failed to complete onboarding"), {
-        extra: {
-          context: "onboarding",
-          step: "complete",
-          serverError: result?.serverError,
-          validationErrors: result?.validationErrors,
-          destination,
-        },
-      });
-      toastError({
-        description: getActionErrorMessage(
-          {
+  // The intent question can be the last step, so its answer is passed in
+  // before the refreshed user reaches this hook.
+  const completeAndRedirect = useCallback(
+    async (latestIntent?: SignupIntent) => {
+      let result: Awaited<ReturnType<typeof completeOnboarding>>;
+      try {
+        result = await completeOnboarding();
+      } catch (error) {
+        captureException(error, {
+          extra: { context: "onboarding", step: "complete", destination },
+        });
+        toastError({
+          description: getActionErrorMessage(
+            {},
+            { prefix: "There was an error finishing onboarding" },
+          ),
+        });
+        return false;
+      }
+      if (result?.serverError || result?.validationErrors) {
+        captureException(new Error("Failed to complete onboarding"), {
+          extra: {
+            context: "onboarding",
+            step: "complete",
             serverError: result?.serverError,
             validationErrors: result?.validationErrors,
+            destination,
           },
-          { prefix: "There was an error finishing onboarding" },
-        ),
+        });
+        toastError({
+          description: getActionErrorMessage(
+            {
+              serverError: result?.serverError,
+              validationErrors: result?.validationErrors,
+            },
+            { prefix: "There was an error finishing onboarding" },
+          ),
+        });
+        return false;
+      }
+
+      markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
+
+      // The plan may still be loading, and routing a paying user on a stale
+      // "no plan" would send them to the upgrade page.
+      const latestUser = await refetchPremium().catch(() => undefined);
+      const latestDestination = getDestination({
+        signupIntent: latestIntent ?? signupIntent,
+        isPremium:
+          latestUser && "premium" in latestUser
+            ? isPremiumRecord(latestUser.premium)
+            : isPremium,
       });
-      return false;
-    }
 
-    markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
-
-    // The plan may still be loading, and routing a paying user on a stale
-    // "no plan" would send them to the upgrade page.
-    const latestUser = await refetchPremium().catch(() => undefined);
-    const latestDestination =
-      latestUser && "premium" in latestUser
-        ? getDestination({
-            signupIntent,
-            isPremium: isPremiumRecord(latestUser.premium),
-          })
-        : destination;
-
-    router.push(
-      latestDestination === "welcome-upgrade"
-        ? "/welcome-upgrade"
-        : prefixPath(emailAccountId, `/${latestDestination}`),
-    );
-    return true;
-  }, [
-    completeOnboarding,
-    destination,
-    emailAccountId,
-    refetchPremium,
-    router,
-    signupIntent,
-  ]);
+      router.push(
+        latestDestination === "welcome-upgrade"
+          ? "/welcome-upgrade"
+          : prefixPath(emailAccountId, `/${latestDestination}`),
+      );
+      return true;
+    },
+    [
+      completeOnboarding,
+      destination,
+      emailAccountId,
+      isPremium,
+      refetchPremium,
+      router,
+      signupIntent,
+    ],
+  );
 
   return { completeAndRedirect, destination };
 }

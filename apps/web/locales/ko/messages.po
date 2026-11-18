@@ -476,7 +476,6 @@ msgstr "{enabled, plural, one {#개 활성화됨} other {#개 활성화됨}}"
 msgid "{error} Your draft is saved here; retry when ready."
 msgstr "{error} 초안은 여기에 저장되어 있어요. 준비되면 다시 시도해 주세요."
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "{errorCount, plural, one {Failed to send # invitation} other {Failed to send # invitations}}"
 msgstr "{errorCount, plural, one {초대장 #개를 보내지 못했어요} other {초대장 #개를 보내지 못했어요}}"
@@ -719,7 +718,6 @@ msgstr "{stoppedCount, plural, one {이메일 #개 처리됨} other {이메일 #
 msgid "{succeeded} of {total} succeeded"
 msgstr "{total}개 중 {succeeded}개 성공"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "{successCount, plural, one {# invitation sent successfully!} other {# invitations sent successfully!}}"
 msgstr "{successCount, plural, one {초대장 #개를 보냈어요!} other {초대장 #개를 보냈어요!}}"
@@ -1314,10 +1312,6 @@ msgstr "지식 추가"
 #: app/(app)/accounts/AddAccount.tsx
 msgid "Add Microsoft"
 msgstr "Microsoft 추가"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Add more anytime from settings."
-msgstr "설정에서 언제든지 더 추가할 수 있어요."
 
 #: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
 msgid "Add new rules"
@@ -5394,10 +5388,6 @@ msgstr "주말"
 msgid "End your free trial and pay now?"
 msgstr "무료 체험을 종료하고 지금 결제할까요?"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Enter a valid email"
-msgstr "올바른 이메일을 입력하세요"
-
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "Enter a valid recipient email address."
 msgstr "올바른 수신자 이메일 주소를 입력하세요."
@@ -5883,7 +5873,6 @@ msgstr "API 키를 만들지 못했어요"
 msgid "Failed to create booking link"
 msgstr "예약 링크를 만들지 못했어요"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "Failed to create organization and send invitations"
 msgstr "조직을 만들고 초대를 보내지 못했어요"
@@ -6077,10 +6066,6 @@ msgstr "후속 조치를 검색하지 못했어요"
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Failed to send brief"
 msgstr "브리핑을 보내지 못했어요"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Failed to send invitations"
-msgstr "초대를 보내지 못했어요"
 
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 msgid "Failed to send test check-in"
@@ -7346,6 +7331,10 @@ msgstr "Inbox Zero Tabs 확장 프로그램을 찾을 수 없어요. 먼저 설�
 msgid "Inbox Zero where you work."
 msgstr "일하는 곳 어디서나 Inbox Zero."
 
+#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
+msgid "Inbox Zero works in Gmail or Outlook, so you don't need to switch. If you want, use our email app on web, desktop, iPhone, and Android."
+msgstr "Inbox Zero는 Gmail이나 Outlook에서 작동하므로 바꿀 필요가 없어요. 원하면 웹, 데스크톱, iPhone, Android에서 저희 이메일 앱을 사용하세요."
+
 #: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
 msgid "Inbox: {label}"
 msgstr "받은편지함: {label}"
@@ -7525,10 +7514,6 @@ msgstr "팀원 초대"
 #: components/SlackNotificationTargetSelect.tsx
 msgid "Invite the bot with <0>/invite @{botName}</0>"
 msgstr "<0>/invite @{botName}</0>(으)로 봇을 초대하세요"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Invite your team"
-msgstr "팀 초대하기"
 
 #: app/(app)/organization/[organizationId]/Members.tsx
 msgid "Invited by {inviterName}"
@@ -8641,14 +8626,6 @@ msgstr "중앙값 응답"
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "Median Response Time"
 msgstr "중앙값 응답 시간"
-
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet the Inbox Zero email app"
-msgstr "Inbox Zero 이메일 앱을 만나 보세요"
-
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet your new email app"
-msgstr "새로운 이메일 앱을 만나 보세요"
 
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 msgid "Meeting"
@@ -10591,10 +10568,6 @@ msgstr "메일 읽기 및 검색"
 msgid "Read and send email from every account in one fast inbox"
 msgstr "모든 계정의 이메일을 하나의 빠른 받은편지함에서 읽고 보내세요"
 
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
-msgstr "웹, 데스크톱, iPhone에서 이메일을 읽고 보내세요. AI 어시스턴트는 언제든 추가할 수 있어요."
-
 #: components/assistant-chat/tools.tsx
 msgid "Read Email"
 msgstr "이메일 읽기"
@@ -11571,6 +11544,10 @@ msgstr "메모리 검색 중..."
 msgid "See examples"
 msgstr "예시 보기"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "See how it works"
+msgstr "작동 방식 보기"
+
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "See when recipients open emails you send from the mail client."
 msgstr "메일 클라이언트에서 보낸 이메일을 수신자가 언제 열었는지 확인하세요."
@@ -11799,7 +11776,6 @@ msgstr "의견 보내기"
 msgid "Send History"
 msgstr "전송 기록"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "Send invites"
 msgstr "초대 보내기"
@@ -12341,7 +12317,6 @@ msgstr "크기 비교"
 msgid "Size unit"
 msgstr "크기 단위"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Skip"
 msgstr "건너뛰기"
@@ -14263,6 +14238,10 @@ msgstr "참여 대기 중"
 msgid "Want a different plan or to pay monthly? <0>Change your plan first</0>."
 msgstr "다른 요금제를 원하거나 월 단위로 결제하고 싶으신가요? <0>먼저 요금제를 변경하세요</0>."
 
+#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
+msgid "Want a faster inbox too?"
+msgstr "더 빠른 받은편지함도 원하세요?"
+
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Want pings in your chat app? <0>Configure on the Channels page</0>."
 msgstr "채팅 앱에서 알림을 받고 싶으신가요? <0>채널 페이지에서 설정하세요</0>."
@@ -14501,6 +14480,7 @@ msgstr "주간 요약"
 msgid "Weekly Response Time Trend"
 msgstr "주간 응답 시간 추이"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Welcome to {BRAND_NAME}"
 msgstr "{BRAND_NAME}에 오신 것을 환영해요"
@@ -14874,6 +14854,10 @@ msgstr "계정이 병합되었어요."
 #: app/(app)/[emailAccountId]/assistant/AllRulesDisabledBanner.tsx
 msgid "Your AI Assistant isn't processing emails because all rules are disabled. Enable them to get started."
 msgstr "모든 규칙이 비활성화되어 있어 AI 어시스턴트가 이메일을 처리하지 않고 있어요. 규칙을 활성화하여 시작하세요."
+
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "Your AI email assistant. It sorts your inbox, drafts your replies, and clears out the clutter, right inside Gmail or Outlook."
+msgstr "AI 이메일 비서입니다. 받은편지함을 정리하고, 답장 초안을 작성하고, 불필요한 메일을 정리합니다. Gmail이나 Outlook 안에서 바로 작동합니다."
 
 #: app/(app)/[emailAccountId]/assistant/RulesTabNew.tsx
 msgid "Your assistant automatically organizes incoming emails using these rules."
