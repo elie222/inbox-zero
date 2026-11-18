@@ -437,7 +437,9 @@ export function MailShell() {
         deletable: split.filters.length > 0,
         reorderable: split.id !== "all" && split.id !== OTHER_SPLIT_ID,
         bundleEligible:
-          split.id !== OTHER_SPLIT_ID && isBundleEligibleSplit(split),
+          !split.hideFromAll &&
+          split.id !== OTHER_SPLIT_ID &&
+          isBundleEligibleSplit(split),
       })),
     [splits],
   );
@@ -1467,14 +1469,28 @@ export function MailShell() {
     layout === "split" || !openThreadSelection || readerPreparing;
   const showSplitTabs = !isScoped && !searchQuery;
   const canShowSetup = showSplitTabs && !isAllAccounts && !!settings;
+  const allSplitId = splits.find(
+    (split) => !split.filters.length && split.id !== OTHER_SPLIT_ID,
+  )?.id;
+  const editAllOnly = setupParam === "all" && isGoogle && !!allSplitId;
   const isSetupOpen =
     canShowSetup &&
     (setupParam !== null || settings.setup === MailSetupState.PENDING);
   const closeSetup = () => {
     setSetupParam(null);
-    if (settings?.setup !== MailSetupState.DONE)
+    if (!editAllOnly && settings?.setup !== MailSetupState.DONE)
       updatePreferences({ setup: MailSetupState.DONE });
   };
+  const openAllSettings = useCallback(() => {
+    if (!allSplitId) return;
+    setSearchParam(null);
+    setActiveSplitId(allSplitId);
+    setSetupParam("all");
+  }, [allSplitId, setSearchParam, setActiveSplitId, setSetupParam]);
+  const onOpenAllSettings =
+    canShowSetup && isGoogle && allSplitId && !isSetupOpen
+      ? openAllSettings
+      : undefined;
   const canCycleSplits = showSplitTabs && showList;
   const cycleSplit = (step: 1 | -1) => {
     const index = splits.findIndex(
@@ -1990,7 +2006,10 @@ export function MailShell() {
           {splitPickerDialog}
           {isSetupOpen && (
             <MailSetupPanel
+              key={editAllOnly ? "all" : "setup"}
               splits={splits}
+              allSplitId={allSplitId}
+              editAllOnly={editAllOnly}
               layout={layout}
               bundleInbox={bundleInbox}
               defaultSplitId={settings.defaultSplitId}
@@ -2051,6 +2070,7 @@ export function MailShell() {
                   isInboxView ? toggleBundleInbox : undefined
                 }
                 onToggleAssistant={onToggleAssistant}
+                onOpenAllSettings={onOpenAllSettings}
                 onOpenSetup={
                   canShowSetup && !isSetupOpen
                     ? () => {
@@ -2089,6 +2109,8 @@ export function MailShell() {
                     splits={splitTabs}
                     activeSplitId={displayedActiveSplitId}
                     onSelectSplit={setActiveSplitId}
+                    allSplitId={allSplitId}
+                    onOpenAllSettings={onOpenAllSettings}
                     isAllAccounts={isAllAccounts}
                     getSenders={getSplitSenders}
                     countAccountIds={splitCountAccountIds}
