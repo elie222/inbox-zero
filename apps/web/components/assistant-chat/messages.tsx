@@ -2,6 +2,7 @@ import { Trans } from "@lingui/react/macro";
 import { Fragment, useMemo, type ReactNode } from "react";
 import { Overview } from "./overview";
 import { MessagePart } from "./message-part";
+import { ActivityGroup } from "./activity-group";
 import { MessagingChannelHint } from "./messaging-channel-hint";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
@@ -65,51 +66,34 @@ export function Messages({
                 <Fragment key={message.id}>
                   <Message from={message.role}>
                     <MessageContent variant="flat">
-                      {message.parts?.map((part, partIndex) => {
-                        if (isToolRunContinuation(message.parts, partIndex)) {
-                          return null;
-                        }
-                        if (part.type === "tool-searchInbox") {
-                          const outputs = getToolRunOutputs(
-                            message.parts,
+                      {groupActivity(message.parts ?? []).map((segment) => {
+                        const renderPart = (partIndex: number) =>
+                          renderMessagePart({
+                            message,
                             partIndex,
-                          );
-                          if (
-                            !outputs.length &&
-                            "output" in part &&
-                            isToolErrorHiddenFromUser(part.output)
-                          ) {
-                            return null;
-                          }
-                          if (
-                            outputs.length > 1 ||
-                            ("output" in part &&
-                              isToolErrorHiddenFromUser(part.output))
-                          ) {
-                            return (
-                              <SearchInboxResult
-                                key={`${message.id}-${partIndex}`}
-                                outputs={outputs}
-                              />
-                            );
-                          }
-                        }
-                        return (
-                          <MessagePart
-                            key={`${message.id}-${partIndex}`}
-                            part={part}
-                            isStreaming={
-                              status === "streaming" &&
-                              partIndex === message.parts.length - 1
-                            }
-                            disableConfirm={disableConfirm}
-                            isPersistedMessage={persistedMessageIds.has(
+                            status,
+                            disableConfirm,
+                            isPersistedMessage: persistedMessageIds.has(
                               message.id,
-                            )}
-                            messageId={message.id}
-                            partIndex={partIndex}
-                            threadLookup={emailLookup}
-                          />
+                            ),
+                            emailLookup,
+                          });
+                        if (segment.type === "part") {
+                          return renderPart(segment.partIndex);
+                        }
+                        const isLastMessage = index === messages.length - 1;
+                        return (
+                          <ActivityGroup
+                            key={`${message.id}-activity-${segment.partIndexes[0]}`}
+                            stepCount={segment.stepCount}
+                            isActive={
+                              isLastMessage &&
+                              status === "streaming" &&
+                              segment.isTrailing
+                            }
+                          >
+                            {segment.partIndexes.map(renderPart)}
+                          </ActivityGroup>
                         );
                       })}
                     </MessageContent>
@@ -147,6 +131,141 @@ export function Messages({
       </KnownThreadIdsProvider>
     </EmailLookupProvider>
   );
+}
+
+function renderMessagePart({
+  message,
+  partIndex,
+  status,
+  disableConfirm,
+  isPersistedMessage,
+  emailLookup,
+}: {
+  message: ChatMessage;
+  partIndex: number;
+  status: UseChatHelpers<ChatMessage>["status"];
+  disableConfirm: boolean;
+  isPersistedMessage: boolean;
+  emailLookup: EmailLookup;
+}) {
+  const parts = message.parts;
+  const part = parts[partIndex];
+  const key = `${message.id}-${partIndex}`;
+  if (isToolRunContinuation(parts, partIndex)) return null;
+  if (part.type === "tool-searchInbox") {
+    const outputs = getToolRunOutputs(parts, partIndex);
+    if (
+      !outputs.length &&
+      "output" in part &&
+      isToolErrorHiddenFromUser(part.output)
+    ) {
+      return null;
+    }
+    if (
+      outputs.length > 1 ||
+      ("output" in part && isToolErrorHiddenFromUser(part.output))
+    ) {
+      return <SearchInboxResult key={key} outputs={outputs} />;
+    }
+  }
+  return (
+    <MessagePart
+      key={key}
+      part={part}
+      isStreaming={status === "streaming" && partIndex === parts.length - 1}
+      disableConfirm={disableConfirm}
+      isPersistedMessage={isPersistedMessage}
+      messageId={message.id}
+      partIndex={partIndex}
+      threadLookup={emailLookup}
+    />
+  );
+}
+
+type PartSegment =
+  | { type: "part"; partIndex: number }
+  | {
+      type: "activity";
+      partIndexes: number[];
+      stepCount: number;
+      isTrailing: boolean;
+    };
+
+// Thinking and read-only lookups are the assistant's working steps, not
+// results, so back-to-back runs of them fold into one collapsed row. Anything
+// that changes the user's data or asks them something stays visible.
+const ACTIVITY_TOOL_TYPES = new Set([
+  "tool-searchInbox",
+  "tool-readEmail",
+  "tool-readAttachment",
+  "tool-getUserRulesAndSettings",
+  "tool-getRuleExecutionForMessage",
+  "tool-testRulesOnEmail",
+  "tool-getLearnedPatterns",
+  "tool-getAccountOverview",
+  "tool-getAssistantCapabilities",
+  "tool-getSenderCategoryOverview",
+  "tool-getSenderCategorizationStatus",
+  "tool-searchMemories",
+  "tool-getCalendarEvents",
+]);
+
+function groupActivity(parts: ChatMessage["parts"]): PartSegment[] {
+  const segments: PartSegment[] = [];
+  let run: number[] = [];
+
+  const flushRun = (isTrailing: boolean) => {
+    const stepCount = run.filter((i) => isVisibleActivityStep(parts[i])).length;
+    if (stepCount >= 2) {
+      segments.push({
+        type: "activity",
+        partIndexes: run,
+        stepCount,
+        isTrailing,
+      });
+    } else {
+      for (const partIndex of run) segments.push({ type: "part", partIndex });
+    }
+    run = [];
+  };
+
+  parts.forEach((part, partIndex) => {
+    if (part.type === "step-start" || isActivityPart(part)) {
+      run.push(partIndex);
+      return;
+    }
+    flushRun(false);
+    segments.push({ type: "part", partIndex });
+  });
+  flushRun(true);
+
+  return segments;
+}
+
+function isActivityPart(part: ChatMessage["parts"][number]) {
+  if (part.type === "reasoning") return true;
+  if (!ACTIVITY_TOOL_TYPES.has(part.type)) return false;
+  // Search failures already render inside the search card, which merges
+  // neighbouring searches, so they fold with them.
+  if (part.type === "tool-searchInbox") return true;
+  // Any other failed lookup the user should see is not routine work.
+  const output = "output" in part ? part.output : undefined;
+  return !(
+    output &&
+    typeof output === "object" &&
+    "error" in output &&
+    !isToolErrorHiddenFromUser(output)
+  );
+}
+
+function isVisibleActivityStep(part: ChatMessage["parts"][number]) {
+  if (part.type === "step-start") return false;
+  // A call that threw renders nothing, so it isn't a step the user can see.
+  if ("state" in part && part.state === "output-error") return false;
+  if (part.type === "reasoning") {
+    return !!part.text && part.text !== "[REDACTED]";
+  }
+  return !("output" in part && isToolErrorHiddenFromUser(part.output));
 }
 
 function buildEmailLookup(messages: Array<ChatMessage>): EmailLookup {

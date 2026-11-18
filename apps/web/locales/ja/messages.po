@@ -348,6 +348,10 @@ msgstr "{archivedEmailCount, plural, other {# 件のメール}}"
 msgid "{archivedMessagesCount, plural, one {# message} other {# messages}}"
 msgstr "{archivedMessagesCount, plural, other {# 件のメッセージ}}"
 
+#: components/assistant-chat/chat.tsx
+msgid "{attachmentCount, plural, one {# image} other {# images}}"
+msgstr "{attachmentCount, plural, other {#枚の画像}}"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "{completed} of {total} completed"
 msgstr "{total} 件中 {completed} 件完了"
@@ -702,6 +706,10 @@ msgstr "{splitName} には{senderCount, plural, other {これらの送信者}}�
 #: components/PremiumAlert.tsx
 msgid "{starterTierName} Plan Required"
 msgstr "{starterTierName} プランが必要です"
+
+#: components/assistant-chat/activity-group.tsx
+msgid "{stepCount, plural, one {Worked through # step} other {Worked through # steps}}"
+msgstr "{stepCount, plural, other {#ステップを実行しました}}"
 
 #: app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer.ts
 msgid "{stoppedCount, plural, one {Processed # email} other {Processed # emails}}"
@@ -3654,10 +3662,6 @@ msgstr "接続済みですが、ツールを利用できません"
 #: app/(app)/[emailAccountId]/integrations/IntegrationRow.tsx
 msgid "Connected. {toolsCount, plural, one {# tool available.} other {# tools available.}}"
 msgstr "接続済み。{toolsCount, plural, other {利用可能なツール # 件。}}"
-
-#: app/(app)/accounts/page.tsx
-msgid "Connecting or reconnecting a mailbox isn't available when you signed in with an email code. Sign in with Google or Microsoft and try again."
-msgstr "メールコードでサインインした場合は、メールボックスの接続や再接続はできません。Google または Microsoft でサインインして、もう一度お試しください。"
 
 #: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
 #: app/(app)/[emailAccountId]/drive/ConnectDrive.tsx
@@ -10497,10 +10501,6 @@ msgstr "プロンプト"
 msgid "Provider"
 msgstr "プロバイダー"
 
-#: app/(app)/accounts/page.tsx
-msgid "Provider sign-in required"
-msgstr "プロバイダーへのログインが必要です"
-
 #: app/(app)/[emailAccountId]/assistant/FixWithChat.tsx
 msgid "Providing an explanation helps the AI understand your intent better"
 msgstr "説明を入力すると、AIがあなたの意図をより正確に理解できます"
@@ -10925,6 +10925,10 @@ msgstr "代わりに1つのアカウントだけを削除"
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Remove optional access below, or disconnect to remove all access. To add permissions, reconnect from the application and approve the new access."
 msgstr "以下の任意のアクセス権を削除するか、接続を解除してすべてのアクセス権を削除します。権限を追加するには、アプリケーションから再接続して新しいアクセスを承認してください。"
+
+#: components/assistant-chat/chat.tsx
+msgid "Remove queued message"
+msgstr "キューのメッセージを削除"
 
 #: app/(app)/[emailAccountId]/calendars/WeeklyHoursEditor.tsx
 msgid "Remove range"
@@ -11809,6 +11813,14 @@ msgstr "あとで送信"
 msgid "Send later date and time"
 msgstr "送信日時"
 
+#: components/assistant-chat/chat.tsx
+msgid "Send message"
+msgstr "メッセージを送信"
+
+#: components/assistant-chat/chat.tsx
+msgid "Send now"
+msgstr "今すぐ送信"
+
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 msgid "Send replies"
 msgstr "返信を送信"
@@ -11946,6 +11958,10 @@ msgstr "送信中…"
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Sends an automated notification from {BRAND_NAME} informing the sender their email was filtered as cold outreach."
 msgstr "送信者のメールがコールドアウトリーチとしてフィルタされたことを知らせる自動通知を {BRAND_NAME} から送信します。"
+
+#: components/assistant-chat/chat.tsx
+msgid "Sends when the assistant finishes"
+msgstr "アシスタントの処理が終わると送信されます"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
 msgid "Sensitive data protection"
@@ -12600,6 +12616,10 @@ msgstr "停止"
 #: components/voice/VoiceOverlay.tsx
 msgid "Stop recording"
 msgstr "録画を停止"
+
+#: components/assistant-chat/chat.tsx
+msgid "Stop response"
+msgstr "応答を停止"
 
 #: components/team-comments/ConversationDiscussion.tsx
 msgid "Stop sharing"
@@ -14639,6 +14659,10 @@ msgstr "このルールが適用されるべきだった理由は?(任意)"
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "Within 1 Hour"
 msgstr "1 時間以内"
+
+#: components/assistant-chat/activity-group.tsx
+msgid "Working..."
+msgstr "処理中..."
 
 #: app/(app)/[emailAccountId]/clean/ActionSelectionStep.tsx
 msgid "Would you like cleaned emails to be archived or marked as read?"

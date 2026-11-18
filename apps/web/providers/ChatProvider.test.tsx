@@ -74,8 +74,9 @@ vi.mock("@ai-sdk/react", () => ({
       setMessages: mockSetMessages,
       sendMessage: (message: unknown, requestOptions?: { body?: unknown }) =>
         // Like the AI SDK, report request errors via onError and resolve.
+        // useChat calls the latest onError, not the one from this render.
         mockSendMessage(message, requestOptions).catch((error) => {
-          options.onError?.(error);
+          chatState.onError?.(error);
         }),
       stop: mockChatStop,
       resumeStream: mockResumeStream,
@@ -502,9 +503,9 @@ describe("ChatProvider", () => {
   });
 
   it("keeps showing a send failure after moving off another account's chat", async () => {
-    chatState.status = "submitted";
+    let isMismatchLoaded = false;
     mockUseChatMessages.mockImplementation((chatId: string | null) =>
-      chatId === "chat-from-account-a"
+      chatId === "chat-from-account-a" && isMismatchLoaded
         ? {
             data: undefined,
             error: Object.assign(new Error("Forbidden"), {
@@ -534,6 +535,7 @@ describe("ChatProvider", () => {
     });
 
     chatState.status = "error";
+    isMismatchLoaded = true;
     rerender(
       <ChatProvider>
         <Consumer />
@@ -646,9 +648,188 @@ describe("ChatProvider", () => {
     );
   });
 
-  it("treats a connection drop after the reply started streaming as sent", async () => {
+  it("settles a message submitted mid-reply only once it is sent", async () => {
     chatState.status = "streaming";
-    mockSendMessage.mockRejectedValueOnce(new TypeError("Load failed"));
+    chatState.messages = [
+      { id: "message-from-account-a", role: "user" },
+      { id: "reply-1", role: "assistant" },
+    ];
+    let savedData: { activeStreamId: string | null; messages: unknown[] } = {
+      activeStreamId: "reply-1",
+      messages: [{ id: "message-from-account-a", role: "user", parts: [] }],
+    };
+    mockUseChatMessages.mockImplementation(() => ({ data: savedData }));
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    let settled = false;
+    act(() => {
+      latestContext?.submitTextMessage("Create this rule").then(() => {
+        settled = true;
+      });
+    });
+
+    chatState.status = "ready";
+    savedData = {
+      activeStreamId: null,
+      messages: [
+        { id: "message-from-account-a", role: "user", parts: [] },
+        { id: "reply-1", role: "assistant", parts: [] },
+      ],
+    };
+    expect(settled).toBe(false);
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+
+    await waitFor(() => expect(settled).toBe(true));
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a new message behind one still waiting for the reply to save", async () => {
+    chatState.status = "streaming";
+    chatState.messages = [
+      { id: "message-from-account-a", role: "user" },
+      { id: "reply-1", role: "assistant" },
+    ];
+    mockUseChatMessages.mockImplementation(() => ({
+      data: { activeStreamId: "reply-1", messages: [] },
+    }));
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    act(() => latestContext?.setInput("First follow-up"));
+    act(() => latestContext?.handleSubmit());
+
+    chatState.status = "ready";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+    act(() => latestContext?.setInput("Second follow-up"));
+    act(() => latestContext?.handleSubmit());
+
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(latestContext?.queuedMessage?.text).toBe(
+      "First follow-up\n\nSecond follow-up",
+    );
+  });
+
+  it("sends a queued message with the next one after an error", async () => {
+    chatState.status = "streaming";
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    act(() => latestContext?.setInput("First follow-up"));
+    act(() => latestContext?.handleSubmit());
+
+    chatState.status = "error";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+    expect(mockSendMessage).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await latestContext?.submitTextMessage("Second follow-up");
+    });
+
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      {
+        role: "user",
+        parts: [{ type: "text", text: "First follow-up\n\nSecond follow-up" }],
+      },
+      undefined,
+    );
+    expect(latestContext?.queuedMessage).toBeNull();
+  });
+
+  it("keeps both messages when the queued one and the next are too long together", async () => {
+    chatState.status = "streaming";
+    const half = "a".repeat(Math.ceil(ASSISTANT_CHAT_MAX_TEXT_LENGTH / 2) + 1);
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    act(() => latestContext?.setInput(half));
+    act(() => latestContext?.handleSubmit());
+
+    chatState.status = "error";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+    act(() => latestContext?.setInput(half));
+    act(() => latestContext?.handleSubmit());
+
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(latestContext?.queuedMessage).toBeNull();
+    expect(latestContext?.input).toBe(`${half}\n\n${half}`);
+  });
+
+  it("puts a message queued behind a failed send after it in the input", async () => {
+    let failSend: (error: Error) => void = () => {};
+    mockSendMessage.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          failSend = reject;
+        }),
+    );
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    act(() => latestContext?.setInput("First message"));
+    act(() => latestContext?.handleSubmit());
+
+    chatState.status = "submitted";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+    act(() => latestContext?.setInput("Follow-up"));
+    act(() => latestContext?.handleSubmit());
+    expect(latestContext?.queuedMessage?.text).toBe("Follow-up");
+
+    await act(async () => {
+      failSend(new Error("Network request failed"));
+    });
+
+    expect(latestContext?.queuedMessage).toBeNull();
+    expect(latestContext?.input).toBe("First message\n\nFollow-up");
+  });
+
+  it("returns a queued message to the input when the chat changes", async () => {
+    chatState.status = "streaming";
     let latestContext: ReturnType<typeof useChat> | undefined;
 
     function Consumer() {
@@ -657,14 +838,114 @@ describe("ChatProvider", () => {
     }
 
     renderWithProvider(<Consumer />);
+    act(() => latestContext?.setInput("Also add a split inbox tab"));
+    act(() => latestContext?.handleSubmit());
+    expect(latestContext?.queuedMessage).not.toBeNull();
+
+    act(() => latestContext?.setChatId("another-chat"));
+
+    await waitFor(() => {
+      expect(latestContext?.queuedMessage).toBeNull();
+    });
+    expect(latestContext?.input).toBe("Also add a split inbox tab");
+    expect(mockSendMessage).not.toHaveBeenCalled();
+  });
+
+  it("treats a connection drop after the reply started streaming as sent", async () => {
+    let dropConnection: (error: Error) => void = () => {};
+    mockSendMessage.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          dropConnection = reject;
+        }),
+    );
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+
+    let sendPromise: Promise<void> | undefined;
+    act(() => {
+      sendPromise = latestContext?.submitTextMessage("Create these rules");
+    });
+    chatState.status = "streaming";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
 
     await act(async () => {
-      await expect(
-        latestContext?.submitTextMessage("Create these rules"),
-      ).resolves.toBeUndefined();
+      dropConnection(new TypeError("Load failed"));
+      await expect(sendPromise).resolves.toBeUndefined();
     });
 
     expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it("queues a message sent mid-reply and sends it once the reply is saved", async () => {
+    chatState.status = "streaming";
+    chatState.messages = [
+      { id: "message-from-account-a", role: "user" },
+      { id: "reply-1", role: "assistant" },
+    ];
+    let savedData: { activeStreamId: string | null; messages: unknown[] } = {
+      activeStreamId: "reply-1",
+      messages: [{ id: "message-from-account-a", role: "user", parts: [] }],
+    };
+    mockUseChatMessages.mockImplementation(() => ({ data: savedData }));
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    const rerenderProvider = () =>
+      rerender(
+        <ChatProvider>
+          <Consumer />
+        </ChatProvider>,
+      );
+
+    act(() => latestContext?.setInput("Also add a split inbox tab"));
+    act(() => latestContext?.handleSubmit());
+
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(latestContext?.input).toBe("");
+    expect(latestContext?.queuedMessage?.text).toBe(
+      "Also add a split inbox tab",
+    );
+
+    // The stream ended but the server hasn't saved the reply yet.
+    chatState.status = "ready";
+    rerenderProvider();
+    expect(mockSendMessage).not.toHaveBeenCalled();
+
+    savedData = {
+      activeStreamId: null,
+      messages: [
+        { id: "message-from-account-a", role: "user", parts: [] },
+        { id: "reply-1", role: "assistant", parts: [] },
+      ],
+    };
+    rerenderProvider();
+
+    await waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        {
+          role: "user",
+          parts: [{ type: "text", text: "Also add a split inbox tab" }],
+        },
+        undefined,
+      );
+    });
+    expect(latestContext?.queuedMessage).toBeNull();
   });
 
   it("does not resend inline actions or report an unsent message once the server accepted it", async () => {
