@@ -443,7 +443,21 @@ export function MailShell() {
       })),
     [splits],
   );
+  const showSplitTabs = !isScoped && !searchQuery;
+  const canShowSetup = showSplitTabs && !isAllAccounts && !!settings;
+  const allSplit = splits.find(
+    (split) => !split.filters.length && split.id !== OTHER_SPLIT_ID,
+  );
+  const allSplitId = allSplit?.id;
+  const canEditAll = canShowSetup && isGoogle && !!allSplitId;
+  const editAllOnly = canEditAll && setupParam === "all";
+  const isSetupOpen =
+    canShowSetup &&
+    (editAllOnly ||
+      (setupParam !== null && setupParam !== "all") ||
+      settings.setup === MailSetupState.PENDING);
   const activeSplit =
+    (editAllOnly ? allSplit : undefined) ??
     splits.find((split) => split.id === activeSplitId) ??
     splits.find((split) => split.id === settings?.defaultSplitId) ??
     splits[0];
@@ -1467,15 +1481,6 @@ export function MailShell() {
   }
   const showList =
     layout === "split" || !openThreadSelection || readerPreparing;
-  const showSplitTabs = !isScoped && !searchQuery;
-  const canShowSetup = showSplitTabs && !isAllAccounts && !!settings;
-  const allSplitId = splits.find(
-    (split) => !split.filters.length && split.id !== OTHER_SPLIT_ID,
-  )?.id;
-  const editAllOnly = setupParam === "all" && isGoogle && !!allSplitId;
-  const isSetupOpen =
-    canShowSetup &&
-    (setupParam !== null || settings.setup === MailSetupState.PENDING);
   const closeSetup = () => {
     setSetupParam(null);
     if (!editAllOnly && settings?.setup !== MailSetupState.DONE)
@@ -1488,9 +1493,7 @@ export function MailShell() {
     setSetupParam("all");
   }, [allSplitId, setSearchParam, setActiveSplitId, setSetupParam]);
   const onOpenAllSettings =
-    canShowSetup && isGoogle && allSplitId && !isSetupOpen
-      ? openAllSettings
-      : undefined;
+    canEditAll && !isSetupOpen ? openAllSettings : undefined;
   const canCycleSplits = showSplitTabs && showList;
   const cycleSplit = (step: 1 | -1) => {
     const index = splits.findIndex(
@@ -2007,7 +2010,7 @@ export function MailShell() {
           {isSetupOpen && (
             <MailSetupPanel
               key={editAllOnly ? "all" : "setup"}
-              splits={splits}
+              splits={splitTabs}
               allSplitId={allSplitId}
               editAllOnly={editAllOnly}
               layout={layout}

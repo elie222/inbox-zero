@@ -156,6 +156,10 @@ test("walks a new mail user through setup with a live preview", async ({
 
   await panel.getByRole("button", { name: "Next" }).click();
   await panel.getByRole("switch", { name: "Bundle my inbox" }).click();
+  await expect(
+    panel.getByRole("switch", { name: "Project Alpha" }),
+  ).toBeHidden();
+  await expect(panel.getByRole("switch", { name: "Newsletter" })).toBeVisible();
   await shot(page, testInfo, "6-bundles");
 
   await panel.getByRole("button", { name: "Done" }).click();
@@ -247,6 +251,15 @@ test("edits what All shows directly from the inbox", async ({
   await allSettings.click();
   await expect(projectSwitch).not.toBeChecked();
   await projectSwitch.click();
+  await expect(projectSwitch).toBeEnabled();
+  await expect(projectThread).toHaveCount(1);
+
+  const unreadId = await unreadTab.getAttribute("data-split-tab");
+  await page.goto(`/${emailAccountId}/mail?setup=all&split=${unreadId}`, {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(panel).toBeVisible();
+  await expect(allTab).toHaveAttribute("aria-current", "true");
   await expect(projectThread).toHaveCount(1);
 });
 

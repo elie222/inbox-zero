@@ -6,7 +6,7 @@ import { msg } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { CheckIcon, LayersIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
-import { isBundleEligibleSplit } from "@/app/(app)/[emailAccountId]/mail/inbox-bundles";
+import type { MailSplitTab } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -59,7 +59,7 @@ export function MailSetupPanel({
   supportsStarred,
 }: {
   /** The tabs as shown, including Other. */
-  splits: MailSplit[];
+  splits: (MailSplit & MailSplitTab)[];
   allSplitId: string | undefined;
   editAllOnly: boolean;
   layout: MailLayoutMode;
@@ -344,14 +344,14 @@ export function MailSetupPanel({
               }}
             />
             {bundleInbox &&
-              (settings?.splits ?? [])
-                .filter(isBundleEligibleSplit)
+              splits
+                .filter((split) => split.bundleEligible)
                 .map((split) => (
                   <SwitchRow
                     key={split.id}
                     label={split.name}
                     inset
-                    checked={split.bundleInInbox}
+                    checked={!!split.bundleInInbox}
                     disabled={!!busyId}
                     onCheckedChange={(checked) =>
                       setSplitFlag(split.id, { bundleInInbox: checked })
