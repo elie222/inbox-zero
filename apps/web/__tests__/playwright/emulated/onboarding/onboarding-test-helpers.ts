@@ -122,7 +122,7 @@ export async function openControlOnboarding(page: Page) {
   const emailAccountId = await getEmailAccountId(page);
   await page.goto(`/${emailAccountId}/onboarding`);
   await expect(
-    page.getByRole("heading", { name: "How do you want to use Inbox Zero?" }),
+    page.getByRole("heading", { name: "Welcome to Inbox Zero" }),
   ).toBeVisible({ timeout: 60_000 });
   return emailAccountId;
 }

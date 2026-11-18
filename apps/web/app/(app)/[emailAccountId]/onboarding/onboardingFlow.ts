@@ -6,6 +6,7 @@ import {
 } from "@/generated/prisma/enums";
 
 export const STEP_KEYS = {
+  WELCOME: "welcome",
   CHAT: "chat",
   EMAILS_SORTED: "emailsSorted",
   DRAFT_REPLIES: "draftReplies",
@@ -19,26 +20,26 @@ export const STEP_KEYS = {
   CUSTOM_RULES: "customRules",
   INBOX_PROCESSED: "inboxProcessed",
   INTENT: "intent",
-  MAIL_APP: "mailApp",
   EMAIL_APP: "emailApp",
 } as const;
 
 export type StepKey = (typeof STEP_KEYS)[keyof typeof STEP_KEYS];
 
-// The intent question comes first and picks the branch. Each branch shows
-// what the product does before asking the survey questions.
-const surveyStepOrder: readonly StepKey[] = [
-  STEP_KEYS.WHO,
-  STEP_KEYS.COMPANY_SIZE,
-  STEP_KEYS.HOW_YOU_HEARD,
-];
-
-const aiAssistantTourStepOrder: readonly StepKey[] = [
+// Everyone sees what the product does before any questions. The intent answer
+// then decides whether the AI setup steps follow the survey.
+const introStepOrder: readonly StepKey[] = [
+  STEP_KEYS.WELCOME,
   STEP_KEYS.EMAILS_SORTED,
   STEP_KEYS.CHAT,
   STEP_KEYS.DRAFT_REPLIES,
   STEP_KEYS.BULK_UNSUBSCRIBE,
   STEP_KEYS.EMAIL_APP,
+];
+
+const surveyStepOrder: readonly StepKey[] = [
+  STEP_KEYS.WHO,
+  STEP_KEYS.COMPANY_SIZE,
+  STEP_KEYS.HOW_YOU_HEARD,
 ];
 
 const aiAssistantSetupStepOrder: readonly StepKey[] = [
@@ -49,9 +50,9 @@ const aiAssistantSetupStepOrder: readonly StepKey[] = [
 ];
 
 // Frozen pre-intent order so old numeric `?step=N` links keep resolving.
-// The removed welcome step is null; the removed team step maps to the step after it.
-const legacyNumericOnboardingStepOrder: readonly (StepKey | null)[] = [
-  null,
+// The removed team step maps to the step after it.
+const legacyNumericOnboardingStepOrder: readonly StepKey[] = [
+  STEP_KEYS.WELCOME,
   STEP_KEYS.EMAILS_SORTED,
   STEP_KEYS.CHAT,
   STEP_KEYS.DRAFT_REPLIES,
@@ -79,12 +80,9 @@ export function getVisibleOnboardingStepKeys({
 }) {
   // The sales survey is irrelevant for self-hosted deployments.
   const survey = isSelfHosted ? [] : surveyStepOrder;
-  // Until the user picks, the AI branch stands in as the most common path.
-  const branchStepOrder =
-    signupIntent === "MAIL_CLIENT"
-      ? [STEP_KEYS.MAIL_APP, ...survey]
-      : [...aiAssistantTourStepOrder, ...survey, ...aiAssistantSetupStepOrder];
-  const stepOrder = [STEP_KEYS.INTENT, ...branchStepOrder];
+  // Until the user picks, the AI setup steps stand in as the most common path.
+  const setup = signupIntent === "MAIL_CLIENT" ? [] : aiAssistantSetupStepOrder;
+  const stepOrder = [...introStepOrder, STEP_KEYS.INTENT, ...survey, ...setup];
 
   return stepOrder.filter((stepKey) => {
     if (

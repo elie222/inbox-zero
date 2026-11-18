@@ -9,7 +9,7 @@ import {
 import { ActionType, SystemType } from "@/generated/prisma/enums";
 
 describe("getVisibleOnboardingStepKeys", () => {
-  it("asks the intent first, then tours the AI features before the survey and setup", () => {
+  it("introduces the product before asking anything, then sets up the AI", () => {
     expect(
       getVisibleOnboardingStepKeys({
         autoDraftDisabled: false,
@@ -17,12 +17,13 @@ describe("getVisibleOnboardingStepKeys", () => {
         signupIntent: null,
       }),
     ).toEqual([
-      STEP_KEYS.INTENT,
+      STEP_KEYS.WELCOME,
       STEP_KEYS.EMAILS_SORTED,
       STEP_KEYS.CHAT,
       STEP_KEYS.DRAFT_REPLIES,
       STEP_KEYS.BULK_UNSUBSCRIBE,
       STEP_KEYS.EMAIL_APP,
+      STEP_KEYS.INTENT,
       STEP_KEYS.WHO,
       STEP_KEYS.COMPANY_SIZE,
       STEP_KEYS.HOW_YOU_HEARD,
@@ -36,26 +37,23 @@ describe("getVisibleOnboardingStepKeys", () => {
   it.each([
     "AI_ASSISTANT",
     "BOTH",
-  ] as const)("continues into the AI flow for %s", (signupIntent) => {
+  ] as const)("continues into the AI setup for %s", (signupIntent) => {
     const stepKeys = getVisibleOnboardingStepKeys({
       autoDraftDisabled: false,
       emailAppEnabled: true,
       signupIntent,
     });
-    expect(stepKeys[1]).toBe(STEP_KEYS.EMAILS_SORTED);
-    expect(stepKeys).not.toContain(STEP_KEYS.MAIL_APP);
+    expect(stepKeys.at(-1)).toBe(STEP_KEYS.INBOX_PROCESSED);
   });
 
-  it("sends email-app users to the mail app step, then the survey", () => {
-    expect(
-      getVisibleOnboardingStepKeys({
-        autoDraftDisabled: false,
-        emailAppEnabled: true,
-        signupIntent: "MAIL_CLIENT",
-      }),
-    ).toEqual([
+  it("ends email-app users at the survey, without the AI setup", () => {
+    const stepKeys = getVisibleOnboardingStepKeys({
+      autoDraftDisabled: false,
+      emailAppEnabled: true,
+      signupIntent: "MAIL_CLIENT",
+    });
+    expect(stepKeys.slice(stepKeys.indexOf(STEP_KEYS.INTENT))).toEqual([
       STEP_KEYS.INTENT,
-      STEP_KEYS.MAIL_APP,
       STEP_KEYS.WHO,
       STEP_KEYS.COMPANY_SIZE,
       STEP_KEYS.HOW_YOU_HEARD,
@@ -89,7 +87,8 @@ describe("getVisibleOnboardingStepKeys", () => {
       isSelfHosted: true,
       signupIntent: "MAIL_CLIENT",
     });
-    expect(stepKeys).toEqual([STEP_KEYS.INTENT, STEP_KEYS.MAIL_APP]);
+    expect(stepKeys.at(-1)).toBe(STEP_KEYS.INTENT);
+    expect(stepKeys).not.toContain(STEP_KEYS.WHO);
   });
 });
 
@@ -133,7 +132,7 @@ describe("getOnboardingStepIndex", () => {
   });
 
   it("falls back to the first visible step for removed step keys", () => {
-    expect(getOnboardingStepIndex("welcome", stepKeys)).toBe(0);
+    expect(getOnboardingStepIndex("inviteTeam", stepKeys)).toBe(0);
   });
 });
 

@@ -22,7 +22,8 @@ test("completes account setup and persists onboarding choices", async ({
 }, testInfo) => {
   const emailAccountId = await openControlOnboarding(page);
 
-  await chooseSignupIntent(page, "AI assistant");
+  await capturePlaywrightCheckpoint(page, testInfo, "welcome-step");
+  await page.getByRole("button", { name: "See how it works" }).click();
   await expect(
     page.getByRole("heading", { name: "Your inbox, automatically sorted" }),
   ).toBeVisible({ timeout: 60_000 });
@@ -35,6 +36,7 @@ test("completes account setup and persists onboarding choices", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "email-app-step");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 
+  await chooseSignupIntent(page, "AI assistant");
   await expect(
     page.getByRole("heading", { name: "What do you do?" }),
   ).toBeVisible({ timeout: 60_000 });

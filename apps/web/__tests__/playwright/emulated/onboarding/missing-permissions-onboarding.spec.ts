@@ -3,7 +3,6 @@ import { test } from "../playwright-test";
 import { isMicrosoftPlaywright } from "../mail-provider";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import {
-  chooseSignupIntent,
   openControlOnboarding,
   resetOnboardingTestState,
   revokeGmailScopes,
@@ -57,7 +56,7 @@ test("asks to reconnect at the next step when Gmail access is missing", async ({
 
   restoreScope = await revokeGmailScopes();
 
-  await chooseSignupIntent(page, "AI assistant");
+  await page.getByRole("button", { name: "See how it works" }).click();
 
   await expect(
     page.getByRole("heading", { name: /We are missing permissions/ }),

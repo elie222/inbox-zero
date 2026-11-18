@@ -8627,14 +8627,6 @@ msgstr "Medyan yanıt"
 msgid "Median Response Time"
 msgstr "Medyan yanıt süresi"
 
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet the Inbox Zero email app"
-msgstr "Inbox Zero e-posta uygulamasıyla tanışın"
-
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet your new email app"
-msgstr "Yeni e-posta uygulamanızla tanışın"
-
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 msgid "Meeting"
 msgstr "Toplantı"
@@ -10576,10 +10568,6 @@ msgstr "E-postaları okuyun ve arayın"
 msgid "Read and send email from every account in one fast inbox"
 msgstr "Tüm hesaplarınızdaki e-postaları tek ve hızlı bir gelen kutusunda okuyun ve gönderin"
 
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Read and send email on web, desktop, iPhone, and Android. Add the AI assistant anytime."
-msgstr "E-postaları web, masaüstü, iPhone ve Android'de okuyun ve gönderin. Yapay zeka asistanını istediğiniz zaman ekleyin."
-
 #: components/assistant-chat/tools.tsx
 msgid "Read Email"
 msgstr "E-postayı oku"
@@ -11555,6 +11543,10 @@ msgstr "Hafıza aranıyor..."
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "See examples"
 msgstr "Örnekleri gör"
+
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "See how it works"
+msgstr "Nasıl çalıştığını gör"
 
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "See when recipients open emails you send from the mail client."
@@ -14488,6 +14480,7 @@ msgstr "Haftalık özet"
 msgid "Weekly Response Time Trend"
 msgstr "Haftalık yanıt süresi eğilimi"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Welcome to {BRAND_NAME}"
 msgstr "{BRAND_NAME} uygulamasına hoş geldiniz"
@@ -14861,6 +14854,10 @@ msgstr "Hesaplarınız birleştirildi."
 #: app/(app)/[emailAccountId]/assistant/AllRulesDisabledBanner.tsx
 msgid "Your AI Assistant isn't processing emails because all rules are disabled. Enable them to get started."
 msgstr "Tüm kurallar devre dışı olduğu için yapay zeka asistanınız e-postaları işlemiyor. Başlamak için kuralları etkinleştirin."
+
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "Your AI email assistant. It sorts your inbox, drafts your replies, and clears out the clutter, right inside Gmail or Outlook."
+msgstr "Yapay zekâ e-posta asistanınız. Gelen kutunuzu düzenler, yanıt taslakları hazırlar ve karmaşayı temizler; doğrudan Gmail veya Outlook içinde."
 
 #: app/(app)/[emailAccountId]/assistant/RulesTabNew.tsx
 msgid "Your assistant automatically organizes incoming emails using these rules."

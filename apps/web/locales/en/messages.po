@@ -8627,14 +8627,6 @@ msgstr "Median Response"
 msgid "Median Response Time"
 msgstr "Median Response Time"
 
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet the Inbox Zero email app"
-msgstr "Meet the Inbox Zero email app"
-
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet your new email app"
-msgstr "Meet your new email app"
-
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 msgid "Meeting"
 msgstr "Meeting"
@@ -10576,10 +10568,6 @@ msgstr "Read and search mail"
 msgid "Read and send email from every account in one fast inbox"
 msgstr "Read and send email from every account in one fast inbox"
 
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Read and send email on web, desktop, iPhone, and Android. Add the AI assistant anytime."
-msgstr "Read and send email on web, desktop, iPhone, and Android. Add the AI assistant anytime."
-
 #: components/assistant-chat/tools.tsx
 msgid "Read Email"
 msgstr "Read Email"
@@ -11555,6 +11543,10 @@ msgstr "Searching memories..."
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "See examples"
 msgstr "See examples"
+
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "See how it works"
+msgstr "See how it works"
 
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "See when recipients open emails you send from the mail client."
@@ -14488,6 +14480,7 @@ msgstr "Weekly Digest"
 msgid "Weekly Response Time Trend"
 msgstr "Weekly Response Time Trend"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Welcome to {BRAND_NAME}"
 msgstr "Welcome to {BRAND_NAME}"
@@ -14861,6 +14854,10 @@ msgstr "Your accounts have been merged."
 #: app/(app)/[emailAccountId]/assistant/AllRulesDisabledBanner.tsx
 msgid "Your AI Assistant isn't processing emails because all rules are disabled. Enable them to get started."
 msgstr "Your AI Assistant isn't processing emails because all rules are disabled. Enable them to get started."
+
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "Your AI email assistant. It sorts your inbox, drafts your replies, and clears out the clutter, right inside Gmail or Outlook."
+msgstr "Your AI email assistant. It sorts your inbox, drafts your replies, and clears out the clutter, right inside Gmail or Outlook."
 
 #: app/(app)/[emailAccountId]/assistant/RulesTabNew.tsx
 msgid "Your assistant automatically organizes incoming emails using these rules."

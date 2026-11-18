@@ -17,7 +17,7 @@ test.afterEach(async () => {
   await resetOnboardingTestState();
 });
 
-test("email app users get a short intro and the survey, then pick a plan", async ({
+test("email app users skip the AI setup and go from the survey to picking a plan", async ({
   page,
 }, testInfo) => {
   const emailAccountId = await getEmailAccountId(page);
@@ -25,12 +25,6 @@ test("email app users get a short intro and the survey, then pick a plan", async
   await page.goto(`/${emailAccountId}/onboarding?step=intent`);
   await capturePlaywrightCheckpoint(page, testInfo, "signup-intent-step");
   await chooseSignupIntent(page, "Email app");
-
-  await expect(
-    page.getByRole("heading", { name: "Meet your new email app" }),
-  ).toBeVisible({ timeout: 60_000 });
-  await capturePlaywrightCheckpoint(page, testInfo, "mail-app-step");
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
 
   await expect(
     page.getByRole("heading", { name: "What do you do?" }),

@@ -8627,14 +8627,6 @@ msgstr "响应时间中位数"
 msgid "Median Response Time"
 msgstr "响应时间中位数"
 
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet the Inbox Zero email app"
-msgstr "认识一下 Inbox Zero 邮件应用"
-
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet your new email app"
-msgstr "认识你的全新邮件应用"
-
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 msgid "Meeting"
 msgstr "会议"
@@ -10576,10 +10568,6 @@ msgstr "读取和搜索邮件"
 msgid "Read and send email from every account in one fast inbox"
 msgstr "在一个快速收件箱中阅读和发送所有账号的邮件"
 
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Read and send email on web, desktop, iPhone, and Android. Add the AI assistant anytime."
-msgstr "在网页、桌面端、iPhone 和 Android 上阅读和发送邮件。随时添加 AI 助手。"
-
 #: components/assistant-chat/tools.tsx
 msgid "Read Email"
 msgstr "读取邮件"
@@ -11555,6 +11543,10 @@ msgstr "正在搜索记忆..."
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "See examples"
 msgstr "查看示例"
+
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "See how it works"
+msgstr "看看如何运作"
 
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "See when recipients open emails you send from the mail client."
@@ -14488,6 +14480,7 @@ msgstr "每周摘要"
 msgid "Weekly Response Time Trend"
 msgstr "每周响应时间趋势"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Welcome to {BRAND_NAME}"
 msgstr "欢迎使用 {BRAND_NAME}"
@@ -14861,6 +14854,10 @@ msgstr "你的账号已合并。"
 #: app/(app)/[emailAccountId]/assistant/AllRulesDisabledBanner.tsx
 msgid "Your AI Assistant isn't processing emails because all rules are disabled. Enable them to get started."
 msgstr "你的 AI 助手没有处理邮件，因为所有规则都已停用。请启用规则以开始使用。"
+
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "Your AI email assistant. It sorts your inbox, drafts your replies, and clears out the clutter, right inside Gmail or Outlook."
+msgstr "你的 AI 邮件助手。它会整理收件箱、起草回复并清理杂乱邮件，直接在 Gmail 或 Outlook 中使用。"
 
 #: app/(app)/[emailAccountId]/assistant/RulesTabNew.tsx
 msgid "Your assistant automatically organizes incoming emails using these rules."

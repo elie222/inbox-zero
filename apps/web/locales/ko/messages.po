@@ -8627,14 +8627,6 @@ msgstr "중앙값 응답"
 msgid "Median Response Time"
 msgstr "중앙값 응답 시간"
 
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet the Inbox Zero email app"
-msgstr "Inbox Zero 이메일 앱을 만나 보세요"
-
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet your new email app"
-msgstr "새로운 이메일 앱을 만나 보세요"
-
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 msgid "Meeting"
 msgstr "회의"
@@ -10576,10 +10568,6 @@ msgstr "메일 읽기 및 검색"
 msgid "Read and send email from every account in one fast inbox"
 msgstr "모든 계정의 이메일을 하나의 빠른 받은편지함에서 읽고 보내세요"
 
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Read and send email on web, desktop, iPhone, and Android. Add the AI assistant anytime."
-msgstr "웹, 데스크톱, iPhone, Android에서 이메일을 읽고 보내세요. AI 어시스턴트는 언제든 추가할 수 있어요."
-
 #: components/assistant-chat/tools.tsx
 msgid "Read Email"
 msgstr "이메일 읽기"
@@ -11555,6 +11543,10 @@ msgstr "메모리 검색 중..."
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "See examples"
 msgstr "예시 보기"
+
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "See how it works"
+msgstr "작동 방식 보기"
 
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "See when recipients open emails you send from the mail client."
@@ -14488,6 +14480,7 @@ msgstr "주간 요약"
 msgid "Weekly Response Time Trend"
 msgstr "주간 응답 시간 추이"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Welcome to {BRAND_NAME}"
 msgstr "{BRAND_NAME}에 오신 것을 환영해요"
@@ -14861,6 +14854,10 @@ msgstr "계정이 병합되었어요."
 #: app/(app)/[emailAccountId]/assistant/AllRulesDisabledBanner.tsx
 msgid "Your AI Assistant isn't processing emails because all rules are disabled. Enable them to get started."
 msgstr "모든 규칙이 비활성화되어 있어 AI 어시스턴트가 이메일을 처리하지 않고 있어요. 규칙을 활성화하여 시작하세요."
+
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "Your AI email assistant. It sorts your inbox, drafts your replies, and clears out the clutter, right inside Gmail or Outlook."
+msgstr "AI 이메일 비서입니다. 받은편지함을 정리하고, 답장 초안을 작성하고, 불필요한 메일을 정리합니다. Gmail이나 Outlook 안에서 바로 작동합니다."
 
 #: app/(app)/[emailAccountId]/assistant/RulesTabNew.tsx
 msgid "Your assistant automatically organizes incoming emails using these rules."

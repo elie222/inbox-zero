@@ -8627,14 +8627,6 @@ msgstr "返信時間の中央値"
 msgid "Median Response Time"
 msgstr "返信時間の中央値"
 
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet the Inbox Zero email app"
-msgstr "Inbox Zeroのメールアプリをご紹介"
-
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet your new email app"
-msgstr "新しいメールアプリをご紹介"
-
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 msgid "Meeting"
 msgstr "会議"
@@ -10576,10 +10568,6 @@ msgstr "メールの読み取りと検索"
 msgid "Read and send email from every account in one fast inbox"
 msgstr "すべてのアカウントのメールを 1 つの高速な受信トレイで閲覧・送信"
 
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Read and send email on web, desktop, iPhone, and Android. Add the AI assistant anytime."
-msgstr "ウェブ、デスクトップ、iPhone、Androidでメールの閲覧と送信ができます。AIアシスタントはいつでも追加できます。"
-
 #: components/assistant-chat/tools.tsx
 msgid "Read Email"
 msgstr "メールを読む"
@@ -11555,6 +11543,10 @@ msgstr "メモリを検索中..."
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "See examples"
 msgstr "例を見る"
+
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "See how it works"
+msgstr "使い方を見る"
 
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "See when recipients open emails you send from the mail client."
@@ -14488,6 +14480,7 @@ msgstr "週次ダイジェスト"
 msgid "Weekly Response Time Trend"
 msgstr "週ごとの応答時間の推移"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Welcome to {BRAND_NAME}"
 msgstr "{BRAND_NAME} へようこそ"
@@ -14861,6 +14854,10 @@ msgstr "アカウントを統合しました。"
 #: app/(app)/[emailAccountId]/assistant/AllRulesDisabledBanner.tsx
 msgid "Your AI Assistant isn't processing emails because all rules are disabled. Enable them to get started."
 msgstr "すべてのルールが無効になっているため、AI アシスタントはメールを処理していません。有効にして始めましょう。"
+
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "Your AI email assistant. It sorts your inbox, drafts your replies, and clears out the clutter, right inside Gmail or Outlook."
+msgstr "AIメールアシスタントです。受信トレイを整理し、返信の下書きを作成し、不要なメールを片付けます。GmailやOutlookのままで使えます。"
 
 #: app/(app)/[emailAccountId]/assistant/RulesTabNew.tsx
 msgid "Your assistant automatically organizes incoming emails using these rules."
