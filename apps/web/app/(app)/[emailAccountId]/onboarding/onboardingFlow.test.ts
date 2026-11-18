@@ -13,6 +13,7 @@ describe("getVisibleOnboardingStepKeys", () => {
     expect(
       getVisibleOnboardingStepKeys({
         autoDraftDisabled: false,
+        emailAppEnabled: true,
         signupIntent: null,
       }),
     ).toEqual([
@@ -38,6 +39,7 @@ describe("getVisibleOnboardingStepKeys", () => {
   ] as const)("continues into the AI flow for %s", (signupIntent) => {
     const stepKeys = getVisibleOnboardingStepKeys({
       autoDraftDisabled: false,
+      emailAppEnabled: true,
       signupIntent,
     });
     expect(stepKeys[1]).toBe(STEP_KEYS.EMAILS_SORTED);
@@ -48,6 +50,7 @@ describe("getVisibleOnboardingStepKeys", () => {
     expect(
       getVisibleOnboardingStepKeys({
         autoDraftDisabled: false,
+        emailAppEnabled: true,
         signupIntent: "MAIL_CLIENT",
       }),
     ).toEqual([
@@ -62,15 +65,27 @@ describe("getVisibleOnboardingStepKeys", () => {
   it("hides draft steps when auto-drafting is off", () => {
     const stepKeys = getVisibleOnboardingStepKeys({
       autoDraftDisabled: true,
+      emailAppEnabled: true,
       signupIntent: "AI_ASSISTANT",
     });
     expect(stepKeys).not.toContain(STEP_KEYS.DRAFT_REPLIES);
     expect(stepKeys).not.toContain(STEP_KEYS.DRAFT);
   });
 
+  it("hides the email app pitch when sending email is disabled", () => {
+    expect(
+      getVisibleOnboardingStepKeys({
+        autoDraftDisabled: false,
+        emailAppEnabled: false,
+        signupIntent: "BOTH",
+      }),
+    ).not.toContain(STEP_KEYS.EMAIL_APP);
+  });
+
   it("skips the survey on self-hosted deployments", () => {
     const stepKeys = getVisibleOnboardingStepKeys({
       autoDraftDisabled: false,
+      emailAppEnabled: true,
       isSelfHosted: true,
       signupIntent: "MAIL_CLIENT",
     });
@@ -81,6 +96,7 @@ describe("getVisibleOnboardingStepKeys", () => {
 describe("getOnboardingStepIndex", () => {
   const stepKeys = getVisibleOnboardingStepKeys({
     autoDraftDisabled: false,
+    emailAppEnabled: true,
     signupIntent: null,
   });
 
@@ -99,6 +115,12 @@ describe("getOnboardingStepIndex", () => {
   it("keeps legacy numeric step params aligned after removed steps", () => {
     expect(getOnboardingStepIndex("3", stepKeys)).toBe(
       stepKeys.indexOf(STEP_KEYS.CHAT),
+    );
+  });
+
+  it("sends the removed team step's numeric link to the final step", () => {
+    expect(getOnboardingStepIndex("12", stepKeys)).toBe(
+      stepKeys.indexOf(STEP_KEYS.INBOX_PROCESSED),
     );
   });
 

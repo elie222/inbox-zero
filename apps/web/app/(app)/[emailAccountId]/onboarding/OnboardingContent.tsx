@@ -91,6 +91,7 @@ export function OnboardingContent({
       autoDraftDisabled:
         Boolean(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) ||
         isDraftRepliesDisabledByRuleState(rules),
+      emailAppEnabled: env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
       isSelfHosted: Boolean(env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS),
       signupIntent: intent,
     }).filter((key) => isDefined(stepMap[key]));

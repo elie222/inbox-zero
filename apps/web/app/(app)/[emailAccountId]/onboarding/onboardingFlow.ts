@@ -49,7 +49,7 @@ const aiAssistantSetupStepOrder: readonly StepKey[] = [
 ];
 
 // Frozen pre-intent order so old numeric `?step=N` links keep resolving.
-// Null marks steps that no longer exist.
+// The removed welcome step is null; the removed team step maps to the step after it.
 const legacyNumericOnboardingStepOrder: readonly (StepKey | null)[] = [
   null,
   STEP_KEYS.EMAILS_SORTED,
@@ -62,16 +62,18 @@ const legacyNumericOnboardingStepOrder: readonly (StepKey | null)[] = [
   STEP_KEYS.LABELS,
   STEP_KEYS.DRAFT,
   STEP_KEYS.CUSTOM_RULES,
-  null,
+  STEP_KEYS.INBOX_PROCESSED,
   STEP_KEYS.INBOX_PROCESSED,
 ];
 
 export function getVisibleOnboardingStepKeys({
   autoDraftDisabled,
+  emailAppEnabled,
   isSelfHosted,
   signupIntent,
 }: {
   autoDraftDisabled: boolean;
+  emailAppEnabled: boolean;
   isSelfHosted?: boolean;
   signupIntent: SignupIntent | null;
 }) {
@@ -91,6 +93,8 @@ export function getVisibleOnboardingStepKeys({
     ) {
       return false;
     }
+
+    if (!emailAppEnabled && stepKey === STEP_KEYS.EMAIL_APP) return false;
 
     return true;
   });
