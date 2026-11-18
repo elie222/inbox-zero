@@ -25,6 +25,8 @@ import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-erro
 import { extractErrorInfo as extractGmailErrorInfo } from "@/utils/gmail/retry";
 import { OutlookSyncFolderUnavailableError } from "@/utils/outlook/errors";
 import { extractErrorInfo as extractOutlookErrorInfo } from "@/utils/outlook/retry";
+import { getRetryAfterHeaderFromError } from "@/utils/retry/get-retry-after-header";
+import { getRetryAfterDelayMs } from "@/utils/retry/provider-retry";
 import type { ParsedMessage } from "@/utils/types";
 import { mapWithConcurrency } from "@/utils/async";
 import { convertEmailHtmlToText } from "@/utils/mail";
@@ -249,6 +251,24 @@ export function createEmailProviderMailboxSource(input: {
             status: "paused",
             reason: "unavailable",
             retryAfterMs: 10 * 60_000,
+          };
+        }
+        if (
+          provider.name === "microsoft" &&
+          extractOutlookErrorInfo(error).status === 429
+        ) {
+          const retryAfterMs = getRetryAfterDelayMs(
+            getRetryAfterHeaderFromError(error),
+          );
+          return {
+            status: "paused",
+            reason: "throttled",
+            retryAfterMs:
+              retryAfterMs !== undefined &&
+              retryAfterMs >= 0 &&
+              Number.isSafeInteger(retryAfterMs)
+                ? retryAfterMs
+                : 15_000,
           };
         }
         return mapProviderError(error);

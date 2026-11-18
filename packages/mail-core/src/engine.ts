@@ -1692,6 +1692,7 @@ export function createMailEngine(input: {
     signal?: AbortSignal,
   ) {
     if (
+      signal?.aborted ||
       !idleGateDue(
         idleGate.nextAssistantCatchUpAtMs,
         runtime.nowMs(),
@@ -1701,6 +1702,7 @@ export function createMailEngine(input: {
       return;
     }
     const advanced = await catchUpAssistant(account, signal);
+    if (signal?.aborted) return;
     idleGate.nextAssistantCatchUpAtMs = advanced
       ? 0
       : runtime.nowMs() + idleCatchUpIntervalMs;
@@ -1723,7 +1725,7 @@ export function createMailEngine(input: {
       cursor: account?.assistantCursor ?? null,
       signal: signal ?? new AbortController().signal,
     });
-    if (page.status !== "ok") return false;
+    if (signal?.aborted || page.status !== "ok") return false;
     await store.applyAssistantEntries({
       accountId: session.accountId,
       cursor: page.page.nextCursor,
