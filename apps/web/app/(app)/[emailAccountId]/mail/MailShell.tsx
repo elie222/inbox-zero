@@ -418,6 +418,7 @@ export function MailShell() {
               name: t`Other`,
               matchAll: true,
               filters: [],
+              hideFromAll: false,
             },
           ]
         : []),
