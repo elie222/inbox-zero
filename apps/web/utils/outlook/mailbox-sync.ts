@@ -63,7 +63,7 @@ export async function getOutlookMailboxSyncPage({
 }): Promise<MailboxSyncPage> {
   if (!cursor) {
     if (!after) throw new Error("after is required for initial mailbox sync");
-    return readInitialPage({ client, logger, after, folderId, limit, signal });
+    return getInitialPage({ client, logger, after, folderId, limit });
   }
 
   const decoded = decodeMailboxSyncCursor(cursor, "microsoft");

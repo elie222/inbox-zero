@@ -256,6 +256,48 @@ describe("getOutlookMailboxSyncPage", () => {
     expect(requestedUrls).toEqual([savedLink, freshPath]);
   });
 
+  it.each([
+    "caller cancellation",
+    "recovery deadline",
+  ])("stops waiting for a pending folder recovery on %s", async (trigger) => {
+    const controller = new AbortController();
+    const deadline = new AbortController();
+    using timeout = vi
+      .spyOn(AbortSignal, "timeout")
+      .mockReturnValue(deadline.signal);
+    const freshPath = "/me/mailFolders/inbox/messages/delta";
+    const { client, requestedUrls } = createGraphClient({
+      [DELTA_LINK]: Object.assign(new Error("Sync folder not found"), {
+        code: "ErrorSyncFolderNotFound",
+        statusCode: 404,
+      }),
+      [freshPath]: new Promise(() => {}),
+    });
+    const read = getOutlookMailboxSyncPage({
+      client,
+      logger,
+      cursor: encodeMailboxSyncCursor({
+        version: 1,
+        provider: "microsoft",
+        deltaLink: DELTA_LINK,
+        after: "2026-07-01T00:00:00.000Z",
+        snapshot: false,
+      }),
+      limit: 20,
+      signal: controller.signal,
+    });
+
+    await vi.waitFor(() => expect(requestedUrls).toContain(freshPath));
+    expect(timeout).toHaveBeenCalledWith(5000);
+    const aborter = trigger === "caller cancellation" ? controller : deadline;
+    const reason = new DOMException(
+      trigger,
+      aborter === deadline ? "TimeoutError" : "AbortError",
+    );
+    aborter.abort(reason);
+    await expect(read).rejects.toBe(reason);
+  });
+
   it("reports a failed folder delta without mailbox identifiers or cursor data", async () => {
     using warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { client } = createGraphClient({});

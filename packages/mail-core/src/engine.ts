@@ -1424,6 +1424,7 @@ export function createMailEngine(input: {
           retryAtMs: nowMs + changes.retryAfterMs,
           errors: deferralErrors,
         });
+        if (signal.aborted) return null;
       }
       idleGate.nextStreamCatchUpAtMs.set(
         stream.streamId,
