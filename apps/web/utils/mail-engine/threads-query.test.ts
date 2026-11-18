@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   type EffectiveMessage,
   conversationMatchesPredicate,
@@ -39,6 +39,12 @@ describe("threadsQueryToPredicate", () => {
     expect(conversationMatchesPredicate([ccRakazo, unrelated], inOther)).toBe(
       false,
     );
+    expect(
+      conversationMatchesPredicate(
+        [unrelated, { ...ccRakazo, roles: ["sent"], labelIds: ["SENT"] }],
+        inOther,
+      ),
+    ).toBe(true);
   });
 
   it("maps unread inbox queries onto a same-message all-predicate", () => {
@@ -141,79 +147,47 @@ describe("threadsQueryToPredicate", () => {
   });
 
   it("excludes Gmail category splits from Other using category membership", () => {
-    expect(
-      threadsQueryToPredicate({
-        type: "inbox",
-        excludeSplits: [
-          {
-            matchAll: true,
-            filters: [{ kind: "CATEGORY", value: "CATEGORY_PROMOTIONS" }],
-          },
-        ],
-      }),
-    ).toEqual({
-      kind: "all",
-      predicates: [
-        { kind: "mailbox", mailbox: "inbox" },
+    const predicate = threadsQueryToPredicate({
+      type: "inbox",
+      excludeSplits: [
         {
-          kind: "no_matching_message",
-          predicate: {
-            kind: "any",
-            predicates: [
-              {
-                kind: "all",
-                predicates: [
-                  {
-                    kind: "membership",
-                    membership: "category",
-                    id: "CATEGORY_PROMOTIONS",
-                  },
-                ],
-              },
-            ],
-          },
+          matchAll: true,
+          filters: [{ kind: "CATEGORY", value: "CATEGORY_PROMOTIONS" }],
         },
       ],
     });
+    expect(
+      messageMatchesPredicate(
+        inboxMessage({ categoryIds: ["CATEGORY_PROMOTIONS"] }),
+        predicate,
+      ),
+    ).toBe(false);
+    expect(messageMatchesPredicate(inboxMessage({}), predicate)).toBe(true);
   });
 
   it("excludes age splits by received date rather than as a label", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-01-08T00:00:00Z"));
-    try {
-      const predicate = threadsQueryToPredicate({
+    const predicate = threadsQueryToPredicate(
+      {
         type: "inbox",
         excludeSplits: [
           { matchAll: true, filters: [{ kind: "OLDER_THAN", value: "1w" }] },
         ],
-      });
-      expect(predicate).toEqual({
-        kind: "all",
-        predicates: [
-          { kind: "mailbox", mailbox: "inbox" },
-          {
-            kind: "no_matching_message",
-            predicate: {
-              kind: "any",
-              predicates: [
-                {
-                  kind: "all",
-                  predicates: [
-                    {
-                      kind: "received",
-                      afterMs: null,
-                      beforeMs: new Date("2026-01-01T00:00:00Z").getTime(),
-                    },
-                  ],
-                },
-              ],
-            },
-          },
-        ],
-      });
-    } finally {
-      vi.useRealTimers();
-    }
+      },
+      new Date("2026-01-08T00:00:00Z"),
+    );
+    const cutoff = Date.parse("2026-01-01T00:00:00Z");
+    expect(
+      messageMatchesPredicate(
+        inboxMessage({ receivedAtMs: cutoff - 1 }),
+        predicate,
+      ),
+    ).toBe(false);
+    expect(
+      messageMatchesPredicate(
+        inboxMessage({ receivedAtMs: cutoff }),
+        predicate,
+      ),
+    ).toBe(true);
   });
 
   it("keeps a user label's membership top-level when combined with other filters", () => {
