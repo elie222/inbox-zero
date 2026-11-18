@@ -1057,7 +1057,9 @@ function getSplitInboxChange(
     if (part.state !== "output-available" || !part.output.success) continue;
     if (!("action" in part.output)) continue;
     changed = true;
-    const splitId = "split" in part.output ? part.output.split?.id : undefined;
+    if (part.output.action !== "create" && part.output.action !== "update")
+      continue;
+    const splitId = part.output.split?.id;
     if (splitId) shown = { toolCallId: part.toolCallId, splitId };
   }
   return changed ? { shown } : null;

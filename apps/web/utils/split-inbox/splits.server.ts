@@ -404,3 +404,21 @@ export async function deleteMailSplit({
   ]);
   if (!count) throw new SafeError("Split not found or cannot be removed");
 }
+
+export async function setMailSplitHideFromAll({
+  emailAccountId,
+  id,
+  hideFromAll,
+}: {
+  emailAccountId: string;
+  id: string;
+  hideFromAll: boolean;
+}) {
+  const [split] = await prisma.mailSplit.updateManyAndReturn({
+    where: { id, emailAccountId, filters: { some: {} } },
+    data: { hideFromAll },
+    select: { id: true, name: true, hideFromAll: true },
+  });
+  if (!split) throw new SafeError("Split not found or cannot be changed.");
+  return split;
+}

@@ -153,7 +153,7 @@ export function threadsQueryToPredicate(
   }
   if (query.excludeSplits?.length) {
     clauses.push({
-      kind: "not",
+      kind: "no_matching_message",
       predicate: {
         kind: "any",
         predicates: query.excludeSplits.map((split) => ({

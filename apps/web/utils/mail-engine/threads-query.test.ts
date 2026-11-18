@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   type EffectiveMessage,
+  conversationMatchesPredicate,
   messageMatchesPredicate,
 } from "@inboxzero/mail-core/query-semantics";
 import {
@@ -35,6 +36,9 @@ describe("threadsQueryToPredicate", () => {
     }
     expect(messageMatchesPredicate(ccRakazo, inOther)).toBe(false);
     expect(messageMatchesPredicate(unrelated, inOther)).toBe(true);
+    expect(conversationMatchesPredicate([ccRakazo, unrelated], inOther)).toBe(
+      false,
+    );
   });
 
   it("maps unread inbox queries onto a same-message all-predicate", () => {
@@ -152,7 +156,7 @@ describe("threadsQueryToPredicate", () => {
       predicates: [
         { kind: "mailbox", mailbox: "inbox" },
         {
-          kind: "not",
+          kind: "no_matching_message",
           predicate: {
             kind: "any",
             predicates: [
@@ -188,7 +192,7 @@ describe("threadsQueryToPredicate", () => {
         predicates: [
           { kind: "mailbox", mailbox: "inbox" },
           {
-            kind: "not",
+            kind: "no_matching_message",
             predicate: {
               kind: "any",
               predicates: [
