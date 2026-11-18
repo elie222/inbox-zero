@@ -688,7 +688,12 @@ export async function createSqliteMailStore(
            ON CONFLICT(account_id, stream_id) DO UPDATE SET
              generation = excluded.generation,
              checkpoint = excluded.checkpoint,
-             retry_at_ms = NULL`,
+             retry_at_ms = CASE
+               WHEN sync_streams.generation = excluded.generation
+                 AND sync_streams.checkpoint IS excluded.checkpoint
+               THEN sync_streams.retry_at_ms
+               ELSE NULL
+             END`,
           [
             input.page.session.accountId,
             input.page.to.streamId,

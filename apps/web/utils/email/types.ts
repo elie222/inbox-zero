@@ -307,6 +307,7 @@ export interface EmailProvider {
     cursor?: string;
     folderId?: string;
     limit: number;
+    signal?: AbortSignal;
   }): Promise<MailboxSyncPage>;
   getMessage(
     messageId: string,

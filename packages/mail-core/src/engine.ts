@@ -1164,6 +1164,7 @@ export function createMailEngine(input: {
     }
     const dueStreams: typeof streams = [];
     const behindStreams: SyncStreamPosition[] = [];
+    const deferralErrors: unknown[] = [];
     // Bootstrap scans share one slice per pass, so a mailbox with many
     // folders can't run the lane into its timeout before later folders get a
     // turn. Folders left over go first on the next pass.
@@ -1174,6 +1175,24 @@ export function createMailEngine(input: {
       bootstrapStarted && runtime.nowMs() >= bootstrapDeadlineMs;
     for (const stream of streams) {
       if (signal.aborted) return;
+      const pendingDeferral = idleGate.pendingStreamDeferrals.get(
+        stream.streamId,
+      );
+      if (pendingDeferral) {
+        if (
+          pendingDeferral.checkpoint === stream.checkpoint &&
+          runtime.nowMs() < pendingDeferral.retryAtMs
+        ) {
+          await persistStreamDeferral({
+            idleGate,
+            stream,
+            retryAtMs: pendingDeferral.retryAtMs,
+            errors: deferralErrors,
+          });
+          continue;
+        }
+        idleGate.pendingStreamDeferrals.delete(stream.streamId);
+      }
       // A scheduled or manual catch-up can advance the normal polling time,
       // but it must still wait for a provider-requested pause to expire.
       if (
@@ -1268,6 +1287,7 @@ export function createMailEngine(input: {
               changes,
               readFence,
               signal,
+              deferralErrors,
             });
             if (behind) behindStreams.push(behind);
           }
@@ -1295,6 +1315,7 @@ export function createMailEngine(input: {
             changes,
             readFence,
             signal,
+            deferralErrors,
           });
           if (behind) behindStreams.push(behind);
         } finally {
@@ -1302,6 +1323,7 @@ export function createMailEngine(input: {
         }
       }
     }
+    syncLaneErrors.push(...deferralErrors);
     // Every page read in this pass is applied first, so the newest page is
     // the latest state written and the replay after it only reads later state.
     for (const position of behindStreams) {
@@ -1320,6 +1342,7 @@ export function createMailEngine(input: {
     changes,
     readFence,
     signal,
+    deferralErrors,
   }: {
     session: { accountId: string; generation: string };
     idleGate: IdleCatchUpGate;
@@ -1327,6 +1350,7 @@ export function createMailEngine(input: {
     changes: SyncReadResult;
     readFence: number;
     signal: AbortSignal;
+    deferralErrors: unknown[];
   }): Promise<SyncStreamPosition | null> {
     // A stopped lane may have been replaced, and its late result must not
     // move the shared catch-up schedule.
@@ -1387,10 +1411,11 @@ export function createMailEngine(input: {
     } else {
       const nowMs = runtime.nowMs();
       if (changes.status === "paused" && changes.retryAfterMs > 0) {
-        await store.deferSyncStream({
-          accountId: session.accountId,
-          position: stream,
+        await persistStreamDeferral({
+          idleGate,
+          stream,
           retryAtMs: nowMs + changes.retryAfterMs,
+          errors: deferralErrors,
         });
       }
       idleGate.nextStreamCatchUpAtMs.set(
@@ -1400,6 +1425,35 @@ export function createMailEngine(input: {
       await noteConnection(session.accountId, changes.status);
     }
     return null;
+  }
+
+  async function persistStreamDeferral({
+    idleGate,
+    stream,
+    retryAtMs,
+    errors,
+  }: {
+    idleGate: IdleCatchUpGate;
+    stream: AccountSyncState["streams"][number];
+    retryAtMs: number;
+    errors: unknown[];
+  }) {
+    try {
+      await store.deferSyncStream({
+        accountId: stream.accountId,
+        position: stream,
+        retryAtMs,
+      });
+      idleGate.pendingStreamDeferrals.delete(stream.streamId);
+    } catch (error) {
+      // Keep the deadline in memory until SQLite accepts the write. A local
+      // write failure should not discard the other results from this batch.
+      idleGate.pendingStreamDeferrals.set(stream.streamId, {
+        checkpoint: stream.checkpoint,
+        retryAtMs,
+      });
+      errors.push(error);
+    }
   }
 
   // Lists the stream's newest messages the way a bootstrap's first page does
@@ -1517,6 +1571,7 @@ export function createMailEngine(input: {
       nextBootstrapStreamId: null,
       nextScopeDiscoveryAtMs: 0,
       nextStreamCatchUpAtMs: new Map(),
+      pendingStreamDeferrals: new Map(),
       requestCount: 0,
       scopesDiscoveredAt: null,
       streamBacklogPages: new Map(),
@@ -1737,6 +1792,10 @@ type IdleCatchUpGate = {
   nextBootstrapStreamId: string | null;
   nextScopeDiscoveryAtMs: number;
   nextStreamCatchUpAtMs: Map<string, number>;
+  pendingStreamDeferrals: Map<
+    string,
+    { checkpoint: string | null; retryAtMs: number }
+  >;
   requestCount: number;
   scopesDiscoveredAt: CheckStamp | null;
   streamBacklogPages: Map<string, number>;

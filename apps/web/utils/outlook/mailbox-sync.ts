@@ -1,3 +1,4 @@
+import { RetryHandlerOptions } from "@microsoft/microsoft-graph-client";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import {
   compactMailboxSyncMessage,
@@ -28,6 +29,7 @@ const MESSAGE_SELECT_FIELDS =
 
 const MESSAGE_REFETCH_CONCURRENCY = 5;
 const SYNC_FOLDER_NOT_FOUND = "ErrorSyncFolderNotFound";
+const FOLDER_RECOVERY_TIMEOUT_MS = 5000;
 
 type DeltaMessage = Message & {
   "@removed"?: { reason?: string };
@@ -46,6 +48,7 @@ export async function getOutlookMailboxSyncPage({
   after,
   folderId,
   limit,
+  signal,
 }: {
   client: OutlookClient;
   logger: Logger;
@@ -53,6 +56,7 @@ export async function getOutlookMailboxSyncPage({
   after?: Date;
   folderId?: string;
   limit: number;
+  signal?: AbortSignal;
 }): Promise<MailboxSyncPage> {
   if (!cursor) {
     if (!after) throw new Error("after is required for initial mailbox sync");
@@ -119,6 +123,11 @@ export async function getOutlookMailboxSyncPage({
       });
     }
     if (!restart) throw error;
+    let recoverySignal: AbortSignal | undefined;
+    if (folderNotFound) {
+      const timeout = AbortSignal.timeout(FOLDER_RECOVERY_TIMEOUT_MS);
+      recoverySignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+    }
     try {
       return await getInitialPage({
         client,
@@ -126,6 +135,7 @@ export async function getOutlookMailboxSyncPage({
         after: new Date(decoded.after),
         folderId: decoded.folderId ?? folderId,
         limit,
+        signal: recoverySignal,
       });
     } catch (restartError) {
       if (folderNotFound && extractErrorInfo(restartError).status === 404) {
@@ -209,28 +219,37 @@ async function getInitialPage({
   after,
   folderId,
   limit,
+  signal,
 }: {
   client: OutlookClient;
   logger: Logger;
   after: Date;
   folderId?: string;
   limit: number;
+  signal?: AbortSignal;
 }) {
   const resolvedFolderId = folderId ?? "inbox";
-  const snapshotResponse = await withMicrosoftGraphRetry<DeltaResponse>(
-    () =>
-      client
-        .getClient()
-        .api(
-          `/me/mailFolders/${encodeURIComponent(resolvedFolderId)}/messages/delta`,
-        )
-        .select(MESSAGE_SELECT_FIELDS)
-        .filter(`receivedDateTime ge ${after.toISOString()}`)
-        .top(limit)
-        .header("Prefer", `IdType="ImmutableId", odata.maxpagesize=${limit}`)
-        .get(),
-    logger,
-  );
+  const readSnapshot = (): Promise<DeltaResponse> => {
+    signal?.throwIfAborted();
+    const request = client
+      .getClient()
+      .api(
+        `/me/mailFolders/${encodeURIComponent(resolvedFolderId)}/messages/delta`,
+      )
+      .select(MESSAGE_SELECT_FIELDS)
+      .filter(`receivedDateTime ge ${after.toISOString()}`)
+      .top(limit)
+      .header("Prefer", `IdType="ImmutableId", odata.maxpagesize=${limit}`);
+    return signal
+      ? request
+          .options({ signal })
+          .middlewareOptions([new RetryHandlerOptions(0, 0)])
+          .get()
+      : request.get();
+  };
+  const snapshotResponse = signal
+    ? await readSnapshot()
+    : await withMicrosoftGraphRetry(readSnapshot, logger);
   const { response } = await resolveAmbiguousDeltaMessages({
     client,
     logger,

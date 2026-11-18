@@ -189,7 +189,7 @@ export function createEmailProviderMailboxSource(input: {
         return mapProviderError(error);
       }
     },
-    async readChanges({ position, session, requestId, pageSize }) {
+    async readChanges({ position, session, requestId, pageSize, signal }) {
       try {
         const page = await provider.getMailboxSyncPage({
           cursor: position.checkpoint || undefined,
@@ -198,6 +198,7 @@ export function createEmailProviderMailboxSource(input: {
               ? position.streamId
               : undefined,
           limit: pageSize,
+          signal,
         });
         if (page.reset) {
           return { status: "reset_required", scopeId: position.streamId };
