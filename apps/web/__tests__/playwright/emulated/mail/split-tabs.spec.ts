@@ -84,10 +84,16 @@ test("restores a deleted All tab and protects it from removal", async ({
   });
   await expect(allTab).toBeVisible();
   await allTab.click({ button: "right" });
+  if (!isMicrosoft) {
+    await expect(
+      page.getByRole("menuitem", { name: "Choose what All shows" }),
+    ).toBeVisible();
+  }
   await expect(
     page.getByRole("menuitem", { name: "Turn off split" }),
   ).toBeHidden();
   await capturePlaywrightCheckpoint(page, testInfo, "mail-protected-all-split");
+  if (!isMicrosoft) await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "New split", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Move All down", exact: true }),
