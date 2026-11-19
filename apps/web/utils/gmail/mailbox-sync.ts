@@ -73,12 +73,15 @@ export async function getGmailMailboxSyncPage({
       },
       logger,
     );
-    const resumeEndHistoryId = decoded.endHistoryId;
-    const history = resumeEndHistoryId
-      ? (response.history ?? []).filter((record) =>
-          historyRecordAtOrBefore(record.id, resumeEndHistoryId),
-        )
-      : (response.history ?? []);
+    // A resumed page must be the snapshot its offset was taken from. Gmail can
+    // append newer records to the last page, so those wait for the next sync.
+    const { endHistoryId: resumeEndHistoryId } = decoded;
+    const history = (response.history ?? []).filter(
+      (record) =>
+        !resumeEndHistoryId ||
+        !record.id ||
+        BigInt(record.id) <= BigInt(resumeEndHistoryId),
+    );
     const { upsertIds, deletedIds, changedThreadIds } =
       getGmailMailboxChangeIds(history);
     // `maxResults` bounds history records, not the message ids they expand to.
@@ -91,16 +94,13 @@ export async function getGmailMailboxSyncPage({
         messageId,
       })),
     ];
-    const requestedOffset = decoded.changeOffset ?? 0;
     const pageFingerprint = gmailHistoryPageFingerprint(changeUnits);
-    // History pages are stable while their page token is used. If a re-read
-    // page has a different ordered change list, the saved offset could point
-    // at the wrong ids, so restart the page rather than skipping changes.
-    const pageChanged =
-      decoded.pageFingerprint !== undefined
-        ? decoded.pageFingerprint !== pageFingerprint
-        : requestedOffset > 0;
-    const changeOffset = pageChanged ? 0 : requestedOffset;
+    // A re-read page can still differ (for example, a different `limit`), and
+    // then the saved offset could point past unemitted ids. Restart the page.
+    const changeOffset =
+      decoded.pageFingerprint === pageFingerprint
+        ? (decoded.changeOffset ?? 0)
+        : 0;
     const sliceEnd = Math.min(
       changeOffset + MAX_SYNC_PAGE_CHANGES,
       changeUnits.length,
@@ -224,21 +224,6 @@ function gmailHistoryPageFingerprint(
     hash.update(`${unit.kind}:${unit.messageId}\n`);
   }
   return hash.digest("base64url").slice(0, 22);
-}
-
-// A resumed page must be the same snapshot the offset was taken from. Gmail
-// can append newer records to the last page of a listing, so leave those for
-// the next sync rather than letting them shift the saved offset.
-function historyRecordAtOrBefore(
-  recordId: string | null | undefined,
-  endHistoryId: string,
-) {
-  if (!recordId) return true;
-  try {
-    return BigInt(recordId) <= BigInt(endHistoryId);
-  } catch {
-    return true;
-  }
 }
 
 async function getGmailSnapshotPage({

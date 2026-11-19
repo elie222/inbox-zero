@@ -106,7 +106,7 @@ describe("engine catch-up after a long gap", () => {
     ]);
     const engine = createMailEngine({
       store,
-      source: deletionSource("deleted-during-catch-up").port,
+      source: deletionSource("deleted-during-catch-up"),
       executor: idleExecutor(),
       runtime: createHostRuntime({ nowMs: () => 1000 }),
     });
@@ -285,52 +285,9 @@ function historySource({
   };
 }
 
-function deletionSource(messageId: string) {
-  const port: MailboxSource = {
-    async describe() {
-      return {
-        status: "ok",
-        value: {
-          strategy: "account_history",
-          supportedChanges: ["archive"],
-          maxPageSize: 50,
-          maxHydrationBatch: 20,
-        },
-      };
-    },
-    async discoverScopes() {
-      return {
-        status: "ok",
-        value: {
-          scopes: [{ id: "primary", kind: "account", folderId: null }],
-          nextPage: null,
-        },
-      };
-    },
-    async beginBootstrap() {
-      return {
-        status: "ok",
-        value: {
-          bootstrapId: "boot",
-          enumerationToken: "newest",
-          catchUpFrom: null,
-        },
-      };
-    },
-    async enumerate() {
-      return {
-        status: "ok",
-        value: {
-          bootstrapId: "boot",
-          scopeId: "primary",
-          changes: [],
-          requiredHydration: [],
-          bodies: [],
-          nextPage: "older",
-          catchUpFrom: null,
-        },
-      };
-    },
+function deletionSource(messageId: string): MailboxSource {
+  return {
+    ...historySource({ historyPages: 1 }).port,
     async readChanges({ position, requestId }) {
       return {
         status: "page",
@@ -351,23 +308,7 @@ function deletionSource(messageId: string) {
         },
       };
     },
-    async hydrate() {
-      return {
-        status: "ok",
-        value: { changes: [], bodies: [], unresolved: [] },
-      };
-    },
-    async readConversationMembership() {
-      return { status: "ok", value: { status: "unsupported" } };
-    },
-    async search() {
-      return { status: "unsupported" };
-    },
-    async readAttachment() {
-      return { status: "paused", retryAfterMs: 0, reason: "unavailable" };
-    },
   };
-  return { port };
 }
 
 function inboxMessage(
