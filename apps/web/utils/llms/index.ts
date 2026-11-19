@@ -93,7 +93,6 @@ import {
   withNetworkRetry,
   withLLMRetry,
 } from "./retry";
-import { coalesceConsecutiveMessages } from "./coalesce-messages";
 
 const logger = createScopedLogger("llms");
 
@@ -363,23 +362,9 @@ export function createGenerateText({
         bridged,
       });
 
-      const coalescedRequestOptions =
-        "messages" in protectedRequestOptions &&
-        Array.isArray(
-          (protectedRequestOptions as { messages?: unknown }).messages,
-        )
-          ? {
-              ...protectedRequestOptions,
-              messages: coalesceConsecutiveMessages(
-                (protectedRequestOptions as { messages: ModelMessage[] })
-                  .messages,
-              ),
-            }
-          : protectedRequestOptions;
-
       const result = await generateText(
         {
-          ...coalescedRequestOptions,
+          ...protectedRequestOptions,
           ...(bridged.tools ? { tools: bridged.tools } : {}),
           ...commonOptions,
           telemetry: buildLlmTelemetry({
@@ -609,19 +594,8 @@ export function createGenerateObject({
 
       let result: GenerateObjectResult<RESULT>;
 
-      const coalescedRequest =
-        "messages" in request &&
-        Array.isArray((request as { messages?: unknown }).messages)
-          ? ({
-              ...request,
-              messages: coalesceConsecutiveMessages(
-                (request as { messages: ModelMessage[] }).messages,
-              ),
-            } as unknown as typeof request)
-          : request;
-
       try {
-        result = await generateObject<SCHEMA, OUTPUT, RESULT>(coalescedRequest);
+        result = await generateObject<SCHEMA, OUTPUT, RESULT>(request);
       } catch (error) {
         if (
           NoObjectGeneratedError.isInstance(error) &&
@@ -836,9 +810,7 @@ export async function chatCompletionStream(
     try {
       return streamText({
         model: bridgedChat.model,
-        messages: coalesceConsecutiveMessages(
-          protectedMessages as ModelMessage[],
-        ),
+        messages: protectedMessages as ModelMessage[],
         tools: bridgedChat.tools,
         stopWhen: maxSteps ? isStepCount(maxSteps) : undefined,
         ...commonOptions,
@@ -1005,19 +977,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       activeTools: bridgedAgent.bridged
         ? undefined
         : (activeTools as Array<keyof typeof candidateTools> | undefined),
-      prepareStep: prepareStep
-        ? async (params) => {
-            const prepared = await prepareStep(params);
-            return {
-              ...prepared,
-              messages: coalesceConsecutiveMessages(
-                prepared?.messages ?? params.messages,
-              ),
-            };
-          }
-        : ({ messages: stepMessages }) => ({
-            messages: coalesceConsecutiveMessages(stepMessages),
-          }),
+      prepareStep,
       stopWhen: stopWhen ?? (maxSteps ? isStepCount(maxSteps) : undefined),
       temperature,
       ...commonOptions,
@@ -1068,9 +1028,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
 
     try {
       return await agent.stream({
-        messages: coalesceConsecutiveMessages(
-          protectedMessages as ModelMessage[],
-        ),
+        messages: protectedMessages as ModelMessage[],
         experimental_transform: smoothStream({ chunking: "word" }),
         // Bridged CLI models run their tools themselves and ignore
         // activeTools, so a steered tool-free step can't be enforced there.

@@ -1,99 +1,73 @@
-import type { JSONValue, ModelMessage, ToolContent } from "ai";
+import type {
+  LanguageModelV4Message,
+  LanguageModelV4Middleware,
+  LanguageModelV4Prompt,
+} from "@ai-sdk/provider";
 
-type ProviderOptions = Record<string, Record<string, JSONValue>>;
+// Chat templates of many local models (LM Studio, vLLM, llama.cpp) reject
+// consecutive messages with the same role, while callers add context as
+// separate user messages. Hosted providers accept that, so this only wraps
+// OpenAI-compatible models.
+export const coalesceConsecutiveMessagesMiddleware: LanguageModelV4Middleware =
+  {
+    specificationVersion: "v4",
+    transformParams: async ({ params }) => ({
+      ...params,
+      prompt: coalesceConsecutiveMessages(params.prompt),
+    }),
+  };
 
-function mergeContent(
-  contentA: ModelMessage["content"],
-  contentB: ModelMessage["content"],
-): ModelMessage["content"] {
-  if (contentA === "") return contentB;
-  if (contentB === "") return contentA;
-
-  if (typeof contentA === "string" && typeof contentB === "string") {
-    return `${contentA}\n\n${contentB}`;
-  }
-
-  if (Array.isArray(contentA) && Array.isArray(contentB)) {
-    return [...contentA, ...contentB] as ToolContent;
-  }
-
-  if (typeof contentA === "string" && Array.isArray(contentB)) {
-    return [{ type: "text", text: contentA }, ...contentB] as ToolContent;
-  }
-
-  if (Array.isArray(contentA) && typeof contentB === "string") {
-    return [...contentA, { type: "text", text: contentB }] as ToolContent;
-  }
-
-  return contentB;
-}
-
-function mergeProviderOptions(
-  optionsA?: ProviderOptions,
-  optionsB?: ProviderOptions,
-): ProviderOptions | undefined {
-  if (!optionsA && !optionsB) return;
-  if (!optionsA) return optionsB;
-  if (!optionsB) return optionsA;
-
-  const merged: ProviderOptions = { ...optionsA };
-  for (const [provider, settings] of Object.entries(optionsB)) {
-    if (
-      merged[provider] &&
-      typeof merged[provider] === "object" &&
-      !Array.isArray(merged[provider]) &&
-      settings &&
-      typeof settings === "object" &&
-      !Array.isArray(settings)
-    ) {
-      merged[provider] = {
-        ...merged[provider],
-        ...settings,
-      };
-    } else {
-      merged[provider] = settings;
-    }
-  }
-  return merged;
-}
-
-/**
- * Coalesces consecutive messages of the same role (e.g., user -> user -> user)
- * into a single message with concatenated content and merged provider options.
- *
- * This prevents Jinja exceptions when sending consecutive user messages to
- * OpenAI-compatible backends (such as LM Studio, vLLM, Ollama, HuggingFace TGI,
- * Mistral) whose chat templates enforce strict role alternation, while also
- * respecting API constraints on Anthropic and Bedrock.
- */
 export function coalesceConsecutiveMessages(
-  messages: ModelMessage[],
-): ModelMessage[] {
-  if (!messages || messages.length <= 1) return messages;
+  prompt: LanguageModelV4Prompt,
+): LanguageModelV4Prompt {
+  const result: LanguageModelV4Prompt = [];
 
-  const result: ModelMessage[] = [];
-
-  for (const message of messages) {
-    const prev = result.at(-1);
-
-    if (prev && prev.role === message.role) {
-      const mergedContent = mergeContent(prev.content, message.content);
-      const mergedProviderOptions = mergeProviderOptions(
-        prev.providerOptions as ProviderOptions | undefined,
-        message.providerOptions as ProviderOptions | undefined,
-      );
-
-      result[result.length - 1] = {
-        ...prev,
-        content: mergedContent,
-        ...(mergedProviderOptions
-          ? { providerOptions: mergedProviderOptions }
-          : {}),
-      } as ModelMessage;
+  for (const message of prompt) {
+    const previous = result.at(-1);
+    if (previous?.role === message.role) {
+      result[result.length - 1] = mergeMessages(previous, message);
     } else {
       result.push(message);
     }
   }
 
   return result;
+}
+
+function mergeMessages(
+  first: LanguageModelV4Message,
+  second: LanguageModelV4Message,
+): LanguageModelV4Message {
+  const providerOptions =
+    first.providerOptions || second.providerOptions
+      ? { ...first.providerOptions, ...second.providerOptions }
+      : undefined;
+
+  if (first.role === "system" || second.role === "system") {
+    return {
+      role: "system",
+      content: joinText([first.content, second.content] as string[]),
+      providerOptions,
+    };
+  }
+
+  const content = [...first.content, ...second.content];
+  const texts = content.flatMap((part) =>
+    part.type === "text" ? [part.text] : [],
+  );
+
+  return {
+    ...first,
+    // Plain text stays a single string in the request, which every chat
+    // template handles.
+    content:
+      texts.length === content.length
+        ? [{ type: "text", text: joinText(texts) }]
+        : content,
+    providerOptions,
+  } as LanguageModelV4Message;
+}
+
+function joinText(parts: string[]) {
+  return parts.filter(Boolean).join("\n\n");
 }
