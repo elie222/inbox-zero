@@ -188,6 +188,24 @@ describe("query corpora", () => {
         counts: 2,
       });
       expect(
+        await read(["acc-1"], {
+          kind: "all",
+          predicates: [inboxRole, { kind: "not", predicate: workInbox }],
+        }),
+      ).toEqual({
+        list: ["c-draft-labelled", "c-match", "c-other"],
+        counts: 3,
+      });
+      expect(
+        await read(["acc-1"], {
+          kind: "all",
+          predicates: [
+            inboxRole,
+            { kind: "no_matching_message", predicate: workInbox },
+          ],
+        }),
+      ).toEqual({ list: ["c-draft-labelled", "c-other"], counts: 2 });
+      expect(
         await read(["acc-1", "acc-2"], {
           kind: "all",
           predicates: [
