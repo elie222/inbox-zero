@@ -266,6 +266,9 @@ function stubClient(input: {
     async readDraft() {
       return { status: "missing" };
     },
+    async listDrafts() {
+      return [];
+    },
     async submitSend() {
       return { status: "rejected", code: "unsupported" };
     },

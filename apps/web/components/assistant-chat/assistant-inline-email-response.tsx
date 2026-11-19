@@ -45,9 +45,12 @@ export const AssistantInlineEmailResponse = memo(
       {
         className: cn(
           "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-          "[&_[data-streamdown='heading-1']]:!mt-8",
-          "[&_[data-streamdown='heading-2']]:!mt-8",
-          "[&_[data-streamdown='heading-3']]:!mt-7",
+          // The chat panel is narrow, so section headings stay small and let the content lead.
+          "[&_[data-streamdown='heading-1']]:!mt-7 [&_[data-streamdown='heading-1']]:!text-lg [&_[data-streamdown='heading-1']]:!font-semibold",
+          "[&_[data-streamdown='heading-2']]:!mt-7 [&_[data-streamdown='heading-2']]:!mb-2 [&_[data-streamdown='heading-2']]:!text-base [&_[data-streamdown='heading-2']]:!font-semibold",
+          "[&_[data-streamdown='heading-3']]:!mt-6 [&_[data-streamdown='heading-3']]:!mb-1.5 [&_[data-streamdown='heading-3']]:!text-sm [&_[data-streamdown='heading-3']]:!font-semibold",
+          // Keep each email card with its own text and space items apart, so an item reads as one unit.
+          "[&_li:has([data-inline-email-card])]:!mb-4 [&_li:has([data-inline-email-card]):last-child]:!mb-0",
           "[&_a]:!text-inherit [&_a]:underline [&_a]:underline-offset-2 [&_a:hover]:opacity-80",
           // Models backtick addresses and domains; monospace chips read as code and add visual noise.
           "[&_[data-streamdown='inline-code']]:bg-transparent [&_[data-streamdown='inline-code']]:p-0 [&_[data-streamdown='inline-code']]:font-sans [&_[data-streamdown='inline-code']]:font-medium [&_[data-streamdown='inline-code']]:text-[length:inherit]",

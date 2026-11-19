@@ -1,4 +1,8 @@
-import type { DraftSaveResult } from "@inboxzero/mail-core/drafts";
+import isEqual from "lodash/isEqual";
+import type {
+  DraftContent,
+  DraftSaveResult,
+} from "@inboxzero/mail-core/drafts";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import type {
   EmailAttachmentMetadata,
@@ -9,6 +13,7 @@ import { splitRecipientList } from "@/utils/email";
 import { fetchWithAccount } from "@/utils/fetch";
 import { getActiveMailClient } from "@/utils/mail-engine/active-client";
 import type { SendEmailBody } from "@/utils/types/mail";
+import { randomUuid } from "@/utils/uuid";
 
 /**
  * A file already on the mailbox draft. Only the reference is stored locally;
@@ -52,6 +57,16 @@ export type ReplyDraftIdentity = Pick<
 >;
 export type ReplyDraftMode = "reply" | "forward";
 type ReplyDraftScope = Pick<ReplyDraftIdentity, "emailAccountId" | "threadId">;
+type UnsavedReplyDraft = {
+  identity: ReplyDraftIdentity;
+  content: ReplyDraftContent;
+  updatedAt: number;
+  editId: string;
+};
+type KeptReplyDraft = UnsavedReplyDraft & {
+  /** The engine revision this edit was made on; null when it had none. */
+  engineRevision: number | null;
+};
 
 const drafts = new Map<string, StoredReplyDraft>();
 const pendingWrites = new Map<string, Promise<unknown>>();
@@ -61,11 +76,27 @@ const engineRevisions = new Map<string, number>();
 const draftSessionMessageIds = new Map<string, Map<string, string>>();
 const latestDraftMessageIds = new Map<string, Map<string, string>>();
 const listeners = new Set<(scope: ReplyDraftScope) => void>();
+// Drafts other tabs hold aren't loaded here, but their threads still show as
+// drafts in this tab's list.
+const otherTabDraftThreads = new Map<string, string>();
+const PRESENCE_REQUEST = "reply-draft-presence-request";
+const TAB_GONE = "reply-draft-tab-gone";
+const TAB_ID = randomUuid();
 const accountEpoch = new Map<string, number>();
+// The engine runs in this page's worker, so a save still on its way there
+// dies with the page. Leaving the page keeps those synchronously in
+// localStorage, and the next load saves them.
+const UNSAVED_DRAFT_KEY_PREFIX = "inbox-zero:unsaved-reply-draft:";
+const unsavedWrites = new Map<string, UnsavedReplyDraft>();
+const leaveFlushers = new Set<() => void>();
 const channel =
   typeof window !== "undefined" && typeof BroadcastChannel !== "undefined"
     ? new BroadcastChannel("inbox-zero-reply-drafts")
     : null;
+
+function isReplyDraftSessionId(messageId: string) {
+  return messageId.endsWith(":reply") || messageId.endsWith(":forward");
+}
 
 export function getReplyDraftSessionId(
   messageId: string,
@@ -131,13 +162,73 @@ export function getLatestDraftMessageId(
 
 channel?.addEventListener("message", (event) => {
   const scope = event.data;
+  // A tab that opens after others started replies asks them for their drafts.
+  if (scope?.type === PRESENCE_REQUEST) {
+    announceLocalDrafts();
+    return;
+  }
+  // A closing or reloading tab takes its drafts with it; a reload comes back
+  // under a new id and announces them again.
+  if (scope?.type === TAB_GONE && typeof scope.tabId === "string") {
+    for (const [key, thread] of otherTabDraftThreads) {
+      if (!key.startsWith(`${scope.tabId}:`)) continue;
+      otherTabDraftThreads.delete(key);
+      const separator = thread.indexOf(":");
+      const removed = {
+        emailAccountId: thread.slice(0, separator),
+        threadId: thread.slice(separator + 1),
+      };
+      for (const listener of listeners) listener(removed);
+    }
+    return;
+  }
   if (
     typeof scope?.emailAccountId !== "string" ||
     typeof scope?.threadId !== "string"
   )
     return;
+  if (typeof scope.messageId === "string" && typeof scope.tabId === "string") {
+    // Two tabs can hold the same draft; one clearing it mustn't drop the other's.
+    const key = `${scope.tabId}:${draftKey(scope)}`;
+    if (scope.present === true)
+      otherTabDraftThreads.set(
+        key,
+        `${scope.emailAccountId}:${scope.threadId}`,
+      );
+    else otherTabDraftThreads.delete(key);
+  }
   for (const listener of listeners) listener(scope);
 });
+channel?.postMessage({ type: PRESENCE_REQUEST });
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", (event) => {
+    keepUnsavedReplyDrafts();
+    // A page kept in the back/forward cache still holds its drafts.
+    if (!event.persisted)
+      channel?.postMessage({ type: TAB_GONE, tabId: TAB_ID });
+  });
+  // Mobile browsers can discard a hidden page without a pagehide.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") keepUnsavedReplyDrafts();
+  });
+}
+
+/**
+ * Runs `flush` as the page is hidden or left, just before unsaved drafts are
+ * kept for the next load, so the composer's last keystrokes are among them.
+ */
+export function flushReplyDraftBeforeLeaving(flush: () => void) {
+  leaveFlushers.add(flush);
+  return () => {
+    leaveFlushers.delete(flush);
+  };
+}
+
+function announceLocalDrafts() {
+  for (const draft of drafts.values()) {
+    if (draft.content) notifyReplyDraftChange(draft);
+  }
+}
 
 export function subscribeToReplyDrafts(
   listener: (scope: ReplyDraftScope) => void,
@@ -148,11 +239,72 @@ export function subscribeToReplyDrafts(
   };
 }
 
+/**
+ * `accountId:threadId` keys of threads with an unsent reply draft in this tab
+ * or another, whether or not a provider save has put it in the mailbox yet.
+ * Joined with newlines so the value is stable between changes.
+ */
+export function getReplyDraftThreadKeys() {
+  const keys = new Set(otherTabDraftThreads.values());
+  for (const draft of drafts.values()) {
+    if (draft.content) keys.add(`${draft.emailAccountId}:${draft.threadId}`);
+  }
+  return [...keys].sort().join("\n");
+}
+
+/**
+ * Loads the reply drafts this device already holds, so the list marks their
+ * threads before they're opened. Drafts already loaded here win.
+ */
+export async function hydrateReplyDrafts(emailAccountId: string) {
+  const client = getActiveMailClient();
+  if (!client) return;
+  const epoch = currentEpoch(emailAccountId);
+  // Registered so that clearing every account also invalidates this read.
+  accountEpoch.set(emailAccountId, epoch);
+  await Promise.all(
+    readKeptReplyDrafts()
+      .filter((kept) => kept.identity.emailAccountId === emailAccountId)
+      .map(recoverKeptReplyDraft),
+  );
+  const stored = await client.listDrafts(emailAccountId);
+  // A read from a client replaced meanwhile must not win over the new one's.
+  if (
+    currentEpoch(emailAccountId) !== epoch ||
+    getActiveMailClient() !== client
+  )
+    return;
+  for (const { key, draftRevision, content } of stored) {
+    const state = parseReplyDraftState(content);
+    const threadId =
+      content.conversationId ?? state?.content.values.replyToEmail?.threadId;
+    // Drafts from before replies and forwards had their own sessions are
+    // migrated when their thread opens, not adopted here as a session.
+    const messageId = state?.sessionMessageId ?? key.draftId;
+    if (!state || !threadId || !isReplyDraftSessionId(messageId)) continue;
+    restoreReplyDraft(
+      {
+        emailAccountId,
+        threadId,
+        messageId,
+      },
+      draftRevision,
+      state,
+    );
+  }
+}
+
 export async function getReplyDraft(identity: ReplyDraftIdentity) {
   await pendingWrites.get(draftKey(identity))?.catch(() => {});
   assertAccountEpoch(identity.emailAccountId);
   const local = drafts.get(draftKey(identity));
   if (local) return local;
+  const kept = readKeptReplyDrafts().find(
+    (draft) => draftKey(draft.identity) === draftKey(identity),
+  );
+  if (kept) await recoverKeptReplyDraft(kept);
+  const recovered = drafts.get(draftKey(identity));
+  if (recovered) return recovered;
   try {
     return await loadEngineReplyDraft(identity);
   } catch {
@@ -312,60 +464,67 @@ export function createReplyDraftWriter(
   let pending: Promise<unknown> = Promise.resolve();
   const epoch = currentEpoch(identity.emailAccountId);
   const write = (content: ReplyDraftContent | null) => {
-    const operation = pending
-      .catch(() => {})
-      .then(async () => {
-        assertAccountEpoch(identity.emailAccountId, epoch);
-        const previous = drafts.get(draftKey(identity));
-        if ((previous?.revision ?? 0) !== revision) {
-          throw new Error(
-            "This draft changed in another tab. Reopen the composer to load that version.",
-          );
-        }
-        let nextContent = content;
-        if (
-          content &&
-          previous?.content &&
-          previous.content.requestId === content.requestId
-        ) {
-          nextContent = {
-            ...content,
-            ...(previous.content.providerDraftId && {
-              providerDraftId: previous.content.providerDraftId,
-            }),
-            ...(previous.content.providerDraftCreationUnconfirmed !==
-              undefined && {
-              providerDraftCreationUnconfirmed:
-                previous.content.providerDraftCreationUnconfirmed,
-            }),
-          };
-        }
-        // The composer doesn't track the mailbox copies of its draft; they
-        // belong to the mailbox draft, whichever composer session saves.
-        const providerDraftId =
-          nextContent?.providerDraftId ?? previous?.content?.providerDraftId;
-        if (
-          nextContent &&
-          providerDraftId &&
-          previous?.content?.providerDraftId === providerDraftId &&
-          previous.content.providerDraftMessageIds
-        )
-          nextContent = {
-            ...nextContent,
-            providerDraftMessageIds: previous.content.providerDraftMessageIds,
-          };
+    const updatedAt = Date.now();
+    // Nothing is kept for an account cleared since this writer opened, such as
+    // after sign-out; the write itself is refused below.
+    const unsaved: UnsavedReplyDraft | undefined =
+      content && currentEpoch(identity.emailAccountId) === epoch
+        ? {
+            identity: pickIdentity(identity),
+            content,
+            updatedAt,
+            editId: randomUuid(),
+          }
+        : undefined;
+    if (unsaved) unsavedWrites.set(draftKey(identity), unsaved);
+    else {
+      // A discard isn't kept: replaying it could erase another tab's edits.
+      // Nor is the edit it discards, which may not have reached the engine.
+      unsavedWrites.delete(draftKey(identity));
+      forgetKeptReplyDraft(identity);
+    }
+    const operation = Promise.allSettled([
+      pending,
+      pendingWrites.get(draftKey(identity)),
+    ]).then(async () => {
+      assertAccountEpoch(identity.emailAccountId, epoch);
+      const previous = drafts.get(draftKey(identity));
+      if ((previous?.revision ?? 0) !== revision) {
+        throw new Error(
+          "This draft has newer edits. Reopen the composer to load them.",
+        );
+      }
+      const nextContent =
+        content && withProviderReferences(content, previous?.content);
+      // Flushing the same snapshot mustn't invalidate a composer that just
+      // loaded it. Still try to persist it in case the last write failed.
+      if (
+        !nextContent ||
+        !previous ||
+        !isEqual(previous.content, nextContent)
+      ) {
+        revision += 1;
         drafts.set(draftKey(identity), {
           ...identity,
           content: nextContent,
-          revision: revision + 1,
-          updatedAt: Date.now(),
+          revision,
+          updatedAt,
         });
-        revision += 1;
-        await persistEngineReplyDraft(identity, nextContent).catch(() => {});
-        if (Boolean(previous?.content) !== Boolean(content)) {
-          notifyReplyDraftChange(identity);
-        }
-      });
+      }
+      // The list marks the thread as a draft from this change, so it
+      // mustn't wait on the local save.
+      if (Boolean(previous?.content) !== Boolean(content)) {
+        notifyReplyDraftChange(identity);
+      }
+      const persisted = await persistEngineReplyDraft(
+        identity,
+        nextContent,
+      ).catch(() => false);
+      if (persisted && unsaved) forgetUnsavedReplyDraft(unsaved);
+    });
+    // A write refused for a conflict or a cleared account isn't the user's
+    // latest copy to bring back.
+    if (unsaved) operation.catch(() => forgetUnsavedReplyDraft(unsaved));
     pending = operation;
     const identityKey = draftKey(identity);
     pendingWrites.set(identityKey, operation);
@@ -475,15 +634,18 @@ export async function dropReplyDraftDeletedFromMailbox(
 export function clearLocalReplyDrafts(emailAccountId?: string) {
   if (!emailAccountId) {
     drafts.clear();
+    otherTabDraftThreads.clear();
     engineRevisions.clear();
     draftSessionMessageIds.clear();
     latestDraftMessageIds.clear();
     for (const accountId of accountEpoch.keys()) {
       accountEpoch.set(accountId, currentEpoch(accountId) + 1);
     }
+    forgetUnsavedReplyDrafts();
     return;
   }
   accountEpoch.set(emailAccountId, currentEpoch(emailAccountId) + 1);
+  forgetUnsavedReplyDrafts(emailAccountId);
   for (const [key, draft] of drafts) {
     if (draft.emailAccountId !== emailAccountId) continue;
     drafts.delete(key);
@@ -491,6 +653,10 @@ export function clearLocalReplyDrafts(emailAccountId?: string) {
   }
   draftSessionMessageIds.delete(emailAccountId);
   latestDraftMessageIds.delete(emailAccountId);
+  for (const [key, thread] of otherTabDraftThreads) {
+    if (thread.startsWith(`${emailAccountId}:`))
+      otherTabDraftThreads.delete(key);
+  }
 }
 
 function accountMap(
@@ -585,9 +751,20 @@ function clearPendingWrite(identityKey: string, operation: Promise<unknown>) {
   }
 }
 
-function notifyReplyDraftChange(scope: ReplyDraftScope) {
+function notifyReplyDraftChange(identity: ReplyDraftIdentity) {
+  const scope = {
+    emailAccountId: identity.emailAccountId,
+    threadId: identity.threadId,
+  };
   for (const listener of listeners) listener(scope);
-  channel?.postMessage(scope);
+  // Only the identity: callers may pass a whole stored draft, whose content
+  // other tabs don't need.
+  channel?.postMessage({
+    ...scope,
+    messageId: identity.messageId,
+    tabId: TAB_ID,
+    present: Boolean(drafts.get(draftKey(identity))?.content),
+  });
 }
 
 function getComposeMode(
@@ -629,21 +806,11 @@ async function persistEngineReplyDraft(
     const saved = await client.saveDraft({
       key: { accountId: identity.emailAccountId, draftId },
       expectedRevision,
-      content: {
-        to: splitRecipientList(content.values.to).slice(0, 100),
-        cc: splitRecipientList(content.values.cc ?? "").slice(0, 100),
-        bcc: splitRecipientList(content.values.bcc ?? "").slice(0, 100),
-        subject: content.values.subject,
-        editableHtml: content.draft.editableHtml,
-        quotedHtml: content.draft.quotedHtml,
-        clientState: JSON.stringify({
-          ...content,
-          updatedAt: drafts.get(draftKey(identity))?.updatedAt,
-        }).slice(0, 1_000_000),
-        ...(content.providerDraftId
-          ? { providerDraftId: content.providerDraftId }
-          : {}),
-      },
+      content: engineDraftContent(
+        identity,
+        content,
+        drafts.get(draftKey(identity))?.updatedAt,
+      ),
     });
     if (saved.status !== "conflict") {
       rememberEngineRevision(identity, saved);
@@ -664,29 +831,51 @@ async function loadEngineReplyDraft(identity: ReplyDraftIdentity) {
     accountId: identity.emailAccountId,
     draftId: engineDraftId(identity),
   });
-  if (stored.status !== "found" || !stored.content.clientState) return;
+  if (stored.status !== "found") return;
   // The account may have been cleared, or a composer may have saved, while
   // the read was in flight.
   if (currentEpoch(identity.emailAccountId) !== epoch) return;
+  const state = parseReplyDraftState(stored.content);
+  if (!state) return;
+  return restoreReplyDraft(identity, stored.draftRevision, state);
+}
+
+function restoreReplyDraft(
+  identity: ReplyDraftIdentity,
+  revision: number,
+  state: NonNullable<ReturnType<typeof parseReplyDraftState>>,
+) {
   const current = drafts.get(draftKey(identity));
   if (current) return current;
+  engineRevisions.set(draftKey(identity), revision);
+  const restored: StoredReplyDraft = {
+    ...identity,
+    content: state.content,
+    revision,
+    updatedAt: state.updatedAt,
+  };
+  drafts.set(draftKey(identity), restored);
+  notifyReplyDraftChange(identity);
+  return restored;
+}
+
+/** Null for anything that isn't a reply draft: a cleared one or a send's. */
+function parseReplyDraftState(stored: DraftContent) {
+  if (!stored.clientState) return null;
   try {
-    const { updatedAt, ...content } = JSON.parse(
-      stored.content.clientState,
-    ) as ReplyDraftContent & { updatedAt?: number };
-    if (!content?.draft || !content.values) return;
-    engineRevisions.set(draftKey(identity), stored.draftRevision);
-    const restored: StoredReplyDraft = {
-      ...identity,
+    const { updatedAt, sessionMessageId, ...content } = JSON.parse(
+      stored.clientState,
+    ) as ReplyDraftContent & { updatedAt?: number; sessionMessageId?: string };
+    if (!content?.draft || !content.values) return null;
+    return {
       content,
-      revision: stored.draftRevision,
+      sessionMessageId:
+        typeof sessionMessageId === "string" ? sessionMessageId : undefined,
       // Older persisted drafts have no edit time; reading them isn't an edit.
       updatedAt: typeof updatedAt === "number" ? updatedAt : 0,
     };
-    drafts.set(draftKey(identity), restored);
-    return restored;
   } catch {
-    return;
+    return null;
   }
 }
 
@@ -712,4 +901,228 @@ function sentAttachments(clientState: string | undefined) {
   } catch {
     return [];
   }
+}
+
+function pickIdentity(identity: ReplyDraftIdentity): ReplyDraftIdentity {
+  return {
+    emailAccountId: identity.emailAccountId,
+    threadId: identity.threadId,
+    messageId: identity.messageId,
+  };
+}
+
+function engineDraftContent(
+  identity: ReplyDraftIdentity,
+  content: ReplyDraftContent,
+  updatedAt: number | undefined,
+): DraftContent {
+  return {
+    to: splitRecipientList(content.values.to).slice(0, 100),
+    cc: splitRecipientList(content.values.cc ?? "").slice(0, 100),
+    bcc: splitRecipientList(content.values.bcc ?? "").slice(0, 100),
+    subject: content.values.subject,
+    editableHtml: content.draft.editableHtml,
+    quotedHtml: content.draft.quotedHtml,
+    // Lets startup mark the thread as a draft before it's opened.
+    conversationId: identity.threadId,
+    clientState: JSON.stringify({
+      ...content,
+      updatedAt,
+      // The engine's draft id is cut to 128 characters, so startup reads
+      // the full session id from here.
+      sessionMessageId: identity.messageId,
+    }).slice(0, 1_000_000),
+    ...(content.providerDraftId
+      ? { providerDraftId: content.providerDraftId }
+      : {}),
+  };
+}
+
+function keepUnsavedReplyDrafts() {
+  for (const flush of leaveFlushers) flush();
+  for (const [key, unsaved] of unsavedWrites) {
+    const storageKey = `${UNSAVED_DRAFT_KEY_PREFIX}${key}`;
+    // Another tab may have kept a later edit of the same draft.
+    if ((readKeptReplyDraft(storageKey)?.updatedAt ?? 0) > unsaved.updatedAt)
+      continue;
+    const kept: KeptReplyDraft = {
+      ...unsaved,
+      // The edit may not have reached the writer, which would add these.
+      content: withProviderReferences(
+        unsaved.content,
+        drafts.get(key)?.content,
+      ),
+      engineRevision: engineRevisions.get(key) ?? null,
+    };
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(kept));
+    } catch {}
+  }
+}
+
+/**
+ * Saves a draft kept from a previous page onto the engine revision it was
+ * made on. If the engine has moved on, the kept edit still wins over an older
+ * or equally recent one, such as this tab's earlier save that landed after
+ * all, but never over a newer edit or a discard.
+ */
+async function recoverKeptReplyDraft(kept: KeptReplyDraft) {
+  const client = getActiveMailClient();
+  // A draft already open here is what the user is editing now; its next
+  // save supersedes the kept copy.
+  if (!client || drafts.has(draftKey(kept.identity))) return;
+  const { identity } = kept;
+  const key = {
+    accountId: identity.emailAccountId,
+    draftId: engineDraftId(identity),
+  };
+  const epoch = currentEpoch(identity.emailAccountId);
+  let expectedRevision = kept.engineRevision;
+  let content = kept.content;
+  let saved: DraftSaveResult;
+  try {
+    for (let attempt = 0; ; attempt += 1) {
+      saved = await client.saveDraft({
+        key,
+        expectedRevision,
+        content: engineDraftContent(identity, content, kept.updatedAt),
+      });
+      if (saved.status !== "conflict" || attempt > 0) break;
+      const current = await client.readDraft(key);
+      if (current.status !== "found") break;
+      const state = parseReplyDraftState(current.content);
+      // An edit made in the same millisecond is no newer, and the kept one
+      // came last from its page.
+      if (!state || state.updatedAt > kept.updatedAt) break;
+      // Another tab may have saved the draft to the mailbox meanwhile.
+      content = withProviderReferences(content, state.content);
+      expectedRevision = current.draftRevision;
+    }
+  } catch {
+    return;
+  }
+  // A rejected save leaves the copy for a later load to try again.
+  if (saved.status !== "saved" && saved.status !== "conflict") return;
+  forgetKeptReplyDraft(identity, kept.editId);
+  if (
+    saved.status !== "saved" ||
+    currentEpoch(identity.emailAccountId) !== epoch
+  )
+    return;
+  restoreReplyDraft(identity, saved.draftRevision, {
+    content,
+    sessionMessageId: identity.messageId,
+    updatedAt: kept.updatedAt,
+  });
+}
+
+function readKeptReplyDrafts() {
+  const kept: KeptReplyDraft[] = [];
+  try {
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (!key?.startsWith(UNSAVED_DRAFT_KEY_PREFIX)) continue;
+      const draft = readKeptReplyDraft(key);
+      if (draft) kept.push(draft);
+    }
+  } catch {}
+  return kept;
+}
+
+function readKeptReplyDraft(storageKey: string) {
+  try {
+    const parsed = JSON.parse(
+      localStorage.getItem(storageKey) ?? "null",
+    ) as KeptReplyDraft | null;
+    if (
+      typeof parsed?.identity?.emailAccountId === "string" &&
+      typeof parsed.identity.threadId === "string" &&
+      typeof parsed.identity.messageId === "string" &&
+      typeof parsed.updatedAt === "number" &&
+      typeof parsed.editId === "string" &&
+      parsed.content?.draft &&
+      parsed.content.values &&
+      (parsed.engineRevision === null ||
+        typeof parsed.engineRevision === "number")
+    )
+      return parsed;
+  } catch {}
+}
+
+function forgetUnsavedReplyDraft(unsaved: UnsavedReplyDraft) {
+  const key = draftKey(unsaved.identity);
+  if (unsavedWrites.get(key) === unsaved) unsavedWrites.delete(key);
+  const kept = readKeptReplyDraft(`${UNSAVED_DRAFT_KEY_PREFIX}${key}`);
+  // A later edit made in the same millisecond keeps its copy.
+  if (
+    kept &&
+    (kept.editId === unsaved.editId || kept.updatedAt < unsaved.updatedAt)
+  )
+    forgetKeptReplyDraft(unsaved.identity);
+}
+
+/** With `editId`, only that edit's copy: another tab may have kept a later one. */
+function forgetKeptReplyDraft(identity: ReplyDraftIdentity, editId?: string) {
+  const storageKey = `${UNSAVED_DRAFT_KEY_PREFIX}${draftKey(identity)}`;
+  if (editId && readKeptReplyDraft(storageKey)?.editId !== editId) return;
+  try {
+    localStorage.removeItem(storageKey);
+  } catch {}
+}
+
+function forgetUnsavedReplyDrafts(emailAccountId?: string) {
+  for (const [key, unsaved] of unsavedWrites) {
+    if (!emailAccountId || unsaved.identity.emailAccountId === emailAccountId)
+      unsavedWrites.delete(key);
+  }
+  try {
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index);
+      if (!key?.startsWith(UNSAVED_DRAFT_KEY_PREFIX)) continue;
+      const kept = readKeptReplyDraft(key);
+      // Unreadable copies go too; there's nothing left to recover from them.
+      if (
+        !emailAccountId ||
+        !kept ||
+        kept.identity.emailAccountId === emailAccountId
+      )
+        localStorage.removeItem(key);
+    }
+  } catch {}
+}
+
+/**
+ * A composer saves only what the user wrote; the mailbox draft it was saved
+ * as carries over from the draft's previous content.
+ */
+function withProviderReferences(
+  content: ReplyDraftContent,
+  previous: ReplyDraftContent | null | undefined,
+): ReplyDraftContent {
+  let next = content;
+  if (previous && previous.requestId === content.requestId) {
+    next = {
+      ...content,
+      ...(previous.providerDraftId && {
+        providerDraftId: previous.providerDraftId,
+      }),
+      ...(previous.providerDraftCreationUnconfirmed !== undefined && {
+        providerDraftCreationUnconfirmed:
+          previous.providerDraftCreationUnconfirmed,
+      }),
+    };
+  }
+  // The composer doesn't track the mailbox copies of its draft; they belong
+  // to the mailbox draft, whichever composer session saves.
+  const providerDraftId = next.providerDraftId ?? previous?.providerDraftId;
+  if (
+    providerDraftId &&
+    previous?.providerDraftId === providerDraftId &&
+    previous.providerDraftMessageIds
+  )
+    next = {
+      ...next,
+      providerDraftMessageIds: previous.providerDraftMessageIds,
+    };
+  return next;
 }

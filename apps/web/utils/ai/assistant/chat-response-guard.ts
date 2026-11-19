@@ -37,7 +37,7 @@ export function getUserVisibleToolFailureMessage(output: unknown) {
   return failureMessage;
 }
 
-function getToolFailureMessage(output: unknown): string | null {
+export function getToolFailureMessage(output: unknown): string | null {
   if (!isRecord(output)) return null;
 
   if ("error" in output) {

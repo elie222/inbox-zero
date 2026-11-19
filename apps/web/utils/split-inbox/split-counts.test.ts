@@ -43,9 +43,28 @@ describe("splitCountTargets", () => {
           item.id === OTHER_SPLIT_ID
             ? otherMailSplitQuery(splits)
             : mailSplitToThreadsQuery(item, NOW),
+          NOW,
         ),
       })),
     );
+  });
+
+  it("leaves tabs hidden from All out of All's count", () => {
+    const news = {
+      ...split("news", [
+        { kind: MailSplitFilterKind.LABEL, value: "Label_news" },
+      ]),
+      hideFromAll: true,
+    };
+    const all = split("all", []);
+
+    expect(splitCountTargets({ splits: [all, news], now: NOW })[0]).toEqual({
+      id: "all",
+      predicate: threadsQueryToPredicate({
+        type: "inbox",
+        excludeSplits: [{ matchAll: true, filters: news.filters }],
+      }),
+    });
   });
 
   it("uses a ready override and skips splits that cannot be counted yet", () => {

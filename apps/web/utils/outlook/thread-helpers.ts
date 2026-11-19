@@ -1,7 +1,10 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Logger } from "@/utils/logger";
 import { runWithBoundedConcurrency } from "@/utils/async";
-import { escapeODataString } from "@/utils/outlook/odata-escape";
+import {
+  encodeODataFilter,
+  escapeODataString,
+} from "@/utils/outlook/odata-escape";
 import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 import { withMicrosoftGraphRetry } from "@/utils/outlook/retry";
 
@@ -66,7 +69,7 @@ export async function listThreadMessages<TMessage extends { id: string }>({
       client
         .getClient()
         .api("/me/messages")
-        .filter(filter)
+        .filter(encodeODataFilter(filter))
         .select(select)
         .top(THREAD_MESSAGE_PAGE_SIZE)
         .get(),

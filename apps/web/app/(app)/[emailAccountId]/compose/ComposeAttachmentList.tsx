@@ -1,4 +1,7 @@
 import type { EmailAttachmentMetadata } from "@inboxzero/email-editor/core";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import {
   CircleAlertIcon,
   ImageIcon,
@@ -23,11 +26,12 @@ export function ComposeAttachmentList({
   isComposeWindow: boolean;
   onRemove: (attachment: ComposeAttachment) => void;
 }) {
+  const { t, i18n } = useLingui();
   if (!(attachments.length || forwardedAttachments.length)) return null;
 
   return (
     <ul
-      aria-label="Attachments"
+      aria-label={t`Attachments`}
       className={cn(
         "flex flex-wrap gap-2",
         isComposeWindow && "shrink-0 px-4 py-2",
@@ -37,7 +41,7 @@ export function ComposeAttachmentList({
         <li
           className="flex max-w-full items-center gap-2 rounded-md border bg-muted/40 px-2 py-1 text-xs"
           key={attachment.id}
-          title="Included from the message you are forwarding"
+          title={t`Included from the message you are forwarding`}
         >
           <PaperclipIcon aria-hidden className="size-3.5 shrink-0" />
           <span className="max-w-52 truncate">{attachment.filename}</span>
@@ -60,11 +64,12 @@ export function ComposeAttachmentList({
           <AttachmentIcon attachment={attachment} />
           <span className="max-w-52 truncate">{attachment.filename}</span>
           <span className="text-muted-foreground">
-            {ATTACHMENT_STATUS_LABELS[attachment.status] ??
-              formatFileSize(attachment.size)}
+            {attachment.status === "uploaded"
+              ? formatFileSize(attachment.size)
+              : i18n._(ATTACHMENT_STATUS_LABELS[attachment.status])}
           </span>
           <button
-            aria-label={`Remove ${attachment.filename}`}
+            aria-label={t`Remove ${attachment.filename}`}
             className="rounded-sm p-0.5 hover:bg-muted"
             onClick={() => onRemove(attachment)}
             type="button"
@@ -77,11 +82,12 @@ export function ComposeAttachmentList({
   );
 }
 
-const ATTACHMENT_STATUS_LABELS: Partial<
-  Record<ComposeAttachment["status"], string>
+const ATTACHMENT_STATUS_LABELS: Record<
+  Exclude<ComposeAttachment["status"], "uploaded">,
+  MessageDescriptor
 > = {
-  uploading: "Uploading…",
-  failed: "Not attached",
+  uploading: msg`Uploading…`,
+  failed: msg`Not attached`,
 };
 
 function AttachmentIcon({ attachment }: { attachment: ComposeAttachment }) {

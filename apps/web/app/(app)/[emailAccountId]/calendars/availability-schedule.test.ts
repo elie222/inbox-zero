@@ -1,9 +1,12 @@
 import { describe, it, expect } from "vitest";
+import { setupI18n } from "@lingui/core";
 import {
   buildDayState,
   collectWindows,
   DEFAULT_WEEKDAY_WINDOWS,
 } from "./availability-schedule";
+
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
 
 describe("buildDayState", () => {
   it("groups windows by weekday and marks days without windows unavailable", () => {
@@ -30,6 +33,7 @@ describe("buildDayState", () => {
   it("round-trips through collectWindows for the default schedule", () => {
     const { windows, error } = collectWindows(
       buildDayState(DEFAULT_WEEKDAY_WINDOWS),
+      i18n,
     );
 
     expect(error).toBeNull();
@@ -44,14 +48,14 @@ describe("collectWindows", () => {
     ]);
     days[2].ranges[0] = { start: "17:00", end: "09:00" };
 
-    const result = collectWindows(days);
+    const result = collectWindows(days, i18n);
 
     expect(result.windows).toBeNull();
     expect(result.error).toContain("Tuesday");
   });
 
   it("returns an error when no day is enabled", () => {
-    const result = collectWindows(buildDayState([]));
+    const result = collectWindows(buildDayState([]), i18n);
 
     expect(result.windows).toBeNull();
     expect(result.error).toBe("Add at least one available time range.");
@@ -63,7 +67,7 @@ describe("collectWindows", () => {
       { weekday: 1, startMinutes: 10 * 60 + 30, endMinutes: 12 * 60 },
     ]);
 
-    const result = collectWindows(days);
+    const result = collectWindows(days, i18n);
 
     expect(result.windows).toBeNull();
     expect(result.error).toBe("Monday: time ranges overlap.");
@@ -75,7 +79,7 @@ describe("collectWindows", () => {
       { weekday: 4, startMinutes: 9 * 60, endMinutes: 14 * 60 },
     ]);
 
-    const result = collectWindows(days);
+    const result = collectWindows(days, i18n);
 
     expect(result.windows).toBeNull();
     expect(result.error).toBe("Thursday: time ranges overlap.");
@@ -87,7 +91,7 @@ describe("collectWindows", () => {
       { weekday: 1, startMinutes: 11 * 60, endMinutes: 13 * 60 },
     ]);
 
-    const result = collectWindows(days);
+    const result = collectWindows(days, i18n);
 
     expect(result.error).toBeNull();
     expect(result.windows).toEqual([
@@ -102,7 +106,7 @@ describe("collectWindows", () => {
       { weekday: 2, startMinutes: 10 * 60, endMinutes: 12 * 60 },
     ]);
 
-    const result = collectWindows(days);
+    const result = collectWindows(days, i18n);
 
     expect(result.error).toBeNull();
     expect(result.windows).toHaveLength(2);
@@ -114,7 +118,7 @@ describe("collectWindows", () => {
     ]);
     days[2] = { enabled: false, ranges: [{ start: "10:00", end: "08:00" }] };
 
-    const result = collectWindows(days);
+    const result = collectWindows(days, i18n);
 
     expect(result.error).toBeNull();
     expect(result.windows).toEqual([

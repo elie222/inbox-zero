@@ -61,6 +61,7 @@ export const capabilitiesResultSchema = z.object({
       "move",
       "set_membership",
       "snooze",
+      "discard_draft",
     ]),
   ),
   maxPageSize: z.number().int(),

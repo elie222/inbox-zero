@@ -13,8 +13,8 @@ afterEach(() => {
 });
 
 describe("shouldRunEvalTests", () => {
-  it("exposes Azure GPT-5.6 presets without duplicating them in all-model runs", () => {
-    process.env.EVAL_MODELS = "gpt-5.6-luna-azure,gpt-5.6-terra-azure";
+  it("keeps the Azure Luna preset out of all-model runs", () => {
+    process.env.EVAL_MODELS = "gpt-5.6-luna-azure";
 
     expect(getEvalModels()).toEqual([
       {
@@ -23,64 +23,25 @@ describe("shouldRunEvalTests", () => {
         label: "GPT-5.6 Luna Azure",
         includeInAll: false,
       },
-      {
-        provider: "azure-foundry",
-        model: "gpt-5.6-terra",
-        label: "GPT-5.6 Terra Azure",
-        includeInAll: false,
-      },
     ]);
 
     process.env.EVAL_MODELS = "all";
 
-    expect(getEvalModels()).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ model: "openai/gpt-6-luna" }),
-        expect.objectContaining({ model: "openai/gpt-5.6-terra" }),
-      ]),
-    );
-    expect(
-      getEvalModels().some(
-        (model) =>
-          model.provider === "azure-foundry" &&
-          model.model.startsWith("gpt-5.6-"),
-      ),
-    ).toBe(false);
+    expect(getEvalModels()).toEqual([
+      expect.objectContaining({ model: "openai/gpt-6-luna" }),
+      expect.objectContaining({ model: "anthropic/claude-haiku-5.5" }),
+    ]);
   });
 
-  it("exposes Azure DeepSeek presets without including them in all-model runs", () => {
-    process.env.EVAL_MODELS = "deepseek-v4-pro-azure";
+  it("rejects unknown shorthands instead of falling back to the default model", () => {
+    process.env.EVAL_MODELS = "gpt-6-luna,gemini-3.8-flash";
 
-    expect(getEvalModels()).toEqual([
-      {
-        provider: "azure-foundry",
-        model: "DeepSeek-V4-Pro",
-        label: "DeepSeek V4 Pro Azure",
-        includeInAll: false,
-      },
-    ]);
-
-    process.env.EVAL_MODELS = "deepseek-v4-flash-azure";
-
-    expect(getEvalModels()).toEqual([
-      {
-        provider: "azure-foundry",
-        model: "DeepSeek-V4-Flash",
-        label: "DeepSeek V4 Flash Azure",
-        includeInAll: false,
-      },
-    ]);
-
-    process.env.EVAL_MODELS = "all";
-
-    expect(
-      getEvalModels().some((model) => model.model.startsWith("DeepSeek-V4-")),
-    ).toBe(false);
+    expect(() => getEvalModels()).toThrow(/gemini-3\.8-flash/);
   });
 
   it("allows openrouter eval presets when only LLM_API_KEY is configured", () => {
     process.env.RUN_AI_TESTS = "true";
-    process.env.EVAL_MODELS = "gemini-3-flash";
+    process.env.EVAL_MODELS = "gpt-6-luna";
     process.env.OPENROUTER_API_KEY = undefined;
     process.env.LLM_API_KEY = "shared-key";
 
@@ -92,19 +53,19 @@ describe("shouldRunEvalTests", () => {
     process.env.LLM_API_KEY = "shared-key";
 
     const emailAccount = getEmailAccountForModel(
-      EVAL_MODEL_CATALOG["gemini-3.1-flash-lite"],
+      EVAL_MODEL_CATALOG["claude-haiku-5.5"],
     );
 
     expect(emailAccount.user).toEqual({
       aiProvider: "openrouter",
-      aiModel: "google/gemini-3.1-flash-lite",
+      aiModel: "anthropic/claude-haiku-5.5",
       aiApiKey: "shared-key",
     });
   });
 
   it("does not treat unrelated provider keys as valid for openrouter eval presets", () => {
     process.env.RUN_AI_TESTS = "true";
-    process.env.EVAL_MODELS = "gemini-3-flash";
+    process.env.EVAL_MODELS = "gpt-6-luna";
     process.env.OPENROUTER_API_KEY = undefined;
     process.env.LLM_API_KEY = undefined;
     process.env.OPENAI_API_KEY = "openai-key";

@@ -6,6 +6,7 @@ import { checkPermissionsAction } from "@/utils/actions/permissions";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useOrgAccess } from "@/hooks/useOrgAccess";
+import { needsPermissionsReconnect } from "@/utils/permissions-check";
 
 const permissionsChecked: Record<string, boolean> = {};
 
@@ -22,10 +23,7 @@ export function PermissionsCheck() {
     permissionsChecked[emailAccountId] = true;
 
     checkPermissionsAction(emailAccountId).then((result) => {
-      if (
-        result?.data?.hasAllPermissions === false ||
-        result?.data?.hasRefreshToken === false
-      ) {
+      if (needsPermissionsReconnect(result?.data)) {
         router.replace(prefixPath(emailAccountId, "/permissions/consent"));
       }
     });

@@ -6,7 +6,10 @@ import {
   migrateMembershipIndex,
 } from "./conversation-index";
 import type { SqlTransaction } from "./driver";
-import type { MailboxCountsQuery } from "@inboxzero/mail-core/queries";
+import type {
+  MailboxCountsQuery,
+  MailPredicate,
+} from "@inboxzero/mail-core/queries";
 
 describe("transactional conversation index", () => {
   it("shows the same conversation preview for equivalent inbox filters", async () => {
@@ -148,7 +151,14 @@ describe("transactional conversation index", () => {
         { kind: "membership", membership: "category", id: "CATEGORY_UPDATES" },
         { kind: "membership", membership: "folder", id: "f1" },
         { kind: "role", role: "draft" },
-      ] as const;
+        {
+          kind: "all",
+          predicates: [
+            { kind: "membership", membership: "label", id: "Label_1" },
+            { kind: "mailbox", mailbox: "all" },
+          ],
+        },
+      ] satisfies MailPredicate[];
       const compare = async () => {
         for (const predicate of predicates) {
           const query = {
@@ -160,7 +170,7 @@ describe("transactional conversation index", () => {
           };
           const composed = await store.readMailboxView({
             ...query,
-            predicate: { kind: "all", predicates: [predicate] },
+            predicate: filteredPath(predicate),
           });
           expect(await store.readMailboxView(query)).toEqual(composed);
         }
@@ -183,6 +193,233 @@ describe("transactional conversation index", () => {
         matchingConversations: 2,
         unreadConversations: 0,
       });
+    } finally {
+      await store.close();
+    }
+  });
+
+  it("drops a trashed or spam message from a label's view and restores it", async () => {
+    const driver = createNodeSqliteDriver();
+    const store = await createSqliteMailStore(driver);
+    try {
+      await store.ensureAccount({
+        accountId: "a",
+        provider: "google",
+        generation: "g",
+      });
+      await driver.write(async (tx) => {
+        await insertMessage(tx, "m1", "c1", 1, 0, { labels: ["Label_1"] });
+        await insertMessage(tx, "m2", "c1", 3, 1, { labels: ["Label_1"] });
+        await insertMessage(tx, "m3", "c2", 2, 0, { labels: ["Label_1"] });
+      });
+      const predicate: MailPredicate = {
+        kind: "all",
+        predicates: [
+          { kind: "membership", membership: "label", id: "Label_1" },
+          { kind: "mailbox", mailbox: "all" },
+        ],
+      };
+      const query = {
+        accountIds: ["a"],
+        predicate,
+        order: "newest_first" as const,
+        pageSize: 25,
+        after: null,
+      };
+      const read = async () => {
+        const indexed = await store.readMailboxView(query);
+        expect(indexed).toEqual(
+          await store.readMailboxView({
+            ...query,
+            predicate: filteredPath(predicate),
+          }),
+        );
+        const counts = await store.readMailboxCounts({
+          accountIds: ["a"],
+          targets: [{ id: "label", predicate }],
+        });
+        expect(counts.view.counts[0]).toMatchObject({
+          matchingConversations: indexed.view.counts.matchingConversations,
+          unreadConversations: indexed.view.counts.unreadConversations,
+        });
+        return {
+          conversations: indexed.view.conversations.map((conversation) => ({
+            id: conversation.key.conversationId,
+            latest: conversation.latestMessageAtMs,
+            unread: conversation.unread,
+          })),
+          counts: indexed.view.counts,
+        };
+      };
+      const move = (
+        message: string,
+        column: "in_trash" | "in_spam",
+        value: 0 | 1,
+      ) =>
+        driver.write((tx) =>
+          tx.execute(
+            `UPDATE effective_messages SET ${column} = ? WHERE message_id = ?`,
+            [value, message],
+          ),
+        );
+
+      const before = await read();
+      expect(before).toMatchObject({
+        conversations: [
+          { id: "c1", latest: 3, unread: true },
+          { id: "c2", latest: 2, unread: true },
+        ],
+        counts: { matchingConversations: 2, unreadConversations: 2 },
+      });
+
+      await move("m3", "in_trash", 1);
+      await move("m1", "in_spam", 1);
+      expect(await read()).toMatchObject({
+        conversations: [{ id: "c1", latest: 3, unread: false }],
+        counts: { matchingConversations: 1, unreadConversations: 0 },
+      });
+
+      await move("m3", "in_trash", 0);
+      await move("m1", "in_spam", 0);
+      expect(await read()).toEqual(before);
+    } finally {
+      await store.close();
+    }
+  });
+
+  it("serves a label's read and starred filters like filtering every message", async () => {
+    const driver = createNodeSqliteDriver();
+    const store = await createSqliteMailStore(driver);
+    try {
+      for (const accountId of ["a", "b"]) {
+        await store.ensureAccount({
+          accountId,
+          provider: "google",
+          generation: "g",
+        });
+      }
+      await driver.write(async (tx) => {
+        const label = { labels: ["Label_1"] };
+        // Unread and starred only through an older message.
+        await insertMessage(tx, "m1", "c1", 1, 0, { ...label, starred: true });
+        await insertMessage(tx, "m2", "c1", 9, 1, label);
+        // Its newest message is unread but in Trash.
+        await insertMessage(tx, "m3", "c2", 2, 1, label);
+        await insertMessage(tx, "m4", "c2", 8, 0, {
+          ...label,
+          roles: ["trash"],
+        });
+        // Starred and unread only in Spam.
+        await insertMessage(tx, "m5", "c3", 3, 1, label);
+        await insertMessage(tx, "m6", "c3", 7, 0, {
+          ...label,
+          roles: ["spam"],
+          starred: true,
+        });
+        // Unread through a message outside the label.
+        await insertMessage(tx, "m7", "c4", 4, 1, label);
+        await insertMessage(tx, "m8", "c4", 6, 0);
+        // Entirely in Trash.
+        await insertMessage(tx, "m9", "c5", 5, 0, {
+          ...label,
+          roles: ["trash"],
+        });
+        await insertMessage(tx, "m10", "c6", 10, 0, {
+          ...label,
+          account: "b",
+          starred: true,
+          folder: "f1",
+        });
+        await insertMessage(tx, "m11", "c7", 11, 1, {
+          ...label,
+          account: "b",
+          folder: "f1",
+        });
+      });
+      const labelMembership: MailPredicate = {
+        kind: "membership",
+        membership: "label",
+        id: "Label_1",
+      };
+      const labelView: MailPredicate = {
+        kind: "all",
+        predicates: [labelMembership, { kind: "mailbox", mailbox: "all" }],
+      };
+      const unread: MailPredicate = { kind: "read", value: false };
+      const starred: MailPredicate = { kind: "starred", value: true };
+      // The shapes threadsQueryToPredicate builds in apps/web: a label's view
+      // nested after the other conditions, and labelIds as flat clauses.
+      const predicates: MailPredicate[] = [
+        labelView,
+        { kind: "all", predicates: [unread, labelView] },
+        { kind: "all", predicates: [{ kind: "read", value: true }, labelView] },
+        {
+          kind: "all",
+          predicates: [{ kind: "mailbox", mailbox: "starred" }, labelView],
+        },
+        { kind: "all", predicates: [unread, starred, labelView] },
+        { kind: "all", predicates: [labelMembership, unread] },
+        { kind: "all", predicates: [labelMembership, starred] },
+        {
+          kind: "all",
+          predicates: [
+            unread,
+            { kind: "membership", membership: "folder", id: "f1" },
+          ],
+        },
+        {
+          kind: "all",
+          predicates: [unread, { ...labelMembership, accountId: "b" }],
+        },
+      ];
+      for (const predicate of predicates) {
+        const counts = async (path: MailPredicate) =>
+          (
+            await store.readMailboxCounts({
+              accountIds: ["a", "b"],
+              targets: [{ id: "label", predicate: path }],
+            })
+          ).view.counts;
+        expect(await counts(predicate)).toEqual(
+          await counts(filteredPath(predicate)),
+        );
+        const pages = async (path: MailPredicate) => {
+          const read = [];
+          let after: string | null = null;
+          do {
+            const page = await store.readMailboxView({
+              accountIds: ["a", "b"],
+              predicate: path,
+              order: "newest_first",
+              pageSize: 2,
+              after,
+            });
+            read.push(page.view);
+            after = page.view.nextPage;
+          } while (after);
+          return read;
+        };
+        expect(await pages(predicate)).toEqual(
+          await pages(filteredPath(predicate)),
+        );
+      }
+      const unreadLabel = await store.readMailboxView({
+        accountIds: ["a", "b"],
+        predicate: { kind: "all", predicates: [unread, labelView] },
+        order: "newest_first",
+        pageSize: 25,
+        after: null,
+      });
+      expect(
+        unreadLabel.view.conversations.map((conversation) => ({
+          id: conversation.key.conversationId,
+          latest: conversation.latestMessageAtMs,
+          starred: conversation.starred,
+        })),
+      ).toEqual([
+        { id: "c6", latest: 10, starred: true },
+        { id: "c1", latest: 1, starred: true },
+      ]);
     } finally {
       await store.close();
     }
@@ -294,7 +531,10 @@ describe("transactional conversation index", () => {
     }
   });
 
-  it("backfills memberships for an existing mailbox once", async () => {
+  it.each([
+    "the first version of the index",
+    "no index",
+  ])("builds the membership index once from %s", async (existing) => {
     const driver = createNodeSqliteDriver();
     const store = await createSqliteMailStore(driver);
     try {
@@ -308,15 +548,40 @@ describe("transactional conversation index", () => {
           await tx.exec(`DROP TRIGGER effective_memberships_after_${event}`);
         }
         await tx.exec(
-          "DROP TABLE effective_message_memberships; DELETE FROM schema_migrations WHERE id = 3;",
+          "DROP TABLE effective_message_memberships; DELETE FROM schema_migrations WHERE id = 11;",
         );
         await insertMessage(tx, "m1", "c1", 1, 0, { labels: ["Label_1"] });
+        await insertMessage(tx, "m2", "c2", 2, 1, {
+          labels: ["Label_1"],
+          roles: ["trash"],
+        });
+        if (existing === "the first version of the index") {
+          await tx.exec(
+            `CREATE TABLE effective_message_memberships (
+               account_id TEXT NOT NULL,
+               kind TEXT NOT NULL,
+               membership_id TEXT NOT NULL,
+               message_id TEXT NOT NULL,
+               conversation_id TEXT NOT NULL,
+               received_at_ms INTEGER NOT NULL,
+               read INTEGER NOT NULL,
+               starred INTEGER NOT NULL,
+               PRIMARY KEY (account_id, kind, membership_id, message_id)
+             );
+             CREATE INDEX message_memberships_by_message
+               ON effective_message_memberships(account_id, message_id);
+             INSERT INTO effective_message_memberships
+               SELECT account_id, 'label', 'Label_1', message_id, conversation_id,
+                      received_at_ms, read, starred
+               FROM effective_messages;`,
+          );
+        }
         await migrateMembershipIndex(tx);
         await migrateMembershipIndex(tx);
       });
       const rows = await driver.read((tx) =>
         tx.query(
-          "SELECT kind, membership_id, message_id, read FROM effective_message_memberships",
+          "SELECT kind, membership_id, message_id, read, in_trash_or_spam FROM effective_message_memberships",
         ),
       );
       expect(rows).toEqual([
@@ -325,6 +590,14 @@ describe("transactional conversation index", () => {
           membership_id: "Label_1",
           message_id: "m1",
           read: 0,
+          in_trash_or_spam: 0,
+        },
+        {
+          kind: "label",
+          membership_id: "Label_1",
+          message_id: "m2",
+          read: 1,
+          in_trash_or_spam: 1,
         },
       ]);
     } finally {
@@ -367,6 +640,39 @@ describe("transactional conversation index", () => {
       ]);
     } finally {
       await store.close();
+    }
+  });
+
+  it.each([
+    "delete",
+    "update",
+  ])("finds a message's memberships through its own index on %s", async (event) => {
+    const driver = createNodeSqliteDriver();
+    await createSqliteMailStore(driver);
+    try {
+      const plan = await driver.read(async (tx) => {
+        const [trigger] = await tx.query(
+          "SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = ?",
+          [`effective_memberships_after_${event}`],
+        );
+        const deleteOld = String(trigger?.sql)
+          .match(/DELETE FROM effective_message_memberships[\s\S]*?\);/)?.[0]
+          .replace(/OLD\.(\w+)/g, "'$1'");
+        return tx.query(`EXPLAIN QUERY PLAN ${deleteOld}`);
+      });
+      const steps = plan.map((row) => String(row.detail));
+      // Without statistics, a plain account-and-message filter scans every
+      // membership in the account through the primary key's prefix.
+      expect(steps).toContainEqual(
+        expect.stringContaining(
+          "INDEX message_memberships_by_message (account_id=? AND message_id=?)",
+        ),
+      );
+      expect(steps).not.toContainEqual(
+        expect.stringMatching(/PRIMARY KEY \(account_id=\?\)$/),
+      );
+    } finally {
+      await driver.close();
     }
   });
 
@@ -416,32 +722,50 @@ async function insertMessage(
     draft?: boolean;
     snoozedUntil?: number;
     roles?: string[];
+    starred?: boolean;
   } = {},
 ) {
   const roles = options.roles ?? (options.draft ? ["draft"] : ["inbox"]);
   const inInbox = roles.includes("inbox") ? 1 : 0;
   const inDraft = roles.includes("draft") ? 1 : 0;
+  const inTrash = roles.includes("trash") ? 1 : 0;
+  const inSpam = roles.includes("spam") ? 1 : 0;
   await tx.execute(
     `INSERT INTO effective_messages(
       account_id, message_id, conversation_id, subject, preview, from_address, to_json,
       received_at_ms, read, starred, folder_id, label_ids_json, category_ids_json, roles_json,
       in_inbox, in_sent, in_draft, in_trash, in_spam, has_attachments, snoozed_until_ms,
       pending_operation_ids_json
-    ) VALUES (?, ?, ?, 'Subject', 'Preview', 'sender@example.com', '[]', ?, ?, 0,
-      ?, ?, ?, ?, ?, 0, ?, 0, 0, 0, ?, '[]')`,
+    ) VALUES (?, ?, ?, 'Subject', 'Preview', 'sender@example.com', '[]', ?, ?, ?,
+      ?, ?, ?, ?, ?, 0, ?, ?, ?, 0, ?, '[]')`,
     [
       options.account ?? "a",
       id,
       conversation,
       received,
       read,
+      options.starred ? 1 : 0,
       options.folder ?? null,
       JSON.stringify(options.labels ?? []),
       JSON.stringify(options.categories ?? []),
       JSON.stringify(roles),
       inInbox,
       inDraft,
+      inTrash,
+      inSpam,
       options.snoozedUntil ?? null,
     ],
   );
+}
+
+// An always-true clause no index recognizes, so the read filters every message.
+// Nesting keeps a top-level membership or role from choosing a narrower source.
+function filteredPath(predicate: MailPredicate): MailPredicate {
+  return {
+    kind: "all",
+    predicates: [
+      { kind: "all", predicates: [predicate] },
+      { kind: "not", predicate: { kind: "message", ids: [] } },
+    ],
+  };
 }

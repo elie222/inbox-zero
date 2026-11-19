@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import useSWR from "swr";
 import { usePostHog } from "posthog-js/react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Card,
   CardContent,
@@ -30,7 +31,9 @@ export function ReferralDialog() {
       <DialogTrigger asChild>
         <SidebarMenuButton sidebarName="left-sidebar">
           <GiftIcon />
-          <span className="font-semibold">Refer friend</span>
+          <span className="font-semibold">
+            <Trans>Refer friend</Trans>
+          </span>
         </SidebarMenuButton>
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -41,6 +44,7 @@ export function ReferralDialog() {
 }
 
 export function Referrals({ source }: { source: ReferralSurface }) {
+  const { t } = useLingui();
   const posthog = usePostHog();
   const {
     data: codeData,
@@ -76,11 +80,17 @@ export function Referrals({ source }: { source: ReferralSurface }) {
 
     try {
       await navigator.clipboard.writeText(text);
-      toastSuccess({ description: `Referral ${type} copied to clipboard!` });
+      toastSuccess({
+        description:
+          type === "code"
+            ? t`Referral code copied to clipboard!`
+            : t`Referral link copied to clipboard!`,
+      });
     } catch {
       toastError({
-        title: `Failed to copy ${type}`,
-        description: "Please try again",
+        title:
+          type === "code" ? t`Failed to copy code` : t`Failed to copy link`,
+        description: t`Please try again`,
       });
     }
   };
@@ -100,15 +110,15 @@ export function Referrals({ source }: { source: ReferralSurface }) {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Join Inbox Zero with my referral link",
-          text: "Use my referral link to get started with Inbox Zero!",
+          title: t`Join Inbox Zero with my referral link`,
+          text: t`Use my referral link to get started with Inbox Zero!`,
           url: link,
         });
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
           toastError({
-            title: "Failed to share",
-            description: "Please try again",
+            title: t`Failed to share`,
+            description: t`Please try again`,
           });
         }
       }
@@ -122,24 +132,30 @@ export function Referrals({ source }: { source: ReferralSurface }) {
   }
 
   if (errorCode || errorStats) {
-    return <ErrorDisplay error={{ error: "Error loading referral data" }} />;
+    return <ErrorDisplay error={{ error: t`Error loading referral data` }} />;
   }
 
   return (
     <div className="space-y-6 sm:space-y-8">
       <div className="text-center">
-        <PageHeading>Refer Friends, Get Rewards</PageHeading>
+        <PageHeading>
+          <Trans>Refer Friends, Get Rewards</Trans>
+        </PageHeading>
         <PageSubHeading className="mt-2">
-          Share Inbox Zero with friends and get a free month for each friend who
-          completes their trial
+          <Trans>
+            Share Inbox Zero with friends and get a free month for each friend
+            who completes their trial
+          </Trans>
         </PageSubHeading>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Your referral code</CardTitle>
+          <CardTitle>
+            <Trans>Your referral code</Trans>
+          </CardTitle>
           <CardDescription>
-            Share this code with friends to earn rewards
+            <Trans>Share this code with friends to earn rewards</Trans>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -160,7 +176,7 @@ export function Referrals({ source }: { source: ReferralSurface }) {
                   className="flex-1"
                 >
                   <Copy className="mr-2 h-4 w-4" />
-                  Copy Link
+                  <Trans>Copy Link</Trans>
                 </Button>
                 <Button
                   onClick={shareReferralLink}
@@ -168,12 +184,14 @@ export function Referrals({ source }: { source: ReferralSurface }) {
                   className="flex-1"
                 >
                   <Share2 className="mr-2 h-4 w-4" />
-                  Share
+                  <Trans>Share</Trans>
                 </Button>
               </div>
             </div>
           ) : (
-            <p className="text-gray-500">Unable to load referral code</p>
+            <p className="text-gray-500">
+              <Trans>Unable to load referral code</Trans>
+            </p>
           )}
         </CardContent>
       </Card>
@@ -184,7 +202,7 @@ export function Referrals({ source }: { source: ReferralSurface }) {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Total referrals
+                <Trans>Total referrals</Trans>
               </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
@@ -193,7 +211,7 @@ export function Referrals({ source }: { source: ReferralSurface }) {
                 {statsData.stats.totalReferrals}
               </div>
               <p className="text-xs text-muted-foreground">
-                Friends you've referred
+                <Trans>Friends you've referred</Trans>
               </p>
             </CardContent>
           </Card>
@@ -201,7 +219,7 @@ export function Referrals({ source }: { source: ReferralSurface }) {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Rewards earned
+                <Trans>Rewards earned</Trans>
               </CardTitle>
               <Trophy className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
@@ -210,7 +228,7 @@ export function Referrals({ source }: { source: ReferralSurface }) {
                 {statsData.stats.totalRewards}
               </div>
               <p className="text-xs text-muted-foreground">
-                Free months earned
+                <Trans>Free months earned</Trans>
               </p>
             </CardContent>
           </Card>

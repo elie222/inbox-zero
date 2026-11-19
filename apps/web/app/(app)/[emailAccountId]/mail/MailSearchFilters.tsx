@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent, type ReactNode } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ export function MailSearchFiltersForm({
   /** Combined inboxes only share operators both providers understand. */
   variant?: "gmail" | "common";
 }) {
+  const { t, i18n } = useLingui();
   const isGmail = variant === "gmail";
   const [fields, setFields] = useState(initialFields);
 
@@ -53,11 +55,11 @@ export function MailSearchFiltersForm({
 
   return (
     <form
-      aria-label="Search options"
+      aria-label={t`Search options`}
       className="grid gap-3"
       onSubmit={handleSubmit}
     >
-      <FilterField id="mail-search-from" label="From">
+      <FilterField id="mail-search-from" label={t`From`}>
         <Input
           id="mail-search-from"
           value={fields.from}
@@ -66,7 +68,7 @@ export function MailSearchFiltersForm({
         />
       </FilterField>
 
-      <FilterField id="mail-search-to" label="To">
+      <FilterField id="mail-search-to" label={t`To`}>
         <Input
           id="mail-search-to"
           value={fields.to}
@@ -75,7 +77,7 @@ export function MailSearchFiltersForm({
         />
       </FilterField>
 
-      <FilterField id="mail-search-subject" label="Subject">
+      <FilterField id="mail-search-subject" label={t`Subject`}>
         <Input
           id="mail-search-subject"
           value={fields.subject}
@@ -84,7 +86,7 @@ export function MailSearchFiltersForm({
         />
       </FilterField>
 
-      <FilterField id="mail-search-has-words" label="Has the words">
+      <FilterField id="mail-search-has-words" label={t`Has the words`}>
         <Input
           id="mail-search-has-words"
           value={fields.hasWords}
@@ -93,7 +95,7 @@ export function MailSearchFiltersForm({
         />
       </FilterField>
 
-      <FilterField id="mail-search-doesnt-have" label="Doesn't have">
+      <FilterField id="mail-search-doesnt-have" label={t`Doesn't have`}>
         <Input
           id="mail-search-doesnt-have"
           value={fields.doesntHave}
@@ -104,7 +106,7 @@ export function MailSearchFiltersForm({
 
       {isGmail ? (
         <>
-          <FilterField id="mail-search-size" label="Size">
+          <FilterField id="mail-search-size" label={t`Size`}>
             <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_auto] items-center gap-2">
               <Select
                 value={fields.sizeComparison}
@@ -118,14 +120,18 @@ export function MailSearchFiltersForm({
                 <SelectTrigger
                   id="mail-search-size"
                   type="button"
-                  aria-label="Size comparison"
+                  aria-label={t`Size comparison`}
                   className={mailSelectTriggerClassName}
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="greater">greater than</SelectItem>
-                  <SelectItem value="less">less than</SelectItem>
+                  <SelectItem value="greater">
+                    <Trans>greater than</Trans>
+                  </SelectItem>
+                  <SelectItem value="less">
+                    <Trans>less than</Trans>
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <Input
@@ -133,7 +139,7 @@ export function MailSearchFiltersForm({
                 min="0"
                 step="any"
                 inputMode="decimal"
-                aria-label="Size amount"
+                aria-label={t`Size amount`}
                 value={fields.sizeValue}
                 onChange={(event) => update("sizeValue", event.target.value)}
                 className={mailControlClassName}
@@ -146,7 +152,7 @@ export function MailSearchFiltersForm({
               >
                 <SelectTrigger
                   type="button"
-                  aria-label="Size unit"
+                  aria-label={t`Size unit`}
                   className={`${mailSelectTriggerClassName} w-20`}
                 >
                   <SelectValue />
@@ -159,7 +165,7 @@ export function MailSearchFiltersForm({
             </div>
           </FilterField>
 
-          <FilterField id="mail-search-date-within" label="Date within">
+          <FilterField id="mail-search-date-within" label={t`Date within`}>
             <div className="grid grid-cols-[10rem_minmax(0,1fr)] items-center gap-2">
               <Select
                 value={fields.dateWithin}
@@ -173,7 +179,7 @@ export function MailSearchFiltersForm({
                 <SelectTrigger
                   id="mail-search-date-within"
                   type="button"
-                  aria-label="Date range"
+                  aria-label={t`Date range`}
                   className={mailSelectTriggerClassName}
                 >
                   <SelectValue />
@@ -181,14 +187,14 @@ export function MailSearchFiltersForm({
                 <SelectContent>
                   {DATE_WITHIN_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.name}
+                      {i18n._(option.name)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <Input
                 type="date"
-                aria-label="Date"
+                aria-label={t`Date`}
                 value={fields.date}
                 onChange={(event) => update("date", event.target.value)}
                 className={mailControlClassName}
@@ -196,7 +202,7 @@ export function MailSearchFiltersForm({
             </div>
           </FilterField>
 
-          <FilterField id="mail-search-in" label="Search">
+          <FilterField id="mail-search-in" label={t`Search`}>
             <Select
               value={fields.searchIn}
               onValueChange={(value) => update("searchIn", value)}
@@ -211,12 +217,14 @@ export function MailSearchFiltersForm({
               <SelectContent>
                 {SEARCH_IN_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
-                    {option.name}
+                    {i18n._(option.name)}
                   </SelectItem>
                 ))}
                 {extraLocations.length ? (
                   <SelectGroup>
-                    <SelectLabel>Labels</SelectLabel>
+                    <SelectLabel>
+                      <Trans>Labels</Trans>
+                    </SelectLabel>
                     {extraLocations.map((location) => (
                       <SelectItem
                         key={location.name}
@@ -244,7 +252,7 @@ export function MailSearchFiltersForm({
                 htmlFor="mail-search-has-attachment"
                 className="font-normal text-sm"
               >
-                Has attachment
+                <Trans>Has attachment</Trans>
               </Label>
             </div>
             <div className="flex items-center gap-2">
@@ -259,7 +267,7 @@ export function MailSearchFiltersForm({
                 htmlFor="mail-search-exclude-chats"
                 className="font-normal text-sm"
               >
-                Don't include chats
+                <Trans>Don't include chats</Trans>
               </Label>
             </div>
           </div>
@@ -268,7 +276,7 @@ export function MailSearchFiltersForm({
 
       <div className="flex justify-end pt-1">
         <Button type="submit" variant="gradient" size="sm">
-          Search
+          <Trans>Search</Trans>
         </Button>
       </div>
     </form>

@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { BracesIcon } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type {
   EmailEditorHandle,
   EmailEditorSlashTrigger,
@@ -46,6 +47,7 @@ export function useComposeSnippets({
   editorRef: RefObject<EmailEditorHandle | null>;
   to?: string;
 }) {
+  const { t } = useLingui();
   const { data, mutate } = useSnippets();
   const snippets = data?.snippets ?? EMPTY_SNIPPETS;
   const toRef = useRef(to);
@@ -140,10 +142,10 @@ export function useComposeSnippets({
         }}
         open={pickerOpen}
       >
-        <Tooltip content="Insert snippet">
+        <Tooltip content={t`Insert snippet`}>
           <PopoverTrigger asChild>
             <Button
-              aria-label="Insert snippet"
+              aria-label={t`Insert snippet`}
               className="hover:bg-transparent"
               size="icon"
               type="button"
@@ -186,9 +188,11 @@ export function useComposeSnippets({
           onEscapeKeyDown={(event) => event.stopPropagation()}
         >
           <DialogHeader>
-            <DialogTitle>Save snippet</DialogTitle>
+            <DialogTitle>
+              <Trans>Save snippet</Trans>
+            </DialogTitle>
             <DialogDescription className="sr-only">
-              Save a reusable snippet.
+              <Trans>Save a reusable snippet.</Trans>
             </DialogDescription>
           </DialogHeader>
           <SnippetForm

@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { CheckIcon, SignatureIcon } from "lucide-react";
 import { DEFAULT_SIGNATURE_ID } from "@/utils/email/default-signature";
 import type { GetSignatureResponse } from "@/app/api/user/signature/route";
@@ -23,6 +24,7 @@ export function ComposeSignaturePicker({
   disabled: boolean;
   onSelect: (signature: Signature) => void;
 }) {
+  const { t } = useLingui();
   const onlyDefault =
     signatures.length === 1 && signatures[0].id === DEFAULT_SIGNATURE_ID;
   if (!signatures.length || onlyDefault) return null;
@@ -31,7 +33,7 @@ export function ComposeSignaturePicker({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          aria-label="Choose signature"
+          aria-label={t`Choose signature`}
           className="hover:bg-transparent"
           disabled={disabled}
           size="icon"
@@ -58,7 +60,7 @@ export function ComposeSignaturePicker({
             </span>
             {signature.id === selectedId && (
               <CheckIcon
-                aria-label="Current signature"
+                aria-label={t`Current signature`}
                 className="size-4 shrink-0"
               />
             )}

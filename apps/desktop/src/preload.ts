@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld("inboxZeroDesktop", {
     ipcRenderer.invoke("desktop-auth:start", provider, options),
   readAttachment: (payload: unknown) =>
     ipcRenderer.invoke("desktop:read-attachment", payload),
+  supportsNoMatchingMessage: true,
   mailEngine: (payload: unknown) => ipcRenderer.invoke("mail-engine", payload),
   mailEngineSubscribe: (input: unknown) =>
     ipcRenderer.invoke("mail-engine-subscribe", input),
@@ -51,6 +52,18 @@ contextBridge.exposeInMainWorld("inboxZeroDesktop", {
       subscribed = false;
       ipcRenderer.removeListener("desktop:update-status", handler);
       ipcRenderer.send("desktop:update-status-unsubscribe");
+    };
+  },
+  onMailEngineOpening: (listener: (opening: boolean) => void) => {
+    let subscribed = true;
+    const handler = (_event: unknown, opening: boolean) => listener(opening);
+    ipcRenderer.on("desktop:mail-engine-opening", handler);
+    ipcRenderer.invoke("desktop:mail-engine-opening").then((opening) => {
+      if (subscribed) listener(opening);
+    });
+    return () => {
+      subscribed = false;
+      ipcRenderer.removeListener("desktop:mail-engine-opening", handler);
     };
   },
   installUpdate: () => ipcRenderer.invoke("desktop:install-update"),

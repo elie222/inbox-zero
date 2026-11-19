@@ -1,6 +1,7 @@
 "use client";
 
 import { MessageCircleIcon } from "lucide-react";
+import { Trans } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
 
@@ -14,7 +15,7 @@ export function AIChatButton() {
       onClick={() => toggleSidebar(["chat-sidebar"])}
     >
       <MessageCircleIcon className="mr-2 size-4" />
-      AI Chat
+      <Trans>AI Chat</Trans>
     </Button>
   );
 }

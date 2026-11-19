@@ -2,6 +2,7 @@
 
 import { useCallback, use } from "react";
 import { useAction } from "next-safe-action/hooks";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
@@ -16,6 +17,7 @@ import { PageHeader } from "@/components/PageHeader";
 export default function LicensePage(props: {
   searchParams: Promise<{ "license-key"?: string }>;
 }) {
+  const { t } = useLingui();
   const searchParams = use(props.searchParams);
   const licenseKey = searchParams["license-key"];
 
@@ -23,14 +25,14 @@ export default function LicensePage(props: {
 
   return (
     <PageWrapper>
-      <PageHeader title="Activate your license" />
+      <PageHeader title={t`Activate your license`} />
 
       <div className="max-w-2xl py-4">
         {premium?.lemonLicenseKey && (
           <AlertBasic
             variant="success"
-            title="Your license is activated"
-            description="You have an active license key. To add users to your account visit the settings page."
+            title={t`Your license is activated`}
+            description={t`You have an active license key. To add users to your account visit the settings page.`}
             className="mb-4"
           />
         )}
@@ -42,14 +44,15 @@ export default function LicensePage(props: {
 }
 
 function ActivateLicenseForm(props: { licenseKey?: string }) {
+  const { t } = useLingui();
   const { execute: activateLicenseKey, isExecuting } = useAction(
     activateLicenseKeyAction,
     {
       onSuccess: () => {
-        toastSuccess({ description: "License activated!" });
+        toastSuccess({ description: t`License activated!` });
       },
       onError: () => {
-        toastError({ description: "Error activating license!" });
+        toastError({ description: t`Error activating license!` });
       },
     },
   );
@@ -74,12 +77,12 @@ function ActivateLicenseForm(props: { licenseKey?: string }) {
       <Input
         type="text"
         name="licenseKey"
-        label="License Key"
+        label={t`License Key`}
         registerProps={register("licenseKey", { required: true })}
         error={errors.licenseKey}
       />
       <Button type="submit" loading={isExecuting}>
-        Activate
+        <Trans>Activate</Trans>
       </Button>
     </form>
   );

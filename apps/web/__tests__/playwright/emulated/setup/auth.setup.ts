@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect, type Page, test } from "@playwright/test";
 import { Client } from "pg";
 import { getEmailAccount } from "../account-test-helpers";
+import { grantDefaultPlan } from "../billing/billing-test-helpers";
 import { playwrightMailProvider } from "../mail-provider";
 
 const PLAYWRIGHT_TEST_EMAIL =
@@ -70,6 +71,7 @@ test(`${playwrightMailProvider} emulator signs in and creates an app account`, a
   }
 
   await markOnboardingComplete(PLAYWRIGHT_TEST_EMAIL);
+  await grantDefaultPlan();
   const emailAccount = await getEmailAccount(page);
   expect(emailAccount.email).toBe(PLAYWRIGHT_TEST_EMAIL);
 
@@ -108,7 +110,8 @@ async function markOnboardingComplete(email: string) {
           `UPDATE "EmailAccount"
            SET "behaviorProfile" = '{}'::jsonb,
                "personaAnalysis" = '{}'::jsonb,
-               "writingStyle" = 'Playwright seeded writing style'
+               "writingStyle" = 'Playwright seeded writing style',
+               "mailSetup" = 'DONE'
            WHERE email = $1`,
           [email],
         );

@@ -2,6 +2,9 @@
 
 import type React from "react";
 import { useState } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "next/link";
 import {
   ArchiveIcon,
@@ -60,8 +63,10 @@ import { ResubscribeDialog } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe
 import { LabelsSubMenu } from "@/components/LabelsSubMenu";
 import type { EmailLabel } from "@/providers/email-label-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { isGoogleProvider } from "@/utils/email/provider-types";
-import { getEmailTerminology } from "@/utils/terminology";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 import { Tooltip } from "@/components/Tooltip";
 import { cn } from "@/utils";
 
@@ -89,6 +94,7 @@ export function ActionCell<T extends Row>({
   emailAccountId: string;
   filter: NewsletterFilterType;
 }) {
+  const { i18n } = useLingui();
   const posthog = usePostHog();
 
   const status = item.status ? senderStatusBadges[item.status] : undefined;
@@ -98,7 +104,7 @@ export function ActionCell<T extends Row>({
       {status ? (
         <>
           <Badge variant={status.variant} size="sm" className="h-6">
-            {status.label}
+            {i18n._(status.label)}
           </Badge>
           {item.status === NewsletterStatus.UNSUBSCRIBED ? (
             <UnsubscribeButton
@@ -174,6 +180,7 @@ function UnsubscribeButton<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
   const [resubscribeDialogOpen, setResubscribeDialogOpen] = useState(false);
 
   const {
@@ -194,10 +201,10 @@ function UnsubscribeButton<T extends Row>({
   const isUnsubscribed = item.status === NewsletterStatus.UNSUBSCRIBED;
 
   const buttonText = isUnsubscribed
-    ? "Resubscribe"
+    ? t`Resubscribe`
     : hasUnsubscribeLink
-      ? "Unsubscribe"
-      : "Block";
+      ? t`Unsubscribe`
+      : t`Block`;
 
   const senderName = item.fromName || extractNameFromEmail(item.name);
 
@@ -227,7 +234,7 @@ function UnsubscribeButton<T extends Row>({
         onClick={() => setResubscribeDialogOpen(true)}
       >
         {unsubscribeLoading && <ButtonLoader />}
-        Resubscribe
+        <Trans>Resubscribe</Trans>
       </Button>
     ) : hasAutomaticUnsubscribe ? (
       // Unsubscribing happens here, so opening the sender's page would only
@@ -257,7 +264,9 @@ function UnsubscribeButton<T extends Row>({
   return (
     <>
       {isBlock && hasUnsubscribeAccess ? (
-        <Tooltip content="No unsubscribe link: future emails will be archived automatically">
+        <Tooltip
+          content={t`No unsubscribe link: future emails will be archived automatically`}
+        >
           {button}
         </Tooltip>
       ) : (
@@ -291,6 +300,7 @@ function ApproveButton<T extends Row>({
   emailAccountId: string;
   filter: NewsletterFilterType;
 }) {
+  const { t } = useLingui();
   const { onApprove } = useApproveButton({
     item,
     mutate,
@@ -300,7 +310,7 @@ function ApproveButton<T extends Row>({
   });
 
   return (
-    <Tooltip content="Keep getting these emails">
+    <Tooltip content={t`Keep getting these emails`}>
       <Button
         size="sm"
         variant="ghost"
@@ -309,7 +319,7 @@ function ApproveButton<T extends Row>({
         disabled={!hasUnsubscribeAccess}
       >
         <ThumbsUpIcon className="mr-1.5 size-4" />
-        Keep
+        <Trans>Keep</Trans>
       </Button>
     </Tooltip>
   );
@@ -324,6 +334,7 @@ function MoveToReviewButton<T extends Row>({
   mutate: () => Promise<void>;
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
   const [loading, setLoading] = useState(false);
 
   const onMoveToReview = async () => {
@@ -334,11 +345,11 @@ function MoveToReviewButton<T extends Row>({
         status: null,
       });
       assertActionSucceeded(result);
-      toastSuccess({ description: `Moved ${item.name} to review` });
+      toastSuccess({ description: t`Moved ${item.name} to review` });
       await mutate();
     } catch (error) {
       captureException(error);
-      toastError({ description: "Failed to update sender status" });
+      toastError({ description: t`Failed to update sender status` });
     } finally {
       setLoading(false);
     }
@@ -353,7 +364,7 @@ function MoveToReviewButton<T extends Row>({
       disabled={loading}
     >
       {loading && <ButtonLoader />}
-      Move to review
+      <Trans>Move to review</Trans>
     </Button>
   );
 }
@@ -383,8 +394,9 @@ export function MoreDropdown<T extends Row>({
   filter?: NewsletterFilterType;
   openPremiumModal?: () => void;
 }) {
+  const { t } = useLingui();
   const { provider } = useAccount();
-  const terminology = getEmailTerminology(provider);
+  const isOutlook = isMicrosoftProvider(provider);
   const isMobile = useIsMobile();
   const [labelSheetOpen, setLabelSheetOpen] = useState(false);
   const { onBulkArchive, isBulkArchiving } = useBulkArchive({
@@ -414,14 +426,15 @@ export function MoreDropdown<T extends Row>({
         id: activeFilter.id,
       });
       if (res?.serverError) {
+        const serverError = res.serverError || "";
         toastError({
-          title: "Error",
-          description: `Failed to stop labeling ${item.name} as ${label.name}. ${res.serverError || ""}`,
+          title: t`Error`,
+          description: t`Failed to stop labeling ${item.name} as ${label.name}. ${serverError}`,
         });
       } else {
         toastSuccess({
-          title: "Success!",
-          description: `Stopped labeling ${item.name} as ${label.name}`,
+          title: t`Success!`,
+          description: t`Stopped labeling ${item.name} as ${label.name}`,
         });
         await mutate();
       }
@@ -433,20 +446,23 @@ export function MoreDropdown<T extends Row>({
       gmailLabelId: label.id,
     });
     if (res?.serverError) {
+      const serverError = res.serverError || "";
       toastError({
-        title: "Error",
-        description: `Failed to add ${item.name} to ${label.name}. ${res.serverError || ""}`,
+        title: t`Error`,
+        description: t`Failed to add ${item.name} to ${label.name}. ${serverError}`,
       });
     } else {
       toastSuccess({
-        title: "Success!",
-        description: `Added ${item.name} to ${label.name}`,
+        title: t`Success!`,
+        description: t`Added ${item.name} to ${label.name}`,
       });
       await mutate();
     }
   };
 
-  const labelMenuLabel = `${terminology.label.action} future emails`;
+  const labelMenuLabel = isOutlook
+    ? t`Categorize future emails`
+    : t`Label future emails`;
 
   return (
     <>
@@ -454,7 +470,9 @@ export function MoreDropdown<T extends Row>({
         <DropdownMenuTrigger asChild>
           <Button aria-haspopup="true" size="icon" variant="ghost">
             <MoreHorizontalIcon className="size-4" />
-            <span className="sr-only">Toggle menu</span>
+            <span className="sr-only">
+              <Trans>Toggle menu</Trans>
+            </span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -462,7 +480,9 @@ export function MoreDropdown<T extends Row>({
           {!!onOpenNewsletter && (
             <DropdownMenuItem onClick={() => onOpenNewsletter(item)}>
               <EyeIcon className="mr-2 size-4" />
-              <span>Preview emails</span>
+              <span>
+                <Trans>Preview emails</Trans>
+              </span>
             </DropdownMenuItem>
           )}
           {isGoogleProvider(provider) && (
@@ -472,7 +492,9 @@ export function MoreDropdown<T extends Row>({
                 target="_blank"
               >
                 <ExternalLinkIcon className="mr-2 size-4" />
-                <span>View in Gmail</span>
+                <span>
+                  <Trans>View in Gmail</Trans>
+                </span>
               </Link>
             </DropdownMenuItem>
           )}
@@ -480,7 +502,9 @@ export function MoreDropdown<T extends Row>({
             <DropdownMenuItem asChild>
               <Link href={getGmailFilterSettingsUrl(userEmail)} target="_blank">
                 <ExternalLinkIcon className="mr-2 size-4" />
-                <span>View auto-archive filter</span>
+                <span>
+                  <Trans>View auto-archive filter</Trans>
+                </span>
               </Link>
             </DropdownMenuItem>
           )}
@@ -526,7 +550,9 @@ export function MoreDropdown<T extends Row>({
               }}
             >
               <ArchiveRestoreIcon className="mr-2 size-4" />
-              <span>Auto-archive future emails</span>
+              <span>
+                <Trans>Auto-archive future emails</Trans>
+              </span>
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={() => onBulkArchive([item])}>
@@ -535,7 +561,9 @@ export function MoreDropdown<T extends Row>({
             ) : (
               <ArchiveIcon className="mr-2 size-4" />
             )}
-            <span>Archive existing emails</span>
+            <span>
+              <Trans>Archive existing emails</Trans>
+            </span>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
@@ -544,7 +572,7 @@ export function MoreDropdown<T extends Row>({
             className="text-destructive focus:text-destructive"
             onClick={() => {
               const yes = confirm(
-                `Are you sure you want to delete all emails from ${item.name}?`,
+                t`Are you sure you want to delete all emails from ${item.name}?`,
               );
               if (!yes) return;
 
@@ -556,7 +584,9 @@ export function MoreDropdown<T extends Row>({
             ) : (
               <TrashIcon className="mr-2 size-4" />
             )}
-            <span>Delete all emails</span>
+            <span>
+              <Trans>Delete all emails</Trans>
+            </span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -588,7 +618,11 @@ export function MoreDropdown<T extends Row>({
               })
             ) : (
               <p className="px-3 py-2 text-sm text-muted-foreground">
-                You don't have any {terminology.label.plural} yet.
+                {isOutlook ? (
+                  <Trans>You don't have any categories yet.</Trans>
+                ) : (
+                  <Trans>You don't have any labels yet.</Trans>
+                )}
               </p>
             )}
           </div>
@@ -632,14 +666,17 @@ export function HeaderButton(props: {
 
 const senderStatusBadges: Record<
   NewsletterStatus,
-  { label: string; variant: "success" | "info" | "muted" }
+  { label: MessageDescriptor; variant: "success" | "info" | "muted" }
 > = {
   [NewsletterStatus.UNSUBSCRIBED]: {
-    label: "Unsubscribed",
+    label: msg`Unsubscribed`,
     variant: "success",
   },
-  [NewsletterStatus.AUTO_ARCHIVED]: { label: "Auto-archived", variant: "info" },
-  [NewsletterStatus.APPROVED]: { label: "Kept", variant: "muted" },
+  [NewsletterStatus.AUTO_ARCHIVED]: {
+    label: msg`Auto-archived`,
+    variant: "info",
+  },
+  [NewsletterStatus.APPROVED]: { label: msg`Kept`, variant: "muted" },
 };
 
 async function noopRefetchPremium() {

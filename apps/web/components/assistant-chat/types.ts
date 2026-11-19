@@ -30,6 +30,9 @@ import type {
   SearchMemoriesTool,
 } from "@/utils/ai/assistant/chat-memory-tools";
 import type { GetCalendarEventsTool } from "@/utils/ai/assistant/chat-calendar-tools";
+import type { ControlMailScreenTool } from "@/utils/ai/assistant/chat-mail-screen-tool";
+import type { ManageSplitInboxTool } from "@/utils/ai/assistant/chat-split-inbox-tool";
+import type { BulkManageInboxTool } from "@/utils/ai/assistant/chat-bulk-inbox-tool";
 
 // export type DataPart = { type: "append-message"; message: string };
 
@@ -48,6 +51,7 @@ export type ChatTools = {
   searchInbox: SearchInboxTool;
   readEmail: ReadEmailTool;
   manageInbox: ManageInboxTool;
+  bulkManageInbox: BulkManageInboxTool;
   getUserRulesAndSettings: GetUserRulesAndSettingsTool;
   getRuleExecutionForMessage: GetRuleExecutionForMessageTool;
   getLearnedPatterns: GetLearnedPatternsTool;
@@ -65,6 +69,8 @@ export type ChatTools = {
   forwardEmail: ForwardEmailTool;
   getCalendarEvents: GetCalendarEventsTool;
   readAttachment: ReadAttachmentTool;
+  controlMailScreen: ControlMailScreenTool;
+  manageSplitInbox: ManageSplitInboxTool;
 };
 
 // biome-ignore lint/complexity/noBannedTypes: ignore

@@ -11,6 +11,8 @@ import { useRouter } from "next/navigation";
 import { type SubmitHandler, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { usePostHog } from "posthog-js/react";
+import type { MessageDescriptor } from "@lingui/core";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { env } from "@/env";
 import { isDeleteEmailActionEnabled } from "@/utils/delete-email-action";
 import { PencilIcon, TrashIcon, InboxIcon, ZapIcon } from "lucide-react";
@@ -36,7 +38,7 @@ import { AlertError } from "@/components/Alert";
 import { LearnedPatternsDialog } from "@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
-import { getEmailTerminology } from "@/utils/terminology";
+import { getEmailTerminologyMessages } from "@/utils/terminology-messages";
 import {
   Collapsible,
   CollapsibleContent,
@@ -125,6 +127,7 @@ export function RuleForm({
   mutate?: (data?: any, options?: any) => void;
   onCancel?: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId, provider } = useAccount();
   const integrationActionsEnabled = useIntegrationActionsEnabled();
   const { tier, isLoading: isLoadingPremium } = usePremium();
@@ -240,7 +243,7 @@ export function RuleForm({
           if (mutate) mutate();
         } else if (!res?.data?.rule) {
           toastError({
-            description: "There was an error updating the rule.",
+            description: t`There was an error updating the rule.`,
           });
           if (mutate) mutate();
         } else {
@@ -249,9 +252,8 @@ export function RuleForm({
             ruleId: res.data.rule.id,
             attachmentSources,
             shouldSave: hasDraftAction,
-            successMessage: "Saved!",
-            partialErrorMessage:
-              "Rule saved, but draft attachment sources could not be updated.",
+            successMessage: t`Saved!`,
+            partialErrorMessage: t`Rule saved, but draft attachment sources could not be updated.`,
           });
 
           // Revalidate to get the real data from server
@@ -279,7 +281,7 @@ export function RuleForm({
           toastError({ description: res.serverError });
         } else if (!res?.data?.rule) {
           toastError({
-            description: "There was an error creating the rule.",
+            description: t`There was an error creating the rule.`,
           });
         } else {
           await handleRuleAttachmentSourceSave({
@@ -287,9 +289,8 @@ export function RuleForm({
             ruleId: res.data.rule.id,
             attachmentSources,
             shouldSave: hasDraftAction,
-            successMessage: "Created!",
-            partialErrorMessage:
-              "Rule created, but draft attachment sources could not be saved.",
+            successMessage: t`Created!`,
+            partialErrorMessage: t`Rule created, but draft attachment sources could not be saved.`,
           });
 
           posthog.capture("User created AI rule", {
@@ -319,6 +320,7 @@ export function RuleForm({
       mutate,
       rule,
       hasDigestAccess,
+      t,
     ],
   );
 
@@ -346,7 +348,7 @@ export function RuleForm({
   }, [formState, watch]);
 
   const conditionalOperator = watch("conditionalOperator");
-  const terminology = getEmailTerminology(provider);
+  const terminology = getEmailTerminologyMessages(provider);
   const existingActionTypes = useMemo(
     () => ruleFormActionState.editableActionTypes,
     [ruleFormActionState.editableActionTypes],
@@ -370,10 +372,12 @@ export function RuleForm({
         integrationActionsEnabled,
       }).map((option) => ({
         ...option,
+        label: i18n._(option.label),
         icon: getActionIcon(option.value),
       })),
     [
       existingActionTypes,
+      i18n,
       integrationActionsEnabled,
       provider,
       terminology.label.action,
@@ -397,7 +401,7 @@ export function RuleForm({
         {isSubmitted && formErrors.length > 0 && (
           <div className="mt-4">
             <AlertError
-              title="Error"
+              title={t`Error`}
               description={
                 <ul className="list-disc">
                   {formErrors.map((message) => (
@@ -414,10 +418,10 @@ export function RuleForm({
             <Input
               type="text"
               name="name"
-              label="Rule name"
+              label={t`Rule name`}
               registerProps={register("name")}
               error={errors.name}
-              placeholder="e.g. Label receipts"
+              placeholder={t`e.g. Label receipts`}
             />
           ) : (
             <TypographyH3
@@ -433,12 +437,12 @@ export function RuleForm({
         <RuleSectionCard
           icon={InboxIcon}
           color="blue"
-          title="When I get an email"
+          title={t`When I get an email`}
           className="!mt-6"
           errors={
             errors.conditions?.root?.message ? (
               <AlertError
-                title="Error"
+                title={t`Error`}
                 description={errors.conditions.root.message}
               />
             ) : undefined
@@ -461,11 +465,11 @@ export function RuleForm({
         <RuleSectionCard
           icon={ZapIcon}
           color="green"
-          title="Then"
+          title={t`Then`}
           errors={
             actionErrors.length > 0 ? (
               <AlertError
-                title="Error"
+                title={t`Error`}
                 description={
                   <ul className="list-inside list-disc">
                     {actionErrors.map((error, index) => (
@@ -504,16 +508,18 @@ export function RuleForm({
         </RuleSectionCard>
 
         <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
-          <CollapsibleHeading>Advanced options</CollapsibleHeading>
+          <CollapsibleHeading>
+            <Trans>Advanced options</Trans>
+          </CollapsibleHeading>
           <CollapsibleContent>
             {isAdvancedOpen ? (
               <div className="rounded-md border divide-y">
                 <AdvancedRow
-                  title="Apply to threads"
-                  description="Run on every reply in a conversation, not just the first message."
+                  title={t`Apply to threads`}
+                  description={t`Run on every reply in a conversation, not just the first message.`}
                 >
                   <Tooltip
-                    content="This can't be changed for this rule type."
+                    content={t`This can't be changed for this rule type.`}
                     hide={allowMultipleConditions(rule.systemType)}
                   >
                     <span>
@@ -531,11 +537,11 @@ export function RuleForm({
 
                 {env.NEXT_PUBLIC_DIGEST_ENABLED && (
                   <AdvancedRow
-                    title="Include in digest"
+                    title={t`Include in digest`}
                     description={
                       !hasDigestAccess && watch("digest")
-                        ? "Digests are available on the Plus plan. Turn this off to update this rule on your current plan."
-                        : "Show matched emails in your digest summary."
+                        ? t`Digests are available on the Plus plan. Turn this off to update this rule on your current plan.`
+                        : t`Show matched emails in your digest summary.`
                     }
                   >
                     {isLoadingPremium ? null : hasDigestAccess ||
@@ -548,7 +554,9 @@ export function RuleForm({
                         }}
                       />
                     ) : (
-                      <UpgradeToPlusButton tooltip="Upgrade to the Plus plan to include emails in your digest." />
+                      <UpgradeToPlusButton
+                        tooltip={t`Upgrade to the Plus plan to include emails in your digest.`}
+                      />
                     )}
                   </AdvancedRow>
                 )}
@@ -571,11 +579,11 @@ export function RuleForm({
 
                 {!!rule.id && (
                   <AdvancedRow
-                    title="Learned patterns"
-                    description="Patterns inferred from your corrections."
+                    title={t`Learned patterns`}
+                    description={t`Patterns inferred from your corrections.`}
                   >
                     <Tooltip
-                      content="Learned patterns aren't available for this rule type."
+                      content={t`Learned patterns aren't available for this rule type.`}
                       hide={!isConversationStatusType(rule.systemType)}
                     >
                       <span>
@@ -583,7 +591,7 @@ export function RuleForm({
                           ruleId={rule.id}
                           groupId={rule.groupId || null}
                           disabled={isConversationStatusType(rule.systemType)}
-                          label="View"
+                          label={t`View`}
                         />
                       </span>
                     </Tooltip>
@@ -592,8 +600,8 @@ export function RuleForm({
 
                 {rule.id && !rule.systemType && (
                   <AdvancedRow
-                    title="Delete rule"
-                    description="Permanently remove this rule."
+                    title={t`Delete rule`}
+                    description={t`Permanently remove this rule.`}
                   >
                     <Button
                       size="sm"
@@ -603,7 +611,7 @@ export function RuleForm({
                       disabled={isSubmitting}
                       onClick={async () => {
                         const yes = confirm(
-                          "Are you sure you want to delete this rule?",
+                          t`Are you sure you want to delete this rule?`,
                         );
                         if (yes) {
                           try {
@@ -620,7 +628,7 @@ export function RuleForm({
                               });
                             } else {
                               toastSuccess({
-                                description: "The rule has been deleted.",
+                                description: t`The rule has been deleted.`,
                               });
 
                               if (isDialog && onSuccess) {
@@ -636,7 +644,7 @@ export function RuleForm({
                             }
                           } catch {
                             toastError({
-                              description: "Failed to delete rule.",
+                              description: t`Failed to delete rule.`,
                             });
                           } finally {
                             setIsDeleting(false);
@@ -644,7 +652,7 @@ export function RuleForm({
                         }
                       }}
                     >
-                      Delete
+                      <Trans>Delete</Trans>
                     </Button>
                   </AdvancedRow>
                 )}
@@ -656,7 +664,7 @@ export function RuleForm({
         <div className="flex justify-end space-x-2 !mt-6">
           {onCancel && (
             <Button variant="outline" size="sm" onClick={onCancel}>
-              Cancel
+              <Trans>Cancel</Trans>
             </Button>
           )}
 
@@ -667,11 +675,11 @@ export function RuleForm({
               loading={isSubmitting}
               disabled={isDeleting}
             >
-              Save
+              <Trans>Save</Trans>
             </Button>
           ) : (
             <Button type="submit" size="sm" loading={isSubmitting}>
-              Create
+              <Trans>Create</Trans>
             </Button>
           )}
         </div>
@@ -697,6 +705,7 @@ function NotifyChannelRow({
   onChange: (channelId: string | null) => void;
   hasDraftToChat?: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const router = useRouter();
   const connectedChannels = getConnectedRuleNotificationChannels(channels);
   const hasChannels = connectedChannels.length > 0;
@@ -709,18 +718,20 @@ function NotifyChannelRow({
 
   const channelsPath = prefixPath(emailAccountId, "/channels");
   const draftsNote = hasDraftToChat
-    ? "Drafts also go to chat — configured in actions above."
+    ? t`Drafts also go to chat — configured in actions above.`
     : undefined;
 
   if (!hasChannels) {
     return (
       <AdvancedRow
-        title="Notify in chat"
-        description="Send a message when this rule matches."
+        title={t`Notify in chat`}
+        description={t`Send a message when this rule matches.`}
         note={draftsNote}
       >
         <Button asChild variant="outline" size="sm">
-          <Link href={channelsPath}>Connect</Link>
+          <Link href={channelsPath}>
+            <Trans>Connect</Trans>
+          </Link>
         </Button>
       </AdvancedRow>
     );
@@ -739,8 +750,8 @@ function NotifyChannelRow({
 
   return (
     <AdvancedRow
-      title="Notify in chat"
-      description="Send a message when this rule matches."
+      title={t`Notify in chat`}
+      description={t`Send a message when this rule matches.`}
       note={draftsNote}
     >
       <Select
@@ -757,7 +768,9 @@ function NotifyChannelRow({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="off">Off</SelectItem>
+          <SelectItem value="off">
+            <Trans>Off</Trans>
+          </SelectItem>
           {showGroups
             ? Array.from(channelsByProvider.entries()).map(
                 ([provider, providerChannels]) => (
@@ -767,7 +780,7 @@ function NotifyChannelRow({
                     </SelectLabel>
                     {providerChannels.map((channel) => (
                       <SelectItem key={channel.id} value={channel.id}>
-                        {formatMessagingDestinationLabel(channel)}
+                        {formatMessagingDestinationLabel(channel, i18n)}
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -775,14 +788,14 @@ function NotifyChannelRow({
               )
             : connectedChannels.map((channel) => (
                 <SelectItem key={channel.id} value={channel.id}>
-                  {formatMessagingDestinationLabel(channel)}
+                  {formatMessagingDestinationLabel(channel, i18n)}
                 </SelectItem>
               ))}
           {canConnect ? (
             <>
               <SelectSeparator />
               <SelectItem value={CONNECT_SENTINEL}>
-                + Connect new channel
+                <Trans>+ Connect new channel</Trans>
               </SelectItem>
             </>
           ) : null}
@@ -825,7 +838,7 @@ function allowMultipleConditions(systemType: SystemType | null | undefined) {
 }
 
 type ActionTypeOption = {
-  label: string;
+  label: MessageDescriptor;
   value: ActionType;
   dividerBefore?: boolean;
 };
@@ -838,7 +851,7 @@ export function getRuleActionTypeOptions({
   integrationActionsEnabled,
 }: {
   provider: string;
-  labelActionText: string;
+  labelActionText: MessageDescriptor;
   systemType: SystemType | null | undefined;
   existingActionTypes: ActionType[];
   integrationActionsEnabled: boolean;

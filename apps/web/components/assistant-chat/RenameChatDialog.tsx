@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
 import { useSWRConfig } from "swr";
@@ -38,6 +39,7 @@ export function RenameChatDialog({
   defaultLabel: string;
   onRenamed: () => void;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { mutate: globalMutate } = useSWRConfig();
 
@@ -60,7 +62,7 @@ export function RenameChatDialog({
     renameChatAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Chat renamed." });
+        toastSuccess({ description: t`Chat renamed.` });
         onRenamed();
         globalMutate(`/api/chats/${chatId}`);
         onOpenChange(false);
@@ -68,7 +70,7 @@ export function RenameChatDialog({
       onError: (error) => {
         toastError({
           description: getActionErrorMessage(error.error, {
-            prefix: "Failed to rename chat",
+            prefix: t`Failed to rename chat`,
           }),
         });
       },
@@ -83,7 +85,9 @@ export function RenameChatDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Rename chat</DialogTitle>
+          <DialogTitle>
+            <Trans>Rename chat</Trans>
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <Input
@@ -100,14 +104,14 @@ export function RenameChatDialog({
               onClick={() => onOpenChange(false)}
               disabled={isExecuting}
             >
-              Cancel
+              <Trans>Cancel</Trans>
             </Button>
             <Button
               type="submit"
               loading={isExecuting}
               disabled={!isDirty || !isValid}
             >
-              Save
+              <Trans>Save</Trans>
             </Button>
           </DialogFooter>
         </form>

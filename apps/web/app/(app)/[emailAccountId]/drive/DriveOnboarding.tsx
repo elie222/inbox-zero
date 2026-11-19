@@ -1,5 +1,7 @@
 "use client";
 
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Card } from "@/components/ui/card";
 import {
   PageSubHeading,
@@ -11,26 +13,28 @@ import { ConnectDrive } from "./ConnectDrive";
 const steps = [
   {
     number: 1,
-    title: "Tell us how you organize",
-    description: '"Receipts go to Expenses by month. Contracts go to Legal."',
+    title: msg`Tell us how you organize`,
+    description: msg`"Receipts go to Expenses by month. Contracts go to Legal."`,
   },
   {
     number: 2,
-    title: "Attachments get filed",
-    description: "AI reads each document and files it to the right folder",
+    title: msg`Attachments get filed`,
+    description: msg`AI reads each document and files it to the right folder`,
   },
   {
     number: 3,
-    title: "You stay in control",
-    description: "Get an email when files are sorted—reply to correct",
+    title: msg`You stay in control`,
+    description: msg`Get an email when files are sorted—reply to correct`,
   },
 ];
 
 export function DriveOnboarding() {
+  const { i18n } = useLingui();
+
   return (
     <div className="mx-auto max-w-xl py-8">
       <TypographyH3 className="text-center">
-        Attachments filed automatically while you work
+        <Trans>Attachments filed automatically while you work</Trans>
       </TypographyH3>
 
       <div className="mt-10 space-y-6">
@@ -40,9 +44,9 @@ export function DriveOnboarding() {
               {step.number}
             </div>
             <div>
-              <TypographyH4>{step.title}</TypographyH4>
+              <TypographyH4>{i18n._(step.title)}</TypographyH4>
               <PageSubHeading className="mt-1">
-                {step.description}
+                {i18n._(step.description)}
               </PageSubHeading>
             </div>
           </div>
@@ -51,7 +55,7 @@ export function DriveOnboarding() {
 
       <Card className="mt-10 p-6">
         <TypographyH4 className="text-center">
-          Where should we file your attachments?
+          <Trans>Where should we file your attachments?</Trans>
         </TypographyH4>
         <div className="mt-4 flex justify-center">
           <ConnectDrive />

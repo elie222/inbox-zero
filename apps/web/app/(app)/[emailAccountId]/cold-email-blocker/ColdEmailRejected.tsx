@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR from "swr";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { ColdEmailsResponse } from "@/app/api/user/cold-email/route";
 import {
@@ -36,9 +37,15 @@ export function ColdEmailRejected() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Email</TableHead>
-                <TableHead>AI Reason</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead>
+                  <Trans>Email</Trans>
+                </TableHead>
+                <TableHead>
+                  <Trans>AI Reason</Trans>
+                </TableHead>
+                <TableHead>
+                  <Trans>Date</Trans>
+                </TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -92,11 +99,13 @@ function Row({
 }
 
 function NoRejectedColdEmails() {
+  const { t } = useLingui();
+
   return (
     <div className="p-2">
       <AlertBasic
-        title="No emails marked as 'Not a cold email'"
-        description="When you mark an AI-detected cold email as 'Not a cold email', it will appear here."
+        title={t`No emails marked as 'Not a cold email'`}
+        description={t`When you mark an AI-detected cold email as 'Not a cold email', it will appear here.`}
       />
     </div>
   );

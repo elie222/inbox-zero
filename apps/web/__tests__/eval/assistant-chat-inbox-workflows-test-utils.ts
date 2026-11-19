@@ -171,6 +171,9 @@ export function setupInboxWorkflowEval() {
 
     prisma.rule.findUnique.mockResolvedValue(null);
 
+    // clearAllMocks keeps queued *Once values, so a search result a test
+    // queued but the model never consumed would leak into the next test.
+    mockSearchMessages.mockReset();
     mockSearchMessages.mockResolvedValue({
       messages: getDefaultSearchMessages(),
       nextPageToken: undefined,
@@ -352,7 +355,7 @@ export async function judgeSearchInboxQuery({
     criterion: {
       name: "Search query semantics",
       description:
-        "The generated inbox search query should semantically target the requested messages even if the exact wording differs from the prompt.",
+        "The generated inbox search query would retrieve the requested messages, even if the exact wording differs from the prompt. When the user wants a set of messages, a broader query that still returns them is fine, because the assistant chooses the matching threads from the results. When the user wants one specific email, the query must include a term, sender or topic from the request; a generic filter alone, such as unread state, fails. Otherwise fail only if the query would likely miss the requested messages or targets unrelated ones.",
     },
   });
 }
@@ -460,11 +463,18 @@ function getDefaultLabels() {
     { id: "UNREAD", name: "UNREAD" },
     { id: "Label_To Reply", name: "To Reply" },
     { id: "Label_FYI", name: "FYI" },
+    { id: "Label_Newsletter", name: "Newsletter" },
   ];
 }
 
 function getDefaultFolders() {
   return [
+    {
+      id: "folder-inbox",
+      displayName: "Inbox",
+      childFolderCount: 0,
+      childFolders: [],
+    },
     {
       id: "folder-operations",
       displayName: "Operations",

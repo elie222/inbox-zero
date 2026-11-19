@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
+import { trackRuleEvent } from "@/utils/analytics/rule-events.server";
 import { ConditionType } from "@/utils/config";
 
 const { createEmailProviderMock, createRuleHistoryMock, setRuleEnabledMock } =
@@ -16,6 +17,11 @@ vi.mock("@/utils/rule/rule", async (importOriginal) => {
     setRuleEnabled: setRuleEnabledMock,
   };
 });
+
+vi.mock("@/utils/analytics/rule-events.server", () => ({
+  RULE_ANALYTICS_EVENTS: { allRulesToggled: "All rules toggled" },
+  trackRuleEvent: vi.fn(),
+}));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/utils/prisma");
@@ -36,6 +42,7 @@ import {
   deleteRuleAction,
   enableDraftRepliesAction,
   toggleRuleAction,
+  toggleAllRulesAction,
   updateRuleAction,
 } from "@/utils/actions/rule";
 import { RULE_MANAGED_BY_ORGANIZATION_ERROR } from "@/utils/organizations/rules";
@@ -85,7 +92,7 @@ describe("enableDraftRepliesAction", () => {
     });
   });
 
-  it("disables the existing to-reply rule when draft replies are turned off", async () => {
+  it("keeps the to-reply rule labelling when draft replies are turned off", async () => {
     (
       prisma.emailAccount.findUnique as ReturnType<typeof vi.fn>
     ).mockResolvedValue({
@@ -97,27 +104,33 @@ describe("enableDraftRepliesAction", () => {
       id: "rule-1",
       enabled: true,
       systemType: SystemType.TO_REPLY,
-      actions: [{ type: ActionType.DRAFT_EMAIL }],
+      actions: [{ type: ActionType.LABEL }, { type: ActionType.DRAFT_EMAIL }],
     } as never);
 
-    setRuleEnabledMock.mockResolvedValue({
-      id: "rule-1",
-      enabled: false,
-      actions: [{ type: ActionType.DRAFT_EMAIL }],
+    await enableDraftRepliesAction("ea_1" as never, { enable: false } as never);
+
+    expect(setRuleEnabledMock).not.toHaveBeenCalled();
+    expect(prisma.action.deleteMany).toHaveBeenCalledWith({
+      where: {
+        rule: { emailAccountId: "ea_1", systemType: SystemType.TO_REPLY },
+        type: ActionType.DRAFT_EMAIL,
+      },
+    });
+  });
+
+  it("turns off follow-up drafting when draft replies are turned off", async () => {
+    (
+      prisma.emailAccount.findUnique as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
     });
 
     await enableDraftRepliesAction("ea_1" as never, { enable: false } as never);
 
-    expect(setRuleEnabledMock).toHaveBeenCalledWith({
-      ruleId: "rule-1",
-      emailAccountId: "ea_1",
-      enabled: false,
-    });
-    expect(prisma.action.deleteMany).toHaveBeenCalledWith({
-      where: {
-        ruleId: "rule-1",
-        type: ActionType.DRAFT_EMAIL,
-      },
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+      where: { id: "ea_1" },
+      data: { followUpAutoDraftEnabled: false },
     });
   });
 });
@@ -362,5 +375,47 @@ describe("createRulesOnboardingAction", () => {
     } finally {
       process.off("unhandledRejection", onUnhandled);
     }
+  });
+});
+
+describe("toggleAllRulesAction analytics", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    createEmailProviderMock.mockResolvedValue({});
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    } as never);
+  });
+
+  it.each([
+    true,
+    false,
+  ])("does not report a failed bulk toggle to %s", async (enabled) => {
+    if (enabled)
+      prisma.rule.updateMany.mockRejectedValue(new Error("Update failed"));
+    else prisma.$transaction.mockRejectedValue(new Error("Update failed"));
+
+    const result = await toggleAllRulesAction("ea_1", { enabled });
+
+    expect(result?.serverError).toBeDefined();
+    expect(trackRuleEvent).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    true,
+    false,
+  ])("reports one successful bulk toggle to %s", async (enabled) => {
+    prisma.rule.updateMany.mockResolvedValue({ count: 2 });
+    prisma.$transaction.mockResolvedValue([]);
+
+    const result = await toggleAllRulesAction("ea_1", { enabled });
+
+    expect(result?.data).toEqual({ success: true });
+    expect(trackRuleEvent).toHaveBeenCalledExactlyOnceWith({
+      emailAccountId: "ea_1",
+      event: "All rules toggled",
+      properties: { enabled },
+    });
   });
 });

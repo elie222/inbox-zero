@@ -4,6 +4,7 @@ import { Client } from "pg";
 const PLAYWRIGHT_TEST_EMAIL =
   process.env.PLAYWRIGHT_TEST_EMAIL || "playwright-test@gmail.com";
 const STRIPE_EMULATOR_URL = process.env.PLAYWRIGHT_STRIPE_BASE_URL;
+const DEFAULT_PLAN_ID = "playwright_default_plan";
 
 export type PremiumBillingState = {
   stripeSubscriptionId: string | null;
@@ -58,6 +59,31 @@ export async function resetBillingState() {
   if (!response.ok) {
     throw new Error(`Could not reset the Stripe emulator: ${response.status}`);
   }
+}
+
+/**
+ * Gives a user the plan the email app requires. Setup grants it to the signed-in
+ * user so most specs can open mail; specs that need a user without a plan call
+ * resetBillingState first and this again when they finish. Teammates share it,
+ * like members on one organization plan.
+ */
+export async function grantDefaultPlan(email = PLAYWRIGHT_TEST_EMAIL) {
+  await withClient(async (client) => {
+    await client.query(
+      `INSERT INTO "Premium" (id, "createdAt", "updatedAt", "pendingInvites", tier, "adminGrantTier", "adminGrantExpiresAt")
+       VALUES ($1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ARRAY[]::text[], 'BUSINESS_MONTHLY', 'BUSINESS_MONTHLY', CURRENT_TIMESTAMP + interval '10 years')
+       ON CONFLICT (id) DO UPDATE
+       SET "adminGrantExpiresAt" = EXCLUDED."adminGrantExpiresAt", "updatedAt" = CURRENT_TIMESTAMP`,
+      [DEFAULT_PLAN_ID],
+    );
+    const result = await client.query(
+      `UPDATE "User" SET "premiumId" = $2 WHERE email = $1`,
+      [email, DEFAULT_PLAN_ID],
+    );
+    if (result.rowCount !== 1) {
+      throw new Error(`Could not find the Playwright user ${email} for a plan`);
+    }
+  });
 }
 
 /**

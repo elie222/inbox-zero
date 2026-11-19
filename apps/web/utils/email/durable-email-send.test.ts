@@ -1,13 +1,18 @@
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
+import { discardDraftReplacedBySend } from "@/utils/email/compose-draft";
 import { executeDurableEmailSend } from "./durable-email-send";
 import type { sendHtmlEmailWithOpenTracking } from "./sent-message-open/sent-message-open.server";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/email/compose-draft", () => ({
+  discardDraftReplacedBySend: vi.fn(),
+}));
 vi.mock("@/utils/email/sent-message-open/sent-message-open.server", () => ({
   sendHtmlEmailWithOpenTracking: ({
     email,
@@ -82,6 +87,108 @@ describe("executeDurableEmailSend", () => {
     expect(outcome.status).toBe("rejected");
     expect(prisma.emailSendOperation.deleteMany).toHaveBeenCalled();
     expect(prisma.emailSendOperation.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("removes the replaced draft once the send is delivered", async () => {
+    const provider = createMockEmailProvider({
+      sendEmailWithHtml: vi
+        .fn()
+        .mockResolvedValue({ messageId: "sent", threadId: "thread" }),
+    });
+
+    const outcome = await executeDurableEmailSend({
+      logger: createScopedLogger("test"),
+      emailAccountId: "account",
+      getEmailProvider: async () => provider,
+      input: {
+        ...input,
+        email: { ...input.email, replacesDraftOfSession: "session-1" },
+      },
+      provider: "google",
+    });
+
+    expect(outcome.status).toBe("applied");
+    expect(discardDraftReplacedBySend).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      sessionId: "session-1",
+      provider,
+    });
+  });
+
+  // An earlier dispatch may have delivered the email but not removed its
+  // draft; a repeated dispatch finishes that cleanup.
+  it("retries draft cleanup when the send was already delivered", async () => {
+    const provider = createMockEmailProvider();
+    const replacing = {
+      ...input,
+      email: { ...input.email, replacesDraftOfSession: "session-1" },
+    };
+    prisma.emailSendOperation.findUnique.mockResolvedValue({
+      id: "operation",
+      status: EmailSendOperationStatus.SENT,
+      payloadHash: createHash("sha256")
+        .update(
+          JSON.stringify({
+            threadId: replacing.threadId,
+            messageIds: replacing.messageIds,
+            email: replacing.email,
+            queuedAt: replacing.queuedAt,
+          }),
+        )
+        .digest("hex"),
+      result: { messageId: "sent", threadId: "thread" },
+    } as never);
+
+    const outcome = await executeDurableEmailSend({
+      logger: createScopedLogger("test"),
+      emailAccountId: "account",
+      getEmailProvider: async () => provider,
+      input: replacing,
+      provider: "google",
+    });
+
+    expect(outcome.status).toBe("already_applied");
+    expect(discardDraftReplacedBySend).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      sessionId: "session-1",
+      provider,
+    });
+  });
+
+  it("reports a delivered send even when its draft cannot be removed", async () => {
+    const provider = createMockEmailProvider({
+      sendEmailWithHtml: vi
+        .fn()
+        .mockResolvedValue({ messageId: "sent", threadId: "thread" }),
+    });
+    vi.mocked(discardDraftReplacedBySend).mockRejectedValue(
+      new Error("Draft changed"),
+    );
+
+    const outcome = await executeDurableEmailSend({
+      logger: createScopedLogger("test"),
+      emailAccountId: "account",
+      getEmailProvider: async () => provider,
+      input: {
+        ...input,
+        email: { ...input.email, replacesDraftOfSession: "session-1" },
+      },
+      provider: "google",
+    });
+
+    expect(outcome.status).toBe("applied");
+    expect(discardDraftReplacedBySend).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      sessionId: "session-1",
+      provider,
+    });
+    expect(prisma.emailSendOperation.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: EmailSendOperationStatus.SENT,
+        }),
+      }),
+    );
   });
 
   it("keeps a persistence failure uncertain after the provider accepts the send", async () => {

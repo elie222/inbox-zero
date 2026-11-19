@@ -6,6 +6,7 @@ import {
   stripeRefundEvents,
 } from "@/ee/billing/stripe/refunds";
 import { syncAiGenerationOverageForUpcomingInvoice } from "@/ee/billing/stripe/ai-overage";
+import { contestStripeDisputeIfClear } from "@/ee/billing/stripe/disputes";
 import { syncStripeInvoicePayment } from "@/ee/billing/stripe/payments";
 import { enqueueStripeInvoiceEmail } from "@/ee/billing/stripe/invoice-email";
 import { getStripeTrialStartedProperties } from "@/ee/billing/stripe/posthog-events";
@@ -58,6 +59,15 @@ const allowedEvents: Stripe.Event.Type[] = [
 ];
 
 export async function processEvent(event: Stripe.Event, logger: Logger) {
+  // Disputes carry no customer and need none of the billing syncs below.
+  if (event.type === "charge.dispute.created") {
+    await contestStripeDisputeIfClear({
+      disputeId: event.data.object.id,
+      logger,
+    });
+    return;
+  }
+
   if (!allowedEvents.includes(event.type)) return;
 
   const customerId = await getStripeCustomerIdForEvent(event);
@@ -239,15 +249,12 @@ async function recordCancellationInitiated(
         ? new Date(subscription.cancel_at * 1000).toISOString()
         : null,
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      cancellationFeedback: subscription.cancellation_details?.feedback ?? null,
-      cancellationComment: subscription.cancellation_details?.comment ?? null,
     });
   }
 
   logger.info("Recorded user-initiated cancellation timestamp", {
     customerId,
     initiatedAt,
-    cancellationFeedback: subscription.cancellation_details?.feedback ?? null,
   });
 }
 

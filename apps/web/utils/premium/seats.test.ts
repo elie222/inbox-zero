@@ -39,57 +39,52 @@ vi.mock("@/ee/billing/stripe/index", () => ({
 import { getStripeBillingQuantity } from "./seats";
 
 describe("getStripeBillingQuantity", () => {
-  it("does not include an extra email account on starter monthly", () => {
-    expect(
-      getStripeBillingQuantity({
-        priceId: "price_current_starter_monthly",
-        users: [{ _count: { emailAccounts: 2 } }],
-      }),
-    ).toBe(2);
+  it("bills one person by their account count on current prices", () => {
+    // Current prices are graduated: the first 2 units are one flat price, so
+    // 1 or 2 accounts cost the same and each extra account adds half.
+    expect(quantity("price_current_starter_monthly", [1])).toBe(1);
+    expect(quantity("price_current_starter_monthly", [2])).toBe(2);
+    expect(quantity("price_current_plus_annual", [3])).toBe(3);
   });
 
-  it("includes one email account on plus monthly", () => {
-    expect(
-      getStripeBillingQuantity({
-        priceId: "price_current_plus_monthly",
-        users: [{ _count: { emailAccounts: 2 } }],
-      }),
-    ).toBe(1);
+  it("bills each extra person in full on current prices", () => {
+    expect(quantity("price_current_professional_monthly", [2, 1])).toBe(4);
+    expect(quantity("price_current_starter_annual", [1, 1, 4])).toBe(8);
   });
 
-  it("does not discount additional seats on annual prices", () => {
-    expect(
-      getStripeBillingQuantity({
-        priceId: "price_current_starter_annual",
-        users: [{ _count: { emailAccounts: 2 } }],
-      }),
-    ).toBe(2);
+  it("ignores team members with no email accounts on current prices", () => {
+    expect(quantity("price_current_starter_monthly", [3, 0])).toBe(3);
   });
 
-  it("counts shared users separately", () => {
-    expect(
-      getStripeBillingQuantity({
-        priceId: "price_current_professional_monthly",
-        users: [
-          { _count: { emailAccounts: 2 } },
-          { _count: { emailAccounts: 1 } },
-        ],
-      }),
-    ).toBe(2);
+  it("keeps grandfathered included-account prices on accounts minus one", () => {
+    for (const priceId of [
+      "price_1SzNImKGf8mwZWHnlYWXLNC4",
+      "price_1SzNJEKGf8mwZWHndmH3lYxf",
+      "price_1S5u6NKGf8mwZWHnZCfy4D5n",
+    ]) {
+      expect(quantity(priceId, [2])).toBe(1);
+      expect(quantity(priceId, [3])).toBe(2);
+      expect(quantity(priceId, [2, 1])).toBe(2);
+    }
   });
 
-  it("keeps legacy monthly prices on raw account counts", () => {
-    expect(
-      getStripeBillingQuantity({
-        priceId: "price_1S5u73KGf8mwZWHn8VYFdALA",
-        users: [{ _count: { emailAccounts: 2 } }],
-      }),
-    ).toBe(2);
-    expect(
-      getStripeBillingQuantity({
-        priceId: "price_1S5u6NKGf8mwZWHnZCfy4D5n",
-        users: [{ _count: { emailAccounts: 2 } }],
-      }),
-    ).toBe(2);
+  it("keeps other grandfathered prices on raw account counts", () => {
+    expect(quantity("price_1S5u73KGf8mwZWHn8VYFdALA", [2])).toBe(2);
+    expect(quantity("price_1S5u73KGf8mwZWHn8VYFdALA", [2, 1])).toBe(3);
+    expect(quantity("price_1S5u6uKGf8mwZWHnEvPWuQzG", [2])).toBe(2);
+  });
+
+  it("never bills less than one unit", () => {
+    expect(quantity("price_current_starter_monthly", [])).toBe(1);
+    expect(quantity("price_1S5u73KGf8mwZWHn8VYFdALA", [0])).toBe(1);
   });
 });
+
+function quantity(priceId: string, accountCounts: number[]) {
+  return getStripeBillingQuantity({
+    priceId,
+    users: accountCounts.map((emailAccounts) => ({
+      _count: { emailAccounts },
+    })),
+  });
+}

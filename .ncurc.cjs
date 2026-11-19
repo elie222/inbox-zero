@@ -20,6 +20,9 @@ module.exports = {
     "autoprefixer",
 
     // Major upgrades have heavy breaking changes
+    // Keep Tiptap packages together while @tiptap/pm remains pinned.
+    "@tiptap/core",
+    "@tiptap/markdown",
     "@tiptap/extension-mention",
     "@tiptap/extension-placeholder",
     "@tiptap/pm",
@@ -82,6 +85,9 @@ module.exports = {
     // with an explicit dataCollection config.
     "@sentry/nextjs",
     "@sentry/electron",
+
+    // Electron 45 writes protobuf traces; diagnostics currently redacts JSON.
+    "electron",
 
     // 1.64's Chromium breaks the offline mailbox reconnect spec when it runs
     // after other specs in the same CI batch.

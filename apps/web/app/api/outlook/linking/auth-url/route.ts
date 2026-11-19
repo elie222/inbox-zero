@@ -1,13 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { withAuth } from "@/utils/middleware";
-import { getLinkingOAuth2Url } from "@/utils/outlook/client";
+import { getAccountLinkingAuthorizationUrl } from "@/utils/oauth/linking-auth-url";
 import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
-import {
-  getMailboxLinkingBlockedResponse,
-  hasActiveAccountLinkingUser,
-} from "@/utils/oauth/account-linking";
+import { hasActiveAccountLinkingUser } from "@/utils/oauth/account-linking";
 import { findReconnectTarget } from "@/utils/oauth/reconnect-target";
 import { createOAuthLinkingAuditLogger } from "@/utils/oauth/linking-audit";
 import {
@@ -26,22 +23,24 @@ const getAuthUrl = ({
 }) => {
   const stateNonce = randomUUID();
   const state = generateSignedOAuthState({
+    type: "account-linking",
+    provider: "microsoft",
     userId,
     nonce: stateNonce,
     ...(reconnectTarget && { reconnectEmailAccountId: reconnectTarget.id }),
   });
 
-  const baseUrl = getLinkingOAuth2Url({ loginHint: reconnectTarget?.email });
-  const url = `${baseUrl}&state=${state}`;
+  const url = getAccountLinkingAuthorizationUrl({
+    provider: "microsoft",
+    state,
+    loginHint: reconnectTarget?.email,
+  });
 
   return { url, state, stateNonce };
 };
 
 export const GET = withAuth("outlook/linking/auth-url", async (request) => {
   const userId = request.auth.userId;
-
-  const blockedResponse = getMailboxLinkingBlockedResponse(request);
-  if (blockedResponse) return blockedResponse;
 
   const hasActiveUser = await hasActiveAccountLinkingUser({
     targetUserId: userId,

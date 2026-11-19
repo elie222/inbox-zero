@@ -165,18 +165,19 @@ function filteredScope(scope: CountScope) {
   const mailbox =
     scope.predicate.kind === "mailbox" ? scope.predicate.mailbox : null;
   const searched = searchDrivenSource(scope.predicate, scope.search);
-  const roleScoped = searched
+  const scoped = searched
     ? null
-    : roleDrivenSource(scope.predicate, scope.accountIds);
-  const source = searched ?? roleScoped;
+    : (roleDrivenSource(scope.predicate, scope.accountIds) ??
+      membershipDrivenSource(scope.predicate, scope.accountIds));
+  const source = searched ?? scoped;
   const compiled =
     mailbox === "archive" || mailbox === "all" || mailbox === "snoozed"
       ? { sql: "1=1", bindings: [] as SqlValue[] }
       : compilePredicate(searched?.rest ?? scope.predicate, scope.search);
-  // The role index already limits the accounts. Repeating the filter on
-  // messages leads SQLite to look each conversation up by account alone,
-  // rescanning the account once per conversation.
-  const accounts = roleScoped
+  // The role or membership index already limits the accounts. Repeating the
+  // filter on messages leads SQLite to look each conversation up by account
+  // alone, rescanning the account once per conversation.
+  const accounts = scoped
     ? null
     : {
         sql: `e.account_id IN (${scope.accountIds.map(() => "?").join(",")}) AND `,
@@ -300,22 +301,62 @@ function conversationIndexFor(
   if (predicate.kind === "mailbox" && predicate.mailbox === "inbox") {
     return roleIndex("inbox");
   }
-  if (predicate.kind === "membership") {
-    const account = predicate.accountId ? " AND account_id = ?" : "";
-    return {
-      source: `(SELECT account_id, conversation_id, MAX(received_at_ms) AS latest_at_ms,
-                       MAX(1 - read) AS unread, MAX(starred) AS starred
-                FROM effective_message_memberships
-                WHERE kind = ? AND membership_id = ?${account}
-                GROUP BY account_id, conversation_id)`,
-      sourceBindings: [
-        predicate.membership,
-        predicate.id,
-        ...(predicate.accountId ? [predicate.accountId] : []),
-      ],
-    };
+  const view = membershipView(predicate);
+  if (!view) return null;
+  const { membership, filters } = view;
+  const account = membership.accountId ? " AND account_id = ?" : "";
+  return {
+    source: `(SELECT account_id, conversation_id, MAX(received_at_ms) AS latest_at_ms,
+                     MAX(1 - read) AS unread, MAX(starred) AS starred
+              FROM effective_message_memberships
+              WHERE kind = ? AND membership_id = ?${account}${filters.map((filter) => ` AND ${filter.sql}`).join("")}
+              GROUP BY account_id, conversation_id)`,
+    sourceBindings: [
+      membership.membership,
+      membership.id,
+      ...(membership.accountId ? [membership.accountId] : []),
+      ...filters.flatMap((filter) => filter.bindings),
+    ],
+  };
+}
+
+// A label, category, or folder, alone or ANDed with conditions its index rows
+// carry: leaving out Trash and Spam (a Gmail label's view), read state, and
+// starring. Like the message filter, each condition applies to each message,
+// so a conversation's latest time, unread, and starred come from its matching
+// messages only.
+function membershipView(predicate: MailPredicate) {
+  const clauses = andClauses(predicate);
+  const memberships = clauses.filter((clause) => clause.kind === "membership");
+  const membership = memberships[0];
+  if (memberships.length !== 1 || membership?.kind !== "membership") {
+    return null;
   }
-  return null;
+  const filters: Array<{ sql: string; bindings: SqlValue[] }> = [];
+  for (const clause of clauses) {
+    if (clause.kind === "membership") continue;
+    if (clause.kind === "mailbox" && clause.mailbox === "all") {
+      filters.push({ sql: "in_trash_or_spam = 0", bindings: [] });
+    } else if (clause.kind === "mailbox" && clause.mailbox === "starred") {
+      filters.push({ sql: "starred = 1", bindings: [] });
+    } else if (clause.kind === "read" || clause.kind === "starred") {
+      filters.push({
+        sql: `${clause.kind} = ?`,
+        bindings: [clause.value ? 1 : 0],
+      });
+    } else {
+      return null;
+    }
+  }
+  return { membership, filters };
+}
+
+// The web nests a label's view inside the other conditions, as in
+// unread AND (label AND not Trash or Spam).
+function andClauses(predicate: MailPredicate): MailPredicate[] {
+  return predicate.kind === "all"
+    ? predicate.predicates.flatMap(andClauses)
+    : [predicate];
 }
 
 // A filter within one role, such as a split's "inbox and this label", would
@@ -337,6 +378,34 @@ function roleDrivenSource(
           CROSS JOIN effective_messages e
             ON e.account_id = scoped.account_id AND e.conversation_id = scoped.conversation_id`,
     bindings: [...accountIds, role],
+  };
+}
+
+// Same idea for a filter within one label or folder, such as a label's unread
+// mail: start from the messages carrying it. Only those can match, since the
+// membership must hold for every matching message.
+function membershipDrivenSource(
+  predicate: MailPredicate,
+  accountIds: string[],
+): { from: string; bindings: SqlValue[] } | null {
+  if (predicate.kind !== "all") return null;
+  const membership = predicate.predicates.find(
+    (clause) => clause.kind === "membership",
+  );
+  if (membership?.kind !== "membership") return null;
+  const account = membership.accountId ? " AND account_id = ?" : "";
+  return {
+    from: `(SELECT account_id, message_id FROM effective_message_memberships
+            WHERE account_id IN (${accountIds.map(() => "?").join(",")})
+              AND kind = ? AND membership_id = ?${account}) scoped
+          CROSS JOIN effective_messages e
+            ON e.account_id = scoped.account_id AND e.message_id = scoped.message_id`,
+    bindings: [
+      ...accountIds,
+      membership.membership,
+      membership.id,
+      ...(membership.accountId ? [membership.accountId] : []),
+    ],
   };
 }
 

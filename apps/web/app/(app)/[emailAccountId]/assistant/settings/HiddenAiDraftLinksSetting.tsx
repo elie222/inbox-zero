@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { useCallback } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { Toggle } from "@/components/Toggle";
@@ -12,6 +13,7 @@ import { createSettingActionErrorHandler } from "@/utils/actions/error-handling"
 import { updateHiddenAiDraftLinksAction } from "@/utils/actions/email-account";
 
 export function HiddenAiDraftLinksSetting() {
+  const { t } = useLingui();
   const { data, isLoading, error, mutate } = useEmailAccountFull();
   const { emailAccountId } = useAccount();
 
@@ -23,7 +25,7 @@ export function HiddenAiDraftLinksSetting() {
       },
       onError: createSettingActionErrorHandler({
         mutate,
-        prefix: "Failed to update hidden AI draft links setting",
+        prefix: t`Failed to update hidden AI draft links setting`,
       }),
     },
   );
@@ -49,8 +51,8 @@ export function HiddenAiDraftLinksSetting() {
 
   return (
     <SettingCard
-      title="Allow hidden links in AI drafts"
-      description="Let AI-generated drafts use custom anchor text like 'click here'. This is more convenient, but it hides the full destination and any data in the link."
+      title={t`Allow hidden links in AI drafts`}
+      description={t`Let AI-generated drafts use custom anchor text like 'click here'. This is more convenient, but it hides the full destination and any data in the link.`}
       right={
         <LoadingContent
           loading={isLoading}

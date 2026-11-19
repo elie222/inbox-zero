@@ -1,4 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type {
+  ConversationQuery,
+  MailboxView,
+  QuerySnapshot,
+} from "@inboxzero/mail-core/queries";
+import type { WorkerRequest, WorkerResponse } from "./worker-protocol";
 import { captureException } from "@/utils/error";
 import { reportMailEngineStartupFailure } from "./startup-failure";
 import { createBrowserMailEngine } from "./create-browser-engine";
@@ -238,6 +244,84 @@ describe("browser engine startup", () => {
 });
 
 describe("browser engine observations", () => {
+  it("starts a new mailbox window loading without borrowing another window's pages", async () => {
+    const observed: string[] = [];
+    class WindowWorker extends FailingWorker {
+      postMessage(message: WorkerRequest) {
+        if (message.type === "observe") observed.push(message.handleId);
+        queueMicrotask(() => this.publish({ id: message.id, type: "ok" }));
+      }
+      publish(message: WorkerResponse) {
+        this.listeners.get("message")?.({ data: message });
+      }
+    }
+    vi.stubGlobal("Worker", WindowWorker);
+    const engine = await createBrowserMailEngine({
+      accountId: "test-account",
+      provider: "google",
+    });
+    try {
+      const query: ConversationQuery = {
+        accountIds: ["test-account"],
+        predicate: { kind: "role", role: "inbox" },
+        order: "newest_first",
+        pageSize: 1,
+        after: null,
+      };
+      const first = engine.observeMailboxWindow?.(query);
+      if (!first) throw new Error("missing mailbox window handle");
+      await first.loadMore();
+      const ready: QuerySnapshot<MailboxView> = {
+        status: "ready",
+        revision: { databaseEpoch: "db:pages:2", sequence: 1 },
+        data: {
+          conversations: ["thread-1", "thread-2"].map((conversationId) => ({
+            key: { accountId: "test-account", conversationId },
+            subject: "Example message",
+            preview: "Example preview",
+            from: "sender@example.com",
+            to: "recipient@example.com",
+            senders: ["sender@example.com"],
+            latestMessageAtMs: 1,
+            unread: false,
+            starred: false,
+            hasAttachments: false,
+            labelIds: [],
+            roles: ["inbox"],
+            pendingOperationIds: [],
+          })),
+          counts: {
+            matchingConversations: 2,
+            unreadConversations: 0,
+            extent: "complete_scope",
+          },
+          nextPage: null,
+          coverage: [],
+        },
+        refreshing: false,
+        error: null,
+      };
+      (FailingWorker.latest as WindowWorker).publish({
+        type: "snapshot",
+        handleId: observed[0],
+        snapshot: ready,
+      });
+      expect(first.getSnapshot()).toEqual(ready);
+
+      const second = engine.observeMailboxWindow?.(query);
+      expect(second?.getSnapshot()).toEqual({
+        status: "loading",
+        revision: null,
+        data: null,
+        refreshing: true,
+        error: null,
+      });
+      expect(first.getSnapshot()).toEqual(ready);
+    } finally {
+      await engine.close();
+    }
+  });
+
   it("starts a new observation from an identical live one's snapshot", async () => {
     const observed: { handleId: string; args: unknown[] }[] = [];
     class ObservingWorker extends FailingWorker {

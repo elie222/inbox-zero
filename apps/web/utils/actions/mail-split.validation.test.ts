@@ -9,6 +9,21 @@ describe("split conjunction validation", () => {
     createMailSplitBody,
     updateMailSplitBody,
   ])("rejects conditions that a flat provider query would silently overwrite", (schema) => {
+    for (const kind of ["FROM", "TO"]) {
+      const input = {
+        id: "split",
+        name: "Addresses",
+        matchAll: true,
+        filters: [
+          { kind, value: "one@example.com" },
+          { kind, value: "@two.example.com" },
+        ],
+      };
+      expect(schema.safeParse(input).success).toBe(false);
+      expect(schema.safeParse({ ...input, matchAll: false }).success).toBe(
+        true,
+      );
+    }
     const input = {
       id: "split",
       name: "Senders",
@@ -27,4 +42,20 @@ describe("split conjunction validation", () => {
       }).success,
     ).toBe(true);
   });
+});
+
+it("accepts a recipient address or @domain and rejects a bare domain", () => {
+  const split = (value: string) => ({
+    name: "Rakazo",
+    filters: [{ kind: "TO", value }],
+  });
+  expect(createMailSplitBody.safeParse(split("@rakazo.com")).success).toBe(
+    true,
+  );
+  expect(createMailSplitBody.safeParse(split("hello@rakazo.com")).success).toBe(
+    true,
+  );
+  expect(createMailSplitBody.safeParse(split("rakazo.com")).success).toBe(
+    false,
+  );
 });

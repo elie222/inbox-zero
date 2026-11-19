@@ -1,3 +1,4 @@
+import { msg } from "@lingui/core/macro";
 import {
   parseBooleanSearchValue,
   tokenizeSearchQuery,
@@ -6,28 +7,28 @@ import {
 import { parseOutlookSearchToken } from "@/utils/outlook/thread-search-query";
 
 export const OUTLOOK_DATE_WITHIN_OPTIONS = [
-  { value: "1d", name: "1 day", days: 1 },
-  { value: "3d", name: "3 days", days: 3 },
-  { value: "1w", name: "1 week", days: 7 },
-  { value: "2w", name: "2 weeks", days: 14 },
-  { value: "1m", name: "1 month", days: 30 },
-  { value: "2m", name: "2 months", days: 60 },
-  { value: "6m", name: "6 months", days: 180 },
-  { value: "1y", name: "1 year", days: 365 },
+  { value: "1d", name: msg`1 day`, days: 1 },
+  { value: "3d", name: msg`3 days`, days: 3 },
+  { value: "1w", name: msg`1 week`, days: 7 },
+  { value: "2w", name: msg`2 weeks`, days: 14 },
+  { value: "1m", name: msg`1 month`, days: 30 },
+  { value: "2m", name: msg`2 months`, days: 60 },
+  { value: "6m", name: msg`6 months`, days: 180 },
+  { value: "1y", name: msg`1 year`, days: 365 },
 ] as const;
 
 export type OutlookDateWithin =
   (typeof OUTLOOK_DATE_WITHIN_OPTIONS)[number]["value"];
 
 export const OUTLOOK_SEARCH_IN_OPTIONS = [
-  { value: "all", name: "All Mail" },
-  { value: "inbox", name: "Inbox" },
-  { value: "flagged", name: "Flagged" },
-  { value: "sent", name: "Sent" },
-  { value: "drafts", name: "Drafts" },
-  { value: "archive", name: "Archive" },
-  { value: "junk", name: "Junk Email" },
-  { value: "deleted", name: "Deleted Items" },
+  { value: "all", name: msg`All Mail` },
+  { value: "inbox", name: msg`Inbox` },
+  { value: "flagged", name: msg`Flagged` },
+  { value: "sent", name: msg`Sent` },
+  { value: "drafts", name: msg`Drafts` },
+  { value: "archive", name: msg`Archive` },
+  { value: "junk", name: msg`Junk Email` },
+  { value: "deleted", name: msg`Deleted Items` },
 ] as const;
 
 export type OutlookSearchFields = {

@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import {
   type ChartConfig,
   ChartContainer,
@@ -71,30 +72,31 @@ export function BarChart({
   activeCharts,
   period,
 }: BarChartProps) {
+  const { i18n } = useLingui();
   const defaultFormatter = (value: string) => {
     const date = new Date(value);
 
     if (period === "year") {
-      return date.toLocaleDateString("en-US", {
+      return date.toLocaleDateString(i18n.locale, {
         year: "numeric",
       });
     }
 
     if (period === "month") {
-      return date.toLocaleDateString("en-US", {
+      return date.toLocaleDateString(i18n.locale, {
         month: "short",
         year: "numeric",
       });
     }
 
     if (period === "week" || period === "day") {
-      return date.toLocaleDateString("en-US", {
+      return date.toLocaleDateString(i18n.locale, {
         month: "short",
         day: "numeric",
       });
     }
 
-    return date.toLocaleDateString("en-US", {
+    return date.toLocaleDateString(i18n.locale, {
       month: "short",
       day: "numeric",
     });
@@ -176,7 +178,7 @@ export function BarChart({
                     year: "numeric",
                   };
                 }
-                label = date.toLocaleDateString("en-US", dateFormat);
+                label = date.toLocaleDateString(i18n.locale, dateFormat);
               }
             }
 

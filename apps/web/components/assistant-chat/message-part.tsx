@@ -1,5 +1,8 @@
 "use client";
 
+import type { I18n } from "@lingui/core";
+import { msg, plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { AssistantInlineEmailResponse } from "@/components/assistant-chat/assistant-inline-email-response";
@@ -13,8 +16,10 @@ import {
   BasicToolInfo,
   CreatedRuleToolCard,
   PendingDeleteRuleToolCard,
+  PendingDeleteSplitCard,
   PendingSaveMemoryToolCard,
   PendingCreateRuleToolCard,
+  PendingTrashThreadsCard,
   ForwardEmailResult,
   getManageInboxActionLabel,
   ManageInboxResult,
@@ -33,14 +38,21 @@ import {
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { ThreadLookup } from "@/components/assistant-chat/tools";
 import { formatToolLabel } from "@/components/assistant-chat/tool-label";
+import { BulkInboxActionCard } from "@/components/assistant-chat/bulk-inbox-action-card";
+import {
+  pendingBulkInboxActionToolOutputSchema,
+  pendingTrashThreadsToolOutputSchema,
+} from "@/utils/actions/assistant-chat.validation";
 import {
   isManageInboxAction,
   type ManageInboxAction,
   requiresThreadIds,
 } from "@/utils/ai/assistant/manage-inbox-actions";
 import type { DeleteRuleOutput } from "@/utils/ai/assistant/tools/rules/delete-rule-tool";
+import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { getUserVisibleToolFailureMessage } from "@/utils/ai/assistant/chat-response-guard";
-import { pluralize } from "@/utils/string";
+import { isToolErrorHiddenFromUser } from "@/utils/ai/assistant/tool-error-visibility";
+import { parseMailScreenAction } from "@/utils/ai/assistant/mail-screen-action";
 
 interface MessagePartProps {
   disableConfirm: boolean;
@@ -101,7 +113,11 @@ function isLegacyUpdateRuleStatePart(
 }
 
 function ErrorToolCard({ error }: { error: string }) {
-  return <div className="text-xs text-muted-foreground">Error: {error}</div>;
+  return (
+    <div className="text-xs text-muted-foreground">
+      <Trans>Error: {error}</Trans>
+    </div>
+  );
 }
 
 function renderToolError(toolCallId: string, output: unknown) {
@@ -145,6 +161,7 @@ export function MessagePart({
   partIndex,
   threadLookup,
 }: MessagePartProps) {
+  const { t, i18n } = useLingui();
   const key = `${messageId}-${partIndex}`;
 
   if (part.type === "reasoning") {
@@ -180,7 +197,7 @@ export function MessagePart({
         >
           <Image
             src={part.url}
-            alt={part.filename ?? "attachment"}
+            alt={part.filename ?? t`attachment`}
             width={256}
             height={256}
             className="max-h-64 max-w-full rounded-lg border object-contain"
@@ -194,18 +211,28 @@ export function MessagePart({
         key={key}
         className="inline-flex items-center gap-2 rounded-lg border bg-muted px-3 py-2 text-sm"
       >
-        {part.filename ?? "File"}
+        {part.filename ?? t`File`}
       </div>
     );
   }
 
   // Tool handling
+  // Hidden errors are mistakes the model is expected to correct on its own.
+  if (
+    part.type.startsWith("tool-") &&
+    "state" in part &&
+    part.state === "output-available" &&
+    isToolErrorHiddenFromUser(part.output)
+  ) {
+    return null;
+  }
+
   if (part.type === "tool-getAccountOverview") {
     return renderToolStatus({
       part,
-      loadingText: "Loading account overview...",
+      loadingText: t`Loading account overview...`,
       renderSuccess: ({ toolCallId }) => (
-        <BasicToolInfo key={toolCallId} text="Loaded account overview" />
+        <BasicToolInfo key={toolCallId} text={t`Loaded account overview`} />
       ),
     });
   }
@@ -213,9 +240,12 @@ export function MessagePart({
   if (part.type === "tool-getAssistantCapabilities") {
     return renderToolStatus({
       part,
-      loadingText: "Loading assistant capabilities...",
+      loadingText: t`Loading assistant capabilities...`,
       renderSuccess: ({ toolCallId }) => (
-        <BasicToolInfo key={toolCallId} text="Loaded assistant capabilities" />
+        <BasicToolInfo
+          key={toolCallId}
+          text={t`Loaded assistant capabilities`}
+        />
       ),
     });
   }
@@ -223,7 +253,7 @@ export function MessagePart({
   if (part.type === "tool-updateAssistantSettings") {
     return renderToolStatus({
       part,
-      loadingText: "Updating settings...",
+      loadingText: t`Updating settings...`,
       renderSuccess: ({ toolCallId, output }) => {
         const appliedChanges = getOutputField<Array<unknown>>(
           output,
@@ -235,13 +265,14 @@ export function MessagePart({
         return (
           <BasicToolInfo
             key={toolCallId}
-            text={`Updated settings${
+            text={
               appliedChangesCount !== null
-                ? ` (${appliedChangesCount} change${
-                    appliedChangesCount === 1 ? "" : "s"
-                  })`
-                : ""
-            }`}
+                ? t`Updated settings (${plural(appliedChangesCount, {
+                    one: "# change",
+                    other: "# changes",
+                  })})`
+                : t`Updated settings`
+            }
           />
         );
       },
@@ -251,17 +282,58 @@ export function MessagePart({
   if (part.type === "tool-searchInbox") {
     const { toolCallId, state } = part;
     if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Searching inbox..." />;
+      return <BasicToolInfo key={toolCallId} text={t`Searching inbox...`} />;
     }
     if (state === "output-available") {
       return <SearchInboxResult key={toolCallId} outputs={[part.output]} />;
     }
   }
 
+  if (part.type === "tool-controlMailScreen") {
+    return renderToolStatus({
+      part,
+      loadingText: t`Updating your mail screen...`,
+      renderSuccess: ({ toolCallId }) => (
+        <BasicToolInfo
+          key={toolCallId}
+          text={getMailScreenActionLabel(part.input, i18n)}
+        />
+      ),
+    });
+  }
+
+  if (part.type === "tool-manageSplitInbox") {
+    return renderToolStatus({
+      part,
+      loadingText: t`Updating your split inbox...`,
+      renderSuccess: ({ toolCallId }) =>
+        part.output &&
+        "pendingDelete" in part.output &&
+        part.output.pendingDelete ? (
+          <PendingDeleteSplitCard
+            key={toolCallId}
+            split={part.output.pendingDelete}
+            disableConfirm={disableConfirm || !isPersistedMessage}
+          />
+        ) : (
+          <BasicToolInfo
+            key={toolCallId}
+            text={getSplitInboxLabel(
+              part.input?.action,
+              part.output && "split" in part.output
+                ? part.output.split?.name
+                : part.input?.name,
+              i18n,
+            )}
+          />
+        ),
+    });
+  }
+
   if (part.type === "tool-readEmail") {
     const { toolCallId, state } = part;
     if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Reading email..." />;
+      return <BasicToolInfo key={toolCallId} text={t`Reading email...`} />;
     }
     if (state === "output-available") {
       const { output } = part;
@@ -278,7 +350,7 @@ export function MessagePart({
 
     if (state === "input-available") {
       if (!input) {
-        return <BasicToolInfo key={toolCallId} text="Updating inbox..." />;
+        return <BasicToolInfo key={toolCallId} text={t`Updating inbox...`} />;
       }
 
       if (
@@ -297,6 +369,24 @@ export function MessagePart({
         );
       }
 
+      if (input.action === "trash_threads") {
+        return (
+          <BasicToolInfo
+            key={toolCallId}
+            text={t`Preparing to move emails to trash...`}
+          />
+        );
+      }
+
+      if (input.action === "delete_drafts") {
+        return (
+          <BasicToolInfo
+            key={toolCallId}
+            text={t`Preparing to delete drafts...`}
+          />
+        );
+      }
+
       const actionText = getManageInboxActionLabel({
         action: input.action,
         read: input.read ?? true,
@@ -307,12 +397,26 @@ export function MessagePart({
         inProgress: true,
       });
 
-      return <BasicToolInfo key={toolCallId} text={actionText} />;
+      return <BasicToolInfo key={toolCallId} text={i18n._(actionText)} />;
     }
     if (state === "output-available") {
       const { output } = part;
       if (isOutputWithError(output)) {
         return renderToolError(toolCallId, output);
+      }
+      const pendingTrash =
+        pendingTrashThreadsToolOutputSchema.safeParse(output);
+      if (pendingTrash.success) {
+        return (
+          <PendingTrashThreadsCard
+            key={toolCallId}
+            output={pendingTrash.data}
+            chatMessageId={messageId}
+            toolCallId={toolCallId}
+            threadLookup={threadLookup}
+            disableConfirm={disableConfirm || !isPersistedMessage}
+          />
+        );
       }
       return (
         <ManageInboxResult
@@ -336,7 +440,7 @@ export function MessagePart({
       disableConfirm,
       isPersistedMessage,
       messageId,
-      preparingText: "Preparing email...",
+      preparingText: t`Preparing email...`,
       ResultComponent: SendEmailResult,
     });
   }
@@ -347,7 +451,7 @@ export function MessagePart({
       disableConfirm,
       isPersistedMessage,
       messageId,
-      preparingText: "Preparing reply...",
+      preparingText: t`Preparing reply...`,
       ResultComponent: ReplyEmailResult,
     });
   }
@@ -358,7 +462,7 @@ export function MessagePart({
       disableConfirm,
       isPersistedMessage,
       messageId,
-      preparingText: "Preparing forward...",
+      preparingText: t`Preparing forward...`,
       ResultComponent: ForwardEmailResult,
     });
   }
@@ -366,9 +470,9 @@ export function MessagePart({
   if (part.type === "tool-getUserRulesAndSettings") {
     return renderToolStatus({
       part,
-      loadingText: "Reading rules and settings...",
+      loadingText: t`Reading rules and settings...`,
       renderSuccess: ({ toolCallId }) => (
-        <BasicToolInfo key={toolCallId} text="Read rules and settings" />
+        <BasicToolInfo key={toolCallId} text={t`Read rules and settings`} />
       ),
     });
   }
@@ -376,9 +480,9 @@ export function MessagePart({
   if (part.type === "tool-getRuleExecutionForMessage") {
     return renderToolStatus({
       part,
-      loadingText: "Reading rule execution details...",
+      loadingText: t`Reading rule execution details...`,
       renderSuccess: ({ toolCallId }) => (
-        <BasicToolInfo key={toolCallId} text="Read rule execution details" />
+        <BasicToolInfo key={toolCallId} text={t`Read rule execution details`} />
       ),
     });
   }
@@ -386,9 +490,9 @@ export function MessagePart({
   if (part.type === "tool-testRulesOnEmail") {
     return renderToolStatus({
       part,
-      loadingText: "Testing rules on this email...",
+      loadingText: t`Testing rules on this email...`,
       renderSuccess: ({ toolCallId }) => (
-        <BasicToolInfo key={toolCallId} text="Tested rules" />
+        <BasicToolInfo key={toolCallId} text={t`Tested rules`} />
       ),
     });
   }
@@ -396,9 +500,9 @@ export function MessagePart({
   if (part.type === "tool-getLearnedPatterns") {
     return renderToolStatus({
       part,
-      loadingText: "Reading learned patterns...",
+      loadingText: t`Reading learned patterns...`,
       renderSuccess: ({ toolCallId }) => (
-        <BasicToolInfo key={toolCallId} text="Read learned patterns" />
+        <BasicToolInfo key={toolCallId} text={t`Read learned patterns`} />
       ),
     });
   }
@@ -409,7 +513,7 @@ export function MessagePart({
       return (
         <BasicToolInfo
           key={toolCallId}
-          text={`Creating rule "${part.input.name}"...`}
+          text={t`Creating rule "${part.input.name}"...`}
         />
       );
     }
@@ -460,7 +564,7 @@ export function MessagePart({
       return (
         <BasicToolInfo
           key={toolCallId}
-          text={`Updating rule "${legacyRulePart.input.ruleName}" conditions...`}
+          text={t`Updating rule "${legacyRulePart.input.ruleName}" conditions...`}
         />
       );
     }
@@ -471,13 +575,19 @@ export function MessagePart({
       }
       if (!isLegacyUpdateRuleStateOutput(output)) {
         return (
-          <ErrorToolCard key={toolCallId} error="Missing rule update details" />
+          <ErrorToolCard
+            key={toolCallId}
+            error={t`Missing rule update details`}
+          />
         );
       }
       const ruleId = getOutputField<string>(output, "ruleId");
       if (!ruleId)
         return (
-          <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />
+          <ErrorToolCard
+            key={toolCallId}
+            error={t`Missing rule ID in response`}
+          />
         );
       return (
         <UpdatedRuleConditions
@@ -497,7 +607,7 @@ export function MessagePart({
       return (
         <BasicToolInfo
           key={toolCallId}
-          text={`Updating rule "${legacyRulePart.input.ruleName}" actions...`}
+          text={t`Updating rule "${legacyRulePart.input.ruleName}" actions...`}
         />
       );
     }
@@ -509,7 +619,10 @@ export function MessagePart({
       const ruleId = getOutputField<string>(output, "ruleId");
       if (!ruleId)
         return (
-          <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />
+          <ErrorToolCard
+            key={toolCallId}
+            error={t`Missing rule ID in response`}
+          />
         );
       return (
         <UpdatedRuleActions
@@ -529,7 +642,7 @@ export function MessagePart({
       return (
         <BasicToolInfo
           key={toolCallId}
-          text={`Updating rule "${part.input.ruleName}"...`}
+          text={t`Updating rule "${part.input.ruleName}"...`}
         />
       );
     }
@@ -548,7 +661,7 @@ export function MessagePart({
       return (
         <BasicToolInfo
           key={toolCallId}
-          text={`Preparing to delete rule "${part.input.ruleName}"...`}
+          text={t`Preparing to delete rule "${part.input.ruleName}"...`}
         />
       );
     }
@@ -560,7 +673,10 @@ export function MessagePart({
       const ruleId = getOutputField<string>(output, "ruleId");
       if (!ruleId)
         return (
-          <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />
+          <ErrorToolCard
+            key={toolCallId}
+            error={t`Missing rule ID in response`}
+          />
         );
 
       const requiresDeleteConfirmation =
@@ -571,7 +687,7 @@ export function MessagePart({
           return (
             <ErrorToolCard
               key={toolCallId}
-              error="Missing delete rule confirmation details"
+              error={t`Missing delete rule confirmation details`}
             />
           );
         }
@@ -590,7 +706,7 @@ export function MessagePart({
       return (
         <BasicToolInfo
           key={toolCallId}
-          text={`Deleted rule "${ruleName || part.input.ruleName}"`}
+          text={t`Deleted rule "${ruleName || part.input.ruleName}"`}
         />
       );
     }
@@ -600,18 +716,14 @@ export function MessagePart({
   if (isLegacyUpdateRuleStatePart(legacyPart)) {
     const { toolCallId, state } = legacyPart;
     if (state === "input-available") {
-      const verb =
-        legacyPart.input.operation === "delete"
-          ? "Preparing to delete"
-          : legacyPart.input.operation === "enable"
-            ? "Enabling"
-            : "Disabling";
-      return (
-        <BasicToolInfo
-          key={toolCallId}
-          text={`${verb} rule "${legacyPart.input.ruleName}"...`}
-        />
-      );
+      const ruleName = legacyPart.input.ruleName;
+      let text = t`Disabling rule "${ruleName}"...`;
+      if (legacyPart.input.operation === "delete") {
+        text = t`Preparing to delete rule "${ruleName}"...`;
+      } else if (legacyPart.input.operation === "enable") {
+        text = t`Enabling rule "${ruleName}"...`;
+      }
+      return <BasicToolInfo key={toolCallId} text={text} />;
     }
     if (state === "output-available") {
       const { output } = legacyPart;
@@ -620,13 +732,19 @@ export function MessagePart({
       }
       if (!isLegacyUpdateRuleStateOutput(output)) {
         return (
-          <ErrorToolCard key={toolCallId} error="Missing rule update details" />
+          <ErrorToolCard
+            key={toolCallId}
+            error={t`Missing rule update details`}
+          />
         );
       }
       const ruleId = getOutputField<string>(output, "ruleId");
       if (!ruleId)
         return (
-          <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />
+          <ErrorToolCard
+            key={toolCallId}
+            error={t`Missing rule ID in response`}
+          />
         );
 
       const requiresDeleteConfirmation =
@@ -637,7 +755,7 @@ export function MessagePart({
           return (
             <ErrorToolCard
               key={toolCallId}
-              error="Missing delete rule confirmation details"
+              error={t`Missing delete rule confirmation details`}
             />
           );
         }
@@ -668,7 +786,7 @@ export function MessagePart({
       return (
         <BasicToolInfo
           key={toolCallId}
-          text={`Updating learned patterns for rule "${part.input.ruleName}"...`}
+          text={t`Updating learned patterns for rule "${part.input.ruleName}"...`}
         />
       );
     }
@@ -680,7 +798,10 @@ export function MessagePart({
       const ruleId = getOutputField<string>(output, "ruleId");
       if (!ruleId)
         return (
-          <ErrorToolCard key={toolCallId} error="Missing rule ID in response" />
+          <ErrorToolCard
+            key={toolCallId}
+            error={t`Missing rule ID in response`}
+          />
         );
       return (
         <UpdatedLearnedPatterns
@@ -695,7 +816,7 @@ export function MessagePart({
   if (part.type === "tool-updatePersonalInstructions") {
     return renderToolStatus({
       part,
-      loadingText: "Updating personal instructions...",
+      loadingText: t`Updating personal instructions...`,
       renderSuccess: ({ toolCallId, output }) => {
         const updated = getOutputField<string>(output, "updated");
         return (
@@ -705,7 +826,7 @@ export function MessagePart({
               personalInstructions:
                 updated ??
                 part.input?.personalInstructions ??
-                "Personal instructions updated.",
+                t`Personal instructions updated.`,
               mode: part.input?.mode ?? "append",
             }}
           />
@@ -718,7 +839,7 @@ export function MessagePart({
     const { toolCallId, state } = part;
     if (state === "input-available") {
       return (
-        <BasicToolInfo key={toolCallId} text="Adding to knowledge base..." />
+        <BasicToolInfo key={toolCallId} text={t`Adding to knowledge base...`} />
       );
     }
     if (state === "output-available") {
@@ -730,11 +851,50 @@ export function MessagePart({
     }
   }
 
+  if (part.type === "tool-bulkManageInbox") {
+    const { toolCallId, state } = part;
+
+    if (state === "input-available") {
+      return (
+        <BasicToolInfo key={toolCallId} text="Checking matching emails..." />
+      );
+    }
+
+    if (state === "output-available") {
+      const parsed = pendingBulkInboxActionToolOutputSchema.safeParse(
+        part.output,
+      );
+      if (parsed.success) {
+        return (
+          <BulkInboxActionCard
+            key={toolCallId}
+            output={parsed.data}
+            chatMessageId={messageId}
+            toolCallId={toolCallId}
+            disableConfirm={disableConfirm || !isPersistedMessage}
+          />
+        );
+      }
+      if (isOutputWithError(part.output)) {
+        return renderToolError(toolCallId, part.output);
+      }
+      return (
+        <BasicToolInfo
+          key={toolCallId}
+          text={
+            getOutputField<string>(part.output, "message") ||
+            "No emails matched, so nothing changed."
+          }
+        />
+      );
+    }
+  }
+
   if (part.type === "tool-saveMemory") {
     const { toolCallId, state } = part;
 
     if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Saving memory..." />;
+      return <BasicToolInfo key={toolCallId} text={t`Saving memory...`} />;
     }
 
     if (state === "output-available") {
@@ -759,14 +919,14 @@ export function MessagePart({
         );
       }
 
-      return <BasicToolInfo key={toolCallId} text="Memory saved" />;
+      return <BasicToolInfo key={toolCallId} text={t`Memory saved`} />;
     }
   }
 
   if (part.type === "tool-searchMemories") {
     return renderToolStatus({
       part,
-      loadingText: "Searching memories...",
+      loadingText: t`Searching memories...`,
       renderSuccess: ({ toolCallId, output }) => {
         const memories = getOutputField<Array<unknown>>(output, "memories");
         const memoriesCount = Array.isArray(memories) ? memories.length : null;
@@ -776,7 +936,14 @@ export function MessagePart({
         return (
           <BasicToolInfo
             key={toolCallId}
-            text={`Found ${memoriesCount ?? "matching"} memories`}
+            text={
+              memoriesCount === null
+                ? t`Found matching memories`
+                : t`Found ${plural(memoriesCount, {
+                    one: "# memory",
+                    other: "# memories",
+                  })}`
+            }
           />
         );
       },
@@ -786,11 +953,11 @@ export function MessagePart({
   if (part.type === "tool-getSenderCategoryOverview") {
     return renderToolStatus({
       part,
-      loadingText: "Checking sender categories...",
+      loadingText: t`Checking sender categories...`,
       renderSuccess: ({ toolCallId, output }) => (
         <BasicToolInfo
           key={toolCallId}
-          text={getSenderCategoryOverviewSuccessText(output)}
+          text={getSenderCategoryOverviewSuccessText(output, i18n)}
         />
       ),
     });
@@ -799,24 +966,30 @@ export function MessagePart({
   if (part.type === "tool-startSenderCategorization") {
     return renderToolStatus({
       part,
-      loadingText: "Starting sender categorization...",
-      renderSuccess: ({ toolCallId, output }) => (
-        <BasicToolInfo
-          key={toolCallId}
-          text={getStartSenderCategorizationSuccessText(output)}
-        />
-      ),
+      loadingText: t`Starting sender categorization...`,
+      renderSuccess: ({ toolCallId, output }) =>
+        getOutputField<boolean>(output, "upgradeRequired") ? (
+          <div key={toolCallId}>
+            <BasicToolInfo text={t`Sender categorization needs AI access`} />
+            <PremiumAlertWithData className="my-2" />
+          </div>
+        ) : (
+          <BasicToolInfo
+            key={toolCallId}
+            text={getStartSenderCategorizationSuccessText(output, i18n)}
+          />
+        ),
     });
   }
 
   if (part.type === "tool-getSenderCategorizationStatus") {
     return renderToolStatus({
       part,
-      loadingText: "Checking categorization progress...",
+      loadingText: t`Checking categorization progress...`,
       renderSuccess: ({ toolCallId, output }) => (
         <BasicToolInfo
           key={toolCallId}
-          text={getSenderCategorizationStatusSuccessText(output)}
+          text={getSenderCategorizationStatusSuccessText(output, i18n)}
         />
       ),
     });
@@ -831,8 +1004,8 @@ export function MessagePart({
           key={toolCallId}
           text={
             categoryName
-              ? `Archiving "${categoryName}" category...`
-              : "Archiving category..."
+              ? t`Archiving "${categoryName}" category...`
+              : t`Archiving category...`
           }
         />
       );
@@ -859,11 +1032,11 @@ export function MessagePart({
     const toolLabel = formatToolLabel(toolPart.type);
     return renderToolStatus({
       part: toolPart,
-      loadingText: `Running ${toolLabel}...`,
+      loadingText: t`Running ${toolLabel}...`,
       renderSuccess: ({ toolCallId, output }) => (
         <BasicToolInfo
           key={toolCallId}
-          text={getToolSuccessMessage(output) ?? `Completed ${toolLabel}`}
+          text={getToolSuccessMessage(output) ?? t`Completed ${toolLabel}`}
         />
       ),
     });
@@ -907,6 +1080,30 @@ function normalizeManageInboxActionForDisplay(action: unknown) {
   if (action === "categorize_threads") return "label_threads";
   if (action === "remove_category_threads") return "remove_label_threads";
   return isManageInboxAction(action) ? action : undefined;
+}
+
+// The browser applies these on its own and never reports back, so the labels
+// describe the request rather than claim the result.
+function getMailScreenActionLabel(input: unknown, i18n: I18n) {
+  const action = parseMailScreenAction(input);
+  if ("error" in action) return i18n._(msg`Updating your mail screen`);
+  switch (action.action) {
+    case "select_threads":
+      return i18n._(
+        msg`Selecting ${plural(action.threadIds.length, {
+          one: "# email",
+          other: "# emails",
+        })} on screen`,
+      );
+    case "open_thread":
+      return i18n._(msg`Opening the email on screen`);
+    case "search": {
+      const query = action.query;
+      return i18n._(msg`Searching for "${query}" on screen`);
+    }
+    case "show_split":
+      return i18n._(msg`Showing the split on screen`);
+  }
 }
 
 function getOptionalString(value: unknown) {
@@ -1006,55 +1203,82 @@ function getToolSuccessMessage(output: unknown): string | null {
   return toMessageString((output as Record<string, unknown>).message);
 }
 
-function getSenderCategoryOverviewSuccessText(output: unknown): string {
+function getSenderCategoryOverviewSuccessText(
+  output: unknown,
+  i18n: I18n,
+): string {
   const categories = getOutputField<Array<unknown>>(output, "categories");
   const categoryCount = Array.isArray(categories) ? categories.length : 0;
   const uncategorized =
     getOutputField<number>(output, "uncategorizedSenderCount") ?? 0;
 
   if (categoryCount === 0 && uncategorized === 0) {
-    return "No sender categories yet";
+    return i18n._(msg`No sender categories yet`);
   }
 
-  const parts: string[] = [];
-  if (categoryCount > 0) {
-    parts.push(
-      `${categoryCount} ${pluralize(categoryCount, "category", "categories")}`,
+  if (uncategorized === 0) {
+    return i18n._(
+      msg`Found ${plural(categoryCount, {
+        one: "# category",
+        other: "# categories",
+      })}`,
     );
   }
-  if (uncategorized > 0) {
-    parts.push(
-      `${uncategorized} uncategorized ${pluralize(uncategorized, "sender", "senders")}`,
+  if (categoryCount === 0) {
+    return i18n._(
+      msg`Found ${plural(uncategorized, {
+        one: "# uncategorized sender",
+        other: "# uncategorized senders",
+      })}`,
     );
   }
-  return `Found ${parts.join(", ")}`;
+  return i18n._(
+    msg`Found ${plural(categoryCount, {
+      one: "# category",
+      other: "# categories",
+    })}, ${plural(uncategorized, {
+      one: "# uncategorized sender",
+      other: "# uncategorized senders",
+    })}`,
+  );
 }
 
-function getStartSenderCategorizationSuccessText(output: unknown): string {
+function getStartSenderCategorizationSuccessText(
+  output: unknown,
+  i18n: I18n,
+): string {
   const alreadyRunning = getOutputField<boolean>(output, "alreadyRunning");
   const totalQueued = getOutputField<number>(output, "totalQueuedSenders") ?? 0;
 
   if (alreadyRunning) {
-    return "Sender categorization already in progress";
+    return i18n._(msg`Sender categorization already in progress`);
   }
   if (totalQueued > 0) {
-    return `Categorizing ${totalQueued} ${pluralize(totalQueued, "sender", "senders")}`;
+    return i18n._(
+      msg`Categorizing ${plural(totalQueued, {
+        one: "# sender",
+        other: "# senders",
+      })}`,
+    );
   }
-  return "No senders to categorize";
+  return i18n._(msg`No senders to categorize`);
 }
 
-function getSenderCategorizationStatusSuccessText(output: unknown): string {
+function getSenderCategorizationStatusSuccessText(
+  output: unknown,
+  i18n: I18n,
+): string {
   const status = getOutputField<string>(output, "status");
   const total = getOutputField<number>(output, "totalItems") ?? 0;
   const completed = getOutputField<number>(output, "completedItems") ?? 0;
 
   if (status === "completed") {
-    return "Categorization complete";
+    return i18n._(msg`Categorization complete`);
   }
   if (status === "running") {
-    return `Categorizing senders (${completed} of ${total})`;
+    return i18n._(msg`Categorizing senders (${completed} of ${total})`);
   }
-  return "Categorization hasn't started";
+  return i18n._(msg`Categorization hasn't started`);
 }
 
 function toMessageString(value: unknown): string | null {
@@ -1069,4 +1293,25 @@ function toMessageString(value: unknown): string | null {
     return value.message;
   }
   return null;
+}
+
+function getSplitInboxLabel(
+  action: string | undefined,
+  name: string | null | undefined,
+  i18n: I18n,
+) {
+  switch (action) {
+    case "create":
+      return name
+        ? i18n._(msg`Created split "${name}"`)
+        : i18n._(msg`Created split`);
+    case "update":
+    case "hideFromAll":
+    case "showInAll":
+      return name
+        ? i18n._(msg`Updated split "${name}"`)
+        : i18n._(msg`Updated split`);
+    default:
+      return i18n._(msg`Read your split inbox`);
+  }
 }

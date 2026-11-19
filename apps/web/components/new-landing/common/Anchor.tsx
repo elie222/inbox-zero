@@ -1,5 +1,5 @@
 import { cn } from "@/utils";
-import Link from "next/link";
+import { LandingLink } from "@/components/new-landing/LandingLink";
 
 interface AnchorProps {
   children: React.ReactNode;
@@ -10,12 +10,12 @@ interface AnchorProps {
 
 export function Anchor({ href, newTab, className, children }: AnchorProps) {
   return (
-    <Link
+    <LandingLink
       href={href}
       target={newTab ? "_blank" : undefined}
       className={cn("underline", className)}
     >
       {children}
-    </Link>
+    </LandingLink>
   );
 }

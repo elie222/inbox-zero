@@ -21,6 +21,28 @@ google:
       name: Project Alpha
       color_background: "#d7e6fc"
       color_text: "#10253f"
+    # Default category label most accounts get from onboarding's rules.
+    - id: Label_to_reply
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      name: To Reply
+    - id: Label_newsletter
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      name: Newsletter
+    - id: Label_marketing
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      name: Marketing
+    - id: Label_calendar
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      name: Calendar
+    - id: Label_receipt
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      name: Receipt
+    - id: Label_notification
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      name: Notification
+    - id: Label_cold_email
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      name: Cold Email
   messages:
     - id: msg_playwright_1
       thread_id: thr_playwright_1

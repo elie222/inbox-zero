@@ -450,6 +450,7 @@ export default function ToolsPage() {
             output={{
               action: "bulk_archive_senders",
               sendersCount: 2,
+              archivedMessagesCount: 37,
               senders: ["updates@example.com", "news@example.com"],
             }}
             threadLookup={assistantToolThreadLookup}
@@ -481,13 +482,28 @@ export default function ToolsPage() {
               action: "archive_category",
               category: { id: "cat-1", name: "Newsletters" },
               sendersCount: 4,
+              archivedMessagesCount: 52,
               senders: [
                 "updates@example.com",
                 "news@example.com",
                 "digest@example.com",
                 "weekly@example.com",
               ],
-              message: 'Archived mail from 4 senders in "Newsletters".',
+              message: 'Archived 52 messages from 4 senders in "Newsletters".',
+            }}
+          />
+
+          <MutedText>Category with no messages archived:</MutedText>
+          <ManageSenderCategoryResult
+            output={{
+              success: true,
+              action: "archive_category",
+              category: { id: "cat-5", name: "Updates" },
+              sendersCount: 2,
+              archivedMessagesCount: 0,
+              senders: ["status@example.com", "billing@example.com"],
+              message:
+                'No messages were archived from the 2 senders in "Updates".',
             }}
           />
 

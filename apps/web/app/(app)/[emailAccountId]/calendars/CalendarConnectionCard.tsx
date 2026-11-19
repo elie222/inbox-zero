@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -65,6 +67,7 @@ const getProviderInfo = (provider: string) => {
 export function CalendarConnectionCard({
   connection,
 }: CalendarConnectionCardProps) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { data, mutate } = useCalendars();
   const [optimisticUpdates, setOptimisticUpdates] = useState<
@@ -80,6 +83,13 @@ export function CalendarConnectionCard({
     return optimisticValue !== undefined ? optimisticValue : cal.isEnabled;
   });
 
+  const enabledCount = enabledCalendars.length;
+  // English keeps "calendars" for one too: e2e specs select "1 of 1 calendars".
+  const selectedSummary = t`${plural(calendars.length, {
+    one: `${enabledCount} of # calendars selected for availability`,
+    other: `${enabledCount} of # calendars selected for availability`,
+  })}`;
+
   const { execute: executeDisconnect, isExecuting: isDisconnecting } =
     useAction(disconnectCalendarAction.bind(null, emailAccountId));
   const { execute: executeToggle } = useAction(
@@ -89,7 +99,7 @@ export function CalendarConnectionCard({
   const handleDisconnect = async () => {
     if (
       confirm(
-        "Are you sure you want to disconnect this calendar? This will remove all associated calendars.",
+        t`Are you sure you want to disconnect this calendar? This will remove all associated calendars.`,
       )
     ) {
       executeDisconnect({ connectionId: connection.id });
@@ -161,7 +171,9 @@ export function CalendarConnectionCard({
                 {!connection.isConnected && (
                   <div className="flex shrink-0 items-center gap-1 text-red-600">
                     <XCircle className="h-3 w-3" />
-                    <span className="text-xs">Disconnected</span>
+                    <span className="text-xs">
+                      <Trans>Disconnected</Trans>
+                    </span>
                   </div>
                 )}
               </CardDescription>
@@ -172,7 +184,7 @@ export function CalendarConnectionCard({
               <DropdownMenuTrigger asChild>
                 <Button
                   type="button"
-                  aria-label="Calendar options"
+                  aria-label={t`Calendar options`}
                   disabled={isDisconnecting}
                   variant="ghostMuted"
                   size="iconSm"
@@ -189,7 +201,7 @@ export function CalendarConnectionCard({
                   className="text-destructive focus:text-destructive"
                 >
                   <Trash2Icon className="mr-2 size-4" />
-                  Disconnect
+                  <Trans>Disconnect</Trans>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -205,10 +217,7 @@ export function CalendarConnectionCard({
                 type="button"
                 className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full text-left"
               >
-                <span>
-                  {enabledCalendars.length} of {calendars.length} calendars
-                  selected for availability
-                </span>
+                <span>{selectedSummary}</span>
                 <ChevronDown
                   className={`h-4 w-4 transition-transform ${
                     isOpen ? "rotate-180" : ""
@@ -231,7 +240,9 @@ export function CalendarConnectionCard({
           </Collapsible>
         ) : (
           <TypographyP className="text-sm">
-            No calendars found. Your calendars will be synced automatically.
+            <Trans>
+              No calendars found. Your calendars will be synced automatically.
+            </Trans>
           </TypographyP>
         )}
       </CardContent>

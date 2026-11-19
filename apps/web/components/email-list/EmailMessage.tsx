@@ -1,7 +1,7 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { CalendarInvitation } from "@/components/email-list/CalendarInvitation";
 import { isCalendarInvitationMessage } from "@/utils/calendar/invitations/detection";
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
-import { useAction } from "next-safe-action/hooks";
 import {
   ForwardIcon,
   ReplyAllIcon,
@@ -31,7 +31,6 @@ import { createReplyContent } from "@/utils/gmail/reply";
 import { cn } from "@/utils";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { GmailLabel } from "@/utils/gmail/label";
-import { deleteDraftAction } from "@/utils/actions/mail";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
@@ -44,9 +43,11 @@ import { isTypingTarget } from "@/lib/shortcuts/registry";
 import { useContactPhoto } from "@/hooks/useContactPhoto";
 import { toastError } from "@/components/Toast";
 import { LoadingMiniSpinner } from "@/components/Loading";
-import { getActionErrorMessage } from "@/utils/error";
+import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
+import { discardMailboxDraft } from "@/utils/mail-engine/discard-mailbox-draft";
 import {
   getDraftSessionMessageId,
+  getDraftSessionMessageIds,
   getReplyDraftSessionId,
   type ReplyDraftMode,
 } from "@/utils/mail-engine/reply-drafts";
@@ -534,12 +535,13 @@ function MessageHeader({
   hasDraft: boolean;
   sentMessageOpen?: SentMessageOpenState;
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccount, emailAccountId, userEmail } = useAccount();
 
   const isSent = message.labelIds?.includes(GmailLabel.SENT) ?? false;
   const senderEmail = extractEmailAddress(message.headers.from);
   const senderName = isSent
-    ? "Me"
+    ? t`Me`
     : extractNameFromEmail(message.headers.from) || senderEmail;
   const contactPhoto = useContactPhoto({
     email: expanded && !isSent ? senderEmail : null,
@@ -552,6 +554,7 @@ function MessageHeader({
       ...splitRecipientList(message.headers.cc ?? ""),
     ],
     userEmail,
+    t`me`,
   );
   const canResearchSender =
     Boolean(onOpenSenderContext) &&
@@ -651,10 +654,12 @@ function MessageHeader({
               <span className={senderNameClassName}>{senderName}</span>
               {recipients && (
                 <span className="hidden min-w-0 shrink-[999] truncate text-muted-foreground text-sm sm:block">
-                  to{" "}
-                  <span className="font-medium text-foreground">
-                    {recipients}
-                  </span>
+                  <Trans>
+                    to{" "}
+                    <span className="font-medium text-foreground">
+                      {recipients}
+                    </span>
+                  </Trans>
                 </span>
               )}
               <ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground transition-opacity group-hover/message:opacity-100 group-focus-visible/details:opacity-100 sm:opacity-0" />
@@ -741,7 +746,9 @@ function MessageHeader({
           className="shrink-0 whitespace-nowrap text-muted-foreground text-xs"
           dateTime={message.headers.date}
         >
-          {formatShortDate(new Date(message.headers.date))}
+          {formatShortDate(new Date(message.headers.date), {
+            locale: i18n.locale,
+          })}
         </time>
       </div>
     </div>
@@ -867,9 +874,7 @@ function ReplyPanel({
     userEmail,
   ]);
 
-  const { executeAsync: discardDraft } = useAction(
-    deleteDraftAction.bind(null, emailAccountId),
-  );
+  const client = useOptionalMailClient();
 
   const onDiscard = useCallback(
     async (draftId?: string) => {
@@ -878,42 +883,35 @@ function ReplyPanel({
         return true;
       }
 
-      const discardPromise = discardDraft({
-        draftMessageId: draftMessage.id,
+      const discardFailure = discardMailboxDraft({
+        client,
+        emailAccountId,
+        messageIds: getDraftSessionMessageIds(emailAccountId, draftMessage.id),
         draftId,
-      });
+      }).then(
+        () => null,
+        (error: unknown) =>
+          error instanceof Error ? error.message : "Failed to discard draft",
+      );
       const composeSession = onStartDiscard();
       if (!composeSession) return false;
 
-      try {
-        const result = await discardPromise;
-        if (
-          result &&
-          (result.serverError !== undefined ||
-            result.validationErrors !== undefined)
-        ) {
-          toastError({
-            description: getActionErrorMessage(result, {
-              prefix: "Failed to discard draft",
-            }),
-          });
-          onRestoreCompose(composeSession);
-          return false;
-        }
-      } catch {
-        toastError({ description: "Failed to discard draft" });
+      const failure = await discardFailure;
+      if (failure) {
+        toastError({ description: failure });
         onRestoreCompose(composeSession);
         return false;
-      } finally {
-        refetch();
       }
+      // Without the engine nothing else drops the discarded draft from view.
+      if (!client) refetch();
       onDraftDiscarded?.();
       return true;
     },
     [
+      client,
       composeMode,
       draftMessage,
-      discardDraft,
+      emailAccountId,
       onCloseCompose,
       onDraftDiscarded,
       onRestoreCompose,

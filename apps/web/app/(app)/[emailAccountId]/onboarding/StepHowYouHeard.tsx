@@ -17,6 +17,8 @@ import {
   YoutubeIcon,
 } from "@/components/BrandIcons";
 import { useAction } from "next-safe-action/hooks";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useState } from "react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
@@ -33,17 +35,17 @@ const OTHER_VALUE = "other";
 const SOURCES = [
   {
     value: "search",
-    label: "Search",
+    label: msg`Search`,
     icon: <Search className="size-4" />,
   },
   {
     value: "llm",
-    label: "ChatGPT, Claude, or other AI",
+    label: msg`ChatGPT, Claude, or other AI`,
     icon: <Sparkles className="size-4" />,
   },
   {
     value: "friend",
-    label: "Friend or colleague",
+    label: msg`Friend or colleague`,
     icon: <Users className="size-4" />,
   },
   {
@@ -78,12 +80,13 @@ const SOURCES = [
   },
   {
     value: OTHER_VALUE,
-    label: "Other",
+    label: msg`Other`,
     icon: <MoreHorizontal className="size-4" />,
   },
 ];
 
 export function StepHowYouHeard({ onNext }: { onNext: () => void }) {
+  const { t, i18n } = useLingui();
   const { executeAsync: saveSource } = useAction(saveOnboardingAnswersAction);
   const [showOtherInput, setShowOtherInput] = useState(false);
   const [customSource, setCustomSource] = useState("");
@@ -114,8 +117,7 @@ export function StepHowYouHeard({ onNext }: { onNext: () => void }) {
                   validationErrors: result?.validationErrors,
                 },
                 {
-                  prefix:
-                    "We couldn't save that answer, but you can keep going",
+                  prefix: t`We couldn't save that answer, but you can keep going`,
                 },
               ),
             });
@@ -126,12 +128,11 @@ export function StepHowYouHeard({ onNext }: { onNext: () => void }) {
             extra: { context: "onboarding", step: "source" },
           });
           toastError({
-            description:
-              "We couldn't save that answer, but you can keep going.",
+            description: t`We couldn't save that answer, but you can keep going.`,
           });
         });
     },
-    [onNext, saveSource],
+    [onNext, saveSource, t],
   );
 
   const onSelectSource = useCallback(
@@ -152,9 +153,11 @@ export function StepHowYouHeard({ onNext }: { onNext: () => void }) {
       </IconCircle>
 
       <div className="text-center mt-4">
-        <PageHeading>How did you hear about Inbox Zero?</PageHeading>
+        <PageHeading>
+          <Trans>How did you hear about Inbox Zero?</Trans>
+        </PageHeading>
         <TypographyP className="mt-2 max-w-lg mx-auto">
-          We'd love to know how you found us.
+          <Trans>We'd love to know how you found us.</Trans>
         </TypographyP>
       </div>
 
@@ -162,7 +165,11 @@ export function StepHowYouHeard({ onNext }: { onNext: () => void }) {
         {SOURCES.map((source) => (
           <OnboardingButton
             key={source.value}
-            text={source.label}
+            text={
+              typeof source.label === "string"
+                ? source.label
+                : i18n._(source.label)
+            }
             icon={source.icon}
             onClick={() => onSelectSource(source.value)}
           />
@@ -180,7 +187,7 @@ export function StepHowYouHeard({ onNext }: { onNext: () => void }) {
           <Input
             name="customSource"
             type="text"
-            placeholder="Where did you hear about us?"
+            placeholder={t`Where did you hear about us?`}
             registerProps={{
               value: customSource,
               onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
@@ -194,7 +201,7 @@ export function StepHowYouHeard({ onNext }: { onNext: () => void }) {
               className="w-full"
               disabled={!customSource.trim()}
             >
-              Continue
+              <Trans>Continue</Trans>
               <ArrowRightIcon className="size-4 ml-2" />
             </Button>
           </div>

@@ -20,7 +20,7 @@ import {
 // not a per-sender correction. Learning an exclusion from each one leaves
 // later emails from those senders matching nothing.
 export const BULK_LABEL_REMOVAL_THRESHOLD = 10;
-const BULK_LABEL_REMOVAL_WINDOW_MINUTES = 15;
+export const BULK_LABEL_REMOVAL_WINDOW_MINUTES = 15;
 
 export async function recordLabelRemovalLearning({
   sender,

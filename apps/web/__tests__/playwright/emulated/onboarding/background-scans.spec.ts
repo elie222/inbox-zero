@@ -32,20 +32,16 @@ test("Continue works while the background statistics request is still pending", 
   });
 
   try {
-    await page.goto(`/${emailAccountId}/onboarding?step=intent`);
-    await chooseSignupIntent(page, "Both");
+    await page.goto(`/${emailAccountId}/onboarding`);
+    await started.promise;
+    await page.getByRole("button", { name: "See how it works" }).click();
     await expect(
       page.getByRole("heading", { name: "Your inbox, automatically sorted" }),
-    ).toBeVisible();
-    await started.promise;
+    ).toBeVisible({ timeout: 5000 });
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "A chat that runs your email" }),
     ).toBeVisible({ timeout: 5000 });
-    expect(await getSignupIntentState()).toEqual({
-      completed: false,
-      signupIntent: "BOTH",
-    });
     await capturePlaywrightCheckpoint(
       page,
       testInfo,
@@ -82,11 +78,12 @@ test("Gmail throttling cannot block saving Both or navigating onboarding", async
     await page.goto(`/${emailAccountId}/onboarding?step=intent`);
     await chooseSignupIntent(page, "Both");
     await expect(
-      page.getByRole("heading", { name: "Your inbox, automatically sorted" }),
+      page.getByRole("heading", { name: "What do you do?" }),
     ).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Founder", exact: true }).click();
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(
-      page.getByRole("heading", { name: "A chat that runs your email" }),
+      page.getByRole("heading", { name: "What's the size of your company?" }),
     ).toBeVisible({ timeout: 5000 });
     await expect
       .poll(() => getPersonaAnalysisStatus(page, emailAccountId))

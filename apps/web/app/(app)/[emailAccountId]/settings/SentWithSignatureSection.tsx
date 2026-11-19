@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -18,6 +19,7 @@ export function SentWithSignatureSection({
 }: {
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
   const { enabled, isExecuting, toggle } =
     useSentWithSignatureToggle(emailAccountId);
 
@@ -28,14 +30,16 @@ export function SentWithSignatureSection({
       <ItemSeparator />
       <Item size="sm">
         <ItemContent>
-          <ItemTitle>Include 'Sent with {BRAND_NAME}'</ItemTitle>
+          <ItemTitle>
+            <Trans>Include 'Sent with {BRAND_NAME}'</Trans>
+          </ItemTitle>
         </ItemContent>
         <ItemActions>
           {enabled === undefined ? (
             <Skeleton className="h-5 w-9 rounded-full" />
           ) : (
             <Switch
-              aria-label={`Toggle 'Sent with ${BRAND_NAME}'`}
+              aria-label={t`Toggle 'Sent with ${BRAND_NAME}'`}
               checked={enabled}
               disabled={isExecuting}
               onCheckedChange={toggle}

@@ -1,6 +1,9 @@
+import type { I18n } from "@lingui/core";
+import { t } from "@lingui/core/macro";
 import {
   IMAGE_PROXY_ORIGIN,
-  prepareEmailHtml,
+  prepareEmailImages,
+  sanitizeEmailHtml,
 } from "@/utils/email/prepare-html.client";
 import { escapeHtml } from "@/utils/string";
 import type { ParsedMessage } from "@/utils/types";
@@ -20,14 +23,19 @@ let printFrame: HTMLIFrameElement | null = null;
 export async function printMessages({
   subject,
   messages,
+  i18n,
 }: {
+  i18n: I18n;
   subject: string;
   messages: PrintableMessage[];
 }) {
   const bodies = await Promise.all(
     messages.map((message) =>
       message.textHtml
-        ? prepareEmailHtml({ messageId: message.id, html: message.textHtml })
+        ? prepareEmailImages({
+            messageId: message.id,
+            sourceHtml: sanitizeEmailHtml(message.textHtml),
+          })
         : null,
     ),
   );
@@ -57,11 +65,17 @@ export async function printMessages({
     { once: true },
   );
   frame.srcdoc = buildPrintDocument({
+    i18n,
     subject,
     messages: messages.map((message, index) => ({
       ...message,
-      html: bodies[index],
+      html: bodies[index]?.html ?? null,
     })),
+    // One message the proxy could not prepare keeps the whole printout from
+    // loading images directly from senders.
+    allowRemoteImages: bodies.every(
+      (body) => body?.remoteImagesAllowed ?? true,
+    ),
   });
   document.body.append(frame);
 }
@@ -69,9 +83,13 @@ export async function printMessages({
 export function buildPrintDocument({
   subject,
   messages,
+  allowRemoteImages = true,
+  i18n,
 }: {
+  i18n: I18n;
   subject: string;
   messages: (PrintableMessage & { html: string | null })[];
+  allowRemoteImages?: boolean;
 }) {
   const sections = messages.map((message) => {
     const { from, to, cc, date } = message.headers;
@@ -84,10 +102,10 @@ export function buildPrintDocument({
 
     return `<section class="message">
   <div class="meta">
-    <div class="row"><strong>${escapeHtml(from)}</strong><span>${escapeHtml(formatPrintDate(date))}</span></div>
-    ${to ? `<div>To: ${escapeHtml(to)}</div>` : ""}
-    ${cc ? `<div>Cc: ${escapeHtml(cc)}</div>` : ""}
-    ${attachments.length ? `<div>Attachments: ${attachments.map(escapeHtml).join(", ")}</div>` : ""}
+    <div class="row"><strong>${escapeHtml(from)}</strong><span>${escapeHtml(formatPrintDate(date, i18n))}</span></div>
+    ${to ? `<div>${t(i18n)`To: ${escapeHtml(to)}`}</div>` : ""}
+    ${cc ? `<div>${t(i18n)`Cc: ${escapeHtml(cc)}`}</div>` : ""}
+    ${attachments.length ? `<div>${t(i18n)`Attachments: ${attachments.map(escapeHtml).join(", ")}`}</div>` : ""}
   </div>
   <div class="body">${body}</div>
 </section>`;
@@ -97,7 +115,7 @@ export function buildPrintDocument({
 <html>
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: blob: https: ${IMAGE_PROXY_ORIGIN ?? ""}; script-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: blob: ${allowRemoteImages ? "https:" : ""} ${IMAGE_PROXY_ORIGIN ?? ""}; script-src 'none'; base-uri 'none'; form-action 'none'">
 <title>${escapeHtml(subject)}</title>
 <style>
   @page { margin: 16mm; }
@@ -119,8 +137,8 @@ ${sections.join("\n")}
 </html>`;
 }
 
-function formatPrintDate(date: string) {
+function formatPrintDate(date: string, i18n: I18n) {
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) return date;
-  return parsed.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  return i18n.date(parsed, { dateStyle: "medium", timeStyle: "short" });
 }

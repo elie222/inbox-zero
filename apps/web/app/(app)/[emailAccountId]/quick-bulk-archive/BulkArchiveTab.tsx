@@ -4,6 +4,8 @@ import { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
 import sortBy from "lodash/sortBy";
 import { toast } from "sonner";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import Link from "next/link";
 import {
   ArchiveIcon,
@@ -42,8 +44,9 @@ import type { CategorizedSendersResponse } from "@/app/api/user/categorize/sende
 
 const confidenceConfig = {
   high: {
-    label: "Safe to Archive",
-    description: "Marketing emails and newsletters you likely don't need",
+    label: msg`Safe to Archive`,
+    reason: msg`Marketing / Promotional`,
+    description: msg`Marketing emails and newsletters you likely don't need`,
     icon: MailXIcon,
     color: "text-green-600",
     bgColor: "bg-green-50 dark:bg-green-950/30",
@@ -52,8 +55,9 @@ const confidenceConfig = {
     badgeVariant: "default" as const,
   },
   medium: {
-    label: "Probably Safe",
-    description: "Automated notifications and updates",
+    label: msg`Probably Safe`,
+    reason: msg`Automated notification`,
+    description: msg`Automated notifications and updates`,
     icon: BellOffIcon,
     color: "text-amber-600",
     bgColor: "bg-amber-50 dark:bg-amber-950/30",
@@ -62,8 +66,9 @@ const confidenceConfig = {
     badgeVariant: "secondary" as const,
   },
   low: {
-    label: "Review Recommended",
-    description: "Senders that may need a closer look",
+    label: msg`Review Recommended`,
+    reason: msg`Other category`,
+    description: msg`Senders that may need a closer look`,
     icon: MailOpenIcon,
     color: "text-blue-600",
     bgColor: "bg-blue-50 dark:bg-blue-950/30",
@@ -74,6 +79,7 @@ const confidenceConfig = {
 };
 
 export function BulkArchiveTab() {
+  const { t, i18n } = useLingui();
   const { emailAccountId, userEmail } = useAccount();
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
 
@@ -198,10 +204,10 @@ export function BulkArchiveTab() {
         senders: toArchive.map((candidate) => candidate.address),
       });
       if (!queuedSenders) {
-        toast.info("No new senders to archive");
+        toast.info(t`No new senders to archive`);
       }
     } catch {
-      toast.error("Failed to archive some senders. Please try again.");
+      toast.error(t`Failed to archive some senders. Please try again.`);
     } finally {
       setIsArchiving(false);
     }
@@ -230,10 +236,14 @@ export function BulkArchiveTab() {
           <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-muted">
             <InboxIcon className="size-8 text-muted-foreground" />
           </div>
-          <h2 className="mb-2 text-xl font-semibold">No Senders to Archive</h2>
+          <h2 className="mb-2 text-xl font-semibold">
+            <Trans>No Senders to Archive</Trans>
+          </h2>
           <p className="text-muted-foreground">
-            Once our AI categorizes your senders, you&apos;ll see archive
-            suggestions here.
+            <Trans>
+              Once our AI categorizes your senders, you&apos;ll see archive
+              suggestions here.
+            </Trans>
           </p>
         </Card>
       </div>
@@ -252,13 +262,21 @@ export function BulkArchiveTab() {
               <ArchiveIcon className="size-6 text-muted-foreground" />
             </div>
             <div className="flex-1">
-              <h2 className="mb-1 text-xl font-semibold">Ready to Clean Up</h2>
+              <h2 className="mb-1 text-xl font-semibold">
+                <Trans>Ready to Clean Up</Trans>
+              </h2>
               <p className="mb-4 text-muted-foreground">
-                We found{" "}
-                <span className="font-medium text-foreground">
-                  {totalCount}
-                </span>{" "}
-                senders you may want to archive
+                <Trans>
+                  We found{" "}
+                  <span className="font-medium text-foreground">
+                    {totalCount}
+                  </span>{" "}
+                  <Plural
+                    value={totalCount}
+                    one="sender you may want to archive"
+                    other="senders you may want to archive"
+                  />
+                </Trans>
               </p>
 
               <div className="mb-4 flex flex-wrap gap-3 text-sm">
@@ -266,7 +284,11 @@ export function BulkArchiveTab() {
                   <div className="flex items-center gap-1.5">
                     <div className="size-2 rounded-full bg-green-500" />
                     <span>
-                      {groupedByConfidence.high.length} safe to archive
+                      <Plural
+                        value={groupedByConfidence.high.length}
+                        one="# safe to archive"
+                        other="# safe to archive"
+                      />
                     </span>
                   </div>
                 )}
@@ -274,14 +296,24 @@ export function BulkArchiveTab() {
                   <div className="flex items-center gap-1.5">
                     <div className="size-2 rounded-full bg-amber-500" />
                     <span>
-                      {groupedByConfidence.medium.length} probably safe
+                      <Plural
+                        value={groupedByConfidence.medium.length}
+                        one="# probably safe"
+                        other="# probably safe"
+                      />
                     </span>
                   </div>
                 )}
                 {groupedByConfidence.low.length > 0 && (
                   <div className="flex items-center gap-1.5">
                     <div className="size-2 rounded-full bg-blue-500" />
-                    <span>{groupedByConfidence.low.length} to review</span>
+                    <span>
+                      <Plural
+                        value={groupedByConfidence.low.length}
+                        one="# to review"
+                        other="# to review"
+                      />
+                    </span>
                   </div>
                 )}
               </div>
@@ -292,9 +324,15 @@ export function BulkArchiveTab() {
                   disabled={selectedCount === 0 || isArchiving}
                 >
                   <ArchiveIcon className="mr-2 size-4" />
-                  {isArchiving
-                    ? "Archiving..."
-                    : `Archive ${selectedCount} Sender${selectedCount !== 1 ? "s" : ""}`}
+                  {isArchiving ? (
+                    <Trans>Archiving...</Trans>
+                  ) : (
+                    <Plural
+                      value={selectedCount}
+                      one="Archive # Sender"
+                      other="Archive # Senders"
+                    />
+                  )}
                 </Button>
               </div>
             </div>
@@ -306,10 +344,19 @@ export function BulkArchiveTab() {
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">
               <TrendingDownIcon className="mr-1.5 inline size-4" />
-              {selectedCount} of {totalCount} senders selected
+              <Trans>
+                {selectedCount} of{" "}
+                <Plural
+                  value={totalCount}
+                  one="# sender selected"
+                  other="# senders selected"
+                />
+              </Trans>
             </span>
             <span className="font-medium">
-              {Math.round((selectedCount / totalCount) * 100)}% inbox cleanup
+              <Trans>
+                {Math.round((selectedCount / totalCount) * 100)}% inbox cleanup
+              </Trans>
             </span>
           </div>
           <Progress
@@ -363,13 +410,13 @@ export function BulkArchiveTab() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-medium">{config.label}</h3>
+                        <h3 className="font-medium">{i18n._(config.label)}</h3>
                         <Badge variant={config.badgeVariant}>
                           {senders.length}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {config.description}
+                        {i18n._(config.description)}
                       </p>
                     </div>
                   </div>
@@ -386,9 +433,11 @@ export function BulkArchiveTab() {
                         }
                       }}
                     >
-                      {selectedInSection === senders.length
-                        ? "Deselect All"
-                        : "Select All"}
+                      {selectedInSection === senders.length ? (
+                        <Trans>Deselect All</Trans>
+                      ) : (
+                        <Trans>Select All</Trans>
+                      )}
                     </Button>
                     <span className="min-w-[60px] text-right text-sm text-muted-foreground">
                       {selectedInSection}/{senders.length}
@@ -448,6 +497,7 @@ function SenderRow({
   onToggleExpanded: () => void;
   userEmail: string;
 }) {
+  const { i18n } = useLingui();
   const status = useArchiveSenderStatus(emailAccountId, candidate.address);
 
   return (
@@ -484,7 +534,7 @@ function SenderRow({
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">
-            {candidate.reason}
+            {i18n._(confidenceConfig[candidate.confidence].reason)}
           </span>
           <ArchiveStatus status={status} />
           <ChevronDownIcon
@@ -508,25 +558,43 @@ function ArchiveStatus({
 }: {
   status: ReturnType<typeof useArchiveSenderStatus>;
 }) {
+  const { t } = useLingui();
+
   switch (status?.status) {
     case "pending":
-      return <span className="text-sm text-muted-foreground">Queued</span>;
+      return (
+        <span className="text-sm text-muted-foreground">
+          <Trans>Queued</Trans>
+        </span>
+      );
     case "processing":
       return (
         <span className="text-sm text-blue-600">
           {status.threadsTotal
             ? `${status.threadsTotal - status.threadIds.length} / ${status.threadsTotal}`
-            : "Archiving..."}
+            : t`Archiving...`}
         </span>
       );
     case "completed":
       return (
         <span className="text-sm text-muted-foreground">
-          {status.threadsTotal ? `Archived ${status.threadsTotal}` : "Archived"}
+          {status.threadsTotal ? (
+            <Plural
+              value={status.threadsTotal}
+              one="Archived #"
+              other="Archived #"
+            />
+          ) : (
+            <Trans>Archived</Trans>
+          )}
         </span>
       );
     case "failed":
-      return <span className="text-sm text-red-600">Failed</span>;
+      return (
+        <span className="text-sm text-red-600">
+          <Trans>Failed</Trans>
+        </span>
+      );
     default:
       return null;
   }
@@ -558,7 +626,7 @@ function ExpandedEmails({
   if (error) {
     return (
       <div className="border-t bg-muted/30 p-4 text-sm text-muted-foreground">
-        Error loading emails
+        <Trans>Error loading emails</Trans>
       </div>
     );
   }
@@ -566,7 +634,7 @@ function ExpandedEmails({
   if (!data?.threads.length) {
     return (
       <div className="border-t bg-muted/30 p-4 text-sm text-muted-foreground">
-        No emails found
+        <Trans>No emails found</Trans>
       </div>
     );
   }

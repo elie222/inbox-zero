@@ -6,12 +6,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "loops": "7.3.0"
+    "loops": "7.4.0"
   },
   "devDependencies": {
     "@types/node": "24.10.1",
     "tsconfig": "workspace:*",
     "typescript": "6.0.3",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   }
 }

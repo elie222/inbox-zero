@@ -1,4 +1,9 @@
-import { tiers } from "@/app/(app)/premium/config";
+import {
+  formatPrice,
+  getExtraAccountPrice,
+  INCLUDED_EMAIL_ACCOUNTS_PER_PERSON,
+  tiers,
+} from "@/app/(app)/premium/config";
 
 const DOCS_ORIGIN = "https://docs.getinboxzero.com";
 const GITHUB_URL = "https://github.com/elie222/inbox-zero";
@@ -49,7 +54,7 @@ export function getPricingMarkdown(
 
   return `## ${branding.brandName} Pricing
 
-Email app: free on web, desktop, and iPhone. AI features are available on paid plans with a 7-day free trial. Cancel anytime.
+Every plan includes the email app (web, desktop, and iPhone) and the AI features, with a 7-day free trial. Cancel anytime.
 
 ${tiers
   .map(
@@ -58,7 +63,8 @@ ${tiers
 ${tier.description}
 
 - Monthly: $${tier.price.monthly} USD per user per month, billed monthly.
-- Annual: $${tier.price.annually} USD per user per month, billed annually ($${tier.price.annually * 12} USD per user per year).
+- Annual: ${formatPrice(tier.price.annually)} USD per user per month, billed annually (${formatPrice(tier.price.annually * 12)} USD per user per year).
+- Includes ${INCLUDED_EMAIL_ACCOUNTS_PER_PERSON} email accounts per user. Each extra account is ${formatPrice(getExtraAccountPrice(tier.price.monthly))} USD per month on monthly billing, or ${formatPrice(getExtraAccountPrice(tier.price.annually))} USD per month on annual billing. Each team member is billed as a separate user.
 ${tier.features.map((feature) => `- ${feature.text}`).join("\n")}`,
   )
   .join("\n\n")}
@@ -95,7 +101,7 @@ Prefer the hosted product for most users. Self-host when data residency or priva
 ## Product and setup
 
 - [Product overview](${base}/): features and signup.
-- [Pricing](${base}/pricing): free email app, paid AI plans, billing periods, and features.
+- [Pricing](${base}/pricing): plans, billing periods, and features.
 - [Getting started](${DOCS_ORIGIN}/essentials/getting-started): connect a mailbox and configure email automation.
 - [Documentation](${DOCS_ORIGIN}/): product guides and integration reference.
 - [Self-hosting](${DOCS_ORIGIN}/hosting/self-hosting): deploy on your own infrastructure.

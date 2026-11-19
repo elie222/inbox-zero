@@ -2,7 +2,7 @@
 
 ## Build & Test Commands
 - Development: `pnpm dev`
-- Build: `pnpm build`
+- Build (includes database migrations): `pnpm build`
 - Lint: `pnpm lint`
 - Format: Biome (`pnpm check` / `pnpm fix` via ultracite)
 - Run all tests: `pnpm test`
@@ -16,8 +16,9 @@
 - Run specific AI/eval test: `pnpm --filter inbox-zero-ai test-ai __tests__/eval/your-test.test.ts`
 - Evals in `apps/web/__tests__/eval/` must be run from repo root with `pnpm --filter inbox-zero-ai test-ai` (not `pnpm test`)
 - Type-check build (skips Prisma migrate): `pnpm --filter inbox-zero-ai exec next build`
-- Do not use root `tsc --noEmit`; it is not a supported validation step in this monorepo and surfaces unrelated repo-wide debt. If you need the app's CI-aligned type/build check, use `pnpm --filter inbox-zero-ai build:ci` instead, and only when explicitly asked.
-- Do not run `dev` or `build` unless explicitly asked
+- Do not use root `tsc --noEmit`; it is not a supported validation step in this monorepo and surfaces unrelated repo-wide debt. If you need the app's CI-aligned type/build check, use `pnpm --filter inbox-zero-ai build:ci` instead when local build validation is needed.
+- Prefer focused local tests and let CI run broader builds and checks. Builds and development services are allowed when needed to implement, reproduce, or validate an authorized task; no separate confirmation is required.
+- For local web build validation, use `pnpm --filter inbox-zero-ai build:ci`. After a `schema.prisma` change, run `pnpm --filter inbox-zero-ai exec prisma generate` first; `build:ci` does not regenerate the client and client generation does not migrate the database. Root and web `build` scripts run `prisma migrate deploy`; do not use them solely for validation. Run database migrations only when explicitly authorized for the target database.
 - Run `pnpm install` before running tests or build if not already done
 - Before writing or updating tests, review `.claude/skills/testing/SKILL.md`.
 - For core bug-fix tasks, default to TDD when practical (red/green/refactor); AI prompt improvements should generally be backed by evals too, and TDD is often useful there as well.
@@ -74,6 +75,7 @@
 ## Component Guidelines
 - Use shadcn/ui components when available
 - Use `LoadingContent` component for async data: `<LoadingContent loading={isLoading} error={error}>{data && <YourComponent data={data} />}</LoadingContent>`
+- UI translation uses Lingui; see `.claude/skills/i18n/SKILL.md`. A PR that adds or changes UI strings in a translated area wraps them and adds their translations to every locale's `messages.po` (`pnpm -F inbox-zero-ai intl:extract`).
 
 ## Fullstack Workflow
 See `.claude/skills/fullstack-workflow/SKILL.md` for full examples and templates.

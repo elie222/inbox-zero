@@ -1,9 +1,10 @@
+import type { I18n } from "@lingui/core";
+import { plural, t } from "@lingui/core/macro";
 import { AttachmentSourceType } from "@/generated/prisma/enums";
 import {
   getAttachmentSourceKey,
   type AttachmentSourceInput,
 } from "@/utils/attachments/source-schema";
-import { pluralize } from "@/utils/string";
 import type { DriveSourceItem } from "@/utils/drive/source-items";
 import {
   createTreeSelection,
@@ -104,17 +105,27 @@ export function getDriveSourceTreeNodeId(item: DriveSourceItem) {
   return `${item.driveConnectionId}:${item.type}:${item.id}`;
 }
 
-export function formatAttachmentSourceCount(sources: AttachmentSourceInput[]) {
+export function formatAttachmentSourceCount(
+  i18n: I18n,
+  sources: AttachmentSourceInput[],
+) {
   const folders = sources.filter(
     (source) => source.type === AttachmentSourceType.FOLDER,
   ).length;
   const files = sources.length - folders;
-  const parts = [];
 
-  if (folders > 0) parts.push(`${folders} ${pluralize(folders, "folder")}`);
-  if (files > 0) parts.push(`${files} ${pluralize(files, "file")}`);
-
-  return parts.join(", ");
+  if (folders > 0 && files > 0) {
+    return t(
+      i18n,
+    )`${plural(folders, { one: "# folder", other: "# folders" })}, ${plural(files, { one: "# file", other: "# files" })}`;
+  }
+  if (folders > 0) {
+    return t(i18n)`${plural(folders, { one: "# folder", other: "# folders" })}`;
+  }
+  if (files > 0) {
+    return t(i18n)`${plural(files, { one: "# file", other: "# files" })}`;
+  }
+  return "";
 }
 
 function toAttachmentSource(item: DriveSourceItem): AttachmentSourceInput {

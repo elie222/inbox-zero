@@ -2,8 +2,9 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { t } from "@lingui/core/macro";
 import { Onboarding } from "@/app/(app)/[emailAccountId]/onboarding/Onboarding";
-import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
+import { OnboardingPermissionsGate } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingPermissionsGate";
 import {
   ConversionAnalyticsScript,
   ConversionQueryParamEvents,
@@ -12,14 +13,18 @@ import { registerUtmTracking } from "@/app/(landing)/welcome/utms";
 import { auth } from "@/utils/auth";
 import prisma from "@/utils/prisma";
 import { BRAND_NAME, getBrandTitle } from "@/utils/branding";
+import { initLingui } from "@/utils/i18n/server";
 
 export const maxDuration = 300;
 
-export const metadata: Metadata = {
-  title: getBrandTitle("Onboarding"),
-  description: `Learn how ${BRAND_NAME} works and get set up.`,
-  alternates: { canonical: "/onboarding" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const i18n = await initLingui();
+  return {
+    title: getBrandTitle(t(i18n)`Onboarding`),
+    description: t(i18n)`Learn how ${BRAND_NAME} works and get set up.`,
+    alternates: { canonical: "/onboarding" },
+  };
+}
 
 export default async function OnboardingPage(props: {
   params: Promise<{ emailAccountId: string }>;
@@ -53,14 +58,15 @@ export default async function OnboardingPage(props: {
 
   return (
     <>
-      <PermissionsCheck />
       <Suspense>
         <ConversionQueryParamEvents />
       </Suspense>
       <ConversionAnalyticsScript />
-      <Suspense>
-        <Onboarding step={step} signupIntent={user?.signupIntent ?? null} />
-      </Suspense>
+      <OnboardingPermissionsGate step={step}>
+        <Suspense>
+          <Onboarding step={step} signupIntent={user?.signupIntent ?? null} />
+        </Suspense>
+      </OnboardingPermissionsGate>
     </>
   );
 }

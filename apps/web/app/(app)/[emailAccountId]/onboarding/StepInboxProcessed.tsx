@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import useSWR from "swr";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ReplyIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
@@ -14,7 +15,6 @@ import { getActionColor } from "@/components/PlanBadge";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
 import { formatShortDate, internalDateToDate } from "@/utils/date";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
-import { getEmailTerminology } from "@/utils/terminology";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { captureException } from "@/utils/error";
 import type { GetOnboardingProcessedEmailsResponse } from "@/app/api/user/onboarding/processed-emails/route";
@@ -88,23 +88,33 @@ export function StepInboxProcessedView({
   provider: string;
   onNext: () => void;
 }) {
+  const { t } = useLingui();
   const hasEmails = !!data && data.emails.length > 0;
-  const { label } = getEmailTerminology(provider);
-  const pastVerb = isMicrosoftProvider(provider) ? "categorized" : "labeled";
   const hasDrafts = (data?.draftCount ?? 0) > 0;
+  const count = ONBOARDING_PROCESS_EMAILS_COUNT;
+
+  let heading: string;
+  let description: string;
+  if (isMicrosoftProvider(provider)) {
+    heading = hasDrafts
+      ? t`Categories and drafts are ready`
+      : t`Categories are ready`;
+    description = hasDrafts
+      ? t`We categorized your last ${count} emails and drafted replies. Nothing was archived.`
+      : t`We categorized your last ${count} emails. Nothing was archived.`;
+  } else {
+    heading = hasDrafts ? t`Labels and drafts are ready` : t`Labels are ready`;
+    description = hasDrafts
+      ? t`We labeled your last ${count} emails and drafted replies. Nothing was archived.`
+      : t`We labeled your last ${count} emails. Nothing was archived.`;
+  }
 
   return (
     <div className="w-full max-w-xl">
       <div className="mb-6 text-center">
-        <PageHeading className="mb-3">
-          {hasDrafts
-            ? `${label.pluralCapitalized} and drafts are ready`
-            : `${label.pluralCapitalized} are ready`}
-        </PageHeading>
+        <PageHeading className="mb-3">{heading}</PageHeading>
         <TypographyP className="text-muted-foreground">
-          {hasDrafts
-            ? `We ${pastVerb} your last ${ONBOARDING_PROCESS_EMAILS_COUNT} emails and drafted replies. Nothing was archived.`
-            : `We ${pastVerb} your last ${ONBOARDING_PROCESS_EMAILS_COUNT} emails. Nothing was archived.`}
+          {description}
         </TypographyP>
       </div>
 
@@ -120,7 +130,9 @@ export function StepInboxProcessedView({
         <ContinueButton onClick={onNext} size="lg" />
         {!isPremium && (
           <p className="max-w-md text-center text-sm text-muted-foreground">
-            Upgrade on the next step to process new emails automatically
+            <Trans>
+              Upgrade on the next step to process new emails automatically
+            </Trans>
           </p>
         )}
       </div>
@@ -141,9 +153,11 @@ function InboxPreview({
 }: {
   emails: GetOnboardingProcessedEmailsResponse["emails"];
 }) {
+  const { t } = useLingui();
+
   return (
     <section
-      aria-label="Recently organized emails"
+      aria-label={t`Recently organized emails`}
       className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
     >
       <div
@@ -170,6 +184,8 @@ function EmailRow({
 }: {
   email: GetOnboardingProcessedEmailsResponse["emails"][number];
 }) {
+  const { t, i18n } = useLingui();
+
   return (
     <li className="flex items-center gap-3 px-4 py-2.5">
       <Badge
@@ -184,7 +200,7 @@ function EmailRow({
           {email.sender}
         </span>
         <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
-          {email.subject || "(no subject)"}
+          {email.subject || t`(no subject)`}
         </span>
       </div>
 
@@ -192,11 +208,13 @@ function EmailRow({
         {email.hasDraft && (
           <Badge color={getActionColor(ActionType.DRAFT_EMAIL)}>
             <ReplyIcon className="mr-1 size-3" />
-            Draft
+            <Trans>Draft</Trans>
           </Badge>
         )}
         <span className="whitespace-nowrap text-xs text-muted-foreground tabular-nums">
-          {formatShortDate(internalDateToDate(email.date))}
+          {formatShortDate(internalDateToDate(email.date), {
+            locale: i18n.locale,
+          })}
         </span>
       </div>
     </li>
@@ -204,9 +222,11 @@ function EmailRow({
 }
 
 function InboxPreviewSkeleton() {
+  const { t } = useLingui();
+
   return (
     <section
-      aria-label="Loading recently organized emails"
+      aria-label={t`Loading recently organized emails`}
       className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
     >
       <ul className="divide-y divide-slate-100 dark:divide-border py-3.5">

@@ -8,6 +8,7 @@ import { deleteTinybirdEmailData } from "@inboxzero/tinybird";
 import { publishConversationChange } from "@/utils/team-comments/events";
 import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { releaseAccountRecordings } from "@/utils/meeting-recorder/delete-media";
+import { cancelStripeSubscriptionForDeletedUser } from "@/ee/billing/stripe/account-deletion";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/redis/thread-page-buffer", () => ({
@@ -35,6 +36,9 @@ vi.mock("@/utils/team-comments/events", () => ({
 }));
 vi.mock("@/utils/redis/research-cache", () => ({
   clearCachedResearchForUser: vi.fn(() => Promise.resolve()),
+}));
+vi.mock("@/ee/billing/stripe/account-deletion", () => ({
+  cancelStripeSubscriptionForDeletedUser: vi.fn(() => Promise.resolve()),
 }));
 vi.mock("@/utils/meeting-recorder/delete-media", () => ({
   releaseAccountRecordings: vi.fn(() => Promise.resolve()),
@@ -81,6 +85,19 @@ describe("deleteUser", () => {
       "Transfer organization ownership before deleting your account.",
     );
 
+    expect(prisma.session.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.user.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("keeps the account when its Stripe subscription cannot be canceled", async () => {
+    prisma.account.findMany.mockResolvedValue([]);
+    vi.mocked(cancelStripeSubscriptionForDeletedUser).mockRejectedValueOnce(
+      new Error("stripe unavailable"),
+    );
+
+    await expect(deleteUser({ userId: "user-1", logger })).rejects.toThrow(
+      "We couldn't cancel your subscription.",
+    );
     expect(prisma.session.deleteMany).not.toHaveBeenCalled();
     expect(prisma.user.deleteMany).not.toHaveBeenCalled();
   });

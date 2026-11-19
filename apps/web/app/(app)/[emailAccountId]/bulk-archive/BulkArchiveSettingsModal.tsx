@@ -1,5 +1,8 @@
 "use client";
 
+import type { I18n } from "@lingui/core";
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import {
   ArchiveIcon,
   MailOpenIcon,
@@ -38,20 +41,26 @@ export function BulkArchiveSettingsModal({
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <SettingsIcon className="mr-2 size-4" />
-          Settings
+          <Trans>Settings</Trans>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Bulk Archive Settings</DialogTitle>
+          <DialogTitle>
+            <Trans>Bulk Archive Settings</Trans>
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-6">
           <div className="flex items-center justify-between gap-8">
             <div className="space-y-2">
-              <p className="font-medium">Action</p>
+              <p className="font-medium">
+                <Trans>Action</Trans>
+              </p>
               <p className="text-sm text-muted-foreground">
-                Choose what happens when you click the action buttons on each
-                category
+                <Trans>
+                  Choose what happens when you click the action buttons on each
+                  category
+                </Trans>
               </p>
             </div>
             <Select
@@ -65,19 +74,25 @@ export function BulkArchiveSettingsModal({
                 <SelectItem value="archive">
                   <div className="flex items-center gap-2">
                     <ArchiveIcon className="size-4" />
-                    <span>Archive</span>
+                    <span>
+                      <Trans>Archive</Trans>
+                    </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="markRead">
                   <div className="flex items-center gap-2">
                     <MailOpenIcon className="size-4" />
-                    <span>Mark as read</span>
+                    <span>
+                      <Trans>Mark as read</Trans>
+                    </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="delete">
                   <div className="flex items-center gap-2">
                     <TrashIcon className="size-4" />
-                    <span>Delete</span>
+                    <span>
+                      <Trans>Delete</Trans>
+                    </span>
                   </div>
                 </SelectItem>
               </SelectContent>
@@ -89,34 +104,34 @@ export function BulkArchiveSettingsModal({
   );
 }
 
-export function getActionLabels(action: BulkActionType) {
+export function getActionLabels(action: BulkActionType, i18n: I18n) {
   if (action === "delete") {
     return {
-      buttonLabel: "Delete",
-      allLabel: "Delete all",
+      buttonLabel: t(i18n)`Delete`,
+      allLabel: t(i18n)`Delete all`,
       countLabel: (selected: number, total: number) =>
-        `Delete ${selected} of ${total}`,
-      completedLabel: "Deleted",
+        t(i18n)`Delete ${selected} of ${total}`,
+      completedLabel: t(i18n)`Deleted`,
       icon: TrashIcon,
     };
   }
 
   if (action === "markRead") {
     return {
-      buttonLabel: "Mark as read",
-      allLabel: "Mark all as read",
+      buttonLabel: t(i18n)`Mark as read`,
+      allLabel: t(i18n)`Mark all as read`,
       countLabel: (selected: number, total: number) =>
-        `Mark ${selected} of ${total} as read`,
-      completedLabel: "Marked as read",
+        t(i18n)`Mark ${selected} of ${total} as read`,
+      completedLabel: t(i18n)`Marked as read`,
       icon: MailOpenIcon,
     };
   }
   return {
-    buttonLabel: "Archive",
-    allLabel: "Archive all",
+    buttonLabel: t(i18n)`Archive`,
+    allLabel: t(i18n)`Archive all`,
     countLabel: (selected: number, total: number) =>
-      `Archive ${selected} of ${total}`,
-    completedLabel: "Archived",
+      t(i18n)`Archive ${selected} of ${total}`,
+    completedLabel: t(i18n)`Archived`,
     icon: ArchiveIcon,
   };
 }

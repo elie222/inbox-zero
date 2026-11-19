@@ -2,7 +2,12 @@ import { ZodError } from "zod";
 import { type NextRequest, NextResponse, after } from "next/server";
 import { randomUUID } from "node:crypto";
 import * as Sentry from "@sentry/nextjs";
-import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
+import {
+  captureException,
+  checkCommonErrors,
+  isInvalidGrantError,
+  SafeError,
+} from "@/utils/error";
 import {
   isPublicApiPath,
   publicApiErrorFromUnknown,
@@ -15,7 +20,10 @@ import { flushLoggerSafely } from "@/utils/logger-flush";
 import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { getCallerEmailAccount } from "@/utils/organizations/access";
-import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
+import {
+  getProviderRateLimitRetryAfterSeconds,
+  recordRateLimitFromApiError,
+} from "@/utils/email/rate-limit";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import {
   EMAIL_ACCOUNT_HEADER,
@@ -205,7 +213,7 @@ function withMiddleware<T extends NextRequest>(
 
           const apiError = checkCommonErrors(error, requestPath, reqLogger);
           if (apiError) {
-            await recordRateLimitFromApiError({
+            const rateLimitProvider = await recordRateLimitFromApiError({
               apiErrorType: apiError.type,
               error,
               emailAccountId: getEmailAccountId(requestForError),
@@ -221,16 +229,30 @@ function withMiddleware<T extends NextRequest>(
               reqLogger,
             ); // TODO: add emailAccountId
 
+            const retryAfterSeconds = rateLimitProvider
+              ? getProviderRateLimitRetryAfterSeconds({
+                  error,
+                  provider: rateLimitProvider,
+                })
+              : undefined;
+            const headers = retryAfterSeconds
+              ? { "Retry-After": String(retryAfterSeconds) }
+              : undefined;
+
             if (publicApiRequest) {
               return publicApiErrorResponse({
                 status: apiError.code,
                 message: apiError.message || "Request failed",
+                headers,
               });
             }
 
             return NextResponse.json(
               { error: apiError.message, isKnownError: true },
-              { status: apiError.code },
+              {
+                status: apiError.code,
+                headers,
+              },
             );
           }
 
@@ -549,6 +571,10 @@ async function emailProviderMiddleware(
 
     return providerReq;
   } catch (error) {
+    if (isInvalidGrantError(error)) {
+      throw new SafeError("No refresh token");
+    }
+
     // Known errors (revoked access, rate-limit mode) are logged where they're
     // raised, and withMiddleware applies shared error handling.
     if (error instanceof SafeError || isProviderRateLimitModeError(error)) {

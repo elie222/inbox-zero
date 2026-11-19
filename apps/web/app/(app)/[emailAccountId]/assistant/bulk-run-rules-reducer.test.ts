@@ -6,6 +6,9 @@ import {
   type BulkRunState,
 } from "./bulk-run-rules-reducer";
 import type { ThreadsResponse } from "@/app/api/threads/route";
+import { setupI18n } from "@lingui/core";
+
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
 
 // Helper to create mock threads
 function createMockThread(id: string): ThreadsResponse["threads"][number] {
@@ -349,6 +352,7 @@ describe("bulkRunReducer", () => {
         fetchedThreads: new Map([["t1", thread]]),
         stoppedCount: 5,
         runResult: { count: 10 },
+        rateLimitResumeAt: new Date(),
       };
 
       const result = bulkRunReducer(state, { type: "RESET" });
@@ -358,6 +362,64 @@ describe("bulkRunReducer", () => {
       expect(result.fetchedThreads.size).toBe(0);
       expect(result.stoppedCount).toBeNull();
       expect(result.runResult).toBeNull();
+      expect(result.rateLimitResumeAt).toBeNull();
+    });
+  });
+
+  describe("RATE_LIMIT_WAIT action", () => {
+    const resumeAt = new Date("2026-01-01T10:00:00.000Z");
+
+    it.each([
+      "processing",
+      "paused",
+    ] as const)("records when a %s run will resume", (status) => {
+      const result = bulkRunReducer(
+        { ...initialBulkRunState, status },
+        { type: "RATE_LIMIT_WAIT", resumeAt },
+      );
+
+      expect(result.status).toBe(status);
+      expect(result.rateLimitResumeAt).toBe(resumeAt);
+    });
+
+    it("clears the wait once requests succeed again", () => {
+      const result = bulkRunReducer(
+        {
+          ...initialBulkRunState,
+          status: "processing",
+          rateLimitResumeAt: resumeAt,
+        },
+        { type: "RATE_LIMIT_WAIT", resumeAt: null },
+      );
+
+      expect(result.rateLimitResumeAt).toBeNull();
+    });
+
+    it("ignores a wait reported after the run ended", () => {
+      const state: BulkRunState = { ...initialBulkRunState, status: "stopped" };
+
+      const result = bulkRunReducer(state, {
+        type: "RATE_LIMIT_WAIT",
+        resumeAt,
+      });
+
+      expect(result.rateLimitResumeAt).toBeNull();
+    });
+
+    it.each([
+      { type: "STOP", completedCount: 3 },
+      { type: "COMPLETE", count: 3 },
+    ] as const)("clears the wait when the run ends ($type)", (action) => {
+      const result = bulkRunReducer(
+        {
+          ...initialBulkRunState,
+          status: "processing",
+          rateLimitResumeAt: resumeAt,
+        },
+        action,
+      );
+
+      expect(result.rateLimitResumeAt).toBeNull();
     });
   });
 });
@@ -369,7 +431,7 @@ describe("getProgressMessage", () => {
       status: "processing",
     };
 
-    const result = getProgressMessage(state, 0);
+    const result = getProgressMessage(state, 0, i18n);
 
     expect(result).toBeNull();
   });
@@ -381,7 +443,7 @@ describe("getProgressMessage", () => {
       processedThreadIds: new Set(["t1", "t2", "t3", "t4", "t5"]),
     };
 
-    const result = getProgressMessage(state, 3);
+    const result = getProgressMessage(state, 3, i18n);
 
     expect(result).toBe("Progress: 2/5 emails completed");
   });
@@ -394,7 +456,7 @@ describe("getProgressMessage", () => {
       stoppedCount: 3,
     };
 
-    const result = getProgressMessage(state, 0);
+    const result = getProgressMessage(state, 0, i18n);
 
     expect(result).toBe("Processed 3 emails");
   });
@@ -406,7 +468,7 @@ describe("getProgressMessage", () => {
       processedThreadIds: new Set(["t1", "t2", "t3", "t4", "t5"]),
     };
 
-    const result = getProgressMessage(state, 0);
+    const result = getProgressMessage(state, 0, i18n);
 
     expect(result).toBe("Processed 5 emails");
   });
@@ -418,7 +480,7 @@ describe("getProgressMessage", () => {
       processedThreadIds: new Set(["t1", "t2", "t3", "t4"]),
     };
 
-    const result = getProgressMessage(state, 2);
+    const result = getProgressMessage(state, 2, i18n);
 
     expect(result).toBe("Progress: 2/4 emails completed");
   });

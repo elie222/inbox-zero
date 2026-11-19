@@ -1,4 +1,7 @@
 import Link from "next/link";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { AutosizeTextarea } from "@/components/ui/textarea";
 import { ChevronDownIcon, ChevronRightIcon, PaperclipIcon } from "lucide-react";
@@ -68,6 +71,7 @@ import {
   type IntegrationArgSpec,
   normalizeSelectArgValue,
 } from "@/utils/mcp/tool-specs";
+import { getIntegrationArgText } from "@/utils/mcp/tool-specs-messages";
 import { useIntegrations } from "@/hooks/useIntegrations";
 import { useIntegrationArgOptions } from "@/hooks/useIntegrationArgOptions";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -131,6 +135,7 @@ export function ActionSteps({
   attachmentSources: AttachmentSourceInput[];
   onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
 }) {
+  const { t } = useLingui();
   const actions = useWatch({ control, name: "actions" }) ?? [];
   const visibleActionGroups = useMemo(
     () => buildVisibleDraftReplyGroups(actions),
@@ -140,7 +145,7 @@ export function ActionSteps({
   return (
     <RuleSteps
       onAdd={() => append({ type: ActionType.LABEL })}
-      addButtonLabel="Add Action"
+      addButtonLabel={t`Add Action`}
       addButtonDisabled={false}
     >
       {visibleActionGroups.map(({ primaryIndex, draftMessagingIndexes }) => (
@@ -220,6 +225,7 @@ function ActionCard({
   attachmentSources: AttachmentSourceInput[];
   onAttachmentSourcesChange: (value: AttachmentSourceInput[]) => void;
 }) {
+  const { t, i18n } = useLingui();
   const actions = useWatch({ control, name: "actions" }) ?? [];
   const primaryAction = watch(`actions.${index}`);
   const draftMessagingActions = draftMessagingIndexes
@@ -356,7 +362,7 @@ function ActionCard({
                 <span>{selectedTypeOption.label}</span>
               </div>
             ) : (
-              <SelectValue placeholder="Select action" />
+              <SelectValue placeholder={t`Select action`} />
             )}
           </SelectTrigger>
         </FormControl>
@@ -431,12 +437,12 @@ function ActionCard({
                         `actions.${index}.${field.name}.name`,
                       )}
                       className="pr-8"
-                      placeholder='e.g. {{choose "urgent", "normal", or "low"}}'
+                      placeholder={t`e.g. ${OPEN_VARIABLE}choose "urgent", "normal", or "low"${CLOSE_VARIABLE}`}
                     />
                     <div className="absolute right-2 top-1/2 -translate-y-1/2">
                       <TooltipExplanation
                         side="right"
-                        text="When enabled our AI will generate a value when processing the email. Put the prompt inside braces like so: {{your prompt here}}."
+                        text={t`When enabled our AI will generate a value when processing the email. Put the prompt inside braces like so: ${OPEN_VARIABLE}your prompt here${CLOSE_VARIABLE}.`}
                         className="text-gray-400"
                       />
                     </div>
@@ -451,10 +457,14 @@ function ActionCard({
                         id: value,
                         name: fieldValue?.name || null,
                       }}
-                      onChangeValue={(newValue: string) => {
+                      onChangeValue={(label) => {
                         setValue(
                           `actions.${index}.${field.name}.value`,
-                          newValue,
+                          label.id,
+                        );
+                        setValue(
+                          `actions.${index}.${field.name}.name`,
+                          label.name,
                         );
                       }}
                       emailAccountId={emailAccountId}
@@ -465,7 +475,9 @@ function ActionCard({
                   actionType === ActionType.LABEL &&
                   delayEnabled && (
                     <>
-                      <span className="text-muted-foreground">after</span>
+                      <span className="text-muted-foreground">
+                        <Trans>after</Trans>
+                      </span>
                       <DelayInputControls
                         name={`delay-${index}`}
                         value={delayValue}
@@ -513,7 +525,7 @@ function ActionCard({
                   htmlFor={`actions.${index}.${field.name}.value`}
                   className="mb-2 block"
                 >
-                  {field.label}
+                  {i18n._(field.label)}
                 </Label>
               )}
               <AutosizeTextarea
@@ -529,7 +541,7 @@ function ActionCard({
                   htmlFor={`actions.${index}.${field.name}.value`}
                   className="mb-2 block"
                 >
-                  {field.label}
+                  {i18n._(field.label)}
                 </Label>
               )}
               <Input
@@ -554,7 +566,7 @@ function ActionCard({
                 <ErrorMessage
                   message={
                     errors.actions?.[index]?.delayInMinutes?.message ||
-                    "Invalid delay value"
+                    t`Invalid delay value`
                   }
                 />
               </div>
@@ -586,7 +598,7 @@ function ActionCard({
           <ErrorMessage
             message={
               errors.actions?.[index]?.[field.name]?.message?.toString() ||
-              "Invalid value"
+              t`Invalid value`
             }
           />
         )}
@@ -613,12 +625,12 @@ function ActionCard({
                   {expandedFields ? (
                     <>
                       <ChevronDownIcon className="h-3.5 w-3.5" />
-                      Hide extra fields
+                      <Trans>Hide extra fields</Trans>
                     </>
                   ) : (
                     <>
                       <ChevronRightIcon className="h-3.5 w-3.5" />
-                      Show all fields
+                      <Trans>Show all fields</Trans>
                     </>
                   )}
                 </Button>
@@ -633,7 +645,9 @@ function ActionCard({
     actionCanBeDelayed && actionType !== ActionType.LABEL && delayEnabled ? (
       <div className="space-y-2">
         <div className="flex items-center space-x-2">
-          <span className="text-muted-foreground">after</span>
+          <span className="text-muted-foreground">
+            <Trans>after</Trans>
+          </span>
           <DelayInputControls
             name={`delay-${index}`}
             value={delayValue}
@@ -650,7 +664,7 @@ function ActionCard({
             <ErrorMessage
               message={
                 errors.actions?.[index]?.delayInMinutes?.message ||
-                "Invalid delay value"
+                t`Invalid delay value`
               }
             />
           </div>
@@ -699,32 +713,39 @@ function ActionCard({
     <MessagingChannelField
       control={control}
       index={index}
-      label="Send to"
+      label={t`Send to`}
       messagingChannels={connectedMessagingChannels}
     />
   ) : null;
 
+  const deliverySummaryText = formatDraftReplyDeliverySummary({
+    delivery: draftReplyDelivery,
+    selectedChannels: selectedMessagingChannels,
+    i18n,
+  });
+  const destinationLabel = selectedMessagingChannel
+    ? formatMessagingDestinationLabel(selectedMessagingChannel, i18n)
+    : "";
   const deliverySummary = isDraftReplyActionType(rawActionType) ? (
     <MutedText className="px-1">
-      Deliver to{" "}
-      <span className="font-medium text-foreground">
-        {formatDraftReplyDeliverySummary({
-          delivery: draftReplyDelivery,
-          selectedChannels: selectedMessagingChannels,
-        })}
-      </span>
+      <Trans>
+        Deliver to{" "}
+        <span className="font-medium text-foreground">
+          {deliverySummaryText}
+        </span>
+      </Trans>
     </MutedText>
   ) : isMessagingNotification ? (
     <MutedText className="px-1">
       {selectedMessagingChannel ? (
-        <>
+        <Trans>
           Send to{" "}
           <span className="font-medium text-foreground">
-            {formatMessagingDestinationLabel(selectedMessagingChannel)}
+            {destinationLabel}
           </span>
-        </>
+        </Trans>
       ) : (
-        "Choose a delivery destination from More options."
+        t`Choose a delivery destination from More options.`
       )}
     </MutedText>
   ) : null;
@@ -732,10 +753,12 @@ function ActionCard({
   const attachmentsSummary =
     supportsAttachments && staticAttachments?.length ? (
       <MutedText className="px-1">
-        Attachments:{" "}
-        <span className="font-medium text-foreground">
-          {staticAttachments.length}
-        </span>
+        <Trans>
+          Attachments:{" "}
+          <span className="font-medium text-foreground">
+            {staticAttachments.length}
+          </span>
+        </Trans>
       </MutedText>
     ) : null;
 
@@ -775,7 +798,7 @@ function ActionCard({
         delivery={draftReplyDelivery}
         selectedChannels={selectedMessagingChannels}
         connectedChannels={connectedMessagingChannels}
-        connectAppLabel={getConnectAppLabel(availableMessagingProviders)}
+        connectAppLabel={getConnectAppLabel(availableMessagingProviders, i18n)}
         errorMessage={deliveryErrorMessage}
         onChange={handleDraftReplyDeliveryChange}
       />
@@ -792,14 +815,16 @@ function ActionCard({
     <>
       {isNotifySender ? (
         <MutedText className="px-1 h-full flex items-center">
-          {`Sends an automated notification from ${BRAND_NAME} informing the sender their email was filtered as cold outreach.`}
+          {t`Sends an automated notification from ${BRAND_NAME} informing the sender their email was filtered as cold outreach.`}
         </MutedText>
       ) : isDraftReplyActionType(rawActionType) ? (
         <Card className="p-4 space-y-4">
           {isDraftEmailWithoutManualContent ? (
             <MutedText className="px-1">
-              Our AI generates a draft reply from your email history and
-              knowledge base.
+              <Trans>
+                Our AI generates a draft reply from your email history and
+                knowledge base.
+              </Trans>
             </MutedText>
           ) : (
             <>
@@ -885,13 +910,13 @@ function ActionCard({
     <>
       {showDeliveryActions ? (
         <DropdownMenuItem onClick={() => setDeliveryDialogOpen(true)}>
-          {deliverySummary ? "Delivery options" : "Configure delivery"}
+          {deliverySummary ? t`Delivery options` : t`Configure delivery`}
         </DropdownMenuItem>
       ) : null}
       {showAttachmentsAction ? (
         <DropdownMenuItem onClick={() => setAttachmentsDialogOpen(true)}>
           <PaperclipIcon className="mr-2 size-4" />
-          Configure attachments
+          <Trans>Configure attachments</Trans>
         </DropdownMenuItem>
       ) : null}
     </>
@@ -905,7 +930,7 @@ function ActionCard({
             draftReplyGroupIndexes.length > 1 ? draftReplyGroupIndexes : index,
           )
         }
-        removeAriaLabel="Remove action"
+        removeAriaLabel={t`Remove action`}
         leftContent={leftContent}
         rightContent={rightContent}
         onAddDelay={actionCanBeDelayed ? handleAddDelay : undefined}
@@ -924,7 +949,9 @@ function ActionCard({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {isDraftReplyAction ? "Delivery options" : "Delivery destination"}
+              {isDraftReplyAction
+                ? t`Delivery options`
+                : t`Delivery destination`}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -933,12 +960,14 @@ function ActionCard({
             canConnectMessagingApp ? (
               <div className="rounded-md border bg-muted/40 p-3 space-y-3">
                 <MutedText>
-                  Connect Slack, Telegram, or Teams to deliver outside email.
+                  <Trans>
+                    Connect Slack, Telegram, or Teams to deliver outside email.
+                  </Trans>
                 </MutedText>
                 <div className="flex flex-wrap gap-2">
                   <Button asChild size="sm" variant="outline">
                     <Link href={prefixPath(emailAccountId, "/channels")}>
-                      {getConnectAppLabel(availableMessagingProviders)}
+                      {getConnectAppLabel(availableMessagingProviders, i18n)}
                     </Link>
                   </Button>
                 </div>
@@ -954,7 +983,9 @@ function ActionCard({
       >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Attachments</DialogTitle>
+            <DialogTitle>
+              <Trans>Attachments</Trans>
+            </DialogTitle>
           </DialogHeader>
           {attachmentsField}
         </DialogContent>
@@ -983,6 +1014,7 @@ function DraftReplyReviewChannelsSection({
     selectedMessagingChannelIds: string[];
   }) => void;
 }) {
+  const { t, i18n } = useLingui();
   const includeEmail = delivery !== "MESSAGING";
   const selectedMessagingChannelIds = selectedChannels.map(
     (channel) => channel.id,
@@ -994,7 +1026,9 @@ function DraftReplyReviewChannelsSection({
     <div className="space-y-4">
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-medium text-foreground">Draft to</span>
+          <span className="font-medium text-foreground">
+            <Trans>Draft to</Trans>
+          </span>
         </div>
 
         <div
@@ -1012,19 +1046,24 @@ function DraftReplyReviewChannelsSection({
                 selectedMessagingChannelIds,
               })
             }
-            aria-label="Toggle email draft delivery"
+            aria-label={t`Toggle email draft delivery`}
           />
           <div className="min-w-0">
-            <span className="font-medium text-foreground">Email</span>
-            <span className="text-muted-foreground">
-              {" "}
-              — Draft appears in your inbox
-            </span>
+            <Trans>
+              <span className="font-medium text-foreground">Email</span>
+              <span className="text-muted-foreground">
+                {" "}
+                — Draft appears in your inbox
+              </span>
+            </Trans>
           </div>
         </div>
 
         {connectedChannels.map((channel) => {
-          const channelLabel = formatDraftReplyReviewChannelLabel(channel);
+          const channelLabel = formatDraftReplyReviewChannelLabel(
+            i18n,
+            channel,
+          );
           const isSelectedChannel = selectedMessagingChannelIds.includes(
             channel.id,
           );
@@ -1059,7 +1098,7 @@ function DraftReplyReviewChannelsSection({
                       nextSelectedMessagingChannelIds,
                   });
                 }}
-                aria-label={`Toggle ${channelLabel} draft delivery`}
+                aria-label={t`Toggle ${channelLabel} draft delivery`}
               />
               <span className="font-medium text-foreground">
                 {channelLabel}
@@ -1097,6 +1136,7 @@ function IntegrationArgFields({
   errors: FieldErrors<CreateRuleBody>;
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
   const integrationName = useWatch({
     control,
     name: `actions.${index}.integrationName`,
@@ -1138,11 +1178,11 @@ function IntegrationArgFields({
       {!isConnected ? (
         <div className="space-y-3">
           <MutedText className="px-1">
-            {`${displayName} isn't connected. Connect it to use this action.`}
+            {t`${displayName} isn't connected. Connect it to use this action.`}
           </MutedText>
           <Button asChild size="sm" variant="outline">
             <Link href={prefixPath(emailAccountId, "/integrations")}>
-              {`Connect ${displayName}`}
+              {t`Connect ${displayName}`}
             </Link>
           </Button>
         </div>
@@ -1188,6 +1228,8 @@ function IntegrationArgField({
   tool: string;
   isConnected: boolean;
 }) {
+  const { i18n } = useLingui();
+  const argText = getIntegrationArgText(i18n, { integration, tool, arg });
   const { data: optionsData, isLoading: optionsLoading } =
     useIntegrationArgOptions({
       integration,
@@ -1206,7 +1248,7 @@ function IntegrationArgField({
           htmlFor={`actions.${index}.integrationArgs.${arg.key}`}
           className="mb-2 block"
         >
-          {arg.label}
+          {argText.label}
         </Label>
         <Input
           type="text"
@@ -1214,7 +1256,7 @@ function IntegrationArgField({
           registerProps={register(
             `actions.${index}.integrationArgs.${arg.key}` as const,
           )}
-          placeholder={arg.placeholder}
+          placeholder={argText.placeholder}
         />
       </div>
     );
@@ -1232,7 +1274,7 @@ function IntegrationArgField({
 
     return (
       <div className="space-y-2">
-        <Label>{arg.label}</Label>
+        <Label>{argText.label}</Label>
         <Select
           value={selectedValue}
           onValueChange={(nextValue) =>
@@ -1251,7 +1293,7 @@ function IntegrationArgField({
             )}
             {options.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                {option.label}
+                {argText.optionLabel(option)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -1282,7 +1324,7 @@ function IntegrationArgField({
 
   return (
     <div className="space-y-2">
-      <Label>{arg.label}</Label>
+      <Label>{argText.label}</Label>
       <LoadingContent loading={optionsLoading}>
         <Select
           value={selectedValue}
@@ -1310,7 +1352,7 @@ function IntegrationArgField({
             ))}
             {isUnknownValue && (
               <SelectItem value={selectedValue}>
-                {storedDisplayValue || arg.label}
+                {storedDisplayValue || argText.label}
               </SelectItem>
             )}
           </SelectContent>
@@ -1333,6 +1375,7 @@ function MessagingChannelField({
   includeEmailOption?: boolean;
   messagingChannels: MessagingChannelOption[];
 }) {
+  const { t, i18n } = useLingui();
   return (
     <FormField
       control={control}
@@ -1359,19 +1402,21 @@ function MessagingChannelField({
                   <SelectValue
                     placeholder={
                       messagingChannels.length > 0
-                        ? "Choose a destination"
-                        : "No connected destinations"
+                        ? t`Choose a destination`
+                        : t`No connected destinations`
                     }
                   />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
                 {includeEmailOption ? (
-                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="email">
+                    <Trans>Email</Trans>
+                  </SelectItem>
                 ) : null}
                 {messagingChannels.map((channel) => (
                   <SelectItem key={channel.id} value={channel.id}>
-                    {formatMessagingDestinationLabel(channel)}
+                    {formatMessagingDestinationLabel(channel, i18n)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1388,35 +1433,41 @@ function MessagingChannelField({
 
 export function formatMessagingDestinationLabel(
   channel: MessagingChannelOption,
+  i18n: I18n,
 ) {
   const provider = getMessagingProviderName(channel.provider);
   const destination = channel.destinations.ruleNotifications;
 
-  if (destination.isDm) return `${provider} DM`;
+  if (destination.isDm) return i18n._(msg`${provider} DM`);
   if (destination.targetLabel && channel.teamName) {
     return `${destination.targetLabel} (${channel.teamName})`;
   }
   if (destination.targetLabel) {
+    const targetLabel = destination.targetLabel;
     return provider === "Slack"
-      ? `${destination.targetLabel} (Slack workspace)`
-      : destination.targetLabel;
+      ? i18n._(msg`${targetLabel} (Slack workspace)`)
+      : targetLabel;
   }
   if (channel.teamName) return `${provider} (${channel.teamName})`;
 
-  return provider === "Slack" ? "Slack workspace" : provider;
+  return provider === "Slack" ? i18n._(msg`Slack workspace`) : provider;
 }
 
-function formatDraftReplyReviewChannelLabel(channel?: MessagingChannelOption) {
-  if (!channel) return "Chat app";
+function formatDraftReplyReviewChannelLabel(
+  i18n: I18n,
+  channel?: MessagingChannelOption,
+) {
+  if (!channel) return i18n._(msg`Chat app`);
 
-  const destination = formatMessagingDestinationLabel(channel);
+  const destination = formatMessagingDestinationLabel(channel, i18n);
   const provider = getMessagingProviderName(channel.provider);
+  // Without a target label the destination already names the provider.
   const label =
     channel.destinations.ruleNotifications.isDm ||
-    destination.startsWith(provider)
+    !channel.destinations.ruleNotifications.targetLabel
       ? destination
       : `${provider} · ${destination}`;
-  return channel.isConnected ? label : `${label} (Disconnected)`;
+  return channel.isConnected ? label : i18n._(msg`${label} (Disconnected)`);
 }
 
 function updateActionType({
@@ -1559,24 +1610,28 @@ function getMessagingChannelError({
 function formatDraftReplyDeliverySummary({
   delivery,
   selectedChannels,
+  i18n,
 }: {
   delivery: DraftReplyDelivery;
   selectedChannels: MessagingChannelOption[];
+  i18n: I18n;
 }) {
-  if (delivery === "EMAIL") return "Email";
+  if (delivery === "EMAIL") return i18n._(msg`Email`);
 
   const destinations = selectedChannels.map((channel) =>
-    formatDraftReplyReviewChannelLabel(channel),
+    formatDraftReplyReviewChannelLabel(i18n, channel),
   );
 
   if (destinations.length === 0) {
-    return delivery === "MESSAGING" ? "Chat app" : "Email + chat app";
+    return delivery === "MESSAGING"
+      ? i18n._(msg`Chat app`)
+      : i18n._(msg`Email + chat app`);
   }
 
   const destinationSummary = destinations.join(", ");
   return delivery === "MESSAGING"
     ? destinationSummary
-    : `Email + ${destinationSummary}`;
+    : i18n._(msg`Email + ${destinationSummary}`);
 }
 
 function VariableExamplesDialog() {
@@ -1584,23 +1639,29 @@ function VariableExamplesDialog() {
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="outline" size="xs" className="ml-auto">
-          See examples
+          <Trans>See examples</Trans>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Variable Examples</DialogTitle>
+          <DialogTitle>
+            <Trans>Variable Examples</Trans>
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-6 py-4">
           <div>
-            <h4 className="font-medium">Example: Subject</h4>
+            <h4 className="font-medium">
+              <Trans>Example: Subject</Trans>
+            </h4>
             <div className="mt-2 rounded-md bg-muted p-3">
               <code className="text-sm">Hi {"{{name}}"}</code>
             </div>
           </div>
 
           <div>
-            <h4 className="font-medium">Example: Email Content</h4>
+            <h4 className="font-medium">
+              <Trans>Example: Email Content</Trans>
+            </h4>
             <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-sm">
               {`Hi {{name}},
 
@@ -1611,7 +1672,9 @@ cal.com/example`}
             </div>
           </div>
           <div>
-            <h4 className="font-medium">Example: Label</h4>
+            <h4 className="font-medium">
+              <Trans>Example: Label</Trans>
+            </h4>
             <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-sm">
               {`{{choose between "p1", "p2", "p3" depending on urgency. "p1" is highest urgency.}}`}
             </div>
@@ -1627,7 +1690,10 @@ function VariableProTip() {
     <div className="mt-4 rounded-md bg-blue-50 p-3 dark:bg-blue-950/30">
       <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
         <span>
-          ✨ Use {"{{"}variables{"}}"} for personalized content
+          <Trans>
+            ✨ Use {OPEN_VARIABLE}variables{CLOSE_VARIABLE} for personalized
+            content
+          </Trans>
         </span>
         <VariableExamplesDialog />
       </div>
@@ -1675,3 +1741,7 @@ function renderFieldRows(
 
   return rows;
 }
+
+// Template braces stay out of message text so ICU doesn't parse them as placeholders.
+const OPEN_VARIABLE = "{{";
+const CLOSE_VARIABLE = "}}";

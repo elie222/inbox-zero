@@ -204,10 +204,10 @@ function snapshotEquals<T>(left: QuerySnapshot<T>, right: QuerySnapshot<T>) {
   if (left.status !== right.status) return false;
   if (left.refreshing !== right.refreshing) return false;
   if ((left.error?.code ?? null) !== (right.error?.code ?? null)) return false;
+  // Runtime query state can change without a database write.
   if (left.revision && right.revision) {
     return (
-      revisionEquals(left.revision, right.revision) &&
-      left.status === right.status
+      revisionEquals(left.revision, right.revision) && left.data === right.data
     );
   }
   return left.revision === right.revision && left.data === right.data;

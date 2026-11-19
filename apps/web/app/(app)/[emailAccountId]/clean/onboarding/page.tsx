@@ -1,4 +1,6 @@
+import { t } from "@lingui/core/macro";
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Loading } from "@/components/Loading";
 import { IntroStep } from "@/app/(app)/[emailAccountId]/clean/IntroStep";
@@ -13,6 +15,9 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
+import { SafeError } from "@/utils/error";
+import { prefixPath } from "@/utils/path";
+import { initLingui } from "@/utils/i18n/server";
 
 export default async function CleanPage(props: {
   params: Promise<{ emailAccountId: string }>;
@@ -41,15 +46,24 @@ export default async function CleanPage(props: {
   });
 
   if (!emailAccount) {
-    return <CardTitle>Email account not found</CardTitle>;
+    const i18n = await initLingui();
+    return <CardTitle>{t(i18n)`Email account not found`}</CardTitle>;
   }
 
-  const emailProvider = await createEmailProvider({
-    emailAccountId,
-    provider: emailAccount.account.provider,
-    logger: createScopedLogger("clean-onboarding").with({ emailAccountId }),
-  });
-  const { unhandledCount } = await getUnhandledCount(emailProvider);
+  let unhandledCount: number;
+  try {
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider: emailAccount.account.provider,
+      logger: createScopedLogger("clean-onboarding").with({ emailAccountId }),
+    });
+    ({ unhandledCount } = await getUnhandledCount(emailProvider));
+  } catch (error) {
+    if (error instanceof SafeError && error.message === "No refresh token") {
+      redirect(prefixPath(emailAccountId, "/permissions/consent"));
+    }
+    throw error;
+  }
 
   const step = Number.parseInt(searchParams.step || "") || CleanStep.INTRO;
 

@@ -84,6 +84,8 @@ export const updateDraftBody = z.object({
 export const saveComposeDraftBody = z.object({
   draftId: z.string().min(1).optional(),
   content: sendEmailBody,
+  /** Lets a send that replaces this draft find and remove it. */
+  composeSessionId: z.string().min(1).max(128).optional(),
 });
 export const composeDraftParams = z.object({
   draftId: z.string().min(1),

@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
+import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import type { ReadComposeDraftResponse } from "@/app/api/user/drafts/route";
 import { getEmailAccountId } from "../account-test-helpers";
@@ -10,6 +11,7 @@ import {
   inspectCommandToMutation,
   type InspectCommand,
 } from "@/utils/playwright/mail-inspect-command";
+import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 
 // A send goes out once its 30-second undo window closes.
 export const UNDO_WINDOW_SEND_TIMEOUT_MS = 60_000;
@@ -166,7 +168,21 @@ export async function watchReplyHandoff(page: Page, replyText: string) {
       const state = window as unknown as ReplyHandoffWindow;
       state.__replyHandoff = { frames, raf: 0 };
       const sample = () => {
+        const selected = document.querySelector<HTMLElement>(
+          `${selector}[data-selected="true"]`,
+        );
+        const bar = document.querySelector<HTMLElement>(
+          '[data-testid="thread-selection-bar"]',
+        );
+        const rowBox = selected?.getBoundingClientRect();
+        const barBox = bar?.getBoundingClientRect();
         frames.push({
+          selectionAligned: Boolean(
+            rowBox &&
+              barBox &&
+              Math.abs(barBox.y - rowBox.y) < 1 &&
+              Math.abs(barBox.height - rowBox.height) < 1,
+          ),
           composer: Array.from(
             document.querySelectorAll('[contenteditable="true"]'),
           ).some((element) => element.textContent?.includes(text)),
@@ -210,6 +226,9 @@ export function expectSeamlessReplyHandoff(
     [],
   );
   expect(frames.at(-1)?.rows).toBe(rowsBefore + 1);
+  expect(
+    frames.slice(firstClosed).filter((frame) => !frame.selectionAligned),
+  ).toEqual([]);
 }
 
 export async function requestMailSync(page: Page) {
@@ -285,6 +304,8 @@ export async function insertInboxMailInConversation(
     messageId: string;
     subject: string;
     from: string;
+    bodyText?: string;
+    bodyHtml?: string;
   },
 ) {
   const token = await readProviderAccessToken();
@@ -307,7 +328,8 @@ export async function insertInboxMailInConversation(
         from: input.from,
         to: email,
         subject: input.subject,
-        body_text: "New mail in the archived conversation.",
+        body_text: input.bodyText ?? "New mail in the archived conversation.",
+        ...(input.bodyHtml ? { body_html: input.bodyHtml } : {}),
         labelIds: ["INBOX", "UNREAD"],
         internalDate: String(Date.now()),
       },
@@ -321,7 +343,7 @@ export async function insertInboxMailInConversation(
 async function insertOutlookInboxReply(
   page: Page,
   token: string,
-  input: { messageId: string; subject: string },
+  input: { messageId: string; subject: string; bodyHtml?: string },
 ) {
   const baseUrl = process.env.MICROSOFT_BASE_URL;
   if (!baseUrl) throw new Error("MICROSOFT_BASE_URL is missing");
@@ -342,10 +364,12 @@ async function insertOutlookInboxReply(
       headers,
       data: {
         subject: input.subject,
-        body: {
-          contentType: "text",
-          content: "New mail in the archived conversation.",
-        },
+        body: input.bodyHtml
+          ? { contentType: "html", content: input.bodyHtml }
+          : {
+              contentType: "text",
+              content: "New mail in the archived conversation.",
+            },
         isRead: false,
       },
     },
@@ -380,8 +404,85 @@ export async function readProviderAccessToken() {
   return token;
 }
 
-type ReplyHandoffFrame = { composer: boolean; rows: number };
+type ReplyHandoffFrame = {
+  composer: boolean;
+  rows: number;
+  selectionAligned: boolean;
+};
 
 type ReplyHandoffWindow = {
   __replyHandoff: { frames: ReplyHandoffFrame[]; raf: number };
 };
+
+/** Removes a message a test inserted, so retries start from the seed. */
+export async function deleteProviderMessage(page: Page, messageId: string) {
+  const token = await readProviderAccessToken();
+  const url = isMicrosoftPlaywright()
+    ? `${process.env.MICROSOFT_BASE_URL}/v1.0/me/messages/${messageId}`
+    : `${process.env.GOOGLE_BASE_URL}/gmail/v1/users/me/messages/${messageId}`;
+  const response = await page.request.delete(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
+/** Drafts in the seeded reply conversation, as the mailbox reports them. */
+export async function countReplyThreadDrafts(
+  page: Page,
+  emailAccountId: string,
+) {
+  const messages = await readReplyThreadMessages(page, emailAccountId);
+  return messages.filter((message) => message.labelIds?.includes("DRAFT"))
+    .length;
+}
+
+export async function countReplyThreadSentCopies(
+  page: Page,
+  emailAccountId: string,
+  text: string,
+) {
+  const messages = await readReplyThreadMessages(page, emailAccountId);
+  // Outlook discards a draft by moving it to Deleted Items, so only the Sent
+  // copy counts as delivered.
+  return messages.filter(
+    (message) =>
+      message.labelIds?.includes("SENT") &&
+      `${message.textPlain ?? ""}${message.textHtml ?? ""}`.includes(text),
+  ).length;
+}
+
+export async function readReplyThreadMessages(
+  page: Page,
+  emailAccountId: string,
+) {
+  const response = await page.request.get(
+    "/api/threads/thr_playwright_reply?includeDrafts=true",
+    { headers: { "X-Email-Account-ID": emailAccountId } },
+  );
+  expect(response.ok(), await response.text()).toBe(true);
+  const { thread }: ThreadResponse = await response.json();
+  return thread.messages;
+}
+
+/**
+ * Waits for the stored layout to flip, since the preference outlives the test
+ * and a save aborted by the next navigation would leak into the following spec.
+ */
+export async function toggleMailLayout(page: Page) {
+  const [emailAccountId] = new URL(page.url()).pathname
+    .split("/")
+    .filter(Boolean);
+  const readLayout = async () => {
+    const response = await page.request.get("/api/mail/settings", {
+      headers: { [EMAIL_ACCOUNT_HEADER]: emailAccountId },
+    });
+    if (!response.ok()) {
+      throw new Error(`Mail settings request failed: ${response.status()}`);
+    }
+    return ((await response.json()) as MailSettingsResponse).layout;
+  };
+  const before = await readLayout();
+  await page.getByRole("button", { name: "View options" }).click();
+  await page.getByRole("menuitemcheckbox", { name: /^Split view/ }).click();
+  await expect.poll(readLayout).not.toBe(before);
+}

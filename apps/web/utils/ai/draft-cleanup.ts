@@ -230,6 +230,34 @@ export async function markTrackedDraftDeleted({
   }
 }
 
+// Nothing updates a disconnected account's rule drafts, so they would stay
+// candidates forever. They stay skipped after a reconnect too. Follow-up
+// drafts on ThreadTracker are out of scope here and keep their cleanup.
+export async function skipDraftCleanupForDisconnectedAccount({
+  emailAccountId,
+  logger,
+}: {
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  try {
+    const { count } = await prisma.executedAction.updateMany({
+      where: {
+        executedRule: { emailAccountId },
+        type: ActionType.DRAFT_EMAIL,
+        draftId: { not: null },
+        ...getDraftCleanupCandidateWhere(),
+      },
+      data: { draftStatus: DraftEmailStatus.CLEANUP_SKIPPED },
+    });
+    logger.info("Skipped draft cleanup for disconnected account", { count });
+  } catch (error) {
+    logger.error("Failed to skip draft cleanup for disconnected account", {
+      error,
+    });
+  }
+}
+
 export async function getEmailAccountsWithStaleAIDrafts() {
   const minCutoffDate = subDays(new Date(), MIN_AI_DRAFT_CLEANUP_DAYS);
   const emailAccounts = await prisma.emailAccount.findMany({
@@ -346,7 +374,9 @@ function canTransitionDraftStatus(
   return (
     !current ||
     current === DraftEmailStatus.PENDING ||
-    current === DraftEmailStatus.REPLIED_WITHOUT_DRAFT
+    current === DraftEmailStatus.REPLIED_WITHOUT_DRAFT ||
+    // A skipped draft the user deletes must not be tracked as sent later.
+    current === DraftEmailStatus.CLEANUP_SKIPPED
   );
 }
 

@@ -9,6 +9,7 @@ type PreviousOnboardingState = {
   completedOnboardingAt: Date | null;
   emailAccountId: string;
   onboardingAnswers: unknown;
+  premiumId: string | null;
   role: string | null;
   signupIntent: string | null;
   surveyCompanySize: number | null;
@@ -30,6 +31,7 @@ export async function setupOnboardingTestState() {
          u."completedOnboardingAt",
          u."onboardingAnswers",
          u."signupIntent",
+         u."premiumId",
          u."surveyRole",
          u."surveyCompanySize",
          u."surveySource",
@@ -55,9 +57,11 @@ export async function setupOnboardingTestState() {
     }
 
     previousState = candidateState;
+    // Onboarding starts as a new user without a plan, who ends on the upgrade page.
     await client.query(
       `UPDATE "User"
        SET "completedOnboardingAt" = NULL,
+           "premiumId" = NULL,
            "onboardingAnswers" = NULL,
            "signupIntent" = NULL,
            "surveyRole" = NULL,
@@ -88,7 +92,8 @@ export async function resetOnboardingTestState() {
              "surveyRole" = $4,
              "surveyCompanySize" = $5,
              "surveySource" = $6,
-             "signupIntent" = $7
+             "signupIntent" = $7,
+             "premiumId" = $8
          WHERE id = $1`,
         [
           state.userId,
@@ -100,6 +105,7 @@ export async function resetOnboardingTestState() {
           state.surveyCompanySize,
           state.surveySource,
           state.signupIntent,
+          state.premiumId,
         ],
       );
       await client.query(`UPDATE "EmailAccount" SET role = $2 WHERE id = $1`, [
@@ -116,7 +122,7 @@ export async function openControlOnboarding(page: Page) {
   const emailAccountId = await getEmailAccountId(page);
   await page.goto(`/${emailAccountId}/onboarding`);
   await expect(
-    page.getByRole("heading", { name: "What do you do?" }),
+    page.getByRole("heading", { name: "Welcome to Inbox Zero" }),
   ).toBeVisible({ timeout: 60_000 });
   return emailAccountId;
 }
@@ -179,6 +185,39 @@ export async function getPersistedOnboardingState() {
     );
     return result.rows[0];
   });
+}
+
+// Simulates a user who unticked the Gmail checkboxes on Google's consent
+// screen. Returns a restore function for the scope stored before.
+export async function revokeGmailScopes() {
+  const previous = await withClient(async (client) => {
+    const result = await client.query<{
+      accountId: string;
+      scope: string | null;
+    }>(
+      `SELECT a.id AS "accountId", a.scope
+       FROM "Account" a
+       INNER JOIN "EmailAccount" ea ON ea."accountId" = a.id
+       WHERE ea.email = $1`,
+      [PLAYWRIGHT_TEST_EMAIL],
+    );
+    const row = result.rows[0];
+    if (!row) throw new Error("Could not find the Playwright account");
+
+    await client.query(`UPDATE "Account" SET scope = $2 WHERE id = $1`, [
+      row.accountId,
+      "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
+    ]);
+    return row;
+  });
+
+  return () =>
+    withClient((client) =>
+      client.query(`UPDATE "Account" SET scope = $2 WHERE id = $1`, [
+        previous.accountId,
+        previous.scope,
+      ]),
+    );
 }
 
 async function withClient<T>(callback: (client: Client) => Promise<T>) {

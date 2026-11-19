@@ -70,6 +70,29 @@ describe("mobile review sign-in route", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
 
+  it.each([
+    "{invalid",
+    "",
+  ])("returns 400 for malformed JSON: %j", async (body) => {
+    const request = new NextRequest(
+      "http://localhost/api/mobile-review/sign-in",
+      {
+        body,
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      },
+    );
+
+    const response = await POST(request, {} as never);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invalid JSON body",
+    });
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(createMobileReviewSessionMock).not.toHaveBeenCalled();
+  });
+
   it("rejects sign-in requests without an email", async () => {
     const request = new NextRequest(
       "http://localhost/api/mobile-review/sign-in",

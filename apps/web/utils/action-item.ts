@@ -1,3 +1,5 @@
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { ActionType } from "@/generated/prisma/enums";
 import type { Action, ExecutedAction, Prisma } from "@/generated/prisma/client";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
@@ -10,11 +12,11 @@ import {
 const AI_GENERATED_FIELD_VALUE = "AI-generated";
 
 const DRAFT_REPLY_FIELDS = [
-  { name: "subject" as const, label: "Subject", expandable: true },
-  { name: "content" as const, label: "Content", textArea: true },
-  { name: "to" as const, label: "To", expandable: true },
-  { name: "cc" as const, label: "CC", expandable: true },
-  { name: "bcc" as const, label: "BCC", expandable: true },
+  { name: "subject" as const, label: msg`Subject`, expandable: true },
+  { name: "content" as const, label: msg`Content`, textArea: true },
+  { name: "to" as const, label: msg`To`, expandable: true },
+  { name: "cc" as const, label: msg`CC`, expandable: true },
+  { name: "bcc" as const, label: msg`BCC`, expandable: true },
 ];
 
 export const actionInputs: Record<
@@ -31,7 +33,7 @@ export const actionInputs: Record<
         | "url"
         | "folderName"
         | "folderId";
-      label: string;
+      label: MessageDescriptor;
       textArea?: boolean;
       expandable?: boolean;
       placeholder?: string;
@@ -43,7 +45,7 @@ export const actionInputs: Record<
     fields: [
       {
         name: "labelId",
-        label: "Label",
+        label: msg`Label`,
       },
     ],
   },
@@ -54,17 +56,17 @@ export const actionInputs: Record<
     fields: [
       {
         name: "content",
-        label: "Content",
+        label: msg`Content`,
         textArea: true,
       },
       {
         name: "cc",
-        label: "CC",
+        label: msg`CC`,
         expandable: true,
       },
       {
         name: "bcc",
-        label: "BCC",
+        label: msg`BCC`,
         expandable: true,
       },
     ],
@@ -73,25 +75,25 @@ export const actionInputs: Record<
     fields: [
       {
         name: "subject",
-        label: "Subject",
+        label: msg`Subject`,
       },
       {
         name: "content",
-        label: "Content",
+        label: msg`Content`,
         textArea: true,
       },
       {
         name: "to",
-        label: "To",
+        label: msg`To`,
       },
       {
         name: "cc",
-        label: "CC",
+        label: msg`CC`,
         expandable: true,
       },
       {
         name: "bcc",
-        label: "BCC",
+        label: msg`BCC`,
         expandable: true,
       },
     ],
@@ -100,21 +102,21 @@ export const actionInputs: Record<
     fields: [
       {
         name: "to",
-        label: "To",
+        label: msg`To`,
       },
       {
         name: "content",
-        label: "Extra Content",
+        label: msg`Extra Content`,
         textArea: true,
       },
       {
         name: "cc",
-        label: "CC",
+        label: msg`CC`,
         expandable: true,
       },
       {
         name: "bcc",
-        label: "BCC",
+        label: msg`BCC`,
         expandable: true,
       },
     ],
@@ -125,7 +127,7 @@ export const actionInputs: Record<
     fields: [
       {
         name: "url",
-        label: "Webhook URL",
+        label: msg`Webhook URL`,
         placeholder: "https://example.com/webhook",
       },
     ],
@@ -136,7 +138,7 @@ export const actionInputs: Record<
     fields: [
       {
         name: "folderName",
-        label: "Folder name",
+        label: msg`Folder name`,
       },
     ],
   },

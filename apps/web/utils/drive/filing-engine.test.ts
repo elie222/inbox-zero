@@ -87,10 +87,13 @@ describe("processAttachment", () => {
     vi.mocked(sendFiledNotification).mockResolvedValue(undefined);
     vi.mocked(sendAskNotification).mockResolvedValue(undefined);
     vi.mocked(sendFilingMessagingNotifications).mockResolvedValue(undefined);
-    vi.mocked(createAndSaveFilingFolder).mockResolvedValue({
-      id: "new-folder-1",
-      name: "New Folder",
-    });
+    vi.mocked(createAndSaveFilingFolder).mockImplementation(
+      async ({ folderPath, parent }) => ({
+        id: "new-folder-1",
+        name: "New Folder",
+        path: parent ? `${parent.path}/${folderPath}` : folderPath,
+      }),
+    );
   });
 
   describe("creating folders", () => {
@@ -115,6 +118,76 @@ describe("processAttachment", () => {
           driveConnection: { provider: "google" },
         }),
       ]);
+    });
+
+    it.each([
+      {
+        requestedPath: "Plans:2026",
+        parentFolderId: null,
+        actualPath: "Plans-2026",
+      },
+      {
+        requestedPath: "Finance/Invoices/Plans:2026",
+        parentFolderId: null,
+        actualPath: "Finance/Invoices/Plans-2026",
+      },
+      {
+        requestedPath: "Plans:2026/Reports",
+        parentFolderId: "folder-1",
+        actualPath: "Finance/Invoices/PLANS-2026/Reports",
+      },
+    ])("records the resolved Microsoft path for $requestedPath (parent $parentFolderId)", async ({
+      requestedPath,
+      parentFolderId,
+      actualPath,
+    }) => {
+      const { attachment, emailAccount, emailProvider, message } =
+        setupSuccessfulFiling({ confidence: 0.95 });
+      const connections = await prisma.driveConnection.findMany();
+      prisma.driveConnection.findMany.mockResolvedValue(
+        connections.map((connection) => ({
+          ...connection,
+          provider: "microsoft",
+        })),
+      );
+      const folders = await prisma.filingFolder.findMany();
+      prisma.filingFolder.findMany.mockResolvedValue(
+        folders.map((folder) => ({
+          ...folder,
+          driveConnection: { provider: "microsoft" },
+        })) as typeof folders,
+      );
+      vi.mocked(createAndSaveFilingFolder).mockResolvedValueOnce({
+        id: "resolved-folder",
+        name: actualPath.split("/").at(-1)!,
+        path: actualPath,
+      });
+      vi.mocked(analyzeDocument).mockResolvedValue({
+        action: "create_new",
+        folderId: null,
+        parentFolderId,
+        folderPath: requestedPath,
+        confidence: 0.95,
+        reasoning: "File by year",
+      });
+
+      const result = await processAttachment({
+        attachment,
+        emailAccount,
+        emailProvider,
+        logger,
+        message,
+      });
+
+      expect(result.success).toBe(true);
+      expect(prisma.documentFiling.update).toHaveBeenCalledWith({
+        where: { id: "filing-1" },
+        data: expect.objectContaining({
+          folderId: "resolved-folder",
+          folderPath: actualPath,
+        }),
+      });
+      expect(result.filing?.folderPath).toBe(actualPath);
     });
 
     it("creates a subfolder inside the parent folder the AI chose", async () => {

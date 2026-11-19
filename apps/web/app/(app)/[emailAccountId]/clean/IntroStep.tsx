@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { SectionDescription } from "@/components/Typography";
 import { TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ export function IntroStep({
   unhandledCount: number;
   cleanAction: CleanAction;
 }) {
+  const { t } = useLingui();
   const { onNext } = useStep();
   const analytics = useProductAnalytics("deep_clean");
 
@@ -25,7 +27,7 @@ export function IntroStep({
       <div className="text-center">
         <Image
           src="/images/illustrations/home-office.svg"
-          alt="clean up"
+          alt={t`clean up`}
           width={200}
           height={200}
           className="mx-auto dark:brightness-90 dark:invert"
@@ -33,22 +35,34 @@ export function IntroStep({
         />
 
         <TypographyH3 className="mt-2">
-          Let's get your inbox cleaned up in 5 minutes
+          <Trans>Let's get your inbox cleaned up in 5 minutes</Trans>
         </TypographyH3>
 
         {unhandledCount === null ? (
           <SectionDescription className="mx-auto mt-2 max-w-prose">
-            Checking your inbox...
+            <Trans>Checking your inbox...</Trans>
           </SectionDescription>
         ) : (
           <>
             <SectionDescription className="mx-auto mt-2 max-w-prose">
-              You have {unhandledCount.toLocaleString()}{" "}
-              {cleanAction === CleanAction.ARCHIVE ? "unarchived" : "unread"}{" "}
-              emails in your inbox.
+              {cleanAction === CleanAction.ARCHIVE ? (
+                <Plural
+                  value={unhandledCount}
+                  one="You have # unarchived email in your inbox."
+                  other="You have # unarchived emails in your inbox."
+                />
+              ) : (
+                <Plural
+                  value={unhandledCount}
+                  one="You have # unread email in your inbox."
+                  other="You have # unread emails in your inbox."
+                />
+              )}
             </SectionDescription>
             <SectionDescription className="mx-auto mt-2 max-w-prose">
-              Let's clean up your inbox while keeping important emails safe.
+              <Trans>
+                Let's clean up your inbox while keeping important emails safe.
+              </Trans>
             </SectionDescription>
           </>
         )}
@@ -64,7 +78,7 @@ export function IntroStep({
             }}
             disabled={unhandledCount === null}
           >
-            Next
+            <Trans>Next</Trans>
           </Button>
         </div>
       </div>

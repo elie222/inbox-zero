@@ -34,9 +34,11 @@ vi.mock("next/dynamic", () => ({
 afterEach(() => {
   cleanup();
   capture.mockClear();
+  vi.restoreAllMocks();
 });
 
 it("blocks reload as soon as a composer opens, including while its code loads", () => {
+  vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
   const view = render(<ComposeEmailFormLazy />);
   expect(isSafeToReload()).toBe(false);
   view.unmount();

@@ -8,6 +8,7 @@ import {
   ErrorType,
 } from "@/utils/error-messages";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
+import { skipDraftCleanupForDisconnectedAccount } from "@/utils/ai/draft-cleanup";
 
 const clearedCredentials = {
   access_token: null,
@@ -124,6 +125,11 @@ export async function cleanupInvalidTokens({
     logger.info("Account changed before credential cleanup");
     return { status: "skipped" as const };
   }
+
+  await skipDraftCleanupForDisconnectedAccount({
+    emailAccountId: emailAccount.id,
+    logger,
+  });
 
   const errorMessage = getAccountActionRequiredMessage(
     emailAccount.email,

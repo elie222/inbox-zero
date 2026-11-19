@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { ColdEmailList } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -17,10 +18,18 @@ export function ColdEmailContent({ searchParam }: { searchParam?: string }) {
   return (
     <Tabs defaultValue="cold-emails" searchParam={searchParam}>
       <TabsList>
-        <TabsTrigger value="cold-emails">Cold Emails</TabsTrigger>
-        <TabsTrigger value="rejected">Marked Not Cold</TabsTrigger>
-        <TabsTrigger value="test">Test</TabsTrigger>
-        <TabsTrigger value="settings">Settings</TabsTrigger>
+        <TabsTrigger value="cold-emails">
+          <Trans>Cold Emails</Trans>
+        </TabsTrigger>
+        <TabsTrigger value="rejected">
+          <Trans>Marked Not Cold</Trans>
+        </TabsTrigger>
+        <TabsTrigger value="test">
+          <Trans>Test</Trans>
+        </TabsTrigger>
+        <TabsTrigger value="settings">
+          <Trans>Settings</Trans>
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="test" className="mb-10">
@@ -40,12 +49,14 @@ export function ColdEmailContent({ searchParam }: { searchParam?: string }) {
 
       <TabsContent value="settings" className="mb-10">
         <MessageText className="my-4">
-          To manage cold email settings, go to the Assistant Rules tab and click
-          Edit on the Cold Email rule.
+          <Trans>
+            To manage cold email settings, go to the Assistant Rules tab and
+            click Edit on the Cold Email rule.
+          </Trans>
         </MessageText>
         <Button asChild variant="outline">
           <Link href={prefixPath(emailAccountId, "/automation?tab=rules")}>
-            Go to Assistant Rules
+            <Trans>Go to Assistant Rules</Trans>
           </Link>
         </Button>
       </TabsContent>

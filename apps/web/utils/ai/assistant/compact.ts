@@ -4,12 +4,13 @@ import { createGenerateText, createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
+import type { ChatActionTotals } from "@/utils/ai/assistant/chat-action-totals";
 import {
   getUserConversationMessages,
   validateUserMemoryEvidence,
 } from "./chat-memory-policy";
 
-export const RECENT_MESSAGES_TO_KEEP = 6;
+const RECENT_MESSAGES_TO_KEEP = 6;
 const COMPACTION_TOKEN_THRESHOLD = 80_000;
 const COMPACTION_TOOL_RESULT_CHAR_LIMIT = 4000;
 const MEMORY_EXTRACTION_MESSAGE_CHAR_LIMIT = 2000;
@@ -62,16 +63,21 @@ export function shouldCompact(messages: ModelMessage[]): boolean {
 
 export async function compactMessages({
   messages,
+  actionTotals,
   user,
   logger,
 }: {
   messages: ModelMessage[];
+  actionTotals?: ChatActionTotals;
   user: EmailAccountWithAI;
   logger: Logger;
 }): Promise<{
   compactedMessages: ModelMessage[];
   summary: string;
   compactedCount: number;
+  // Lets the caller persist the same boundary: each stored user message is one
+  // user model message.
+  recentUserMessageCount: number;
 }> {
   const systemMessages: ModelMessage[] = [];
   const conversationMessages: ModelMessage[] = [];
@@ -84,19 +90,18 @@ export async function compactMessages({
     }
   }
 
-  if (conversationMessages.length <= RECENT_MESSAGES_TO_KEEP) {
+  const recentStartIndex = findRecentHistoryStart(conversationMessages);
+  if (recentStartIndex <= 0) {
     return {
       compactedMessages: messages,
       summary: "",
       compactedCount: 0,
+      recentUserMessageCount: 0,
     };
   }
 
-  const messagesToCompact = conversationMessages.slice(
-    0,
-    -RECENT_MESSAGES_TO_KEEP,
-  );
-  const recentMessages = conversationMessages.slice(-RECENT_MESSAGES_TO_KEEP);
+  const messagesToCompact = conversationMessages.slice(0, recentStartIndex);
+  const recentMessages = conversationMessages.slice(recentStartIndex);
 
   const serialized = serializeMessages(messagesToCompact);
 
@@ -131,12 +136,18 @@ ${serialized}
     summaryLength: result.text.length,
   });
 
-  const summaryMessage = buildCompactionSummaryMessage(result.text);
+  // The summarizer can drop or misadd counts spread over many tool results, so
+  // the stored totals are attached verbatim.
+  const summary = appendActionTotals(result.text, actionTotals);
+  const summaryMessage = buildCompactionSummaryMessage(summary);
 
   return {
     compactedMessages: [...systemMessages, summaryMessage, ...recentMessages],
-    summary: result.text,
+    summary,
     compactedCount: messagesToCompact.length,
+    recentUserMessageCount: recentMessages.filter(
+      (message) => message.role === "user",
+    ).length,
   };
 }
 
@@ -187,6 +198,31 @@ export async function extractMemories({
         conversationMessages: userMessages,
       }).pass,
   );
+}
+
+// The kept history starts at a user message so every tool result stays with
+// the assistant message that called it; an orphaned result fails the request.
+function findRecentHistoryStart(messages: ModelMessage[]): number {
+  const earliestStart = Math.max(0, messages.length - RECENT_MESSAGES_TO_KEEP);
+
+  for (let index = earliestStart; index < messages.length; index++) {
+    if (messages[index].role === "user") return index;
+  }
+  for (let index = earliestStart - 1; index >= 0; index--) {
+    if (messages[index].role === "user") return index;
+  }
+  return -1;
+}
+
+function appendActionTotals(
+  summary: string,
+  actionTotals: ChatActionTotals | undefined,
+): string {
+  if (!summary.trim() || !actionTotals || !Object.keys(actionTotals).length) {
+    return summary;
+  }
+
+  return `${summary}\n\nExact inbox action totals in this chat as of this summary: ${JSON.stringify(actionTotals)}`;
 }
 
 function buildMemoryExtractionPrompt(messages: ModelMessage[]): string {

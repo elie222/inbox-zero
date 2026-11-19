@@ -24,3 +24,7 @@ export function enqueueDraftOperation<T>(
 export async function waitForDraftOperations(key: string) {
   await queues.get(key);
 }
+
+export function hasPendingDraftOperations(key: string) {
+  return queues.has(key);
+}

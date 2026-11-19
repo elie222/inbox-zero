@@ -1,5 +1,6 @@
 "use client";
 
+import { Plural, Trans } from "@lingui/react/macro";
 import Link from "next/link";
 import useSWR from "swr";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -37,14 +38,22 @@ export function SharedConversationList() {
             >
               <span>
                 <span className="block font-medium">
-                  Conversation shared by {conversation.publisher}
+                  <Trans>Conversation shared by {conversation.publisher}</Trans>
                 </span>
                 <span className="text-muted-foreground text-xs">
-                  {conversation.commentCount} comments ·{" "}
-                  {new Date(conversation.updatedAt).toLocaleString()}
+                  <Plural
+                    value={conversation.commentCount}
+                    one="# comment"
+                    other="# comments"
+                  />{" "}
+                  · {new Date(conversation.updatedAt).toLocaleString()}
                 </span>
               </span>
-              {conversation.unread && <Badge>Unread</Badge>}
+              {conversation.unread && (
+                <Badge>
+                  <Trans>Unread</Trans>
+                </Badge>
+              )}
             </Link>
           ))}
         </div>

@@ -22,7 +22,10 @@ export function RuleLoader({
   if (isMissingRule) return <RuleNotFoundState />;
 
   return (
-    <LoadingContent loading={isLoading} error={error}>
+    <LoadingContent
+      loading={isLoading && !data}
+      error={data ? undefined : error}
+    >
       {data ? children({ rule: data.rule, mutate }) : null}
     </LoadingContent>
   );

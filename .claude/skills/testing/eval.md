@@ -86,7 +86,7 @@ pnpm test-ai eval/your-feature
 EVAL_MODELS=all pnpm test-ai eval/your-feature
 
 # Specific models
-EVAL_MODELS=gemini-3.8-flash,gpt-6-luna pnpm test-ai eval/your-feature
+EVAL_MODELS=gpt-6-luna,claude-haiku-5.5 pnpm test-ai eval/your-feature
 
 # Save report to file
 EVAL_REPORT_PATH=eval-results/report.md EVAL_MODELS=all pnpm test-ai eval/your-feature
@@ -162,7 +162,7 @@ Cache records are stored in `.context/eval-result-cache/` by default. The cache 
 
 ## Environment Variables
 
-- `EVAL_MODELS` — not set: single run with env model; `all`: all models; comma-separated: specific models
+- `EVAL_MODELS` — not set: single run with env model; `all`: the shipped models (GPT-6 Luna, Claude Haiku 5.5); comma-separated: specific presets; a JSON array like `[{"provider":"openrouter","model":"google/gemini-3.8-flash","label":"Gemini"}]`: any other model. Only run other models when asked, since they cost money.
 - `EVAL_REPORT_PATH` — save markdown + JSON report to file
 - `EVAL_HISTORY_DIR` — save per-run JSON history; defaults to `.context/eval-results` for AI evals; set `off` to disable
 - `EVAL_RESULT_CACHE` — opt into scenario-level result caching: `readwrite`, `readonly`, or `refresh`

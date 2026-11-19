@@ -34,25 +34,24 @@ describe("getCategoryOverview", () => {
 
   it("returns category counts, sample senders, uncategorized count, and progress", async () => {
     prisma.category.findMany.mockResolvedValue([
-      {
-        id: "cat-1",
-        name: "Newsletters",
-        description: "Recurring updates",
-        emailSenders: [
-          { email: "first@example.com", name: "First" },
-          { email: "second@example.com", name: null },
-        ],
-        _count: { emailSenders: 2 },
-      },
-      {
-        id: "cat-2",
-        name: "Receipts",
-        description: null,
-        emailSenders: [],
-        _count: { emailSenders: 0 },
-      },
+      { id: "cat-1", name: "Newsletters", description: "Recurring updates" },
+      { id: "cat-2", name: "Receipts", description: null },
     ] as never);
-    prisma.newsletter.count.mockResolvedValue(3);
+    prisma.$queryRaw.mockResolvedValue([
+      {
+        categoryId: "cat-1",
+        email: "first@example.com",
+        name: "First",
+        senderCount: 2,
+      },
+      {
+        categoryId: "cat-1",
+        email: "second@example.com",
+        name: null,
+        senderCount: 2,
+      },
+      { categoryId: null, email: "a@example.com", name: null, senderCount: 3 },
+    ] as never);
     prisma.emailAccount.findUnique.mockResolvedValue({
       autoCategorizeSenders: true,
     } as never);
@@ -108,7 +107,9 @@ describe("getCategoryOverview", () => {
 
   it("handles accounts without categories yet", async () => {
     prisma.category.findMany.mockResolvedValue([] as never);
-    prisma.newsletter.count.mockResolvedValue(7);
+    prisma.$queryRaw.mockResolvedValue([
+      { categoryId: null, email: "a@example.com", name: null, senderCount: 7 },
+    ] as never);
     prisma.emailAccount.findUnique.mockResolvedValue({
       autoCategorizeSenders: false,
     } as never);
@@ -128,6 +129,5 @@ describe("getCategoryOverview", () => {
       uncategorizedSenderCount: 7,
       categories: [],
     });
-    expect(prisma.newsletter.findMany).not.toHaveBeenCalled();
   });
 });

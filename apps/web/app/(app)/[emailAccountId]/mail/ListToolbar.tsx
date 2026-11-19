@@ -16,20 +16,22 @@ import {
   ArchiveIcon,
   ArchiveRestoreIcon,
   ChevronDownIcon,
-  ColumnsIcon,
   MailIcon,
   MailOpenIcon,
+  MoreHorizontalIcon,
   PanelLeftIcon,
-  RowsIcon,
   SearchIcon,
+  SettingsIcon,
+  SlidersHorizontalIcon,
   SparklesIcon,
+  SplitIcon,
   StarIcon,
   StarOffIcon,
   TagIcon,
-  TextIcon,
   Trash2Icon,
   XIcon,
 } from "lucide-react";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { MailSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/MailSearchFilters";
 import { OutlookSearchFiltersForm } from "@/app/(app)/[emailAccountId]/mail/OutlookSearchFilters";
 import {
@@ -47,6 +49,16 @@ import { parseOutlookSearchQuery } from "@/app/(app)/[emailAccountId]/mail/outlo
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Tooltip } from "@/components/Tooltip";
 import { useSidebar } from "@/components/ui/sidebar";
+import { getShortcutHint } from "@/lib/shortcuts/registry";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Popover,
   PopoverAnchor,
@@ -72,7 +84,15 @@ export type ListToolbarProps = {
   searchVariant?: "gmail" | "outlook" | "common";
   onToggleLayout: () => void;
   onTogglePreview: () => void;
+  bundleInbox: boolean;
+  /** Omitted outside the single-account inbox, where bundling never applies. */
+  onToggleBundleInbox?: () => void;
   onToggleAssistant: () => void;
+  onOpenAllSettings?: () => void;
+  /** Omitted where the setup card can't apply, or while it's open. */
+  onOpenSetup?: () => void;
+  /** Marks the view options menu until the reader has been through setup once. */
+  isSetupSuggested: boolean;
   /** Rendered here only when the split tabs row isn't showing to hold it. */
   selectAll?: ReactNode;
   selectedCount: number;
@@ -88,6 +108,8 @@ export type ListToolbarProps = {
   onStarSelected: () => void;
   /** Omitted when the current view can't label (combined inboxes). */
   onLabelSelected?: () => void;
+  /** Omitted when there's no split the senders could join. */
+  onAddToSplitSelected?: () => void;
   onClearSelection: () => void;
   /** Opens the mail navigation panel on screens too narrow for the rail. */
   onOpenMailNav: () => void;
@@ -106,7 +128,12 @@ export const ListToolbar = memo(function ListToolbar({
   searchVariant = "gmail",
   onToggleLayout,
   onTogglePreview,
+  bundleInbox,
+  onToggleBundleInbox,
   onToggleAssistant,
+  onOpenAllSettings,
+  onOpenSetup,
+  isSetupSuggested,
   selectAll,
   selectedCount,
   onArchiveSelected,
@@ -118,10 +145,11 @@ export const ListToolbar = memo(function ListToolbar({
   isStarredSelected,
   onStarSelected,
   onLabelSelected,
+  onAddToSplitSelected,
   onClearSelection,
   onOpenMailNav,
 }: ListToolbarProps) {
-  const LayoutIcon = layout === "split" ? ColumnsIcon : RowsIcon;
+  const { t } = useLingui();
   const { state } = useSidebar();
   const isSidebarCollapsed = !state.includes("left-sidebar");
 
@@ -137,7 +165,7 @@ export const ListToolbar = memo(function ListToolbar({
       <button
         type="button"
         onClick={onOpenMailNav}
-        aria-label="Open navigation"
+        aria-label={t`Open navigation`}
         className={cn(toolbarButton, "w-8 justify-center px-0 lg:hidden")}
       >
         <PanelLeftIcon className="size-3.5" />
@@ -151,14 +179,16 @@ export const ListToolbar = memo(function ListToolbar({
           <span
             aria-live="polite"
             className="min-w-0 flex-1 truncate font-medium text-sm"
-          >{`${selectedCount} selected`}</span>
+          >
+            <Plural value={selectedCount} one="# selected" other="# selected" />
+          </span>
 
           {onMoveToInboxSelected ? (
-            <Tooltip content="Move to inbox">
+            <Tooltip content={t`Move to inbox`}>
               <button
                 type="button"
                 onClick={onMoveToInboxSelected}
-                aria-label="Move to inbox"
+                aria-label={t`Move to inbox`}
                 className={cn(toolbarButton, "w-8 justify-center px-0")}
               >
                 <ArchiveRestoreIcon className="size-3.5" />
@@ -169,7 +199,7 @@ export const ListToolbar = memo(function ListToolbar({
               <button
                 type="button"
                 onClick={onArchiveSelected}
-                aria-label="Archive"
+                aria-label={t`Archive`}
                 className={cn(toolbarButton, "w-8 justify-center px-0")}
               >
                 <ArchiveIcon className="size-3.5" />
@@ -178,7 +208,7 @@ export const ListToolbar = memo(function ListToolbar({
           )}
 
           <Tooltip
-            content={isUnreadSelected ? "Mark as read" : undefined}
+            content={isUnreadSelected ? t`Mark as read` : undefined}
             shortcuts={isUnreadSelected ? undefined : ["markUnread"]}
           >
             <button
@@ -186,7 +216,9 @@ export const ListToolbar = memo(function ListToolbar({
               onClick={
                 isUnreadSelected ? onMarkReadSelected : onMarkUnreadSelected
               }
-              aria-label={isUnreadSelected ? "Mark as read" : "Mark as unread"}
+              aria-label={
+                isUnreadSelected ? t`Mark as read` : t`Mark as unread`
+              }
               className={cn(toolbarButton, "w-8 justify-center px-0")}
             >
               {isUnreadSelected ? (
@@ -201,7 +233,7 @@ export const ListToolbar = memo(function ListToolbar({
             <button
               type="button"
               onClick={onStarSelected}
-              aria-label={isStarredSelected ? "Unstar" : "Star"}
+              aria-label={isStarredSelected ? t`Unstar` : t`Star`}
               className={cn(toolbarButton, "w-8 justify-center px-0")}
             >
               {isStarredSelected ? (
@@ -216,7 +248,7 @@ export const ListToolbar = memo(function ListToolbar({
             <button
               type="button"
               onClick={onDeleteSelected}
-              aria-label="Delete"
+              aria-label={t`Delete`}
               className={cn(
                 toolbarButton,
                 "w-8 justify-center px-0 hover:bg-destructive/10 hover:text-destructive",
@@ -231,7 +263,7 @@ export const ListToolbar = memo(function ListToolbar({
               <button
                 type="button"
                 onClick={onLabelSelected}
-                aria-label="Label"
+                aria-label={t`Label`}
                 className={cn(toolbarButton, "w-8 justify-center px-0")}
               >
                 <TagIcon className="size-3.5" />
@@ -239,11 +271,33 @@ export const ListToolbar = memo(function ListToolbar({
             </Tooltip>
           ) : null}
 
-          <Tooltip shortcuts={[{ id: "backToList", label: "Clear selection" }]}>
+          {onAddToSplitSelected ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t`More selection actions`}
+                  className={cn(toolbarButton, "w-8 justify-center px-0")}
+                >
+                  <MoreHorizontalIcon className="size-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={onAddToSplitSelected}>
+                  <SplitIcon className="mr-2 size-4" />
+                  <Trans>Add senders to split</Trans>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+
+          <Tooltip
+            shortcuts={[{ id: "backToList", label: t`Clear selection` }]}
+          >
             <button
               type="button"
               onClick={onClearSelection}
-              aria-label="Clear selection"
+              aria-label={t`Clear selection`}
               className={cn(toolbarButton, "w-8 justify-center px-0")}
             >
               <XIcon className="size-3.5" />
@@ -266,47 +320,17 @@ export const ListToolbar = memo(function ListToolbar({
       )}
 
       {selectedCount === 0 ? (
-        <Tooltip
-          shortcuts={[
-            {
-              id: "togglePreview",
-              label: expandedPreview
-                ? "Shorten preview text"
-                : "Expand preview text",
-            },
-          ]}
-        >
-          <button
-            type="button"
-            onClick={onTogglePreview}
-            aria-label="Expand or shorten preview text"
-            aria-pressed={expandedPreview}
-            className={cn(
-              toolbarButton,
-              "w-8 justify-center px-0",
-              expandedPreview && "bg-muted text-foreground",
-            )}
-          >
-            <TextIcon className="size-3.5" />
-          </button>
-        </Tooltip>
-      ) : null}
-
-      {selectedCount === 0 ? (
-        <Tooltip
-          shortcuts={[
-            { id: "toggleLayout", label: "Switch list / split view" },
-          ]}
-        >
-          <button
-            type="button"
-            onClick={onToggleLayout}
-            aria-label="Switch list or split view"
-            className={cn(toolbarButton, "w-8 justify-center px-0")}
-          >
-            <LayoutIcon className="size-3.5" />
-          </button>
-        </Tooltip>
+        <ViewOptionsMenu
+          layout={layout}
+          expandedPreview={expandedPreview}
+          onToggleLayout={onToggleLayout}
+          onTogglePreview={onTogglePreview}
+          bundleInbox={bundleInbox}
+          onToggleBundleInbox={onToggleBundleInbox}
+          onOpenAllSettings={onOpenAllSettings}
+          onOpenSetup={onOpenSetup}
+          isSetupSuggested={isSetupSuggested}
+        />
       ) : null}
 
       {selectedCount === 0 ? (
@@ -314,10 +338,13 @@ export const ListToolbar = memo(function ListToolbar({
           <button
             type="button"
             onClick={onToggleAssistant}
-            aria-label="Toggle the assistant"
-            className={cn(toolbarButton, "w-8 justify-center px-0")}
+            aria-label={t`Toggle the assistant`}
+            className={cn(
+              toolbarButton,
+              "w-8 justify-center bg-blue-500/10 px-0 text-blue-600 hover:bg-blue-500/20 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300",
+            )}
           >
-            <SparklesIcon className="size-3.5" />
+            <SparklesIcon className="size-4" />
           </button>
         </Tooltip>
       ) : null}
@@ -344,6 +371,7 @@ function MailSearchInput({
   searchFolders?: { name: string }[];
   searchVariant?: "gmail" | "outlook" | "common";
 }) {
+  const { t } = useLingui();
   const localRef = useRef<HTMLInputElement>(null);
   const inputRef = inputRefProp ?? localRef;
   const { emailAccountId } = useAccount();
@@ -399,7 +427,7 @@ function MailSearchInput({
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  aria-label="Show search options"
+                  aria-label={t`Show search options`}
                   aria-expanded={filtersOpen}
                   className={cn(
                     "flex h-full w-7 shrink-0 items-center justify-center rounded-r-lg text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -429,10 +457,10 @@ function MailSearchInput({
           <input
             ref={inputRef}
             value={draft}
-            placeholder="Search mail"
+            placeholder={t`Search mail`}
             enterKeyHint="search"
             role="combobox"
-            aria-label="Search mail"
+            aria-label={t`Search mail`}
             aria-autocomplete="list"
             aria-expanded={suggestionsOpen}
             aria-controls={suggestionsOpen ? suggestionListId : undefined}
@@ -501,7 +529,7 @@ function MailSearchInput({
           {draft || searchQuery ? (
             <button
               type="button"
-              aria-label="Clear search"
+              aria-label={t`Clear search`}
               onClick={() => onSearch("")}
               className="shrink-0 rounded p-0.5 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
@@ -571,6 +599,96 @@ function AdvancedSearchForm({
       variant={searchVariant === "common" ? "common" : "gmail"}
       onSearch={onSearch}
     />
+  );
+}
+
+function ViewOptionsMenu({
+  layout,
+  expandedPreview,
+  onToggleLayout,
+  onTogglePreview,
+  bundleInbox,
+  onToggleBundleInbox,
+  onOpenAllSettings,
+  onOpenSetup,
+  isSetupSuggested,
+}: Pick<
+  ListToolbarProps,
+  | "layout"
+  | "expandedPreview"
+  | "onToggleLayout"
+  | "onTogglePreview"
+  | "bundleInbox"
+  | "onToggleBundleInbox"
+  | "onOpenAllSettings"
+  | "onOpenSetup"
+  | "isSetupSuggested"
+>) {
+  const { t } = useLingui();
+  return (
+    <DropdownMenu>
+      <Tooltip content={t`View options`}>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={t`View options`}
+            className={cn(toolbarButton, "relative w-8 justify-center px-0")}
+          >
+            <SlidersHorizontalIcon className="size-3.5" />
+            {isSetupSuggested && onOpenSetup ? (
+              <span className="absolute top-1 right-1 flex size-2">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-blue-500 opacity-75 motion-reduce:animate-none" />
+                <span className="relative inline-flex size-2 rounded-full bg-blue-500" />
+              </span>
+            ) : null}
+          </button>
+        </DropdownMenuTrigger>
+      </Tooltip>
+      <DropdownMenuContent align="end" className="w-64">
+        {onToggleBundleInbox ? (
+          <DropdownMenuCheckboxItem
+            checked={bundleInbox}
+            onCheckedChange={onToggleBundleInbox}
+          >
+            <Trans>Bundle low-priority emails</Trans>
+          </DropdownMenuCheckboxItem>
+        ) : null}
+        <DropdownMenuCheckboxItem
+          checked={expandedPreview}
+          onCheckedChange={onTogglePreview}
+        >
+          <Trans>Expanded preview text</Trans>
+          <DropdownMenuShortcut>
+            {getShortcutHint("togglePreview")}
+          </DropdownMenuShortcut>
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
+          checked={layout === "split"}
+          onCheckedChange={onToggleLayout}
+        >
+          <Trans>Split view</Trans>
+          <DropdownMenuShortcut>
+            {getShortcutHint("toggleLayout")}
+          </DropdownMenuShortcut>
+        </DropdownMenuCheckboxItem>
+        {(onOpenAllSettings || onOpenSetup) && <DropdownMenuSeparator />}
+        {onOpenAllSettings && (
+          <DropdownMenuItem onSelect={onOpenAllSettings} inset>
+            <Trans>Choose what All shows</Trans>
+          </DropdownMenuItem>
+        )}
+        {onOpenSetup && (
+          <DropdownMenuItem onSelect={onOpenSetup}>
+            <SettingsIcon className="size-4" />
+            {isSetupSuggested ? (
+              <Trans>Set up your inbox</Trans>
+            ) : (
+              <Trans>Run mail setup again</Trans>
+            )}
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

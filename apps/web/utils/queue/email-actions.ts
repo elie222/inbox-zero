@@ -14,9 +14,16 @@ export const runAiRules = async (
   {
     signal,
     skipDraftReplies = false,
+    runWithRetry = (operation) => operation(),
   }: {
     signal?: AbortSignal;
     skipDraftReplies?: boolean;
+    // Retrying inside the task keeps a rate-limited email queued, and retries
+    // only that email, instead of failing the batch.
+    runWithRetry?: <T>(
+      operation: () => Promise<T>,
+      signal: AbortSignal,
+    ) => Promise<T>;
   } = {},
 ) => {
   const threads = threadsArray.filter(isDefined);
@@ -48,15 +55,23 @@ export const runAiRules = async (
               const message = thread.messages.at(-1);
               if (!message) return;
 
-              const result = await runRulesAction(emailAccountId, {
-                messageId: message.id,
-                threadId: thread.id,
-                rerun,
-                isTest: false,
-                skipDraftReplies,
-              });
+              let isRetry = false;
+              await runWithRetry(async () => {
+                // A failed attempt may already have saved a result and run
+                // some actions. Retrying as a rerun would discard it and run
+                // them again, so retries keep whatever the attempt saved.
+                const rerunThisAttempt = rerun && !isRetry;
+                isRetry = true;
+                const result = await runRulesAction(emailAccountId, {
+                  messageId: message.id,
+                  threadId: thread.id,
+                  rerun: rerunThisAttempt,
+                  isTest: false,
+                  skipDraftReplies,
+                });
 
-              if (result?.serverError) throw new Error(result.serverError);
+                if (result?.serverError) throw new Error(result.serverError);
+              }, batchAbortController.signal);
             } catch (error) {
               if (!batchAbortController.signal.aborted) {
                 firstError = error;

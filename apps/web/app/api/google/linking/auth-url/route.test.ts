@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { parseSignedOAuthState } from "@/utils/oauth/state";
 
 const {
   mockAuthState,
@@ -34,14 +35,9 @@ vi.mock("@/utils/gmail/client", () => ({
   })),
 }));
 
-vi.mock("@/utils/oauth/account-linking", async (importActual) => {
-  const actual =
-    await importActual<typeof import("@/utils/oauth/account-linking")>();
-  return {
-    getMailboxLinkingBlockedResponse: actual.getMailboxLinkingBlockedResponse,
-    hasActiveAccountLinkingUser: mockHasActiveAccountLinkingUser,
-  };
-});
+vi.mock("@/utils/oauth/account-linking", () => ({
+  hasActiveAccountLinkingUser: mockHasActiveAccountLinkingUser,
+}));
 
 vi.mock("@/utils/oauth/reconnect-target", () => ({
   findReconnectTarget: mockFindReconnectTarget,
@@ -66,15 +62,20 @@ describe("google linking auth-url route", () => {
     await expect(response.json()).resolves.toEqual({
       url: "https://accounts.google.com/o/oauth2/auth",
     });
+    const state = response.cookies.get("google_linking_state")?.value;
+    expect(parseSignedOAuthState(state!)).toMatchObject({
+      type: "account-linking",
+      provider: "google",
+      userId: "user-1",
+    });
   });
 
-  it("does not let an email code session start mailbox linking", async () => {
+  it("lets an email code session start mailbox linking", async () => {
     mockAuthState.emailOtp = true;
 
     const response = await GET(createRequest(), {} as never);
 
-    expect(response.status).toBe(403);
-    expect(mockGenerateAuthUrl).not.toHaveBeenCalled();
-    expect(response.cookies.get("google_linking_state")).toBeUndefined();
+    expect(response.status).toBe(200);
+    expect(mockGenerateAuthUrl).toHaveBeenCalled();
   });
 });

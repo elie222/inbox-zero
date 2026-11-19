@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { MailAccountSwitcherTrigger } from "@inboxzero/mail-ui/MailAccountSwitcherTrigger";
 import {
   memo,
@@ -15,6 +16,7 @@ import Link from "next/link";
 import {
   CheckIcon,
   ChevronsUpDownIcon,
+  LogOutIcon,
   PlusIcon,
   SlidersHorizontalIcon,
 } from "lucide-react";
@@ -46,6 +48,7 @@ import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-accoun
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { reorderEmailAccountsAction } from "@/utils/actions/all-accounts";
 import { getActionErrorMessage } from "@/utils/error";
+import { logOut } from "@/utils/user";
 import { cn } from "@/utils";
 import { useDragReorder } from "./use-drag-reorder";
 
@@ -63,6 +66,7 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
   /** Icon-only rail: the trigger shrinks to the account avatar. */
   collapsed?: boolean;
 }) {
+  const { t } = useLingui();
   const { data, mutate } = useAccounts();
   const { emailAccount } = useAccount();
   const [isSelectionOpen, setIsSelectionOpen] = useState(false);
@@ -85,18 +89,18 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
       mutate();
       if (!result || result.serverError || result.validationErrors) {
         toast.error(
-          getActionErrorMessage(result ?? {}, "Failed to save account order"),
+          getActionErrorMessage(result ?? {}, t`Failed to save account order`),
         );
       }
     },
-    [data, mutate],
+    [data, mutate, t],
   );
 
   if (!data) return null;
 
   const activeLabel = isAllAccounts
-    ? "All accounts"
-    : emailAccount?.name || emailAccount?.email || "Choose account";
+    ? t`All accounts`
+    : emailAccount?.name || emailAccount?.email || t`Choose account`;
   const activeEmail =
     !isAllAccounts && emailAccount?.name ? emailAccount.email : null;
   let activeIcon: ReactNode = null;
@@ -144,8 +148,10 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
                   className="min-w-0 flex-1 gap-3 rounded-xl p-3"
                   onSelect={onSelectAll}
                 >
-                  <AllAccountsIcon />
-                  <span className="flex-1 font-medium">All accounts</span>
+                  <AllAccountsIcon className="size-10" />
+                  <span className="flex-1 font-medium">
+                    <Trans>All accounts</Trans>
+                  </span>
                   {isAllAccounts && <CurrentAccountCheck />}
                   {isDesktopApp && (
                     <Kbd className="shrink-0">
@@ -156,14 +162,16 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <DropdownMenuItem
-                      aria-label="Choose accounts"
+                      aria-label={t`Choose accounts`}
                       className="w-10 justify-center rounded-xl p-0 text-muted-foreground"
                       onSelect={() => setIsSelectionOpen(true)}
                     >
                       <SlidersHorizontalIcon />
                     </DropdownMenuItem>
                   </TooltipTrigger>
-                  <TooltipContent side="right">Choose accounts</TooltipContent>
+                  <TooltipContent side="right">
+                    <Trans>Choose accounts</Trans>
+                  </TooltipContent>
                 </Tooltip>
               </div>
               <DropdownMenuSeparator />
@@ -179,13 +187,24 @@ export const MailAccountSwitcher = memo(function MailAccountSwitcher({
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild className="gap-3 rounded-xl p-3">
             <Link href="/accounts">
-              <span className="flex size-8 items-center justify-center rounded-full bg-muted">
-                <PlusIcon className="size-4" />
-              </span>
+              <MenuItemIcon>
+                <PlusIcon />
+              </MenuItemIcon>
               <span className="font-medium text-muted-foreground">
-                Add or manage accounts
+                <Trans>Add or manage accounts</Trans>
               </span>
             </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="gap-3 rounded-xl p-3"
+            onSelect={() => logOut(window.location.origin)}
+          >
+            <MenuItemIcon>
+              <LogOutIcon />
+            </MenuItemIcon>
+            <span className="font-medium text-muted-foreground">
+              <Trans>Sign out</Trans>
+            </span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -353,12 +372,29 @@ function AccountItem({
 }
 
 function CurrentAccountCheck() {
-  return <CheckIcon aria-label="Current account" className="size-4 shrink-0" />;
+  const { t } = useLingui();
+  return (
+    <CheckIcon aria-label={t`Current account`} className="size-4 shrink-0" />
+  );
 }
 
-function AllAccountsIcon() {
+// Matches the account avatar width so every row's label lines up.
+function MenuItemIcon({ children }: { children: ReactNode }) {
   return (
-    <span className="flex size-8 shrink-0 items-center justify-center gap-0.5 rounded-full bg-muted">
+    <span className="flex w-10 shrink-0 justify-center text-muted-foreground">
+      {children}
+    </span>
+  );
+}
+
+function AllAccountsIcon({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        "flex size-8 shrink-0 items-center justify-center gap-0.5 rounded-full bg-muted",
+        className,
+      )}
+    >
       <span className="size-2 rounded-full bg-blue-600" />
       <span className="size-2 rounded-full bg-violet-500" />
       <span className="size-2 rounded-full bg-emerald-500" />

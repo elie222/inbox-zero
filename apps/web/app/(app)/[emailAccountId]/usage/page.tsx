@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { getUsage } from "@/utils/redis/usage";
 import { Usage } from "@/app/(app)/[emailAccountId]/usage/usage";
 import { auth } from "@/utils/auth";
@@ -10,10 +11,12 @@ import { notFound } from "next/navigation";
 import prisma from "@/utils/prisma";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
+import { initLingui } from "@/utils/i18n/server";
 
 export default async function UsagePage(props: {
   params: Promise<{ emailAccountId: string }>;
 }) {
+  const i18n = await initLingui();
   const { emailAccountId } = await props.params;
   const session = await auth();
   const userId = session?.user.id;
@@ -56,14 +59,15 @@ export default async function UsagePage(props: {
     userId: emailAccount.user.id,
   });
   const isOwnAccount = emailAccount.user.id === userId;
+  const accountName = emailAccount.name || emailAccount.email;
 
   return (
     <PageWrapper>
       <PageHeader
         title={
           isOwnAccount
-            ? "Credits and Usage"
-            : `Credits and Usage for ${emailAccount.name || emailAccount.email}`
+            ? t(i18n)`Credits and Usage`
+            : t(i18n)`Credits and Usage for ${accountName}`
         }
       />
       <div className="my-4">

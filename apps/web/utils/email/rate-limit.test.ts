@@ -5,6 +5,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 import {
   assertProviderNotRateLimited,
   getEmailProviderRateLimitState,
+  getProviderRateLimitRetryAfterSeconds,
   recordRateLimitFromApiError,
   recordProviderRateLimitFromError,
   setEmailProviderRateLimitState,
@@ -357,5 +358,45 @@ describe("email provider rate-limit state", () => {
         logger,
       }),
     ).resolves.toBe("google");
+  });
+});
+
+describe("getProviderRateLimitRetryAfterSeconds", () => {
+  it("uses the retry time stored by rate-limit mode", () => {
+    const error = new ProviderRateLimitModeError({
+      provider: "google",
+      retryAt: new Date(Date.now() + 120_000),
+    });
+
+    const seconds = getProviderRateLimitRetryAfterSeconds({
+      error,
+      provider: "google",
+    });
+
+    expect(seconds).toBeGreaterThanOrEqual(119);
+    expect(seconds).toBeLessThanOrEqual(120);
+  });
+
+  it("uses the Retry-After header from an Outlook throttling response", () => {
+    const seconds = getProviderRateLimitRetryAfterSeconds({
+      error: {
+        statusCode: 429,
+        code: "TooManyRequests",
+        message: "Application is over its MailboxConcurrency limit.",
+        response: { headers: { "retry-after": "37" } },
+      },
+      provider: "microsoft",
+    });
+
+    expect(seconds).toBe(37);
+  });
+
+  it("returns nothing for errors that are not rate limits", () => {
+    expect(
+      getProviderRateLimitRetryAfterSeconds({
+        error: Object.assign(new Error("Not found"), { code: 404 }),
+        provider: "google",
+      }),
+    ).toBeUndefined();
   });
 });

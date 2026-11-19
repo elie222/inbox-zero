@@ -1,6 +1,6 @@
 FROM node:24-bookworm-slim
 WORKDIR /workspace
-RUN npm install -g pnpm@11.19.0
+RUN npm install -g pnpm@12.18.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 # pnpm hashes every patch named in the workspace file, even for packages this
 # filtered install never resolves.

@@ -6,6 +6,8 @@ import {
   toAttachmentReference,
 } from "./compose-attachments";
 
+const preview = { url: "blob:preview", blob: new Blob(["image"]) };
+
 describe("toAttachmentReference", () => {
   it("keeps only a reference to files already on the mailbox draft", () => {
     const stored = [
@@ -13,7 +15,7 @@ describe("toAttachmentReference", () => {
         id: "photo",
         status: "uploaded",
         draftAttachmentId: "graph-1",
-        previewUrl: "blob:preview",
+        preview,
         managed: true,
         disposition: "inline",
         contentId: "photo@inboxzero.local",
@@ -96,7 +98,7 @@ describe("mergeDraftAttachments", () => {
           draftAttachmentId: "old-gmail-id",
           disposition: "inline",
           contentId: "photo@inboxzero.local",
-          previewUrl: "blob:preview",
+          preview,
           managed: true,
         }),
       ],
@@ -112,7 +114,7 @@ describe("mergeDraftAttachments", () => {
       expect.objectContaining({
         id: "photo",
         draftAttachmentId: "new-id",
-        previewUrl: "blob:preview",
+        preview,
         managed: true,
       }),
     ]);

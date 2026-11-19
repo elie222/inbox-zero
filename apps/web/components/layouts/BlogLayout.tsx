@@ -1,5 +1,9 @@
+import type { Messages } from "@lingui/core";
 import { Header } from "@/components/new-landing/sections/Header";
 import { Footer } from "@/components/new-landing/sections/Footer";
+import { LinguiClientProvider } from "@/providers/LinguiClientProvider";
+import { DEFAULT_LOCALE, type Locale } from "@/utils/i18n/locales";
+import { getLandingMessages, initLandingLingui } from "@/utils/i18n/server";
 
 export function BlogHeader() {
   return (
@@ -11,17 +15,33 @@ export function BlogHeader() {
   );
 }
 
-export function BlogLayout(props: { children: React.ReactNode }) {
+// Like BasicLayout, sets the page's language for Server and Client Components.
+export function BlogLayout({
+  children,
+  locale = DEFAULT_LOCALE,
+  messages,
+}: {
+  children: React.ReactNode;
+  locale?: Locale;
+  messages?: Messages;
+}) {
+  initLandingLingui(locale, messages);
+
   return (
-    <div className="bg-slate-50">
-      <BlogHeader />
-      <main className="isolate">{props.children}</main>
-      <div className="mt-20">
-        <Footer
-          variant="simple"
-          className="mx-auto w-full max-w-screen-xl px-6 lg:px-8"
-        />
+    <LinguiClientProvider
+      locale={locale}
+      messages={getLandingMessages(locale, messages)}
+    >
+      <div className="bg-slate-50">
+        <BlogHeader />
+        <main className="isolate">{children}</main>
+        <div className="mt-20">
+          <Footer
+            variant="simple"
+            className="mx-auto w-full max-w-screen-xl px-6 lg:px-8"
+          />
+        </div>
       </div>
-    </div>
+    </LinguiClientProvider>
   );
 }

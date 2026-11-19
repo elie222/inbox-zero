@@ -1,5 +1,7 @@
 "use client";
 
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { ChangeEvent } from "react";
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -35,12 +37,13 @@ import { cn } from "@/utils";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function PersonalSignatureSetting() {
+  const { t } = useLingui();
   const { data, isLoading, error } = useEmailAccountFull();
 
   return (
     <SettingCard
-      title="Email signature"
-      description="Set your email signature to include in drafted messages."
+      title={t`Email signature`}
+      description={t`Set your email signature to include in drafted messages.`}
       right={
         <LoadingContent
           loading={isLoading}
@@ -49,7 +52,7 @@ export function PersonalSignatureSetting() {
         >
           <SignatureDialog currentSignature={data?.signature || ""}>
             <Button variant="outline" size="sm">
-              Edit
+              <Trans>Edit</Trans>
             </Button>
           </SignatureDialog>
         </LoadingContent>
@@ -65,6 +68,7 @@ function SignatureDialog({
   children: React.ReactNode;
   currentSignature: string;
 }) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const { emailAccountId, provider } = useAccount();
   const { mutate } = useEmailAccountFull();
@@ -73,18 +77,19 @@ function SignatureDialog({
   const [manualSignature, setManualSignature] = useState(currentSignature);
 
   const isGmail = isGoogleProvider(provider);
+  const providerName = isGmail ? "Gmail" : "Outlook";
 
   const { execute: executeSave, isExecuting: isSaving } = useAction(
     saveSignatureAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({
-          description: "Signature saved!",
+          description: t`Signature saved!`,
         });
         setOpen(false);
       },
       onError: createSettingActionErrorHandler({
-        prefix: "Failed to save signature",
+        prefix: t`Failed to save signature`,
       }),
       onSettled: () => {
         mutate();
@@ -100,7 +105,7 @@ function SignatureDialog({
 
     if (result?.serverError) {
       toastError({
-        title: `Error loading signature from ${isGmail ? "Gmail" : "Outlook"}`,
+        title: t`Error loading signature from ${providerName}`,
         description: result.serverError,
       });
       return;
@@ -110,10 +115,10 @@ function SignatureDialog({
 
     if (fetchedSignatures.length === 0) {
       toastInfo({
-        title: "No signatures found",
+        title: t`No signatures found`,
         description: isGmail
-          ? "No signatures found in your Gmail account"
-          : "No signature found in recent sent emails",
+          ? t`No signatures found in your Gmail account`
+          : t`No signature found in recent sent emails`,
       });
       return;
     }
@@ -129,10 +134,13 @@ function SignatureDialog({
     }
 
     toastSuccess({
-      title: "Signatures loaded",
-      description: `Found ${fetchedSignatures.length} signature${fetchedSignatures.length !== 1 ? "s" : ""}`,
+      title: t`Signatures loaded`,
+      description: t`Found ${plural(fetchedSignatures.length, {
+        one: "# signature",
+        other: "# signatures",
+      })}`,
     });
-  }, [executeFetchSignatures, isGmail]);
+  }, [executeFetchSignatures, isGmail, providerName, t]);
 
   const handleSelectSignature = useCallback(
     (signatureEmail: string) => {
@@ -159,13 +167,22 @@ function SignatureDialog({
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>Email signature</DialogTitle>
+          <DialogTitle>
+            <Trans>Email signature</Trans>
+          </DialogTitle>
           <DialogDescription>
-            Set your email signature to include in all drafted messages.
-            {isGmail &&
-              " You can load signatures from Gmail or enter manually."}
-            {!isGmail &&
-              " For Outlook, we can extract from recent sent emails or you can enter manually."}
+            {isGmail ? (
+              <Trans>
+                Set your email signature to include in all drafted messages. You
+                can load signatures from Gmail or enter manually.
+              </Trans>
+            ) : (
+              <Trans>
+                Set your email signature to include in all drafted messages. For
+                Outlook, we can extract from recent sent emails or you can enter
+                manually.
+              </Trans>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -176,9 +193,11 @@ function SignatureDialog({
               onClick={handleLoadFromProvider}
               disabled={isFetching}
             >
-              {isFetching
-                ? "Loading..."
-                : `Load from ${isGmail ? "Gmail" : "Outlook"}`}
+              {isFetching ? (
+                <Trans>Loading...</Trans>
+              ) : (
+                <Trans>Load from {providerName}</Trans>
+              )}
             </Button>
             {signatures.length > 1 && (
               <Select
@@ -186,13 +205,18 @@ function SignatureDialog({
                 onValueChange={handleSelectSignature}
               >
                 <SelectTrigger className="w-full sm:w-[250px]">
-                  <SelectValue placeholder="Select signature" />
+                  <SelectValue placeholder={t`Select signature`} />
                 </SelectTrigger>
                 <SelectContent>
                   {signatures.map((sig) => (
                     <SelectItem key={sig.email} value={sig.email}>
                       {sig.displayName || sig.email}
-                      {sig.isDefault && " (default)"}
+                      {sig.isDefault && (
+                        <>
+                          {" "}
+                          <Trans>(default)</Trans>
+                        </>
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -202,29 +226,37 @@ function SignatureDialog({
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="signature">Signature (HTML supported)</Label>
+              <Label htmlFor="signature">
+                <Trans>Signature (HTML supported)</Trans>
+              </Label>
               <Textarea
                 id="signature"
                 value={manualSignature}
                 onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
                   setManualSignature(e.target.value)
                 }
-                placeholder="Enter your email signature..."
+                placeholder={t`Enter your email signature...`}
                 className="min-h-[200px] font-mono text-sm"
               />
             </div>
             <div className="space-y-2">
-              <Label>Preview</Label>
+              <Label>
+                <Trans>Preview</Trans>
+              </Label>
               <SignaturePreview signature={manualSignature} />
             </div>
           </div>
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={handleClear}>
-              Clear
+              <Trans>Clear</Trans>
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save Signature"}
+              {isSaving ? (
+                <Trans>Saving...</Trans>
+              ) : (
+                <Trans>Save Signature</Trans>
+              )}
             </Button>
           </div>
         </div>
@@ -240,6 +272,8 @@ export function SignaturePreview({
   signature: string;
   className?: string;
 }) {
+  const { t } = useLingui();
+  const emptyPreview = t`Your signature preview will appear here...`;
   const previewHtml = `
     <!DOCTYPE html>
     <html>
@@ -255,14 +289,14 @@ export function SignaturePreview({
         </style>
       </head>
       <body>
-        ${signature || '<em style="color: #888;">Your signature preview will appear here...</em>'}
+        ${signature || `<em style="color: #888;">${emptyPreview}</em>`}
       </body>
     </html>
   `;
 
   return (
     <iframe
-      title="Signature Preview"
+      title={t`Signature Preview`}
       sandbox="allow-same-origin"
       srcDoc={previewHtml}
       className={cn(

@@ -1,4 +1,7 @@
 import { extractEmailAddress, splitRecipientList } from "@/utils/email";
+import type { EmailProvider } from "@/utils/email/types";
+import type { Logger } from "@/utils/logger";
+import type { ParsedMessage } from "@/utils/types";
 
 export type SendAsAddress = {
   email: string;
@@ -30,4 +33,42 @@ export function findReplySendAsAddress(
 export function formatSendAsAddress({ email, name }: SendAsAddress) {
   if (!name || name === email) return email;
   return `"${name.replace(/["\\]/g, "\\$&")}" <${email}>`;
+}
+
+// The user's other addresses, so mail from or to an alias is treated as the
+// user's own. Outlook can't list aliases, so this is empty there.
+export async function getSendAsEmails({
+  provider,
+  userEmail,
+  logger,
+}: {
+  provider: EmailProvider;
+  userEmail: string;
+  logger: Logger;
+}): Promise<string[]> {
+  try {
+    const addresses = await provider.getSendAsAddresses();
+    return [
+      ...new Set(addresses.map((address) => address.email.toLowerCase())),
+    ].filter((email) => email !== userEmail.toLowerCase());
+  } catch (error) {
+    logger.warn("Failed to load send-as addresses", { error });
+    return [];
+  }
+}
+
+// Mail the user sent from an alias through another client arrives without the
+// provider's sent marker, so the From address is checked too.
+export function isSentByUser({
+  message,
+  userEmails,
+  provider,
+}: {
+  message: ParsedMessage;
+  userEmails: string[];
+  provider: Pick<EmailProvider, "isSentMessage">;
+}): boolean {
+  if (provider.isSentMessage(message)) return true;
+  const from = extractEmailAddress(message.headers.from).toLowerCase();
+  return userEmails.some((email) => email.toLowerCase() === from);
 }

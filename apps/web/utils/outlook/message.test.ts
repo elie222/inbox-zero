@@ -814,7 +814,9 @@ describe("queryBatchMessages", () => {
 
     expect(request.search).not.toHaveBeenCalled();
     expect(request.filter).toHaveBeenCalledWith(
-      "isRead eq false and categories/any(category: category eq 'Newsletter')",
+      encodeURIComponent(
+        "isRead eq false and categories/any(category: category eq 'Newsletter')",
+      ),
     );
     expect(request.orderby).not.toHaveBeenCalled();
   });
@@ -834,7 +836,9 @@ describe("queryBatchMessages", () => {
     );
 
     expect(request.search).not.toHaveBeenCalled();
-    expect(request.filter).toHaveBeenCalledWith("isRead eq false");
+    expect(request.filter).toHaveBeenCalledWith(
+      encodeURIComponent("isRead eq false"),
+    );
     expect(request.orderby).not.toHaveBeenCalled();
   });
 
@@ -909,7 +913,9 @@ describe("queryBatchMessages", () => {
     );
 
     expect(request.filter).toHaveBeenCalledWith(
-      "from/emailAddress/address eq 'o''connor@example.com'",
+      encodeURIComponent(
+        "from/emailAddress/address eq 'o''connor@example.com'",
+      ),
     );
     expect(request.orderby).not.toHaveBeenCalled();
   });

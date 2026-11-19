@@ -2,7 +2,7 @@ import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import type { LocalMailSyncRequest } from "@/utils/actions/local-mail-sync.validation";
 import type { LocalMailSyncResponse } from "@/utils/email/local-mail-sync-types";
 import type { ParsedMessage } from "@/utils/types";
-import type { InboxZeroLabel } from "@/utils/label";
+import type { InboxZeroLabel, LabelColorName } from "@/utils/label";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import type {
   OutlookFolder,
@@ -187,11 +187,12 @@ export interface EmailProvider {
     labelId?: string,
   ): Promise<void>;
   blockUnsubscribedEmail(messageId: string): Promise<void>;
+  /** Returns the number of messages actually moved out of the inbox. */
   bulkArchiveFromSenders(
     fromEmails: string[],
     ownerEmail: string,
     emailAccountId: string,
-  ): Promise<void>;
+  ): Promise<number>;
   bulkArchiveSenderOrThrow(
     fromEmail: string,
     ownerEmail: string,
@@ -278,6 +279,7 @@ export interface EmailProvider {
   ): Promise<ReadableStream<Uint8Array>>;
   /** Real contact photos keyed by canonical email address. */
   getContactPhotos(): Promise<Record<string, string>>;
+  getDefaultLabelColor(colorName: LabelColorName): EmailLabelColor;
   getDraft(
     draftId: string,
     options?: { includeAttachments?: boolean },
@@ -305,6 +307,7 @@ export interface EmailProvider {
     cursor?: string;
     folderId?: string;
     limit: number;
+    signal?: AbortSignal;
   }): Promise<MailboxSyncPage>;
   getMessage(
     messageId: string,
@@ -352,9 +355,6 @@ export interface EmailProvider {
   getOriginalMessage(
     originalMessageId: string | undefined,
   ): Promise<ParsedMessage | null>;
-  getPreviousConversationMessages(
-    messageIds: string[],
-  ): Promise<ParsedMessage[]>;
   /**
    * The addresses the user can send from. Empty when the provider doesn't
    * offer a choice, so mail goes out from the account address.
@@ -395,6 +395,7 @@ export interface EmailProvider {
     maxResults?: number;
     pageToken?: string;
     messageFormat?: "full" | "metadata";
+    includeBccRecipients?: boolean;
     // Outlook metadata pages otherwise make an extra Graph request per thread
     // to fill participantMessages for mail list rows.
     skipParticipantMessages?: boolean;

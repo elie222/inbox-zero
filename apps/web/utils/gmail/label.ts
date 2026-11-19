@@ -298,13 +298,13 @@ export async function createLabel({
       });
       if (conflictLabel) return conflictLabel;
 
-      throw new Error(`Label conflict but not found: ${name}`);
+      throw new Error("Label conflict but not found");
     }
 
     if (errorMessage?.includes("Invalid label name"))
-      throw new Error(`Invalid Gmail label name: "${name}"`);
+      throw new Error("Invalid Gmail label name");
 
-    throw new Error(`Failed to create Gmail label "${name}": ${errorMessage}`);
+    throw new Error(`Failed to create Gmail label: ${errorMessage}`);
   }
 }
 
@@ -384,7 +384,7 @@ export async function getOrCreateInboxZeroLabel({
   gmail: gmail_v1.Gmail;
   key: InboxZeroLabel;
 }) {
-  const { name, color, messageListVisibility } = inboxZeroLabels[key];
+  const { name, messageListVisibility } = inboxZeroLabels[key];
   const labels = await getLabels(gmail);
 
   // Create parent label if it doesn't exist
@@ -407,7 +407,6 @@ export async function getOrCreateInboxZeroLabel({
     name,
     messageListVisibility: messageListVisibility || messageVisibility.hide,
     labelListVisibility: labelVisibility.labelShow,
-    color,
   });
   return createdLabel;
 }

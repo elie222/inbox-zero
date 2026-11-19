@@ -138,6 +138,7 @@ The Docker Compose setup includes a `cron` container that handles these schedule
 |------|----------|----------|-------------|
 | **Scheduled mail actions** | Every 15 minutes | `/api/cron/scheduled-actions` | Executes delayed actions when QStash is not configured, and restores snoozed threads |
 | **Automation jobs** | Every 15 minutes | `/api/cron/automation-jobs` | Processes due automation jobs |
+| **Bulk action recovery** | Every 10 minutes | `/api/cron/bulk-inbox-action-recovery` | Resumes chat bulk inbox actions whose background job stopped, or marks them failed |
 | **Email digests** | Every 30 minutes | `/api/resend/digest/all` | Sends due email digests |
 | **Email watch renewal** | Every 6 hours | `/api/watch/all` | Renews Gmail/Outlook push notification subscriptions |
 | **Meeting briefs** | Every 15 minutes | `/api/meeting-briefs` | Sends pre-meeting briefings to users with the feature enabled |
@@ -157,6 +158,9 @@ If you previously scheduled `/api/cron/reasoning-retention` or `/api/cron/draft-
 
 # Automation jobs - every 15 minutes
 */15 * * * * curl -s -X GET "https://yourdomain.com/api/cron/automation-jobs" -H "Authorization: Bearer YOUR_CRON_SECRET"
+
+# Bulk inbox action recovery - every 10 minutes
+*/10 * * * * curl -s -X GET "https://yourdomain.com/api/cron/bulk-inbox-action-recovery" -H "Authorization: Bearer YOUR_CRON_SECRET"
 
 # Email digests - every 30 minutes (optional, only if using digests)
 */30 * * * * curl -s -X GET "https://yourdomain.com/api/resend/digest/all" -H "Authorization: Bearer YOUR_CRON_SECRET"

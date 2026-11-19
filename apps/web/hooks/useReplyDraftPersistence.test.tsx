@@ -36,9 +36,11 @@ describe("useReplyDraftPersistence", () => {
     cleanup();
     vi.useRealTimers();
     vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   it("blocks reload after unmount until the last draft save completes", async () => {
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
     let finishSave!: () => void;
     save.mockReturnValueOnce(
       new Promise<void>((resolve) => {

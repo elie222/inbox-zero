@@ -1,19 +1,99 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type {
+  ConversationQuery,
+  MailPredicate,
+} from "@inboxzero/mail-core/queries";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
-import { startDesktopIpcMailClient } from "./desktop-ipc";
+import {
+  createDesktopIpcMailClient,
+  startDesktopIpcMailClient,
+} from "./desktop-ipc";
 
 vi.mock("@/utils/desktop-app", () => ({ getInboxZeroDesktopApp: vi.fn() }));
 
 const invoke = vi.fn();
+const subscribe = vi.fn();
 
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(getInboxZeroDesktopApp).mockReturnValue({
     startAuth: vi.fn(),
     mailEngine: invoke,
-    mailEngineSubscribe: vi.fn(),
-    mailEngineUnsubscribe: vi.fn(),
-    onMailEngineSnapshot: vi.fn(),
+    mailEngineSubscribe: subscribe,
+    mailEngineUnsubscribe: vi.fn().mockResolvedValue({ status: "ok" }),
+    onMailEngineSnapshot: vi.fn(() => vi.fn()),
+  });
+});
+
+describe("desktop split exclusions", () => {
+  it.each([
+    false,
+    true,
+  ])("sends supported predicates for mailbox rows and counts (conversation exclusions: %s)", async (supported) => {
+    const desktop = getInboxZeroDesktopApp();
+    if (!desktop) throw new Error("Expected desktop bridge");
+    if (supported) {
+      vi.mocked(getInboxZeroDesktopApp).mockReturnValue({
+        ...desktop,
+        supportsNoMatchingMessage: true,
+      });
+    }
+    subscribe.mockResolvedValue({ status: "ok" });
+    const client = createDesktopIpcMailClient();
+    const splitPredicate = { kind: "read", value: false } as const;
+    const query: ConversationQuery = {
+      accountIds: ["test-account"],
+      predicate: {
+        kind: "all",
+        predicates: [
+          { kind: "role", role: "inbox" },
+          { kind: "no_matching_message", predicate: splitPredicate },
+        ],
+      },
+      pageSize: 50,
+      order: "newest_first",
+      after: null,
+    };
+    const expectedPredicate: MailPredicate = {
+      kind: "all",
+      predicates: [
+        { kind: "role", role: "inbox" },
+        {
+          kind: supported ? "no_matching_message" : "not",
+          predicate: splitPredicate,
+        },
+      ],
+    };
+    if (!client.observeMailboxWindow)
+      throw new Error("Expected mailbox window observer");
+    client.observeMailboxWindow(query);
+    client.observeMailboxCounts({
+      accountIds: query.accountIds,
+      targets: [{ id: "all", predicate: query.predicate }],
+    });
+    expect(subscribe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({
+          method: "observeMailboxWindow",
+          payload: {
+            query: { ...query, predicate: expectedPredicate },
+            pageCount: 1,
+          },
+        }),
+      }),
+    );
+    expect(subscribe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({
+          method: "observeMailboxCounts",
+          payload: {
+            accountIds: query.accountIds,
+            targets: [{ id: "all", predicate: expectedPredicate }],
+          },
+        }),
+      }),
+    );
+    await client.close();
   });
 });
 

@@ -2,7 +2,8 @@
 
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { type ReactNode, useState } from "react";
-import { format } from "date-fns";
+import type { I18n } from "@lingui/core";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import {
   ChevronDownIcon,
   MailPlusIcon,
@@ -63,6 +64,7 @@ export function MeetingDetail({
   meetingId: string | null;
   onClose: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId } = useAccount();
   const analytics = useProductAnalytics();
   const { mutate } = useSWRConfig();
@@ -76,6 +78,9 @@ export function MeetingDetail({
 
   const summary = data?.summary;
   const transcript = data?.recording?.transcript;
+  const recapSentAt = data?.recapSentAt
+    ? formatRecapSentAt(i18n, data.recapSentAt)
+    : null;
 
   const state = getMeetingDetailState({
     hasSummary: !!summary,
@@ -96,14 +101,14 @@ export function MeetingDetail({
             ),
           ),
         ]);
-        toastSuccess({ description: "Meeting notes deleted." });
+        toastSuccess({ description: t`Meeting notes deleted.` });
         setIsDeleteOpen(false);
         onClose();
       },
       onError: ({ error: actionError }) => {
         toastError({
           description: getActionErrorMessage(actionError, {
-            prefix: "Failed to delete meeting notes",
+            prefix: t`Failed to delete meeting notes`,
           }),
         });
       },
@@ -116,10 +121,10 @@ export function MeetingDetail({
         <DialogHeader>
           <div className="flex items-start justify-between gap-3 pr-8">
             <div className="space-y-1.5">
-              <DialogTitle>{data?.eventTitle ?? "Meeting"}</DialogTitle>
+              <DialogTitle>{data?.eventTitle ?? t`Meeting`}</DialogTitle>
               {data && (
                 <DialogDescription>
-                  {formatMeetingTimeRange(data.startTime, data.endTime)}
+                  {formatMeetingTimeRange(i18n, data.startTime, data.endTime)}
                 </DialogDescription>
               )}
             </div>
@@ -130,7 +135,7 @@ export function MeetingDetail({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    aria-label="Meeting options"
+                    aria-label={t`Meeting options`}
                   >
                     <MoreHorizontalIcon className="size-4" />
                   </Button>
@@ -141,7 +146,7 @@ export function MeetingDetail({
                     onSelect={() => setIsDeleteOpen(true)}
                   >
                     <Trash2Icon className="mr-2 size-4" />
-                    Delete notes
+                    <Trans>Delete notes</Trans>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -156,7 +161,9 @@ export function MeetingDetail({
         >
           {state === "recording-failed" && (
             <Alert variant="destructive">
-              <AlertTitle>This meeting was not recorded</AlertTitle>
+              <AlertTitle>
+                <Trans>This meeting was not recorded</Trans>
+              </AlertTitle>
               <AlertDescription>
                 {data?.recording?.failureReason}
               </AlertDescription>
@@ -165,49 +172,64 @@ export function MeetingDetail({
 
           {state === "processing-failed" && (
             <Alert variant="destructive">
-              <AlertTitle>The notes could not be written</AlertTitle>
+              <AlertTitle>
+                <Trans>The notes could not be written</Trans>
+              </AlertTitle>
               <AlertDescription>
-                The recording is there, but summarizing it kept failing. The
-                transcript is still available below.
+                <Trans>
+                  The recording is there, but summarizing it kept failing. The
+                  transcript is still available below.
+                </Trans>
               </AlertDescription>
             </Alert>
           )}
 
           {state === "notes-unavailable" && (
             <Alert>
-              <AlertTitle>No summary was created</AlertTitle>
+              <AlertTitle>
+                <Trans>No summary was created</Trans>
+              </AlertTitle>
               <AlertDescription>
                 {transcript?.length
-                  ? "The transcript is still available below."
-                  : "No usable transcript was available for this meeting."}
+                  ? t`The transcript is still available below.`
+                  : t`No usable transcript was available for this meeting.`}
               </AlertDescription>
             </Alert>
           )}
 
           {state === "processing" && (
             <MutedText>
-              The recording is being processed. Notes will appear here when they
-              are ready.
+              <Trans>
+                The recording is being processed. Notes will appear here when
+                they are ready.
+              </Trans>
             </MutedText>
           )}
 
           {state === "not-recorded" && (
-            <MutedText>This meeting has not been recorded yet.</MutedText>
+            <MutedText>
+              <Trans>This meeting has not been recorded yet.</Trans>
+            </MutedText>
           )}
 
           {!summary && state === "notes" && (
-            <MutedText>The summary is still being written.</MutedText>
+            <MutedText>
+              <Trans>The summary is still being written.</Trans>
+            </MutedText>
           )}
 
           {summary && (
             <>
-              <DetailSection title="Summary">
+              <DetailSection title={t`Summary`}>
                 <p className="text-sm leading-relaxed">{summary.overview}</p>
-                <SummaryList items={summary.keyDecisions} title="Decisions" />
+                <SummaryList
+                  items={summary.keyDecisions}
+                  title={t`Decisions`}
+                />
               </DetailSection>
 
               {summary.actionItems.length > 0 && (
-                <DetailSection title="Action items">
+                <DetailSection title={t`Action items`}>
                   <ul className="space-y-2">
                     {summary.actionItems.map((item, index) => (
                       <li
@@ -229,14 +251,14 @@ export function MeetingDetail({
               {!!(
                 summary.openQuestions?.length || summary.nextSteps?.length
               ) && (
-                <DetailSection title="Still open">
+                <DetailSection title={t`Still open`}>
                   <SummaryList
                     items={summary.openQuestions ?? []}
-                    title="Open questions"
+                    title={t`Open questions`}
                   />
                   <SummaryList
                     items={summary.nextSteps ?? []}
-                    title="Next steps"
+                    title={t`Next steps`}
                   />
                 </DetailSection>
               )}
@@ -249,12 +271,14 @@ export function MeetingDetail({
                 <div className="flex items-center gap-2">
                   <MailPlusIcon className="size-4 text-blue-600 dark:text-blue-400" />
                   <span className="text-sm font-medium">
-                    Follow-up draft is ready
+                    <Trans>Follow-up draft is ready</Trans>
                   </span>
                 </div>
                 <MutedText>
-                  It is sitting in your drafts, addressed to the other
-                  attendees. Nothing was sent for you.
+                  <Trans>
+                    It is sitting in your drafts, addressed to the other
+                    attendees. Nothing was sent for you.
+                  </Trans>
                 </MutedText>
                 <Button asChild variant="outline" size="sm">
                   <a
@@ -267,7 +291,7 @@ export function MeetingDetail({
                       )
                     }
                   >
-                    Go to drafts
+                    <Trans>Go to drafts</Trans>
                   </a>
                 </Button>
               </CardContent>
@@ -279,9 +303,15 @@ export function MeetingDetail({
               <Card>
                 <CollapsibleTrigger className="group flex w-full items-center gap-3 p-4 text-left hover:bg-accent/50">
                   <TextQuoteIcon className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="text-sm font-medium">Transcript</span>
+                  <span className="text-sm font-medium">
+                    <Trans>Transcript</Trans>
+                  </span>
                   <span className="flex-1 text-sm text-muted-foreground">
-                    {transcript.length} lines
+                    <Plural
+                      value={transcript.length}
+                      one="# line"
+                      other="# lines"
+                    />
                   </span>
                   <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                 </CollapsibleTrigger>
@@ -303,10 +333,9 @@ export function MeetingDetail({
             </Collapsible>
           )}
 
-          {data?.recapSentAt && (
+          {recapSentAt && (
             <MutedText className="text-xs">
-              Notes emailed{" "}
-              {format(new Date(data.recapSentAt), "MMM d 'at' h:mm a")}
+              <Trans>Notes emailed {recapSentAt}</Trans>
             </MutedText>
           )}
         </LoadingContent>
@@ -314,16 +343,20 @@ export function MeetingDetail({
         <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete meeting notes?</AlertDialogTitle>
+              <AlertDialogTitle>
+                <Trans>Delete meeting notes?</Trans>
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                The summary and transcript will be permanently deleted from
-                Inbox Zero. Recap emails already sent and follow-up drafts in
-                your mailbox will remain.
+                <Trans>
+                  The summary and transcript will be permanently deleted from
+                  Inbox Zero. Recap emails already sent and follow-up drafts in
+                  your mailbox will remain.
+                </Trans>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={isDeleting}>
-                Cancel
+                <Trans>Cancel</Trans>
               </AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -333,7 +366,11 @@ export function MeetingDetail({
                   if (meetingId) deleteNotes({ meetingId });
                 }}
               >
-                {isDeleting ? "Deleting..." : "Delete"}
+                {isDeleting ? (
+                  <Trans>Deleting...</Trans>
+                ) : (
+                  <Trans>Delete</Trans>
+                )}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -384,11 +421,25 @@ function getFollowUpDraftUrl(meetingId: string, emailAccountId: string) {
 }
 
 function formatMeetingTimeRange(
+  i18n: I18n,
   startTime: string | Date,
   endTime: string | Date,
 ) {
   const start = new Date(startTime);
   const end = new Date(endTime);
+  const time: Intl.DateTimeFormatOptions = {
+    hour: "numeric",
+    minute: "2-digit",
+  };
 
-  return `${format(start, "EEE, MMM d")} · ${format(start, "h:mm")} – ${format(end, "h:mm a")}`;
+  return `${i18n.date(start, { weekday: "short", month: "short", day: "numeric" })} · ${i18n.date(start, time)} – ${i18n.date(end, time)}`;
+}
+
+function formatRecapSentAt(i18n: I18n, sentAt: string | Date) {
+  return i18n.date(new Date(sentAt), {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }

@@ -257,6 +257,26 @@ describe("aiDraftReply formatting", () => {
     expect(callArgs.prompt).not.toContain("<reply_memories>");
   });
 
+  it("tells the drafter which other addresses are the user's own", async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        reply: "Thanks for your message.",
+        confidence: DraftReplyConfidence.STANDARD,
+      },
+    });
+
+    await aiDraftReplyWithConfidence({
+      ...getDraftParams(),
+      sendAsEmails: ["alias@example.org"],
+    });
+
+    const [callArgs] = mockGenerateObject.mock.calls.at(-1)!;
+
+    expect(callArgs.prompt).toContain(
+      "You are writing an email as user@example.com (also sends as alias@example.org).",
+    );
+  });
+
   it("uses the active Inbox Zero booking link ahead of the external calendar link", async () => {
     mockGenerateObject.mockResolvedValueOnce({
       object: {

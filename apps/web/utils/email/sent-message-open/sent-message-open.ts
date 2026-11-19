@@ -75,33 +75,6 @@ export function mergeSentMessageOpenResponses<
   return { opens };
 }
 
-export function describeSentMessageOpen(
-  open: {
-    firstOpenedAt: Date | string | null;
-    lastOpenedAt: Date | string | null;
-    openCount: number;
-  },
-  formatRelative: (date: Date) => string,
-) {
-  const firstOpenedAt = parseDate(open.firstOpenedAt);
-  if (!firstOpenedAt) {
-    return "Not opened yet";
-  }
-
-  const lastOpenedAt = parseDate(open.lastOpenedAt) ?? firstOpenedAt;
-  if (open.openCount > 1) {
-    return `Opened ${open.openCount} times · Last opened ${formatRelative(lastOpenedAt)}`;
-  }
-
-  return `Opened ${formatRelative(firstOpenedAt)}`;
-}
-
-function parseDate(value: Date | string | null) {
-  if (!value) return null;
-  const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
 function getImgSrc(tag: string) {
   const quoted = tag.match(/\bsrc\s*=\s*(["'])([^"']*)\1/i)?.[2];
   if (quoted !== undefined) return quoted;

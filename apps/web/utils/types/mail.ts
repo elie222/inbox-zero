@@ -25,6 +25,13 @@ export type Attachment = z.infer<typeof zodAttachment>;
 export const sendEmailBody = z
   .object({
     providerDraftId: z.string().min(1).optional(),
+    /**
+     * The compose session whose mailbox draft this send replaces. Once the
+     * send is delivered the server removes that draft, including one a save
+     * still in flight creates afterwards. Only durable sends honor it; a plain
+     * send ignores it.
+     */
+    replacesDraftOfSession: z.string().min(1).max(128).optional(),
     replyToEmail: z
       .object({
         threadId: z.string(),

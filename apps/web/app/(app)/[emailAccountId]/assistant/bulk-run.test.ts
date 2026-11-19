@@ -1,12 +1,20 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setupI18n } from "@lingui/core";
 import { onRun } from "./bulk-run";
 import { fetchWithAccount } from "@/utils/fetch";
 import { runAiRules } from "@/utils/queue/email-actions";
+import { toastError } from "@/components/Toast";
+import { EMAIL_PROVIDER_RATE_LIMIT_MESSAGE } from "@/utils/error";
 
 vi.mock("@/utils/fetch", () => ({ fetchWithAccount: vi.fn() }));
 vi.mock("@/utils/queue/email-actions", () => ({ runAiRules: vi.fn() }));
 vi.mock("@/components/Toast", () => ({ toastError: vi.fn() }));
-vi.mock("@/utils/error", () => ({ captureException: vi.fn() }));
+vi.mock("@/utils/error", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/error")>()),
+  captureException: vi.fn(),
+}));
+
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -32,7 +40,12 @@ describe("bulk processing", () => {
     const complete = vi.fn();
     await onRun(
       "account-id",
-      { startDate: new Date(2025, 3, 1), rerun: true, generateDraftReplies },
+      {
+        i18n,
+        startDate: new Date(2025, 3, 1),
+        rerun: true,
+        generateDraftReplies,
+      },
       vi.fn(),
       complete,
     );
@@ -46,6 +59,7 @@ describe("bulk processing", () => {
         {
           signal: expect.any(AbortSignal),
           skipDraftReplies: !generateDraftReplies,
+          runWithRetry: expect.any(Function),
         },
       ]);
     }
@@ -57,7 +71,7 @@ describe("bulk processing", () => {
 
     await onRun(
       "account-id",
-      { startDate: date, endDate: date },
+      { i18n, startDate: date, endDate: date },
       vi.fn(),
       complete,
     );
@@ -91,7 +105,7 @@ describe("bulk processing", () => {
 
     await onRun(
       "account-id",
-      { startDate: new Date(2025, 3, 1), includeRead },
+      { i18n, startDate: new Date(2025, 3, 1), includeRead },
       vi.fn(),
       complete,
     );
@@ -111,6 +125,129 @@ describe("bulk processing", () => {
     expect(runAiRules).toHaveBeenCalledWith("account-id", [thread], false, {
       signal: expect.any(AbortSignal),
       skipDraftReplies: true,
+      runWithRetry: expect.any(Function),
     });
   });
 });
+
+describe("bulk processing under provider rate limits", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("waits out a rate-limited page fetch and resumes from the same page", async () => {
+    vi.useFakeTimers();
+    const firstPage = [thread("thread-1"), thread("thread-2")];
+    const secondPage = [thread("thread-3")];
+    vi.mocked(fetchWithAccount)
+      .mockResolvedValueOnce(
+        Response.json({ threads: firstPage, nextPageToken: "page-2" }),
+      )
+      .mockResolvedValueOnce(rateLimitResponse({ retryAfterSeconds: 30 }))
+      .mockResolvedValueOnce(Response.json({ threads: secondPage }));
+    const onThreadsQueued = vi.fn();
+    const onComplete = vi.fn();
+    const onWaiting = vi.fn();
+
+    await onRun(
+      "account-id",
+      { i18n, startDate: new Date(2025, 3, 1) },
+      onThreadsQueued,
+      onComplete,
+      onWaiting,
+    );
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(onWaiting).toHaveBeenLastCalledWith(expect.any(Date));
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(toastError).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(onComplete).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(onComplete).toHaveBeenCalledWith("success", 3);
+    expect(onWaiting).toHaveBeenLastCalledWith(null);
+    const queries = vi
+      .mocked(fetchWithAccount)
+      .mock.calls.map(
+        ([request]) => new URL(request.url, "https://example.com").searchParams,
+      );
+    expect(queries.map((query) => query.get("nextPageToken"))).toEqual([
+      null,
+      "page-2",
+      "page-2",
+    ]);
+    const queuedIds = onThreadsQueued.mock.calls.flatMap(([threads]) =>
+      threads.map((queued: { id: string }) => queued.id),
+    );
+    expect(queuedIds).toEqual(["thread-1", "thread-2", "thread-3"]);
+  });
+
+  it("stops with the processed count when the provider never recovers", async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchWithAccount)
+      .mockResolvedValueOnce(
+        Response.json({
+          threads: [thread("thread-1"), thread("thread-2")],
+          nextPageToken: "page-2",
+        }),
+      )
+      .mockResolvedValue(rateLimitResponse({ retryAfterSeconds: 120 }));
+    const onComplete = vi.fn();
+
+    await onRun(
+      "account-id",
+      { i18n, startDate: new Date(2025, 3, 1) },
+      vi.fn(),
+      onComplete,
+      vi.fn(),
+    );
+    await vi.advanceTimersByTimeAsync(60 * 60_000);
+
+    expect(onComplete).toHaveBeenCalledWith("error", 2);
+    expect(toastError).toHaveBeenCalledWith({
+      title: "Processing stopped",
+      description: expect.stringContaining("2 emails"),
+    });
+  });
+
+  it("still stops on a request error that retrying will not fix", async () => {
+    vi.mocked(fetchWithAccount).mockResolvedValue(
+      Response.json({ error: "Unauthorized" }, { status: 401 }),
+    );
+    const onComplete = vi.fn();
+
+    await onRun(
+      "account-id",
+      { i18n, startDate: new Date(2025, 3, 1) },
+      vi.fn(),
+      onComplete,
+    );
+
+    await vi.waitFor(() => expect(onComplete).toHaveBeenCalledWith("error", 0));
+    expect(fetchWithAccount).toHaveBeenCalledTimes(1);
+    expect(toastError).toHaveBeenCalledWith({
+      title: "Failed to fetch emails",
+      description: "Unauthorized",
+    });
+  });
+});
+
+function thread(id: string) {
+  return { id, messages: [{ id: `${id}-message` }] };
+}
+
+function rateLimitResponse({
+  retryAfterSeconds,
+}: {
+  retryAfterSeconds: number;
+}) {
+  return Response.json(
+    { error: EMAIL_PROVIDER_RATE_LIMIT_MESSAGE },
+    {
+      status: 429,
+      headers: { "Retry-After": String(retryAfterSeconds) },
+    },
+  );
+}

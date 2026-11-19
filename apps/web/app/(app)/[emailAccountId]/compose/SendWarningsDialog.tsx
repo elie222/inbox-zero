@@ -1,3 +1,5 @@
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +21,7 @@ export function SendWarningsDialog({
   onDismiss: () => void;
   onSendAnyway: () => void;
 }) {
+  const { i18n } = useLingui();
   return (
     <AlertDialog
       open={warnings.length > 0}
@@ -28,19 +31,25 @@ export function SendWarningsDialog({
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Send anyway?</AlertDialogTitle>
+          <AlertDialogTitle>
+            <Trans>Send anyway?</Trans>
+          </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-1">
               {warnings.map((warning) => (
-                <p key={warning.type}>{getSendWarningMessage(warning)}</p>
+                <p key={warning.type}>
+                  {i18n._(getSendWarningMessage(warning))}
+                </p>
               ))}
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Go back</AlertDialogCancel>
+          <AlertDialogCancel>
+            <Trans>Go back</Trans>
+          </AlertDialogCancel>
           <AlertDialogAction onClick={onSendAnyway}>
-            Send anyway
+            <Trans>Send anyway</Trans>
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -50,7 +59,7 @@ export function SendWarningsDialog({
 
 function getSendWarningMessage(warning: SendWarning) {
   if (warning.type === "missing-attachment") {
-    return "You mention an attachment, but nothing is attached.";
+    return msg`You mention an attachment, but nothing is attached.`;
   }
-  return `There's an unfilled placeholder: ${warning.placeholder}`;
+  return msg`There's an unfilled placeholder: ${warning.placeholder}`;
 }

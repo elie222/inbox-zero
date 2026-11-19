@@ -256,7 +256,7 @@ export async function processAttachment({
         logger: log,
       });
       targetFolderId = newFolder.id;
-      targetFolderPath = folderPath;
+      targetFolderPath = newFolder.path;
     }
 
     // Step 7: Determine if we should ask the user first

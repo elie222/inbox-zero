@@ -92,7 +92,10 @@ describe("HtmlEmail", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (_input: string, init?: RequestInit) =>
-        Response.json({ html: JSON.parse(String(init?.body)).html }),
+        Response.json({
+          html: JSON.parse(String(init?.body)).html,
+          remoteAssetsProxied: true,
+        }),
       ),
     );
   });
@@ -186,40 +189,78 @@ describe("HtmlEmail", () => {
     );
   });
 
-  it("waits for proxied html instead of loading remote images directly", async () => {
+  it("shows the body before the proxy answers without loading remote images", async () => {
     const preparation = Promise.withResolvers<Response>();
     vi.mocked(fetch).mockReturnValue(preparation.promise);
-    const { container, findByTitle, queryByTitle } = render(
+    const { getByTitle } = render(
       <HtmlEmail
-        html='<img src="https://cdn.example.com/photo.png" />'
+        html='<p>Hello</p><img src="https://cdn.example.com/photo.png" />'
         messageId="awaits-proxy"
       />,
     );
 
-    expect(queryByTitle("Email content preview")).toBeNull();
-    expect(
-      container.querySelector('[data-email-ready="false"]'),
-    ).not.toBeNull();
+    const first = getByTitle("Email content preview").getAttribute("srcdoc");
+    expect(first).toContain("Hello");
+    expect(first).toContain("img-src data:;");
+    expect(first).toMatch(
+      /img:not\(\[src\^="data:" i\]\)[^{]*\{\s*visibility: hidden;/,
+    );
 
     await act(async () =>
       preparation.resolve(
         Response.json({
-          html: '<img src="https://app.example.com/api/image-proxy?u=photo" />',
+          html: '<p>Hello</p><img src="https://app.example.com/api/image-proxy?u=photo" />',
+          remoteAssetsProxied: true,
         }),
       ),
     );
-    const iframe = await findByTitle("Email content preview");
-    expect(iframe.getAttribute("srcdoc")).toContain("/api/image-proxy?u=photo");
+    const iframe = await showLoadedEmailDocument("/api/image-proxy?u=photo");
     expect(iframe.getAttribute("srcdoc")).not.toContain(
       "https://cdn.example.com/photo.png",
     );
-    expect(queryByTitle("Preparing email content preview")).toBeNull();
+    expect(iframe.getAttribute("srcdoc")).toContain(
+      "img-src data: https://app.example.com;",
+    );
+  });
+
+  it("keeps remote images blocked when the proxy cannot be reached", async () => {
+    vi.mocked(fetch).mockRejectedValue(new TypeError("fetch failed"));
+    render(
+      <HtmlEmail
+        html='<p>Hello</p><img src="https://cdn.example.com/photo.png" />'
+        messageId="proxy-down"
+      />,
+    );
+
+    // The pending document also blocks images; wait for the one shown after
+    // the proxy failed, which blocks them without hiding them.
+    await waitFor(() =>
+      expect(
+        document.querySelector(
+          'iframe[title="Preparing email content preview"]',
+        ),
+      ).not.toBeNull(),
+    );
+    const frame = await showLoadedEmailDocument("img-src data:;");
+    expect(frame.getAttribute("srcdoc")).not.toContain(
+      'img:not([src^="data:" i])',
+    );
+  });
+
+  it("keeps remote loads blocked for html shown without the proxy", () => {
+    const { getByTitle } = render(
+      <HtmlEmail html="<p>Thanks!</p>" messageId="local-only" />,
+    );
+
+    const srcdoc = getByTitle("Email content preview").getAttribute("srcdoc");
+    expect(srcdoc).toContain("img-src data:;");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("shows prepared html immediately when the email is reopened", async () => {
-    const html = "<p>Hello</p>";
+    const html = '<p>Hello</p><img src="https://example.com/logo.png">';
     vi.mocked(fetch).mockImplementation(async () =>
-      Response.json({ html: "<p>proxied</p>" }),
+      Response.json({ html: "<p>proxied</p>", remoteAssetsProxied: true }),
     );
 
     const firstRender = render(<HtmlEmail html={html} messageId="message-1" />);
@@ -255,17 +296,23 @@ describe("HtmlEmail", () => {
     expect(view.getByTitle("Email content preview")).toBe(frame);
 
     await act(async () =>
-      preparation.resolve(Response.json({ html: "<p>Reply</p><p>Sent</p>" })),
+      preparation.resolve(
+        Response.json({
+          html: "<p>Reply</p><p>Sent</p>",
+          remoteAssetsProxied: true,
+        }),
+      ),
     );
   });
 
-  it("keeps https images allowed when proxy rewriting leaves the html unchanged", async () => {
+  it("keeps https images blocked when the server did not proxy them", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           html: '<img src="https://cdn.example.com/photo.png" />',
+          remoteAssetsProxied: false,
         }),
       }),
     );
@@ -277,8 +324,8 @@ describe("HtmlEmail", () => {
       />,
     );
 
-    const iframe = await findByTitle("Email content preview");
-    expect(iframe.getAttribute("srcdoc")).toContain("img-src data: https:;");
+    await findByTitle("Email content preview");
+    await showLoadedEmailDocument("img-src data:;");
   });
 
   it("locks image loading to the proxy origin after rewriting succeeds", async () => {
@@ -288,6 +335,7 @@ describe("HtmlEmail", () => {
         ok: true,
         json: async () => ({
           html: '<img src="https://app.example.com/api/image-proxy?u=https%3A%2F%2Fcdn.example.com%2Fphoto.png&amp;e=1&amp;s=test" />',
+          remoteAssetsProxied: true,
         }),
       }),
     );
@@ -299,10 +347,8 @@ describe("HtmlEmail", () => {
       />,
     );
 
-    const iframe = await findByTitle("Email content preview");
-    expect(iframe.getAttribute("srcdoc")).toContain(
-      "img-src data: https://app.example.com;",
-    );
+    await findByTitle("Email content preview");
+    await showLoadedEmailDocument("img-src data: https://app.example.com;");
   });
 
   it("does not grow when the document reports the iframe viewport height", async () => {
@@ -354,7 +400,7 @@ describe("HtmlEmail", () => {
   it("expands when an image increases the iframe document height after loading", async () => {
     const { findByTitle } = render(
       <HtmlEmail
-        html='<img src="https://cdn.example.com/tall-image.png" />'
+        html='<img src="data:image/png;base64,AAAA" />'
         messageId="message-tall-image"
       />,
     );
@@ -558,7 +604,7 @@ describe("HtmlEmail", () => {
         input === "/api/email/render-html"
           ? {
               ok: true,
-              json: async () => ({ html }),
+              json: async () => ({ html, remoteAssetsProxied: true }),
             }
           : {
               ok: true,
@@ -589,11 +635,9 @@ describe("HtmlEmail", () => {
       />,
     );
 
-    const iframe = await findByTitle("Email content preview");
-    expect(iframe.getAttribute("srcdoc")).toContain(`src="${objectUrl}"`);
-    expect(iframe.getAttribute("srcdoc")).toContain(
-      "img-src data: blob: https:;",
-    );
+    await findByTitle("Email content preview");
+    const iframe = await showLoadedEmailDocument(`src="${objectUrl}"`);
+    expect(iframe.getAttribute("srcdoc")).toContain("img-src data: blob:;");
     expect(createObjectUrl).toHaveBeenCalledOnce();
     expect(queueAttachmentDownload).toHaveBeenCalledWith(
       expect.objectContaining({ priority: "requested" }),
@@ -623,7 +667,10 @@ describe("HtmlEmail", () => {
     const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL");
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html }) }),
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ html, remoteAssetsProxied: true }),
+      }),
     );
     const inlineAttachment = () => ({
       attachmentId: "attachment-logo",
@@ -647,12 +694,9 @@ describe("HtmlEmail", () => {
     );
 
     const { getByTitle, queryByTitle, rerender } = render(renderEmail());
-    await waitFor(() =>
-      expect(
-        getByTitle("Email content preview").getAttribute("srcdoc"),
-      ).toContain('src="blob:https://app.example.com/logo-1"'),
+    const visibleFrame = await showLoadedEmailDocument(
+      'src="blob:https://app.example.com/logo-1"',
     );
-    const visibleFrame = getByTitle("Email content preview");
 
     rerender(renderEmail());
     await act(async () => {});
@@ -673,7 +717,10 @@ describe("HtmlEmail", () => {
     vi.spyOn(URL, "createObjectURL").mockReturnValue(objectUrl);
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html }) }),
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ html, remoteAssetsProxied: true }),
+      }),
     );
     const renderEmail = (inlineAttachments: ParsedMessage["inline"]) => (
       <HtmlEmail
@@ -687,19 +734,14 @@ describe("HtmlEmail", () => {
     const { getByTitle, queryByTitle, rerender } = render(
       renderEmail([inlineImageAttachment("badge@inboxzero.local")]),
     );
-    await waitFor(() =>
-      expect(
-        getByTitle("Email content preview").getAttribute("srcdoc"),
-      ).toContain(`src="${objectUrl}"`),
-    );
+    const visibleFrame = await showLoadedEmailDocument(`src="${objectUrl}"`);
 
     rerender(renderEmail([]));
     await act(async () => {});
 
     expect(queryByTitle("Preparing email content preview")).toBeNull();
-    expect(
-      getByTitle("Email content preview").getAttribute("srcdoc"),
-    ).toContain(`src="${objectUrl}"`);
+    expect(getByTitle("Email content preview")).toBe(visibleFrame);
+    expect(visibleFrame.getAttribute("srcdoc")).toContain(`src="${objectUrl}"`);
     expect(fetchAttachment).toHaveBeenCalledOnce();
   });
 
@@ -713,7 +755,10 @@ describe("HtmlEmail", () => {
     const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL");
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ html }) }),
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ html, remoteAssetsProxied: true }),
+      }),
     );
     const renderEmail = () => (
       <HtmlEmail
@@ -725,11 +770,7 @@ describe("HtmlEmail", () => {
     );
 
     const firstRender = render(renderEmail());
-    await waitFor(() =>
-      expect(
-        firstRender.getByTitle("Email content preview").getAttribute("srcdoc"),
-      ).toContain(`src="${objectUrl}"`),
-    );
+    await showLoadedEmailDocument(`src="${objectUrl}"`);
     firstRender.unmount();
 
     const { getByTitle } = render(renderEmail());
@@ -756,7 +797,10 @@ describe("HtmlEmail", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (_input: string, init?: RequestInit) =>
-        Response.json({ html: JSON.parse(String(init?.body)).html }),
+        Response.json({
+          html: JSON.parse(String(init?.body)).html,
+          remoteAssetsProxied: true,
+        }),
       ),
     );
     const messageIds = Array.from(
@@ -848,4 +892,33 @@ function measureEmailFrame(iframe: HTMLIFrameElement, height: number) {
   });
   addEmailDocumentMarker(iframe, iframe.contentDocument);
   fireEvent.load(iframe);
+}
+
+// A body without remote assets shows at once, so an inline image that loads
+// afterwards arrives as a second, hidden document. Browsers swap it in once it
+// is measured; jsdom has no layout, so measure it here and return the frame
+// that ends up visible.
+async function showLoadedEmailDocument(expected: string) {
+  const preparing = () =>
+    document.querySelector<HTMLIFrameElement>(
+      'iframe[title="Preparing email content preview"]',
+    );
+  const visible = () =>
+    document.querySelector<HTMLIFrameElement>(
+      'iframe[title="Email content preview"]',
+    );
+  await waitFor(() =>
+    expect((preparing() ?? visible())?.getAttribute("srcdoc")).toContain(
+      expected,
+    ),
+  );
+  const pending = preparing();
+  if (pending) {
+    measureEmailFrame(pending, 40);
+    await waitFor(() => expect(preparing()).toBeNull());
+  }
+  const frame = visible();
+  if (!frame) throw new Error("Expected a visible email frame");
+  expect(frame.getAttribute("srcdoc")).toContain(expected);
+  return frame;
 }

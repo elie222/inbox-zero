@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import useSWR from "swr";
 import { usePostHog } from "posthog-js/react";
 import { CopyIcon } from "lucide-react";
@@ -40,6 +41,7 @@ export function UnsubscribeCelebrationDialog({
   dateRange?: DateRange;
   onClose: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const posthog = usePostHog();
   const [confettiActive, setConfettiActive] = useState(false);
 
@@ -65,7 +67,7 @@ export function UnsubscribeCelebrationDialog({
   const { senderCount, emailCount } = celebration;
   const yearlyEmails = projectYearlyEmails({ emailCount, dateRange });
   const shareParams = shareLink
-    ? { senderCount, link: shareLink, yearlyEmails }
+    ? { senderCount, link: shareLink, yearlyEmails, i18n }
     : null;
 
   const onShare = (platform: "x" | "linkedin") => {
@@ -87,11 +89,11 @@ export function UnsubscribeCelebrationDialog({
     });
     try {
       await navigator.clipboard.writeText(shareLink);
-      toastSuccess({ description: "Link copied to clipboard!" });
+      toastSuccess({ description: t`Link copied to clipboard!` });
     } catch {
       toastError({
-        title: "Failed to copy link",
-        description: "Please try again",
+        title: t`Failed to copy link`,
+        description: t`Please try again`,
       });
     }
   };
@@ -101,12 +103,15 @@ export function UnsubscribeCelebrationDialog({
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
-            You unsubscribed from {senderCount}{" "}
-            {senderCount === 1 ? "sender" : "senders"}
+            <Plural
+              value={senderCount}
+              one="You unsubscribed from # sender"
+              other="You unsubscribed from # senders"
+            />
           </DialogTitle>
           {emailCount > 0 && (
             <DialogDescription>
-              {buildCelebrationSubline({ emailCount, dateRange })}
+              {buildCelebrationSubline({ emailCount, dateRange, i18n })}
             </DialogDescription>
           )}
         </DialogHeader>
@@ -131,7 +136,7 @@ export function UnsubscribeCelebrationDialog({
             disabled={!shareParams}
           >
             <TwitterIcon className="mr-2 size-4" />
-            Share on X
+            <Trans>Share on X</Trans>
           </Button>
           <Button
             variant="outline"
@@ -140,7 +145,7 @@ export function UnsubscribeCelebrationDialog({
             disabled={!shareParams}
           >
             <LinkedinIcon className="mr-2 size-4" />
-            Share on LinkedIn
+            <Trans>Share on LinkedIn</Trans>
           </Button>
           <Button
             variant="outline"
@@ -149,7 +154,7 @@ export function UnsubscribeCelebrationDialog({
             disabled={!shareLink}
           >
             <CopyIcon className="mr-2 size-4" />
-            Copy link
+            <Trans>Copy link</Trans>
           </Button>
         </div>
       </DialogContent>

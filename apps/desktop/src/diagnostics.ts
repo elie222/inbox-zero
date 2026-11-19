@@ -10,7 +10,7 @@ import type { MailStoreInspection } from "@inboxzero/mail-core/ports/mail-store"
 import { MAIL_IPC_PROTOCOL_VERSION } from "@inboxzero/mail-core/protocol/mail-ipc";
 import {
   app,
-  BrowserWindow,
+  BaseWindow,
   clipboard,
   contentTracing,
   dialog,
@@ -370,7 +370,7 @@ async function mailDatabaseSizes(databasePath: string) {
 }
 
 function showMessage(options: MessageBoxOptions) {
-  const window = BrowserWindow.getFocusedWindow();
+  const window = BaseWindow.getFocusedWindow();
   return window
     ? dialog.showMessageBox(window, options)
     : dialog.showMessageBox(options);

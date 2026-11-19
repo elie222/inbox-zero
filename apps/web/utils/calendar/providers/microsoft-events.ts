@@ -4,7 +4,10 @@ import type {
   InvitationResponse,
   InvitationEvent,
 } from "@/utils/calendar/invitations/parser";
-import { escapeODataString } from "@/utils/outlook/odata-escape";
+import {
+  encodeODataFilter,
+  escapeODataString,
+} from "@/utils/outlook/odata-escape";
 import type { Client } from "@microsoft/microsoft-graph-client";
 import { getCalendarClientWithRefresh } from "@/utils/outlook/calendar-client";
 import type {
@@ -228,7 +231,7 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     const result = await client
       .api("/me/calendar/events")
       .query({
-        $filter: `iCalUId eq '${escapeODataString(uid)}'`,
+        $filter: encodeODataFilter(`iCalUId eq '${escapeODataString(uid)}'`),
         $top: 2,
         $expand: APPOINTMENT_SEQUENCE_EXPAND,
       })

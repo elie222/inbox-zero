@@ -9,6 +9,7 @@ import {
 import { getRuleLabel } from "@/utils/rule/consts";
 import { labelMessageAndSync } from "@/utils/label.server";
 import { logReplyTrackerError } from "./error-logging";
+import { isThreadNotFoundError } from "@/utils/email/thread-not-found";
 
 export type LabelIds = Record<
   ConversationStatus,
@@ -177,6 +178,16 @@ export async function applyThreadStatusLabel({
       });
       return true;
     } catch (error) {
+      // A missing entity can also be a stale label; verify the message before
+      // treating this as an expected deletion race.
+      if (
+        isThreadNotFoundError(error) &&
+        (await isMessageMissing(provider, messageId))
+      ) {
+        logger.warn("Message no longer exists, skipping thread status label");
+        return false;
+      }
+
       await logReplyTrackerError({
         logger,
         emailAccountId,
@@ -270,4 +281,13 @@ async function fetchThreadStatusLabels({
     dbLabels ?? getLabelsFromDb(emailAccountId),
     providerLabels ?? provider.getLabels({ includeHidden: true }),
   ]);
+}
+
+async function isMessageMissing(provider: EmailProvider, messageId: string) {
+  try {
+    await provider.getMessage(messageId);
+    return false;
+  } catch (error) {
+    return isThreadNotFoundError(error);
+  }
 }

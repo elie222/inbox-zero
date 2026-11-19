@@ -85,6 +85,7 @@ export const PRODUCT_ANALYTICS_ACTIONS = {
     attachmentsAdded: "chat_attachments_added",
     generationStopped: "chat_generation_stopped",
     messageSubmitted: "chat_message_submitted",
+    queuedMessageSentNow: "chat_queued_message_sent_now",
     suggestionClicked: "chat_suggestion_clicked",
     voiceDictationStarted: "chat_voice_dictation_started",
     voiceLiveStarted: "chat_voice_live_started",

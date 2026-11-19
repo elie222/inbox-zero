@@ -179,7 +179,7 @@ function hasBoundedTiffStructure(view: DataView) {
   return true;
 }
 
-function normalizeMimeType(mimeType: string) {
+export function normalizeMimeType(mimeType: string) {
   return mimeType.split(";", 1)[0].trim().toLowerCase();
 }
 

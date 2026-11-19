@@ -5,10 +5,14 @@ export function getRetryAfterHeaderFromError(
   const cause = toRecord(err.cause);
   const nestedError = toRecord(err.error);
 
-  const directHeader = getHeaderValue(toRecord(err.response).headers);
+  const directHeader =
+    getHeaderValue(err.headers) ??
+    getHeaderValue(toRecord(err.response).headers);
   if (directHeader) return directHeader;
 
-  const nestedHeader = getHeaderValue(toRecord(nestedError.response).headers);
+  const nestedHeader =
+    getHeaderValue(nestedError.headers) ??
+    getHeaderValue(toRecord(nestedError.response).headers);
   if (nestedHeader) return nestedHeader;
 
   return getHeaderValue(toRecord(cause.response).headers);

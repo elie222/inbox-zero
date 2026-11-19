@@ -1,17 +1,22 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { useCallback } from "react";
 import { Toggle } from "@/components/Toggle";
 import { enableDraftRepliesAction } from "@/utils/actions/rule";
 import { toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useRules } from "@/hooks/useRules";
+import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
+import { getActionErrorMessage } from "@/utils/error";
+import { isDraftRepliesEnabled } from "@/utils/rule/draft-replies";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SettingCard } from "@/components/SettingCard";
 
 export function DraftReplies() {
+  const { t } = useLingui();
   const { enabled, toggleDraftReplies, loading, error } = useDraftReplies();
 
   const handleToggle = useCallback(
@@ -20,17 +25,19 @@ export function DraftReplies() {
         await toggleDraftReplies(enable);
       } catch (error) {
         toastError({
-          description: `There was an error: ${error instanceof Error ? error.message : "Unknown error"}`,
+          title: t`Failed to update draft replies`,
+          description:
+            error instanceof Error ? error.message : t`Unknown error`,
         });
       }
     },
-    [toggleDraftReplies],
+    [toggleDraftReplies, t],
   );
 
   return (
     <SettingCard
-      title="Auto draft replies"
-      description="Automatically draft replies written in your tone to emails needing a reply."
+      title={t`Draft replies`}
+      description={t`Draft replies in your tone to emails that need a reply. Turning this off keeps the To Reply label.`}
       right={
         <LoadingContent
           loading={loading}
@@ -50,13 +57,11 @@ export function DraftReplies() {
 
 export function useDraftReplies() {
   const { data, mutate, isLoading, error } = useRules();
+  const { mutate: mutateEmailAccount } = useEmailAccountFull();
   const { emailAccountId } = useAccount();
 
   const toReplyRule = data?.find(
     (rule) => rule.systemType === SystemType.TO_REPLY,
-  );
-  const isEnabled = toReplyRule?.actions.some(
-    (action) => action.type === ActionType.DRAFT_EMAIL,
   );
 
   const toggleDraftReplies = useCallback(
@@ -67,6 +72,7 @@ export function useDraftReplies() {
         if (rule.systemType === SystemType.TO_REPLY) {
           return {
             ...rule,
+            enabled: enable ? true : rule.enabled,
             actions: enable
               ? rule.actions.some(
                   (action) => action.type === ActionType.DRAFT_EMAIL,
@@ -113,26 +119,22 @@ export function useDraftReplies() {
       // Update SWR cache optimistically
       mutate(optimisticData, false);
 
-      try {
-        // Call the actual API
-        const result = await enableDraftRepliesAction(emailAccountId, {
-          enable,
-        });
-
+      const result = await enableDraftRepliesAction(emailAccountId, {
+        enable,
+      }).finally(() => {
         mutate();
+        mutateEmailAccount();
+      });
 
-        return result;
-      } catch (error) {
-        // On error, revert the optimistic update
-        mutate();
-        throw error;
+      if (result?.serverError || result?.validationErrors) {
+        throw new Error(getActionErrorMessage(result));
       }
     },
-    [data, mutate, emailAccountId],
+    [data, mutate, mutateEmailAccount, emailAccountId],
   );
 
   return {
-    enabled: isEnabled ?? false,
+    enabled: isDraftRepliesEnabled(toReplyRule),
     toggleDraftReplies,
     loading: isLoading,
     error,

@@ -1,8 +1,12 @@
 "use client";
 
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useMemo, useRef, useState } from "react";
 import { Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
+import { useSWRConfig } from "swr";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
   Command,
@@ -14,7 +18,9 @@ import {
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useFolders } from "@/hooks/useFolders";
-import { useLabels } from "@/hooks/useLabels";
+import { useLabelCounts } from "@/hooks/useLabelCounts";
+import { isLabelsKey, useLabels } from "@/hooks/useLabels";
+import type { EmailLabel } from "@/providers/email-label-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { createLabelAction } from "@/utils/actions/mail";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
@@ -23,32 +29,34 @@ import {
   FOLDER_SEPARATOR,
   flattenOutlookFolders,
 } from "@/utils/outlook/folders";
-import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
-import type { MetadataChange } from "@inboxzero/mail-core/commands";
-import type { MailClient } from "@inboxzero/mail-core/engine";
-import { randomUuid } from "@/utils/uuid";
+import { getLabelTree, type SidebarLabel } from "./label-tree";
+import { splitLabelsByListVisibility } from "./label-visibility";
 
-const GMAIL_CATEGORY_NAMES: Record<string, string> = {
-  CATEGORY_PERSONAL: "Personal",
-  CATEGORY_SOCIAL: "Social",
-  CATEGORY_PROMOTIONS: "Promotions",
-  CATEGORY_UPDATES: "Updates",
-  CATEGORY_FORUMS: "Forums",
+const GMAIL_CATEGORY_NAMES: Record<string, MessageDescriptor> = {
+  CATEGORY_PERSONAL: msg`Personal`,
+  CATEGORY_SOCIAL: msg`Social`,
+  CATEGORY_PROMOTIONS: msg`Promotions`,
+  CATEGORY_UPDATES: msg`Updates`,
+  CATEGORY_FORUMS: msg`Forums`,
 };
 
 export function LabelPickerDialog({
-  threadIds,
+  threadKeys,
   onClose,
-  onApplied,
+  onApply,
   mode = "label",
 }: {
-  threadIds: string[];
+  threadKeys: string[];
   onClose: () => void;
-  onApplied: (threadIds: string[], labelId: string) => void;
+  /** Queues the change and resolves with the thread keys it was queued for. */
+  onApply: (
+    threadKeys: string[],
+    target: { kind: "label" | "folder"; id: string },
+  ) => Promise<string[]>;
   mode?: "label" | "move";
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId, provider } = useAccount();
-  const client = useOptionalMailClient();
   const isMove = mode === "move";
   // Outlook categories don't change where a message lives, so moves target real folders.
   const isFolderMove = isMove && isMicrosoftProvider(provider);
@@ -56,8 +64,13 @@ export function LabelPickerDialog({
     userLabels,
     isLoading: isLoadingLabels,
     error: labelsError,
-    mutate,
   } = useLabels(emailAccountId);
+  const { countsById } = useLabelCounts({
+    emailAccountId,
+    labels: userLabels,
+    folders: [],
+  });
+  const { mutate } = useSWRConfig();
   const {
     folders,
     isLoading: isLoadingFolders,
@@ -66,29 +79,39 @@ export function LabelPickerDialog({
   const [search, setSearch] = useState("");
   const [isPending, setIsPending] = useState(false);
   const pending = useRef(false);
-  const [remainingThreadIds, setRemainingThreadIds] = useState(threadIds);
+  const [remainingThreadKeys, setRemainingThreadKeys] = useState(threadKeys);
   const createdLabel = useRef<{ name: string; id: string } | null>(null);
   const name = search.trim();
   const labels = useMemo(() => {
-    const options = isFolderMove
-      ? flattenOutlookFolders(folders)
-          .filter((folder) => !folder.systemType)
-          .map((folder) => ({
-            id: folder.id,
-            name: folder.displayName,
-            displayName: folder.path.split(FOLDER_SEPARATOR).join(" / "),
-          }))
-      : userLabels.map((label) => ({
-          id: label.id,
-          name: label.name,
-          displayName: getLabelDisplayName(label.id, label.name),
-        }));
-    return options.sort(
-      (a, b) =>
-        a.displayName.localeCompare(b.displayName, "en") ||
-        a.id.localeCompare(b.id, "en"),
-    );
-  }, [isFolderMove, folders, userLabels]);
+    if (isFolderMove) {
+      return flattenOutlookFolders(folders)
+        .filter((folder) => !folder.systemType)
+        .map((folder) => ({
+          id: folder.id,
+          name: folder.displayName,
+          displayName: folder.path.split(FOLDER_SEPARATOR).join(" / "),
+        }))
+        .sort(
+          (a, b) =>
+            a.displayName.localeCompare(b.displayName, "en") ||
+            a.id.localeCompare(b.id, "en"),
+        );
+    }
+    const { visibleLabels, hiddenLabels } = splitLabelsByListVisibility({
+      labels: userLabels,
+      countsById,
+    });
+    return [
+      ...flattenLabelTree(
+        getLabelTree(visibleLabels, !isMicrosoftProvider(provider)),
+      ),
+      ...hiddenLabels,
+    ].map((label) => ({
+      id: label.id,
+      name: label.name,
+      displayName: getLabelDisplayName(i18n, label.id, label.name),
+    }));
+  }, [isFolderMove, folders, userLabels, countsById, provider, i18n]);
   const canCreate =
     !isFolderMove &&
     name.length > 0 &&
@@ -110,48 +133,28 @@ export function LabelPickerDialog({
             throw new Error(getActionErrorMessage(result ?? {}));
           id = result.data.id;
           createdLabel.current = { name, id };
-          mutate().catch(() => {});
+          mutate(isLabelsKey).catch(() => {});
         }
       }
-      if (!client) throw new Error("Mail engine is unavailable");
-      const changes: MetadataChange[] = isFolderMove
-        ? [{ kind: "move", folderId: id }]
-        : [
-            {
-              kind: "set_membership",
-              membership: "label",
-              id,
-              present: true,
-            },
-            ...(isMove ? [{ kind: "archive" } as const] : []),
-          ];
-      const { succeededThreadIds, failedThreadIds, error } =
-        await applyEngineChanges({
-          client,
-          emailAccountId,
-          threadIds: remainingThreadIds,
-          changes,
-        });
-      if (succeededThreadIds.length) {
-        onApplied(succeededThreadIds, id);
-        toast.success(getSuccessMessage(mode, succeededThreadIds.length));
-      }
-      setRemainingThreadIds(failedThreadIds);
-      if (failedThreadIds.length) {
-        toast.error(
-          getPartialFailureMessage(mode, failedThreadIds.length, isFolderMove),
-          {
-            description: error instanceof Error ? error.message : undefined,
-          },
-        );
-      } else onClose();
+      const appliedKeys = new Set(
+        await onApply(remainingThreadKeys, {
+          kind: isFolderMove ? "folder" : "label",
+          id,
+        }),
+      );
+      const failedKeys = remainingThreadKeys.filter(
+        (key) => !appliedKeys.has(key),
+      );
+      // The failure was already reported; stay open so a pick retries it.
+      if (failedKeys.length) setRemainingThreadKeys(failedKeys);
+      else onClose();
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
           : isMove
-            ? "Couldn't move conversations. Please try again."
-            : "Couldn't apply label. Please try again.",
+            ? t`Couldn't move conversations. Please try again.`
+            : t`Couldn't apply label. Please try again.`,
       );
     } finally {
       pending.current = false;
@@ -173,13 +176,17 @@ export function LabelPickerDialog({
         onEscapeKeyDown={(event) => event.stopPropagation()}
       >
         <DialogTitle className="sr-only">
-          {isMove ? "Move conversations" : "Label conversations"}
+          {isMove ? (
+            <Trans>Move conversations</Trans>
+          ) : (
+            <Trans>Label conversations</Trans>
+          )}
         </DialogTitle>
         <Command className="[&_[cmdk-input-wrapper]>svg]:hidden">
           <CommandInput
-            aria-label={isFolderMove ? "Search folders" : "Search labels"}
+            aria-label={isFolderMove ? t`Search folders` : t`Search labels`}
             className="pr-8"
-            placeholder={isMove ? "Move to…" : "Label as…"}
+            placeholder={isMove ? t`Move to…` : t`Label as…`}
             value={search}
             onValueChange={setSearch}
             disabled={isPending}
@@ -190,7 +197,11 @@ export function LabelPickerDialog({
           >
             <CommandList aria-busy={isPending}>
               <CommandEmpty>
-                {isFolderMove ? "No matching folders." : "No matching labels."}
+                {isFolderMove ? (
+                  <Trans>No matching folders.</Trans>
+                ) : (
+                  <Trans>No matching labels.</Trans>
+                )}
               </CommandEmpty>
               <CommandGroup>
                 {labels.map((label) => (
@@ -210,7 +221,9 @@ export function LabelPickerDialog({
                     onSelect={() => apply()}
                     disabled={isPending}
                   >
-                    <span className="break-all">Create “{name}”</span>
+                    <span className="break-all">
+                      <Trans>Create “{name}”</Trans>
+                    </span>
                   </CommandItem>
                 )}
               </CommandGroup>
@@ -224,7 +237,7 @@ export function LabelPickerDialog({
           >
             <Loader2Icon aria-hidden className="size-4 animate-spin" />
             <span className="sr-only">
-              {isMove ? "Moving…" : "Applying label…"}
+              {isMove ? <Trans>Moving…</Trans> : <Trans>Applying label…</Trans>}
             </span>
           </div>
         )}
@@ -233,67 +246,14 @@ export function LabelPickerDialog({
   );
 }
 
-function getSuccessMessage(mode: "label" | "move", count: number) {
-  if (mode === "move")
-    return count === 1 ? "Moved" : `Moved ${count} conversations`;
-  return count === 1
-    ? "Label applied"
-    : `Label applied to ${count} conversations`;
+function getLabelDisplayName(i18n: I18n, id: string, name: string) {
+  const categoryName = GMAIL_CATEGORY_NAMES[id];
+  return categoryName ? i18n._(categoryName) : name;
 }
 
-function getPartialFailureMessage(
-  mode: "label" | "move",
-  count: number,
-  isFolderMove: boolean,
-) {
-  const action = mode === "move" ? "move" : "label";
-  const plural = count === 1 ? "" : "s";
-  const target = isFolderMove ? "folder" : "label";
-  return `Couldn't ${action} ${count} conversation${plural}. Select a ${target} to retry.`;
-}
-
-function getLabelDisplayName(id: string, name: string) {
-  return GMAIL_CATEGORY_NAMES[id] ?? name;
-}
-
-async function applyEngineChanges({
-  client,
-  emailAccountId,
-  threadIds,
-  changes,
-}: {
-  client: MailClient;
-  emailAccountId: string;
-  threadIds: string[];
-  changes: MetadataChange[];
-}) {
-  const succeededThreadIds: string[] = [];
-  const failedThreadIds: string[] = [];
-  let error: unknown;
-  for (const threadId of threadIds) {
-    try {
-      let admitted = true;
-      for (const change of changes) {
-        const admission = await client.submitConversations({
-          accountId: emailAccountId,
-          commandId: randomUuid(),
-          conversations: [
-            { accountId: emailAccountId, conversationId: threadId },
-          ],
-          change,
-          observedRevision: (await client.getDiagnostics(emailAccountId))
-            .revision,
-        });
-        if (admission.status === "rejected") {
-          admitted = false;
-          break;
-        }
-      }
-      (admitted ? succeededThreadIds : failedThreadIds).push(threadId);
-    } catch (cause) {
-      error = cause;
-      failedThreadIds.push(threadId);
-    }
-  }
-  return { succeededThreadIds, failedThreadIds, error };
+function flattenLabelTree(nodes: SidebarLabel[]): EmailLabel[] {
+  return nodes.flatMap((node) => [
+    node.label,
+    ...flattenLabelTree(node.children),
+  ]);
 }

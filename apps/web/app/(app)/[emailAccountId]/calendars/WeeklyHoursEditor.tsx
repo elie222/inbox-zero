@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Copy, Plus, X } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/utils";
 import {
@@ -105,6 +106,7 @@ export function WeeklyHoursEditor({
 }: {
   controller: WeeklyHoursController;
 }) {
+  const { t, i18n } = useLingui();
   const {
     days,
     updateDay,
@@ -117,11 +119,12 @@ export function WeeklyHoursEditor({
   return (
     <div className="space-y-4">
       <div className="rounded-lg border bg-card">
-        {DAY_LABELS.map((dayLabel, dayIndex) => {
+        {DAY_LABELS.map((dayLabelMessage, dayIndex) => {
           const day = days[dayIndex];
+          const dayLabel = i18n._(dayLabelMessage);
           return (
             <div
-              key={dayLabel}
+              key={dayLabelMessage.id}
               className="flex flex-col items-start gap-2 border-b px-4 py-3 last:border-b-0 sm:flex-row sm:gap-4"
             >
               <div className="flex w-32 items-center gap-2.5 pt-1.5">
@@ -137,7 +140,7 @@ export function WeeklyHoursEditor({
                           : day.ranges,
                     })
                   }
-                  aria-label={`Toggle ${dayLabel}`}
+                  aria-label={t`Toggle ${dayLabel}`}
                 />
                 <span
                   className={cn(
@@ -173,13 +176,13 @@ export function WeeklyHoursEditor({
                       {rangeIndex === 0 ? (
                         <>
                           <IconButton
-                            title="Add another range"
+                            title={t`Add another range`}
                             onClick={() => addRange(dayIndex)}
                           >
                             <Plus className="size-4" />
                           </IconButton>
                           <IconButton
-                            title="Copy to other days"
+                            title={t`Copy to other days`}
                             onClick={() => copyDayToOthers(dayIndex)}
                           >
                             <Copy className="size-3.5" />
@@ -187,7 +190,7 @@ export function WeeklyHoursEditor({
                         </>
                       ) : (
                         <IconButton
-                          title="Remove range"
+                          title={t`Remove range`}
                           onClick={() => removeRange(dayIndex, rangeIndex)}
                         >
                           <X className="size-3.5" />
@@ -197,7 +200,7 @@ export function WeeklyHoursEditor({
                   ))
                 ) : (
                   <div className="flex h-8 items-center text-sm text-muted-foreground">
-                    Unavailable
+                    <Trans>Unavailable</Trans>
                   </div>
                 )}
               </div>

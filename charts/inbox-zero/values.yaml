@@ -238,6 +238,9 @@ cron:
     automation-jobs:
       schedule: "*/15 * * * *"
       path: /api/cron/automation-jobs
+    bulk-inbox-action-recovery:
+      schedule: "*/10 * * * *"
+      path: /api/cron/bulk-inbox-action-recovery
     reasoning-retention:
       schedule: "0 3 * * *"
       path: /api/cron/reasoning-retention
