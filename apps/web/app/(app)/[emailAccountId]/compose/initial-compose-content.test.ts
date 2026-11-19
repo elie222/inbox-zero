@@ -112,7 +112,7 @@ function inlineImage(): ComposeAttachment {
     disposition: "inline",
     contentId: "chart@local",
     status: "uploaded",
-    previewUrl: "blob:chart-preview",
+    preview: { url: "blob:chart-preview", blob: new Blob(["image"]) },
   };
 }
 

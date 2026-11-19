@@ -320,6 +320,7 @@ export function createTabFollowerClient(input: {
       call("submitConversations", [payload]) as never,
     saveDraft: (payload) => call("saveDraft", [payload]) as never,
     readDraft: (payload) => call("readDraft", [payload]) as never,
+    listDrafts: (accountId) => call("listDrafts", [accountId]) as never,
     submitSend: (payload) => call("submitSend", [payload]) as never,
     cancelOperation: (payload) => call("cancelOperation", [payload]) as never,
     requestSync: (accountIds) =>

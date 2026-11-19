@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import type { ProviderChange } from "@inboxzero/mail-core/sync";
 import { createNodeSqliteDriver } from "./node-sqlite";
 import { createSqliteMailStore } from "./store";
@@ -141,6 +142,7 @@ describe("query corpora", () => {
         });
       await applyInboxPage(store, "acc-1", [
         message("acc-1", "m-match", "c-match", { labels: ["Work"] }),
+        message("acc-1", "m-reply", "c-match"),
         message("acc-1", "m-unlabelled", "c-draft-labelled"),
         message("acc-1", "d-labelled", "c-draft-labelled", {
           draft: true,
@@ -150,19 +152,19 @@ describe("query corpora", () => {
       ]);
       await applyInboxPage(store, "acc-2", [
         message("acc-2", "m-second", "c-second", { labels: ["Work"] }),
+        message("acc-2", "m-same-id", "c-match"),
       ]);
-      const predicate = {
-        kind: "all" as const,
-        predicates: [
-          { kind: "role" as const, role: "inbox" as const },
-          {
-            kind: "membership" as const,
-            membership: "label" as const,
-            id: "Work",
-          },
-        ],
+      const workLabel = {
+        kind: "membership" as const,
+        membership: "label" as const,
+        id: "Work",
       };
-      const read = async (accountIds: string[]) => ({
+      const inboxRole = { kind: "role" as const, role: "inbox" as const };
+      const workInbox = {
+        kind: "all" as const,
+        predicates: [inboxRole, workLabel],
+      };
+      const read = async (accountIds: string[], predicate: MailPredicate) => ({
         list: conversationIds(
           await store.readMailboxView({
             ...inboxQuery(accountIds),
@@ -172,16 +174,111 @@ describe("query corpora", () => {
         counts: (
           await store.readMailboxCounts({
             accountIds,
-            targets: [{ id: "work", predicate }],
+            targets: [{ id: "test", predicate }],
           })
         ).view.counts[0]?.matchingConversations,
       });
 
-      expect(await read(["acc-1"])).toEqual({ list: ["c-match"], counts: 1 });
-      expect(await read(["acc-1", "acc-2"])).toEqual({
+      expect(await read(["acc-1"], workInbox)).toEqual({
+        list: ["c-match"],
+        counts: 1,
+      });
+      expect(await read(["acc-1", "acc-2"], workInbox)).toEqual({
         list: expect.arrayContaining(["c-match", "c-second"]),
         counts: 2,
       });
+      expect(
+        await read(["acc-1"], {
+          kind: "all",
+          predicates: [inboxRole, { kind: "not", predicate: workInbox }],
+        }),
+      ).toEqual({
+        list: ["c-draft-labelled", "c-match", "c-other"],
+        counts: 3,
+      });
+      expect(
+        await read(["acc-1"], {
+          kind: "all",
+          predicates: [
+            inboxRole,
+            { kind: "no_matching_message", predicate: workInbox },
+          ],
+        }),
+      ).toEqual({ list: ["c-draft-labelled", "c-other"], counts: 2 });
+      expect(
+        await read(["acc-1", "acc-2"], {
+          kind: "all",
+          predicates: [
+            inboxRole,
+            { kind: "no_matching_message", predicate: workLabel },
+          ],
+        }),
+      ).toEqual({ list: ["c-other", "c-match"], counts: 2 });
+    } finally {
+      await store.close();
+    }
+  });
+
+  it("scopes a label view without Trash and Spam to that label's live messages", async () => {
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    try {
+      await store.ensureAccount({
+        accountId: "acc-1",
+        provider: "google",
+        generation: "g1",
+      });
+      const labelled = (
+        messageId: string,
+        conversationId: string,
+        options: { labels?: string[]; hiddenIn?: "trash" | "spam" } = {
+          labels: ["Cold"],
+        },
+      ) =>
+        messagePatch({
+          accountId: "acc-1",
+          messageId,
+          conversationId,
+          receivedAtMs: 1,
+          subject: conversationId,
+          ...options,
+        });
+      await applyInboxPage(store, "acc-1", [
+        labelled("m-live", "c-live"),
+        labelled("m-trashed", "c-trashed", {
+          labels: ["Cold"],
+          hiddenIn: "trash",
+        }),
+        labelled("m-spam", "c-spam", { labels: ["Cold"], hiddenIn: "spam" }),
+        labelled("m-mixed-trashed", "c-mixed", {
+          labels: ["Cold"],
+          hiddenIn: "trash",
+        }),
+        labelled("m-mixed-live", "c-mixed"),
+        labelled("m-unlabelled", "c-unlabelled", {}),
+      ]);
+      const predicate = {
+        kind: "all" as const,
+        predicates: [
+          {
+            kind: "membership" as const,
+            membership: "label" as const,
+            id: "Cold",
+          },
+          { kind: "mailbox" as const, mailbox: "all" as const },
+        ],
+      };
+
+      const list = await store.readMailboxView({
+        ...inboxQuery(["acc-1"]),
+        predicate,
+      });
+      const counts = await store.readMailboxCounts({
+        accountIds: ["acc-1"],
+        targets: [{ id: "cold", predicate }],
+      });
+
+      expect(conversationIds(list).sort()).toEqual(["c-live", "c-mixed"]);
+      expect(counts.view.counts[0]?.matchingConversations).toBe(2);
     } finally {
       await store.close();
     }
@@ -493,8 +590,10 @@ function messagePatch(input: {
   subject: string;
   preview?: string;
   draft?: boolean;
+  hiddenIn?: "trash" | "spam";
   labels?: string[];
 }): Extract<ProviderChange, { kind: "message_patch" }> {
+  const role = input.draft ? "draft" : (input.hiddenIn ?? "inbox");
   return {
     kind: "message_patch",
     key: { accountId: input.accountId, messageId: input.messageId },
@@ -513,10 +612,10 @@ function messagePatch(input: {
       receivedAtMs: input.receivedAtMs,
       read: false,
       starred: false,
-      folderId: input.draft ? "drafts" : "inbox",
-      labelIds: [input.draft ? "DRAFT" : "INBOX", ...(input.labels ?? [])],
+      folderId: input.draft ? "drafts" : role,
+      labelIds: [role.toUpperCase(), ...(input.labels ?? [])],
       categoryIds: [],
-      roles: [input.draft ? "draft" : "inbox"],
+      roles: [role],
       hasAttachments: false,
     },
   };

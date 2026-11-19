@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent, type ReactNode } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,7 @@ export function OutlookSearchFiltersForm({
   categories?: { name: string }[];
   onSearch: (query: string) => void;
 }) {
+  const { t, i18n } = useLingui();
   const [fields, setFields] = useState(initialFields);
 
   function update<Key extends keyof OutlookSearchFields>(
@@ -48,11 +50,11 @@ export function OutlookSearchFiltersForm({
 
   return (
     <form
-      aria-label="Search options"
+      aria-label={t`Search options`}
       className="grid gap-3"
       onSubmit={handleSubmit}
     >
-      <FilterField id="outlook-search-from" label="From">
+      <FilterField id="outlook-search-from" label={t`From`}>
         <Input
           id="outlook-search-from"
           value={fields.from}
@@ -61,7 +63,7 @@ export function OutlookSearchFiltersForm({
         />
       </FilterField>
 
-      <FilterField id="outlook-search-to" label="To">
+      <FilterField id="outlook-search-to" label={t`To`}>
         <Input
           id="outlook-search-to"
           value={fields.to}
@@ -70,7 +72,7 @@ export function OutlookSearchFiltersForm({
         />
       </FilterField>
 
-      <FilterField id="outlook-search-subject" label="Subject">
+      <FilterField id="outlook-search-subject" label={t`Subject`}>
         <Input
           id="outlook-search-subject"
           value={fields.subject}
@@ -79,7 +81,7 @@ export function OutlookSearchFiltersForm({
         />
       </FilterField>
 
-      <FilterField id="outlook-search-keywords" label="Keywords">
+      <FilterField id="outlook-search-keywords" label={t`Keywords`}>
         <Input
           id="outlook-search-keywords"
           value={fields.keywords}
@@ -88,7 +90,7 @@ export function OutlookSearchFiltersForm({
         />
       </FilterField>
 
-      <FilterField id="outlook-search-doesnt-have" label="Doesn't have">
+      <FilterField id="outlook-search-doesnt-have" label={t`Doesn't have`}>
         <Input
           id="outlook-search-doesnt-have"
           value={fields.doesntHave}
@@ -97,7 +99,7 @@ export function OutlookSearchFiltersForm({
         />
       </FilterField>
 
-      <FilterField id="outlook-search-size" label="Size">
+      <FilterField id="outlook-search-size" label={t`Size`}>
         <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_auto] items-center gap-2">
           <Select
             value={fields.sizeComparison}
@@ -108,14 +110,18 @@ export function OutlookSearchFiltersForm({
             <SelectTrigger
               id="outlook-search-size"
               type="button"
-              aria-label="Size comparison"
+              aria-label={t`Size comparison`}
               className={mailSelectTriggerClassName}
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="greater">greater than</SelectItem>
-              <SelectItem value="less">less than</SelectItem>
+              <SelectItem value="greater">
+                <Trans>greater than</Trans>
+              </SelectItem>
+              <SelectItem value="less">
+                <Trans>less than</Trans>
+              </SelectItem>
             </SelectContent>
           </Select>
           <Input
@@ -123,7 +129,7 @@ export function OutlookSearchFiltersForm({
             min="0"
             step="any"
             inputMode="decimal"
-            aria-label="Size amount"
+            aria-label={t`Size amount`}
             value={fields.sizeValue}
             onChange={(event) => update("sizeValue", event.target.value)}
             className={mailControlClassName}
@@ -136,7 +142,7 @@ export function OutlookSearchFiltersForm({
           >
             <SelectTrigger
               type="button"
-              aria-label="Size unit"
+              aria-label={t`Size unit`}
               className={`${mailSelectTriggerClassName} w-20`}
             >
               <SelectValue />
@@ -149,7 +155,7 @@ export function OutlookSearchFiltersForm({
         </div>
       </FilterField>
 
-      <FilterField id="outlook-search-received" label="Received">
+      <FilterField id="outlook-search-received" label={t`Received`}>
         <div className="grid grid-cols-[10rem_minmax(0,1fr)] items-center gap-2">
           <Select
             value={fields.dateWithin}
@@ -163,7 +169,7 @@ export function OutlookSearchFiltersForm({
             <SelectTrigger
               id="outlook-search-received"
               type="button"
-              aria-label="Date range"
+              aria-label={t`Date range`}
               className={mailSelectTriggerClassName}
             >
               <SelectValue />
@@ -171,14 +177,14 @@ export function OutlookSearchFiltersForm({
             <SelectContent>
               {OUTLOOK_DATE_WITHIN_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  {option.name}
+                  {i18n._(option.name)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Input
             type="date"
-            aria-label="Date"
+            aria-label={t`Date`}
             value={fields.date}
             onChange={(event) => update("date", event.target.value)}
             className={mailControlClassName}
@@ -186,7 +192,7 @@ export function OutlookSearchFiltersForm({
         </div>
       </FilterField>
 
-      <FilterField id="outlook-search-in" label="Search">
+      <FilterField id="outlook-search-in" label={t`Search`}>
         <Select
           value={fields.searchIn}
           onValueChange={(value) => update("searchIn", value)}
@@ -201,12 +207,14 @@ export function OutlookSearchFiltersForm({
           <SelectContent>
             {OUTLOOK_SEARCH_IN_OPTIONS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                {option.name}
+                {i18n._(option.name)}
               </SelectItem>
             ))}
             {folders.length ? (
               <SelectGroup>
-                <SelectLabel>Folders</SelectLabel>
+                <SelectLabel>
+                  <Trans>Folders</Trans>
+                </SelectLabel>
                 {folders.map((folder) => (
                   <SelectItem
                     key={`folder:${folder.name}`}
@@ -219,7 +227,9 @@ export function OutlookSearchFiltersForm({
             ) : null}
             {categories.length ? (
               <SelectGroup>
-                <SelectLabel>Categories</SelectLabel>
+                <SelectLabel>
+                  <Trans>Categories</Trans>
+                </SelectLabel>
                 {categories.map((category) => (
                   <SelectItem
                     key={`category:${category.name}`}
@@ -247,14 +257,14 @@ export function OutlookSearchFiltersForm({
             htmlFor="outlook-search-has-attachment"
             className="font-normal text-sm"
           >
-            Has attachment
+            <Trans>Has attachment</Trans>
           </Label>
         </div>
       </div>
 
       <div className="flex justify-end pt-1">
         <Button type="submit" variant="gradient" size="sm">
-          Search
+          <Trans>Search</Trans>
         </Button>
       </div>
     </form>

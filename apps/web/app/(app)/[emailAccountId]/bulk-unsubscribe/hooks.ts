@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import {
+  useCallback,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
+import type { I18n } from "@lingui/core";
+import { msg, plural } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { toast } from "sonner";
 import { useLocalStorage } from "usehooks-ts";
 import { useAction } from "next-safe-action/hooks";
@@ -54,9 +63,11 @@ type BulkOperationResult = {
   failureCount: number;
 };
 
-function pluralize(count: number, singular: string): string {
-  return count === 1 ? singular : `${singular}s`;
-}
+type BulkOperationMessages = {
+  loadingMessage: (count: number) => string;
+  successMessage: (count: number) => string;
+  errorMessage: (count: number) => string;
+};
 
 function formatSenderNames<T extends Row>(items: T[]): string {
   const names = items.map((item) => item.name);
@@ -100,6 +111,7 @@ async function executeBulkOperation<T extends Row>({
   onComplete,
   onCompleteRevalidates,
   onSuccess,
+  i18n,
 }: {
   items: T[];
   mutate: MutateFn;
@@ -108,20 +120,17 @@ async function executeBulkOperation<T extends Row>({
   processItem: (item: T) => Promise<void>;
   newStatus: NewsletterStatus | null;
   getNewStatus?: (item: T) => NewsletterStatus | null;
-  loadingMessage: string;
-  successMessage: string;
-  errorMessage: string;
   onComplete?: () => Promise<unknown>;
   onCompleteRevalidates?: boolean;
   onSuccess?: () => void;
-}): Promise<BulkOperationResult> {
+  i18n: I18n;
+} & BulkOperationMessages): Promise<BulkOperationResult> {
   const total = items.length;
-  const toastId = toast.loading(
-    `${loadingMessage} ${total} ${pluralize(total, "sender")}...`,
-    { description: `0 of ${total} completed` },
-  );
-
   let completed = 0;
+  const toastId = toast.loading(loadingMessage(total), {
+    description: i18n._(msg`${completed} of ${total} completed`),
+  });
+
   let failureCount = 0;
   let rateLimitError: EmailProviderRateLimitError | undefined;
 
@@ -161,13 +170,10 @@ async function executeBulkOperation<T extends Row>({
       }
     } finally {
       completed++;
-      toast.loading(
-        `${loadingMessage} ${total} ${pluralize(total, "sender")}...`,
-        {
-          id: toastId,
-          description: `${completed} of ${total} completed`,
-        },
-      );
+      toast.loading(loadingMessage(total), {
+        id: toastId,
+        description: i18n._(msg`${completed} of ${total} completed`),
+      });
     }
 
     if (rateLimitError) break;
@@ -188,7 +194,9 @@ async function executeBulkOperation<T extends Row>({
     const successful = completed - failureCount;
     toast.error(rateLimitError.message, {
       id: toastId,
-      description: `${successful} of ${total} completed; stopped to avoid more requests`,
+      description: i18n._(
+        msg`${successful} of ${total} completed; stopped to avoid more requests`,
+      ),
     });
     return {
       stoppedByRateLimit: true,
@@ -200,15 +208,13 @@ async function executeBulkOperation<T extends Row>({
 
   if (failureCount > 0) {
     await mutate();
-    toast.error(
-      `${errorMessage} ${failureCount} ${pluralize(failureCount, "sender")}`,
-      {
-        id: toastId,
-        description: `${total - failureCount} of ${total} succeeded`,
-      },
-    );
+    const succeeded = total - failureCount;
+    toast.error(errorMessage(failureCount), {
+      id: toastId,
+      description: i18n._(msg`${succeeded} of ${total} succeeded`),
+    });
   } else {
-    toast.success(`${total} ${pluralize(total, "sender")} ${successMessage}`, {
+    toast.success(successMessage(total), {
       id: toastId,
       description: undefined,
     });
@@ -303,6 +309,7 @@ export function useUnsubscribe<T extends Row>({
   posthog: PostHog;
   refetchPremium: () => Promise<UserResponse | null | undefined>;
 }) {
+  const { t } = useLingui();
   const analytics = useProductAnalytics("bulk_unsubscribe");
   const [unsubscribeLoading, setUnsubscribeLoading] = useState(false);
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
@@ -323,7 +330,7 @@ export function useUnsubscribe<T extends Row>({
     // reader is never left without a way to finish.
     const openPageAction = userFacingUnsubscribeLink
       ? {
-          label: "Open page",
+          label: t`Open page`,
           onClick: () =>
             window.open(
               userFacingUnsubscribeLink,
@@ -359,7 +366,7 @@ export function useUnsubscribe<T extends Row>({
             outcome: "blocked_sender",
           });
           toastSuccess({
-            description: "Sender blocked. Future emails will be archived.",
+            description: t`Sender blocked. Future emails will be archived.`,
           });
           await mutate();
           await refreshPremium(refetchPremium);
@@ -381,7 +388,7 @@ export function useUnsubscribe<T extends Row>({
           analytics.captureAction("unsubscribe_sender_failed", {
             reason: "automatic_unsubscribe_failed",
           });
-          toast.error(`Could not unsubscribe from ${item.name}`, {
+          toast.error(t`Could not unsubscribe from ${item.name}`, {
             action: openPageAction,
           });
         } else {
@@ -397,7 +404,7 @@ export function useUnsubscribe<T extends Row>({
         toast.error(error.message, { action: openPageAction });
       } else {
         captureException(error);
-        toast.error(`Could not unsubscribe from ${item.name}`, {
+        toast.error(t`Could not unsubscribe from ${item.name}`, {
           action: openPageAction,
         });
       }
@@ -418,6 +425,7 @@ export function useUnsubscribe<T extends Row>({
     userFacingUnsubscribeLink,
     queueArchiveSenders,
     archiveOnUnsubscribe,
+    t,
   ]);
 
   return {
@@ -437,7 +445,7 @@ export function useUnsubscribe<T extends Row>({
 
 export function useBulkUnsubscribe<T extends Row>({
   hasUnsubscribeAccess,
-  mutate,
+  mutate: swrMutate,
   posthog,
   refetchPremium,
   emailAccountId,
@@ -454,6 +462,8 @@ export function useBulkUnsubscribe<T extends Row>({
   filter: NewsletterFilterType;
   onSuccess?: (items: T[]) => void;
 }) {
+  const { i18n } = useLingui();
+  const mutate = useMountedMutate(swrMutate);
   const analytics = useProductAnalytics("bulk_unsubscribe");
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
   const [archiveOnUnsubscribe] = useArchiveOnUnsubscribe();
@@ -474,9 +484,10 @@ export function useBulkUnsubscribe<T extends Row>({
         filter,
       });
 
-      const messages = getBulkUnsubscribeMessages(items);
+      const messages = getBulkUnsubscribeMessages(items, i18n);
 
       const result = await executeBulkOperation({
+        i18n,
         items,
         mutate,
         filter,
@@ -540,6 +551,7 @@ export function useBulkUnsubscribe<T extends Row>({
       queueArchiveSenders,
       archiveOnUnsubscribe,
       onSuccess,
+      i18n,
     ],
   );
 
@@ -554,6 +566,7 @@ async function autoArchive({
   refetchPremium,
   emailAccountId,
   queueArchiveSenders,
+  i18n,
 }: {
   name: string;
   labelId: string | undefined;
@@ -562,6 +575,7 @@ async function autoArchive({
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
   queueArchiveSenders: QueueArchiveSendersFn;
+  i18n: I18n;
 }) {
   await blockSender({
     sender: name,
@@ -570,7 +584,7 @@ async function autoArchive({
     labelName,
     queueArchiveSenders,
   });
-  toastSuccess({ description: "Auto archive enabled!" });
+  toastSuccess({ description: i18n._(msg`Auto archive enabled!`) });
   await mutate();
   await refreshPremium(refetchPremium);
 }
@@ -590,6 +604,7 @@ export function useAutoArchive<T extends Row>({
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
 }) {
+  const { i18n, t } = useLingui();
   const [autoArchiveLoading, setAutoArchiveLoading] = useState(false);
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
 
@@ -607,12 +622,13 @@ export function useAutoArchive<T extends Row>({
         refetchPremium,
         emailAccountId,
         queueArchiveSenders,
+        i18n,
       });
 
       posthog.capture("Clicked Auto Archive");
     } catch (error) {
       captureException(error);
-      toast.error("Failed to enable auto archive");
+      toast.error(t`Failed to enable auto archive`);
     } finally {
       setAutoArchiveLoading(false);
     }
@@ -624,6 +640,8 @@ export function useAutoArchive<T extends Row>({
     posthog,
     emailAccountId,
     queueArchiveSenders,
+    i18n,
+    t,
   ]);
 
   const onDisableAutoArchive = useCallback(async () => {
@@ -635,15 +653,15 @@ export function useAutoArchive<T extends Row>({
         status: null,
       });
       assertActionSucceeded(statusResult);
-      toastSuccess({ description: "Auto archive disabled!" });
+      toastSuccess({ description: t`Auto archive disabled!` });
       await mutate();
     } catch (error) {
       captureException(error);
-      toast.error("Failed to disable auto archive");
+      toast.error(t`Failed to disable auto archive`);
     } finally {
       setAutoArchiveLoading(false);
     }
-  }, [item.name, mutate, emailAccountId]);
+  }, [item.name, mutate, emailAccountId, t]);
 
   const onAutoArchiveAndLabel = useCallback(
     async (labelId: string, labelName: string) => {
@@ -660,10 +678,11 @@ export function useAutoArchive<T extends Row>({
           refetchPremium,
           emailAccountId,
           queueArchiveSenders,
+          i18n,
         });
       } catch (error) {
         captureException(error);
-        toast.error("Failed to enable auto archive");
+        toast.error(t`Failed to enable auto archive`);
       } finally {
         setAutoArchiveLoading(false);
       }
@@ -675,6 +694,8 @@ export function useAutoArchive<T extends Row>({
       hasUnsubscribeAccess,
       emailAccountId,
       queueArchiveSenders,
+      i18n,
+      t,
     ],
   );
 
@@ -688,7 +709,7 @@ export function useAutoArchive<T extends Row>({
 
 export function useBulkAutoArchive<T extends Row>({
   hasUnsubscribeAccess,
-  mutate,
+  mutate: swrMutate,
   refetchPremium,
   emailAccountId,
   onDeselectItem,
@@ -701,6 +722,8 @@ export function useBulkAutoArchive<T extends Row>({
   onDeselectItem?: (id: string) => void;
   filter: NewsletterFilterType;
 }) {
+  const { i18n, t } = useLingui();
+  const mutate = useMountedMutate(swrMutate);
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
 
   const onBulkAutoArchive = useCallback(
@@ -708,14 +731,27 @@ export function useBulkAutoArchive<T extends Row>({
       if (!hasUnsubscribeAccess) return;
 
       await executeBulkOperation({
+        i18n,
         items,
         mutate,
         filter,
         onDeselectItem,
         newStatus: NewsletterStatus.AUTO_ARCHIVED,
-        loadingMessage: "Setting auto archive for",
-        successMessage: "set to auto archive",
-        errorMessage: "Failed to set auto archive for",
+        loadingMessage: (count) =>
+          t`Setting auto archive for ${plural(count, {
+            one: "# sender",
+            other: "# senders",
+          })}...`,
+        successMessage: (count) =>
+          t`${plural(count, {
+            one: "# sender set to auto archive",
+            other: "# senders set to auto archive",
+          })}`,
+        errorMessage: (count) =>
+          t`Failed to set auto archive for ${plural(count, {
+            one: "# sender",
+            other: "# senders",
+          })}`,
         processItem: async (item) => {
           await blockSender({
             sender: item.name,
@@ -734,6 +770,8 @@ export function useBulkAutoArchive<T extends Row>({
       onDeselectItem,
       filter,
       queueArchiveSenders,
+      i18n,
+      t,
     ],
   );
 
@@ -762,6 +800,7 @@ export function useApproveButton<T extends Row>({
   emailAccountId: string;
   filter: NewsletterFilterType;
 }) {
+  const { t } = useLingui();
   const [optimisticStatus, setOptimisticStatus] = useState<
     NewsletterStatus | null | undefined
   >(undefined);
@@ -800,11 +839,11 @@ export function useApproveButton<T extends Row>({
 
     // Show toast optimistically
     if (newStatus === NewsletterStatus.APPROVED) {
-      toast.success("Sender kept", {
+      toast.success(t`Sender kept`, {
         description: item.name,
       });
     } else {
-      toast.success("Sender moved to review", {
+      toast.success(t`Sender moved to review`, {
         description: item.name,
       });
     }
@@ -827,7 +866,7 @@ export function useApproveButton<T extends Row>({
       setOptimisticStatus(previousStatus);
       await mutate();
       captureException(error);
-      toast.error("Failed to update sender status");
+      toast.error(t`Failed to update sender status`);
     }
   };
 
@@ -843,7 +882,7 @@ export function useApproveButton<T extends Row>({
 }
 
 export function useBulkApprove<T extends Row>({
-  mutate,
+  mutate: swrMutate,
   posthog,
   emailAccountId,
   onDeselectItem,
@@ -855,23 +894,58 @@ export function useBulkApprove<T extends Row>({
   onDeselectItem?: (id: string) => void;
   filter: NewsletterFilterType;
 }) {
+  const { i18n, t } = useLingui();
+  const mutate = useMountedMutate(swrMutate);
   const onBulkApprove = async (items: T[], unapprove?: boolean) => {
     posthog.capture(
       unapprove ? "Clicked Bulk Unapprove" : "Clicked Bulk Approve",
     );
 
     const newStatus = unapprove ? null : NewsletterStatus.APPROVED;
-    const actionPast = unapprove ? "moved to review" : "kept";
+    const messages: BulkOperationMessages = unapprove
+      ? {
+          loadingMessage: (count) =>
+            t`Moving to review ${plural(count, {
+              one: "# sender",
+              other: "# senders",
+            })}...`,
+          successMessage: (count) =>
+            t`${plural(count, {
+              one: "# sender moved to review",
+              other: "# senders moved to review",
+            })}`,
+          errorMessage: (count) =>
+            t`Failed to move to review ${plural(count, {
+              one: "# sender",
+              other: "# senders",
+            })}`,
+        }
+      : {
+          loadingMessage: (count) =>
+            t`Keeping ${plural(count, {
+              one: "# sender",
+              other: "# senders",
+            })}...`,
+          successMessage: (count) =>
+            t`${plural(count, {
+              one: "# sender kept",
+              other: "# senders kept",
+            })}`,
+          errorMessage: (count) =>
+            t`Failed to keep ${plural(count, {
+              one: "# sender",
+              other: "# senders",
+            })}`,
+        };
 
     await executeBulkOperation({
+      i18n,
       items,
       mutate,
       filter,
       onDeselectItem,
       newStatus,
-      loadingMessage: unapprove ? "Moving to review" : "Keeping",
-      successMessage: actionPast,
-      errorMessage: `Failed to ${unapprove ? "move to review" : "keep"}`,
+      ...messages,
       processItem: async (item) => {
         const result = await setSenderStatusAction(emailAccountId, {
           senderEmail: item.name,
@@ -894,6 +968,7 @@ export function useBulkArchive<T extends Row>({
   emailAccountId: string;
   mutate?: MutateFn;
 }) {
+  const { t } = useLingui();
   const { executeAsync: executeBulkArchive, isExecuting } = useAction(
     bulkArchiveAction.bind(null, emailAccountId),
   );
@@ -914,12 +989,12 @@ export function useBulkArchive<T extends Row>({
     const displayNames = formatSenderNames(items);
 
     toast.promise(promise, {
-      loading: `Archiving emails from ${displayNames}...`,
-      success: () => `Archived emails from ${displayNames}`,
+      loading: t`Archiving emails from ${displayNames}...`,
+      success: () => t`Archived emails from ${displayNames}`,
       error: (error: unknown) =>
         getBulkActionErrorMessage(
           error,
-          "There was an error archiving the emails",
+          t`There was an error archiving the emails`,
         ),
     });
   };
@@ -931,10 +1006,12 @@ async function deleteAllFromSender({
   name,
   onFinish,
   emailAccountId,
+  i18n,
 }: {
   name: string;
   onFinish: () => void;
   emailAccountId: string;
+  i18n: I18n;
 }) {
   const deletion = (async () => {
     const { threads } = await fetchAllSenderThreads({
@@ -953,12 +1030,17 @@ async function deleteAllFromSender({
   })();
 
   toast.promise(deletion, {
-    loading: `Deleting all emails from ${name}`,
+    loading: i18n._(msg`Deleting all emails from ${name}`),
     success: (count: number) =>
       count
-        ? `Queued ${count} emails from ${name} for deletion`
-        : `No emails to delete from ${name}`,
-    error: `There was an error deleting the emails from ${name} :(`,
+        ? i18n._(
+            msg`Queued ${plural(count, {
+              one: "# email",
+              other: "# emails",
+            })} from ${name} for deletion`,
+          )
+        : i18n._(msg`No emails to delete from ${name}`),
+    error: i18n._(msg`There was an error deleting the emails from ${name} :(`),
   });
 
   try {
@@ -977,6 +1059,7 @@ export function useDeleteAllFromSender<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
+  const { i18n } = useLingui();
   const [deleteAllLoading, setDeleteAllLoading] = useState(false);
 
   const onDeleteAll = async () => {
@@ -989,6 +1072,7 @@ export function useDeleteAllFromSender<T extends Row>({
         name: item.name,
         onFinish: () => setDeleteAllLoading(false),
         emailAccountId,
+        i18n,
       });
     } catch (error) {
       captureException(error);
@@ -1010,6 +1094,7 @@ export function useBulkDelete<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
   const { executeAsync: executeBulkTrash, isExecuting } = useAction(
     bulkTrashAction.bind(null, emailAccountId),
     {
@@ -1027,12 +1112,12 @@ export function useBulkDelete<T extends Row>({
     const displayNames = formatSenderNames(items);
 
     toast.promise(promise, {
-      loading: `Deleting emails from ${displayNames}...`,
-      success: `Deleted emails from ${displayNames}`,
+      loading: t`Deleting emails from ${displayNames}...`,
+      success: t`Deleted emails from ${displayNames}`,
       error: (error: unknown) =>
         getBulkActionErrorMessage(
           error,
-          "There was an error trashing the emails",
+          t`There was an error trashing the emails`,
         ),
     });
   };
@@ -1062,6 +1147,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   emailAccountId: string;
   userEmail: string;
 }) {
+  const { t } = useLingui();
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
   const [archiveOnUnsubscribe] = useArchiveOnUnsubscribe();
 
@@ -1103,7 +1189,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
             status: NewsletterStatus.AUTO_ARCHIVED,
           });
           assertActionSucceeded(statusResult);
-          toastSuccess({ description: "Auto archive enabled!" });
+          toastSuccess({ description: t`Auto archive enabled!` });
           await mutate();
           await decrementUnsubscribeCreditAction();
           await refreshPremium(refetchPremium);
@@ -1126,7 +1212,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
               queueArchiveSenders,
             });
             toastSuccess({
-              description: "Sender blocked. Future emails will be archived.",
+              description: t`Sender blocked. Future emails will be archived.`,
             });
             await mutate();
             await refreshPremium(refetchPremium);
@@ -1182,6 +1268,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
     emailAccountId,
     queueArchiveSenders,
     archiveOnUnsubscribe,
+    t,
   ]);
 }
 
@@ -1252,7 +1339,10 @@ function getManualUnsubscribeLink(unsubscribeLink?: string | null) {
   });
 }
 
-function getBulkUnsubscribeMessages<T extends Row>(items: T[]) {
+function getBulkUnsubscribeMessages<T extends Row>(
+  items: T[],
+  i18n: I18n,
+): BulkOperationMessages {
   const hasAutomatic = items.some((item) =>
     getAutomaticUnsubscribeLink(item.unsubscribeLink),
   );
@@ -1262,22 +1352,49 @@ function getBulkUnsubscribeMessages<T extends Row>(items: T[]) {
 
   if (hasAutomatic && hasBlock) {
     return {
-      loadingMessage: "Processing",
-      successMessage: "processed",
-      errorMessage: "Failed to process",
+      loadingMessage: (count) =>
+        i18n._(
+          msg`Processing ${plural(count, { one: "# sender", other: "# senders" })}...`,
+        ),
+      successMessage: (count) =>
+        i18n._(
+          msg`${plural(count, { one: "# sender processed", other: "# senders processed" })}`,
+        ),
+      errorMessage: (count) =>
+        i18n._(
+          msg`Failed to process ${plural(count, { one: "# sender", other: "# senders" })}`,
+        ),
     };
   }
   if (hasBlock) {
     return {
-      loadingMessage: "Blocking",
-      successMessage: "blocked",
-      errorMessage: "Failed to block",
+      loadingMessage: (count) =>
+        i18n._(
+          msg`Blocking ${plural(count, { one: "# sender", other: "# senders" })}...`,
+        ),
+      successMessage: (count) =>
+        i18n._(
+          msg`${plural(count, { one: "# sender blocked", other: "# senders blocked" })}`,
+        ),
+      errorMessage: (count) =>
+        i18n._(
+          msg`Failed to block ${plural(count, { one: "# sender", other: "# senders" })}`,
+        ),
     };
   }
   return {
-    loadingMessage: "Unsubscribing from",
-    successMessage: "unsubscribed",
-    errorMessage: "Failed to unsubscribe from",
+    loadingMessage: (count) =>
+      i18n._(
+        msg`Unsubscribing from ${plural(count, { one: "# sender", other: "# senders" })}...`,
+      ),
+    successMessage: (count) =>
+      i18n._(
+        msg`${plural(count, { one: "# sender unsubscribed", other: "# senders unsubscribed" })}`,
+      ),
+    errorMessage: (count) =>
+      i18n._(
+        msg`Failed to unsubscribe from ${plural(count, { one: "# sender", other: "# senders" })}`,
+      ),
   };
 }
 
@@ -1320,4 +1437,27 @@ class AutomaticUnsubscribeFailedError extends Error {
     super("Automatic unsubscribe did not succeed");
     this.name = "AutomaticUnsubscribeFailedError";
   }
+}
+
+// Bulk runs outlive navigation, and SWR's bound mutate throws once its
+// SWRConfig cache provider has unmounted. The cache refetches on next mount.
+function useMountedMutate(mutate: MutateFn): MutateFn {
+  const isMountedRef = useRef(true);
+
+  // Layout effect: SWRConfig drops its provider in a layout-effect cleanup, and
+  // passive cleanups can run after pending awaits have already resumed.
+  useLayoutEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Forward args as-is: SWR treats `mutate()` and `mutate(undefined)` differently.
+  return useCallback(
+    async (...args: Parameters<MutateFn>) => {
+      if (isMountedRef.current) return mutate(...args);
+    },
+    [mutate],
+  );
 }

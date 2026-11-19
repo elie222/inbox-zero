@@ -10,6 +10,7 @@ import {
 import { buildLoginRedirectUrl, buildRedirectUrl } from "@/utils/redirect";
 import { createScopedLogger } from "@/utils/logger";
 import { flushLoggerSafely } from "@/utils/logger-flush";
+import { EMAIL_ACCOUNT_ORDER_BY } from "@/utils/email-account-order";
 
 const logger = createScopedLogger("account-redirect");
 
@@ -47,7 +48,7 @@ export async function redirectToEmailAccountPath(
         prisma.emailAccount.findFirst({
           where: { userId },
           select: { id: true },
-          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          orderBy: EMAIL_ACCOUNT_ORDER_BY,
         }),
     );
     emailAccountId = emailAccount?.id ?? null;

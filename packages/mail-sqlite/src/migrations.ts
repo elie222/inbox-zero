@@ -4,6 +4,7 @@ import {
   migrateConversationIndex,
   migrateInboxUnreadExcludesArchive,
   migrateMembershipIndex,
+  migrateMembershipTriggerLookup,
 } from "./conversation-index";
 import { migrateMessageSearchIndex } from "./message-search-index";
 
@@ -416,10 +417,23 @@ export async function migrateMailbox(
   await tx.exec("DROP TABLE IF EXISTS draft_attachments");
   await migrateConversationIndex(tx);
   await migrateMembershipIndex(tx);
+  await migrateMembershipTriggerLookup(tx);
   await migrateInboxUnreadExcludesArchive(tx);
   await migrateMessageSearchIndex(tx);
   await migrateEmptyMeetingInvitationBodies(tx);
   await migrateContactSuggestions(tx);
+  await migrateSyncStreamRetryDeadline(tx);
+}
+
+async function migrateSyncStreamRetryDeadline(tx: SqlTransaction) {
+  const applied = await tx.query(
+    "SELECT 1 FROM schema_migrations WHERE id = 13",
+  );
+  if (applied.length) return;
+  await tx.exec("ALTER TABLE sync_streams ADD COLUMN retry_at_ms INTEGER");
+  await tx.execute(
+    "INSERT INTO schema_migrations(id, name) VALUES (13, '0013-sync-stream-retry-deadline')",
+  );
 }
 
 // Delta sync once stored a meeting invitation's flag without its body. Dropping

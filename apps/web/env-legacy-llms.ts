@@ -150,7 +150,7 @@ function getLegacyProviderDefaultModel(
     openai: "gpt-6-luna",
     bedrock: "global.anthropic.claude-sonnet-5",
     openrouter: "anthropic/claude-sonnet-5",
-    groq: "llama-3.3-70b-versatile",
+    groq: "openai/gpt-oss-120b",
     cerebras: "qwen-3.8-27b",
     aigateway: "anthropic/claude-sonnet-5",
     ollama: env.OLLAMA_MODEL,

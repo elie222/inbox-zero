@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { ViewLearnedPatterns } from "@/app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns";
 import {
   Dialog,
@@ -22,7 +23,7 @@ export function LearnedPatternsDialog({
   ruleId,
   groupId,
   disabled,
-  label = "View learned patterns",
+  label,
 }: {
   ruleId: string;
   groupId: string | null;
@@ -30,6 +31,7 @@ export function LearnedPatternsDialog({
   label?: string;
 }) {
   const { emailAccountId } = useAccount();
+  const { t } = useLingui();
 
   const [learnedPatternGroupId, setLearnedPatternGroupId] = useState<
     string | null
@@ -43,7 +45,7 @@ export function LearnedPatternsDialog({
           setLearnedPatternGroupId(data.data.groupId);
         } else {
           toastError({
-            description: "There was an error setting up learned patterns.",
+            description: t`There was an error setting up learned patterns.`,
           });
         }
       },
@@ -70,17 +72,21 @@ export function LearnedPatternsDialog({
             execute({ ruleId });
           }}
         >
-          {label}
+          {label ?? t`View learned patterns`}
         </Button>
       </DialogTrigger>
 
       <DialogContent className="max-w-2xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Learned patterns</DialogTitle>
+          <DialogTitle>
+            <Trans>Learned patterns</Trans>
+          </DialogTitle>
           <DialogDescription>
-            Learned patterns are patterns that the AI has learned from your
-            email history. When a learned pattern is matched other rules
-            conditions are skipped and this rule is automatically selected.
+            <Trans>
+              Learned patterns are patterns that the AI has learned from your
+              email history. When a learned pattern is matched other rules
+              conditions are skipped and this rule is automatically selected.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
 

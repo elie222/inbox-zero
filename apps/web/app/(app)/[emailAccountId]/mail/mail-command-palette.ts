@@ -1,3 +1,5 @@
+import type { I18n } from "@lingui/core";
+import { plural, t } from "@lingui/core/macro";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
@@ -14,6 +16,7 @@ import {
   StarIcon,
   Trash2Icon,
   MessageSquareIcon,
+  SplitIcon,
 } from "lucide-react";
 import type { Command } from "@/lib/commands/types";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
@@ -24,6 +27,7 @@ type MailCommandActions = {
   moveToInbox?: () => void;
   forward?: () => void;
   label?: () => void;
+  addToSplit?: () => void;
   star?: () => void;
   markRead?: () => void;
   markSpam?: () => void;
@@ -46,9 +50,10 @@ export function buildMailCommandPalette({
   isAutoArchived = false,
   isAutoArchiveDisabled = false,
   isUnsubscribeDisabled = false,
-  unsubscribeLabel = "Unsubscribe from sender",
-  openExternalLabel = "Open in email provider",
+  unsubscribeLabel,
+  openExternalLabel,
   targetCount,
+  i18n,
 }: {
   actions: MailCommandActions;
   allStarred?: boolean;
@@ -60,6 +65,7 @@ export function buildMailCommandPalette({
   unsubscribeLabel?: string;
   openExternalLabel?: string;
   targetCount: number;
+  i18n: I18n;
 }): Command[] {
   if (targetCount === 0) return [];
 
@@ -67,10 +73,10 @@ export function buildMailCommandPalette({
     actions.moveToInbox
       ? {
           id: "mail-move-to-inbox",
-          label:
-            targetCount === 1
-              ? "Move to inbox"
-              : `Move ${targetCount} conversations to inbox`,
+          label: t(i18n)`${plural(targetCount, {
+            one: "Move to inbox",
+            other: "Move # conversations to inbox",
+          })}`,
           icon: ArchiveRestoreIcon,
           section: "actions",
           priority: 0,
@@ -79,10 +85,10 @@ export function buildMailCommandPalette({
         }
       : {
           id: "mail-archive",
-          label:
-            targetCount === 1
-              ? "Archive conversation"
-              : `Archive ${targetCount} conversations`,
+          label: t(i18n)`${plural(targetCount, {
+            one: "Archive conversation",
+            other: "Archive # conversations",
+          })}`,
           icon: ArchiveIcon,
           shortcut: "E",
           section: "actions",
@@ -95,7 +101,7 @@ export function buildMailCommandPalette({
   if (targetCount === 1 && actions.forward) {
     commands.push({
       id: "mail-forward",
-      label: "Forward",
+      label: t(i18n)`Forward`,
       icon: ForwardIcon,
       shortcut: getShortcutHint("forward"),
       section: "actions",
@@ -108,7 +114,7 @@ export function buildMailCommandPalette({
   if (actions.label) {
     commands.push({
       id: "mail-label",
-      label: "Label",
+      label: t(i18n)`Label`,
       icon: TagIcon,
       shortcut: getShortcutHint("label"),
       section: "actions",
@@ -118,10 +124,22 @@ export function buildMailCommandPalette({
     });
   }
 
+  if (actions.addToSplit) {
+    commands.push({
+      id: "mail-add-to-split",
+      label: t(i18n)`Add senders to split`,
+      icon: SplitIcon,
+      section: "actions",
+      priority: 3,
+      keywords: ["split", "sender", "tab", "inbox"],
+      action: actions.addToSplit,
+    });
+  }
+
   if (actions.move) {
     commands.push({
       id: "mail-move",
-      label: "Move",
+      label: t(i18n)`Move`,
       icon: FolderInputIcon,
       shortcut: getShortcutHint("move"),
       section: "actions",
@@ -134,7 +152,10 @@ export function buildMailCommandPalette({
   if (hasUnread && actions.markRead) {
     commands.push({
       id: "mail-mark-read",
-      label: targetCount === 1 ? "Mark as read" : `Mark ${targetCount} as read`,
+      label: t(i18n)`${plural(targetCount, {
+        one: "Mark as read",
+        other: "Mark # as read",
+      })}`,
       icon: MailOpenIcon,
       section: "actions",
       priority: 1,
@@ -146,8 +167,10 @@ export function buildMailCommandPalette({
   if (hasRead && actions.markUnread) {
     commands.push({
       id: "mail-mark-unread",
-      label:
-        targetCount === 1 ? "Mark as unread" : `Mark ${targetCount} as unread`,
+      label: t(i18n)`${plural(targetCount, {
+        one: "Mark as unread",
+        other: "Mark # as unread",
+      })}`,
       icon: MailIcon,
       shortcut: getShortcutHint("markUnread"),
       section: "actions",
@@ -160,8 +183,10 @@ export function buildMailCommandPalette({
   if (actions.openSnooze) {
     commands.push({
       id: "mail-snooze",
-      label:
-        targetCount === 1 ? "Snooze" : `Snooze ${targetCount} conversations`,
+      label: t(i18n)`${plural(targetCount, {
+        one: "Snooze",
+        other: "Snooze # conversations",
+      })}`,
       icon: Clock3Icon,
       shortcut: getShortcutHint("snooze"),
       section: "actions",
@@ -175,7 +200,7 @@ export function buildMailCommandPalette({
   if (targetCount === 1 && actions.translate) {
     commands.push({
       id: "mail-translate",
-      label: "Translate",
+      label: t(i18n)`Translate`,
       icon: LanguagesIcon,
       shortcut: getShortcutHint("translate"),
       section: "actions",
@@ -188,7 +213,7 @@ export function buildMailCommandPalette({
   if (targetCount === 1 && actions.comment) {
     commands.push({
       id: "mail-comment",
-      label: "Comment",
+      label: t(i18n)`Comment`,
       icon: MessageSquareIcon,
       shortcut: getShortcutHint("openTeamComments"),
       section: "actions",
@@ -201,10 +226,10 @@ export function buildMailCommandPalette({
   if (actions.trash) {
     commands.push({
       id: "mail-delete",
-      label:
-        targetCount === 1
-          ? "Delete conversation"
-          : `Delete ${targetCount} conversations`,
+      label: t(i18n)`${plural(targetCount, {
+        one: "Delete conversation",
+        other: "Delete # conversations",
+      })}`,
       icon: Trash2Icon,
       shortcut: "#",
       section: "actions",
@@ -217,7 +242,7 @@ export function buildMailCommandPalette({
   if (actions.markSpam) {
     commands.push({
       id: "mail-mark-spam",
-      label: "Mark as spam",
+      label: t(i18n)`Mark as spam`,
       icon: ShieldAlertIcon,
       shortcut: getShortcutHint("markSpam"),
       section: "actions",
@@ -230,7 +255,7 @@ export function buildMailCommandPalette({
   if (targetCount === 1 && actions.unsubscribe) {
     commands.push({
       id: "mail-unsubscribe",
-      label: unsubscribeLabel,
+      label: unsubscribeLabel ?? t(i18n)`Unsubscribe`,
       shortcut: getShortcutHint("unsubscribe"),
       icon: MailXIcon,
       section: "actions",
@@ -246,8 +271,8 @@ export function buildMailCommandPalette({
       id: "mail-auto-archive",
       shortcut: getShortcutHint("toggleAutoArchive"),
       label: isAutoArchived
-        ? "Disable auto archive"
-        : "Auto archive future emails",
+        ? t(i18n)`Disable auto archive`
+        : t(i18n)`Auto archive future emails`,
       icon: isAutoArchived ? ArchiveRestoreIcon : ArchiveIcon,
       section: "actions",
       priority: 13,
@@ -260,7 +285,7 @@ export function buildMailCommandPalette({
   if (targetCount === 1 && actions.openExternal) {
     commands.push({
       id: "mail-open-external",
-      label: openExternalLabel,
+      label: openExternalLabel ?? t(i18n)`Open in email provider`,
       icon: ExternalLinkIcon,
       shortcut: getShortcutHint("openExternal"),
       section: "actions",
@@ -271,13 +296,17 @@ export function buildMailCommandPalette({
   }
 
   if (actions.star) {
-    const actionLabel = allStarred ? "Unstar" : "Star";
     commands.push({
       id: "mail-star",
-      label:
-        targetCount === 1
-          ? actionLabel
-          : `${actionLabel} ${targetCount} conversations`,
+      label: allStarred
+        ? t(i18n)`${plural(targetCount, {
+            one: "Unstar",
+            other: "Unstar # conversations",
+          })}`
+        : t(i18n)`${plural(targetCount, {
+            one: "Star",
+            other: "Star # conversations",
+          })}`,
       icon: StarIcon,
       shortcut: getShortcutHint("star"),
       section: "actions",

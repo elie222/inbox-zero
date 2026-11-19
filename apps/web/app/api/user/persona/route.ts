@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import type { PersonaAnalysis } from "@/utils/ai/knowledge/persona";
+import { getAccountAnalysisStatus } from "@/utils/ai/knowledge/schedule-account-analysis";
 
 export type GetPersonaResponse = Awaited<ReturnType<typeof getData>>;
 
@@ -21,5 +22,8 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
   return {
     personaAnalysis: emailAccount?.personaAnalysis as PersonaAnalysis | null,
     role: emailAccount?.role,
+    analysisStatus: emailAccount?.personaAnalysis
+      ? ("completed" as const)
+      : await getAccountAnalysisStatus(emailAccountId, "persona"),
   };
 }

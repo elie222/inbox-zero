@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR from "swr";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { CopyIcon, DownloadIcon } from "lucide-react";
 import {
   fetchMessageSource,
@@ -29,6 +30,7 @@ export function MessageSourceDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useLingui();
   const { data, error, isLoading } = useSWR(
     open ? ["message-source", emailAccountId, messageId] : null,
     async () => {
@@ -47,7 +49,9 @@ export function MessageSourceDialog({
         onKeyDown={(event) => event.stopPropagation()}
       >
         <DialogHeader>
-          <DialogTitle>Original message</DialogTitle>
+          <DialogTitle>
+            <Trans>Original message</Trans>
+          </DialogTitle>
         </DialogHeader>
         <LoadingContent loading={isLoading} error={error}>
           {data && (
@@ -60,12 +64,12 @@ export function MessageSourceDialog({
                     navigator.clipboard
                       .writeText(data.text)
                       .then(() =>
-                        toastSuccess({ description: "Copied to clipboard" }),
+                        toastSuccess({ description: t`Copied to clipboard` }),
                       )
                   }
                 >
                   <CopyIcon className="mr-2 size-4" />
-                  Copy
+                  <Trans>Copy</Trans>
                 </Button>
                 <Button
                   size="sm"
@@ -73,7 +77,7 @@ export function MessageSourceDialog({
                   onClick={() => saveMessageSource(data.source, subject)}
                 >
                   <DownloadIcon className="mr-2 size-4" />
-                  Download
+                  <Trans>Download</Trans>
                 </Button>
               </div>
               <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all rounded-md border bg-muted/50 p-3 font-mono text-xs">

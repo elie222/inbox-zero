@@ -1,13 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { withAuth } from "@/utils/middleware";
-import { getLinkingOAuth2Client } from "@/utils/gmail/client";
 import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
-import { SCOPES } from "@/utils/gmail/scopes";
-import {
-  getMailboxLinkingBlockedResponse,
-  hasActiveAccountLinkingUser,
-} from "@/utils/oauth/account-linking";
+import { getAccountLinkingAuthorizationUrl } from "@/utils/oauth/linking-auth-url";
+import { hasActiveAccountLinkingUser } from "@/utils/oauth/account-linking";
 import { findReconnectTarget } from "@/utils/oauth/reconnect-target";
 import { createOAuthLinkingAuditLogger } from "@/utils/oauth/linking-audit";
 import {
@@ -24,23 +20,22 @@ const getAuthUrl = ({
   userId: string;
   reconnectTarget: { id: string; email: string } | null;
 }) => {
-  const googleAuth = getLinkingOAuth2Client();
   const stateNonce = randomUUID();
 
   const state = generateSignedOAuthState({
+    type: "account-linking",
+    provider: "google",
     userId,
     nonce: stateNonce,
     ...(reconnectTarget && { reconnectEmailAccountId: reconnectTarget.id }),
   });
 
-  const url = googleAuth.generateAuthUrl({
-    access_type: "offline",
-    scope: [...new Set([...SCOPES, "openid", "email"])].join(" "),
-    prompt: "consent",
+  const url = getAccountLinkingAuthorizationUrl({
+    provider: "google",
     state,
     // Reconnects target one mailbox, so point Google at it rather than letting
     // whichever account the browser is already signed into decide.
-    ...(reconnectTarget && { login_hint: reconnectTarget.email }),
+    loginHint: reconnectTarget?.email,
   });
 
   return { url, state, stateNonce };
@@ -48,9 +43,6 @@ const getAuthUrl = ({
 
 export const GET = withAuth("google/linking/auth-url", async (request) => {
   const userId = request.auth.userId;
-
-  const blockedResponse = getMailboxLinkingBlockedResponse(request);
-  if (blockedResponse) return blockedResponse;
 
   const hasActiveUser = await hasActiveAccountLinkingUser({
     targetUserId: userId,

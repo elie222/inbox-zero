@@ -14,95 +14,23 @@ export interface EvalModel {
   provider: string;
 }
 
+// Keep this to the models we actively ship on. Anything else can still be run
+// with a custom EVAL_MODELS JSON entry, so agents don't spend on it by default.
 export const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
-  "deepseek-v4-flash": {
-    provider: "openrouter",
-    model: "deepseek/deepseek-v4-flash",
-    label: "DeepSeek V4 Flash",
-  },
-  "gemini-3.8-flash": {
-    provider: "openrouter",
-    model: "google/gemini-3.8-flash",
-    label: "Gemini 3.8 Flash",
-  },
-  "gemini-3.1-flash-lite": {
-    provider: "openrouter",
-    model: "google/gemini-3.1-flash-lite",
-    label: "Gemini 3.1 Flash Lite",
-  },
-  "gemini-3-flash": {
-    provider: "openrouter",
-    model: "google/gemini-3-flash",
-    label: "Gemini 3 Flash",
-  },
-  "gemini-2.5-flash": {
-    provider: "openrouter",
-    model: "google/gemini-2.5-flash",
-    label: "Gemini 2.5 Flash",
-  },
-  "gpt-5.4-nano": {
-    provider: "openrouter",
-    model: "openai/gpt-5.4-nano",
-    label: "GPT-5.4 Nano",
-  },
-  "gpt-5.4-mini": {
-    provider: "openrouter",
-    model: "openai/gpt-5.4-mini",
-    label: "GPT-5.4 Mini",
-  },
   "gpt-6-luna": {
     provider: "openrouter",
     model: "openai/gpt-6-luna",
     label: "GPT-6 Luna",
-  },
-  "gpt-5.6-terra": {
-    provider: "openrouter",
-    model: "openai/gpt-5.6-terra",
-    label: "GPT-5.6 Terra",
-  },
-  "claude-sonnet-5": {
-    provider: "openrouter",
-    model: "anthropic/claude-sonnet-5",
-    label: "Claude Sonnet 5",
   },
   "claude-haiku-5.5": {
     provider: "openrouter",
     model: "anthropic/claude-haiku-5.5",
     label: "Claude Haiku 5.5",
   },
-  "claude-haiku-4.5": {
-    provider: "openrouter",
-    model: "anthropic/claude-haiku-4.5",
-    label: "Claude Haiku 4.5",
-  },
   "gpt-5.6-luna-azure": {
     provider: "azure-foundry",
     model: "gpt-5.6-luna",
     label: "GPT-5.6 Luna Azure",
-    includeInAll: false,
-  },
-  "gpt-5.6-terra-azure": {
-    provider: "azure-foundry",
-    model: "gpt-5.6-terra",
-    label: "GPT-5.6 Terra Azure",
-    includeInAll: false,
-  },
-  "deepseek-v4-pro-azure": {
-    provider: "azure-foundry",
-    model: "DeepSeek-V4-Pro",
-    label: "DeepSeek V4 Pro Azure",
-    includeInAll: false,
-  },
-  "deepseek-v4-flash-azure": {
-    provider: "azure-foundry",
-    model: "DeepSeek-V4-Flash",
-    label: "DeepSeek V4 Flash Azure",
-    includeInAll: false,
-  },
-  "ollama-gemma4-e2b": {
-    provider: "ollama",
-    model: "gemma4:e2b",
-    label: "Ollama Gemma 4 E2B",
     includeInAll: false,
   },
 };
@@ -112,9 +40,9 @@ export const EVAL_MODEL_CATALOG: Record<string, EvalModel> = {
  *
  * - Not set:                         single run with the default model from describeEvalMatrix
  * - EVAL_MODELS=all                  every model in the catalog
- * - EVAL_MODELS=gemini-2.5-flash     single model by shorthand
- * - EVAL_MODELS=gemini-2.5-flash,gpt-5.4-mini   comma-separated shorthand picks
- * - EVAL_MODELS=[{...}]             custom JSON array
+ * - EVAL_MODELS=gpt-6-luna           single model by shorthand
+ * - EVAL_MODELS=gpt-6-luna,claude-haiku-5.5   comma-separated shorthand picks
+ * - EVAL_MODELS=[{...}]             custom JSON array, for any other model
  */
 export function getEvalModels(): EvalModel[] {
   const envModels = process.env.EVAL_MODELS;
@@ -139,14 +67,15 @@ export function getEvalModels(): EvalModel[] {
     .filter(Boolean)
     .map((name) => {
       const preset = EVAL_MODEL_CATALOG[name];
+      // Throw rather than skip: an empty list falls back to the default
+      // model, which would spend on a run nobody asked for.
       if (!preset) {
-        console.warn(
-          `Unknown eval model shorthand: "${name}". Available: ${Object.keys(EVAL_MODEL_CATALOG).join(", ")}`,
+        throw new Error(
+          `Unknown eval model shorthand: "${name}". Available: ${Object.keys(EVAL_MODEL_CATALOG).join(", ")}. Use a JSON array for other models.`,
         );
       }
       return preset;
-    })
-    .filter((m): m is EvalModel => m != null);
+    });
 }
 
 export function getEmailAccountForModel(

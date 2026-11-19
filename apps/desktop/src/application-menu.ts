@@ -1,9 +1,9 @@
 import {
   app,
   type BaseWindow,
-  BrowserWindow,
   Menu,
   type MenuItemConstructorOptions,
+  type WebContents,
 } from "electron";
 
 const PRODUCT_NAME = "Inbox Zero";
@@ -11,6 +11,7 @@ const PRODUCT_NAME = "Inbox Zero";
 export function configureDesktopApplicationMenu({
   checkForUpdates,
   createWindow,
+  getActiveContents,
   openSettings,
   recordDiagnostics,
   updateReady = false,
@@ -19,6 +20,9 @@ export function configureDesktopApplicationMenu({
 }: {
   checkForUpdates: () => void;
   createWindow: () => void;
+  getActiveContents: (
+    window: BaseWindow | undefined,
+  ) => WebContents | undefined;
   openSettings: () => void;
   recordDiagnostics: () => void;
   updateReady?: boolean;
@@ -104,12 +108,14 @@ export function configureDesktopApplicationMenu({
         {
           label: "Back",
           accelerator: "CommandOrControl+[",
-          click: (_item, window) => navigationHistory(window)?.goBack(),
+          click: (_item, window) =>
+            getActiveContents(window)?.navigationHistory.goBack(),
         },
         {
           label: "Forward",
           accelerator: "CommandOrControl+]",
-          click: (_item, window) => navigationHistory(window)?.goForward(),
+          click: (_item, window) =>
+            getActiveContents(window)?.navigationHistory.goForward(),
         },
         { type: "separator" },
         { role: "reload" },
@@ -166,10 +172,4 @@ function updateMenuLabel(updateReady: boolean, downloadPercent: number | null) {
   if (updateReady) return "Restart to Update";
   if (downloadPercent === null) return "Check for Updates…";
   return `Downloading update… ${downloadPercent}%`;
-}
-
-function navigationHistory(window: BaseWindow | undefined) {
-  return window instanceof BrowserWindow
-    ? window.webContents.navigationHistory
-    : null;
 }

@@ -9,6 +9,7 @@ import prisma from "@/utils/prisma";
 import { ScheduledActionStatus } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
 import { withQstashOrInternal } from "@/utils/qstash";
+import { SafeError } from "@/utils/error";
 
 export const maxDuration = 300; // 5 minutes
 
@@ -139,7 +140,15 @@ export const POST = withError(
         return new Response("Action execution failed", { status: 500 });
       }
     } catch (error) {
-      logger.error("QStash scheduled action execution failed", { error });
+      // The account was disconnected after the action was scheduled. Retrying
+      // can't succeed, so it fails without asking QStash to retry.
+      const isDisconnected =
+        error instanceof SafeError && error.message === "No refresh token";
+      if (isDisconnected) {
+        logger.warn("Scheduled action account has no refresh token");
+      } else {
+        logger.error("QStash scheduled action execution failed", { error });
+      }
       if (executingAction) {
         await prisma.scheduledAction.update({
           where: { id: executingAction.id },
@@ -149,6 +158,9 @@ export const POST = withError(
           executingAction.executedRuleId,
           logger,
         );
+      }
+      if (isDisconnected) {
+        return new Response("Email account disconnected", { status: 200 });
       }
       return new Response("Internal server error", { status: 500 });
     }

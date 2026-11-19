@@ -1,5 +1,7 @@
 "use client";
 
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { DownloadIcon, UploadIcon } from "lucide-react";
@@ -21,6 +23,7 @@ export function RuleImportExportSetting({
 }: {
   emailAccountId: string;
 }) {
+  const { t } = useLingui();
   const { data, mutate } = useRules(emailAccountId);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,7 +63,7 @@ export function RuleImportExportSetting({
       }));
 
     if (exportData.length === 0) {
-      toastError({ description: "No personal rules to export." });
+      toastError({ description: t`No personal rules to export.` });
       return;
     }
 
@@ -76,8 +79,8 @@ export function RuleImportExportSetting({
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    toast.success("Rules exported successfully");
-  }, [data]);
+    toast.success(t`Rules exported successfully`);
+  }, [data, t]);
 
   const importRules = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,7 +93,7 @@ export function RuleImportExportSetting({
         const rulesArray = Array.isArray(rules) ? rules : rules.rules;
 
         if (!Array.isArray(rulesArray) || rulesArray.length === 0) {
-          toastError({ description: "Invalid rules file format" });
+          toastError({ description: t`Invalid rules file format` });
           return;
         }
 
@@ -100,21 +103,23 @@ export function RuleImportExportSetting({
 
         if (result?.serverError) {
           toastError({
-            title: "Import failed",
+            title: t`Import failed`,
             description: result.serverError,
           });
         } else if (result?.data) {
           const { createdCount, updatedCount, skippedCount } = result.data;
           toast.success(
-            `Imported ${createdCount} new, updated ${updatedCount} existing${skippedCount > 0 ? `, skipped ${skippedCount}` : ""}`,
+            skippedCount > 0
+              ? t`Imported ${plural(createdCount, { one: "# new", other: "# new" })}, updated ${plural(updatedCount, { one: "# existing", other: "# existing" })}, skipped ${plural(skippedCount, { one: "#", other: "#" })}`
+              : t`Imported ${plural(createdCount, { one: "# new", other: "# new" })}, updated ${plural(updatedCount, { one: "# existing", other: "# existing" })}`,
           );
           mutate();
         }
       } catch (error) {
         toastError({
-          title: "Import failed",
+          title: t`Import failed`,
           description:
-            error instanceof Error ? error.message : "Failed to parse file",
+            error instanceof Error ? error.message : t`Failed to parse file`,
         });
       }
 
@@ -122,7 +127,7 @@ export function RuleImportExportSetting({
         fileInputRef.current.value = "";
       }
     },
-    [emailAccountId, mutate],
+    [emailAccountId, mutate, t],
   );
 
   return (
@@ -130,7 +135,9 @@ export function RuleImportExportSetting({
       <ItemSeparator />
       <Item size="sm">
         <ItemContent>
-          <ItemTitle>Import / Export Rules</ItemTitle>
+          <ItemTitle>
+            <Trans>Import / Export Rules</Trans>
+          </ItemTitle>
         </ItemContent>
         <ItemActions>
           <input
@@ -139,7 +146,7 @@ export function RuleImportExportSetting({
             accept=".json"
             onChange={importRules}
             className="hidden"
-            aria-label="Import rules from JSON file"
+            aria-label={t`Import rules from JSON file`}
           />
           <Button
             size="sm"
@@ -147,7 +154,7 @@ export function RuleImportExportSetting({
             onClick={() => fileInputRef.current?.click()}
           >
             <UploadIcon className="mr-2 size-4" />
-            Import
+            <Trans>Import</Trans>
           </Button>
           <Button
             size="sm"
@@ -156,7 +163,7 @@ export function RuleImportExportSetting({
             disabled={!data?.length}
           >
             <DownloadIcon className="mr-2 size-4" />
-            Export
+            <Trans>Export</Trans>
           </Button>
         </ItemActions>
       </Item>

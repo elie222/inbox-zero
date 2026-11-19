@@ -39,13 +39,14 @@ export async function validateUserAndAiAccess({
   if (!emailAccount) throw new SafeError("User not found");
 
   const isUserPremium = isPremiumRecord(emailAccount.user.premium);
-  if (!isUserPremium) throw new SafeError("Please upgrade for AI access");
+  if (!isUserPremium) throw new SafeError("Please upgrade for AI access", 403);
 
   const userHasAiAccess = hasAiAccess(
     getUserTier(emailAccount.user.premium),
     !!emailAccount.user.aiApiKey,
   );
-  if (!userHasAiAccess) throw new SafeError("Please upgrade for AI access");
+  if (!userHasAiAccess)
+    throw new SafeError("Please upgrade for AI access", 403);
 
   return { emailAccount };
 }

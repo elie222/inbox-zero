@@ -17,6 +17,7 @@ export const ErrorType = {
   TRIAL_AI_LIMIT_REACHED: "Trial AI limit reached",
   ACCOUNT_DISCONNECTED: "Account disconnected",
   EMAIL_WATCH_LAPSED: "Email automation stopped",
+  MAILBOX_FULL: "Mailbox full",
   // Legacy keys kept for clearing old stored errors
   INCORRECT_OPENAI_API_KEY: "Incorrect OpenAI API key",
   OPENAI_API_KEY_DEACTIVATED: "OpenAI API key deactivated",
@@ -40,8 +41,12 @@ export type PersistedErrorType = Exclude<
 
 // A user can have several accounts, so EMAIL_WATCH_LAPSED is keyed per account
 // rather than per errorType.
-export function watchLapsedErrorKey(emailAccountId: string): string {
-  return `${ErrorType.EMAIL_WATCH_LAPSED}:${emailAccountId}`;
+export function watchLapsedErrorKey(emailAccountId: string) {
+  return `${ErrorType.EMAIL_WATCH_LAPSED}:${emailAccountId}` as const;
+}
+
+export function mailboxFullErrorKey(emailAccountId: string) {
+  return `${ErrorType.MAILBOX_FULL}:${emailAccountId}` as const;
 }
 
 export async function getUserErrorMessages(
@@ -79,7 +84,7 @@ export function getAccountRecoveryAction(emailAccountId: string) {
 
 export async function addUserErrorMessage(
   userId: string,
-  errorType: PersistedErrorType,
+  errorKey: PersistedErrorType | ReturnType<typeof mailboxFullErrorKey>,
   errorMessage: string,
   logger: Logger,
 ): Promise<void> {
@@ -93,7 +98,7 @@ export async function addUserErrorMessage(
 
   const newErrorMessages = {
     ...currentErrorMessages,
-    [errorType]: {
+    [errorKey]: {
       message: errorMessage,
       timestamp: new Date().toISOString(),
     },
@@ -195,7 +200,7 @@ export async function clearAccountDisconnectedErrorIfResolved({
 }
 
 // Callers must confirm the account's watch is healthy before calling this.
-export async function clearWatchLapsedErrorIfResolved({
+export async function clearWatchErrorsIfResolved({
   userId,
   emailAccountId,
   logger,
@@ -206,7 +211,10 @@ export async function clearWatchLapsedErrorIfResolved({
 }): Promise<void> {
   await clearSpecificErrorMessages({
     userId,
-    errorTypes: [watchLapsedErrorKey(emailAccountId)],
+    errorTypes: [
+      watchLapsedErrorKey(emailAccountId),
+      mailboxFullErrorKey(emailAccountId),
+    ],
     logger,
   });
 }
@@ -249,6 +257,11 @@ const errorTypeConfig: Record<
     label: "Email Automation Stopped",
     actionUrl: "/accounts",
     actionLabel: "Reconnect Account",
+  },
+  [ErrorType.MAILBOX_FULL]: {
+    label: "Mailbox Full",
+    actionUrl: "/accounts",
+    actionLabel: "Manage Accounts",
   },
   // Legacy keys — only needed so old stored errors can still render
   [ErrorType.INCORRECT_OPENAI_API_KEY]: {

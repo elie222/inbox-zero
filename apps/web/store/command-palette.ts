@@ -25,6 +25,7 @@ export type MailCommandContext = {
     moveToInbox?: () => void;
     forward?: () => void;
     label?: () => void;
+    addToSplit?: () => void;
     star?: () => void;
     markRead?: () => void;
     markSpam?: () => void;

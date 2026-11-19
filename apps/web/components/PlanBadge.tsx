@@ -1,3 +1,6 @@
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { CheckCircleIcon } from "lucide-react";
 import { capitalCase } from "capital-case";
 import { Badge, type Color } from "@/components/Badge";
@@ -12,10 +15,10 @@ import type {
   ExecutedAction,
   Rule,
 } from "@/generated/prisma/client";
-import { getEmailTerminology } from "@/utils/terminology";
+import { getEmailTerminologyMessages } from "@/utils/terminology-messages";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
-import { getIntegrationActionLabel } from "@/utils/mcp/tool-specs";
+import { getIntegrationActionLabelMessage } from "@/utils/mcp/tool-specs-messages";
 
 type PlanAction = ExecutedAction & {
   messagingChannel?: { provider: MessagingProvider } | null;
@@ -28,12 +31,17 @@ type Plan = Pick<ExecutedRule, "reason" | "status"> & {
 
 export function PlanBadge(props: { plan?: Plan; provider: string }) {
   const { plan, provider } = props;
+  const { i18n } = useLingui();
 
   // if (!plan) return <Badge color="gray">Not planned</Badge>;
   if (!plan) return null;
 
   if (!plan.rule) {
-    const component = <Badge color="yellow">No plan</Badge>;
+    const component = (
+      <Badge color="yellow">
+        <Trans>No plan</Trans>
+      </Badge>
+    );
 
     if (plan.reason) {
       return (
@@ -41,7 +49,10 @@ export function PlanBadge(props: { plan?: Plan; provider: string }) {
           className="w-80"
           content={
             <div className="max-w-full whitespace-pre-wrap text-sm">
-              <strong>Reason:</strong> {plan.reason}
+              <strong>
+                <Trans>Reason:</Trans>
+              </strong>{" "}
+              {plan.reason}
             </div>
           }
         >
@@ -69,7 +80,7 @@ export function PlanBadge(props: { plan?: Plan; provider: string }) {
                   color={getActionColor(action.type)}
                   className="whitespace-pre-wrap"
                 >
-                  {getActionMessage(action, provider)}
+                  {getActionMessage(action, provider, i18n)}
                 </Badge>
               </div>
             ))}
@@ -92,63 +103,76 @@ export function PlanBadge(props: { plan?: Plan; provider: string }) {
 function getActionLabel(
   type: ActionType,
   provider: string,
+  i18n: I18n,
   action?: PlanAction,
 ) {
-  const terminology = getEmailTerminology(provider);
+  const terminology = getEmailTerminologyMessages(provider);
 
   switch (type) {
     case ActionType.LABEL:
-      return terminology.label.action;
+      return i18n._(terminology.label.action);
     case ActionType.ARCHIVE:
-      return "Archive";
+      return i18n._(msg`Archive`);
     case ActionType.FORWARD:
-      return "Forward";
+      return i18n._(msg`Forward`);
     case ActionType.REPLY:
-      return "Reply";
+      return i18n._(msg`Reply`);
     case ActionType.SEND_EMAIL:
-      return "Send";
+      return i18n._(msg`Send`);
     case ActionType.DRAFT_EMAIL:
     case ActionType.DRAFT_MESSAGING_CHANNEL:
-      return "Draft";
+      return i18n._(msg`Draft`);
     case ActionType.CALL_WEBHOOK:
-      return "Webhook";
+      return i18n._(msg`Webhook`);
     case ActionType.MARK_SPAM:
-      return "Mark as spam";
+      return i18n._(msg`Mark as spam`);
     case ActionType.MARK_READ:
-      return "Mark as read";
+      return i18n._(msg`Mark as read`);
     case ActionType.STAR:
-      return "Star";
-    case ActionType.NOTIFY_MESSAGING_CHANNEL:
-      return action?.messagingChannel?.provider
-        ? `Notify on ${getMessagingProviderName(action.messagingChannel.provider)}`
-        : "Notify";
+      return i18n._(msg`Star`);
+    case ActionType.NOTIFY_MESSAGING_CHANNEL: {
+      if (!action?.messagingChannel?.provider) return i18n._(msg`Notify`);
+      const providerName = getMessagingProviderName(
+        action.messagingChannel.provider,
+      );
+      return i18n._(msg`Notify on ${providerName}`);
+    }
     case ActionType.NOTIFY_SENDER:
-      return "Notify Sender";
+      return i18n._(msg`Notify Sender`);
     case ActionType.INTEGRATION:
-      return getIntegrationActionLabel(action);
+      return i18n._(getIntegrationActionLabelMessage(action));
     default:
       return capitalCase(type);
   }
 }
 
-function getActionMessage(action: PlanAction, provider: string): string {
-  const terminology = getEmailTerminology(provider);
+function getActionMessage(
+  action: PlanAction,
+  provider: string,
+  i18n: I18n,
+): string {
+  const terminology = getEmailTerminologyMessages(provider);
 
   switch (action.type) {
     // biome-ignore lint/suspicious/noFallthroughSwitchClause: ignore
     case ActionType.LABEL:
-      if (action.label)
-        return `${terminology.label.singularCapitalized}: "${action.label}"`;
+      if (action.label) {
+        const labelTerm = i18n._(terminology.label.singularCapitalized);
+        const label = action.label;
+        return i18n._(msg`${labelTerm}: "${label}"`);
+      }
     case ActionType.REPLY:
     case ActionType.SEND_EMAIL:
     // biome-ignore lint/suspicious/noFallthroughSwitchClause: ignore
     case ActionType.FORWARD:
-      if (action.to)
-        return `${getActionLabel(action.type, provider, action)} to ${action.to}${
-          action.content ? `:\n${action.content}` : ""
-        }`;
+      if (action.to) {
+        const actionLabel = getActionLabel(action.type, provider, i18n, action);
+        const to = action.to;
+        const summary = i18n._(msg`${actionLabel} to ${to}`);
+        return `${summary}${action.content ? `:\n${action.content}` : ""}`;
+      }
     default:
-      return getActionLabel(action.type, provider, action);
+      return getActionLabel(action.type, provider, i18n, action);
   }
 }
 

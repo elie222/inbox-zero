@@ -8,21 +8,11 @@ import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { createGenerateObject } from "@/utils/llms";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
-const system = `You are an email history analysis agent. Your task is to analyze the provided historical email threads and extract relevant information that would be helpful for drafting a response to the current email thread.
+const system = `You are an email history analysis agent. From the historical email threads, extract only the context needed to reply to the current email thread: earlier details, commitments, dates or preferences that the current thread refers to or that a correct reply depends on.
 
-Your task:
-1. Analyze the historical email threads to understand relevant past context and interactions
-2. Identify key points, commitments, questions, and unresolved items from previous conversations
-3. Extract any relevant dates, deadlines, or time-sensitive information mentioned in past exchanges
-4. Note any specific preferences or communication patterns shown in previous exchanges
+Leave out everything else, including past topics that are still open but that the current thread does not raise. If nothing qualifies, set hasHistoricalContext to false and return an empty summary.
 
-Provide a concise summary (max 500 characters) that captures the most important historical context needed for drafting a response to the current thread. Focus on:
-- Key unresolved points or questions from past exchanges
-- Any commitments or promises made in previous conversations
-- Important dates or deadlines established in past emails
-- Notable preferences or patterns in communication
-
-Return your response in JSON format.`;
+Keep the summary under 500 characters. Return your response in JSON format.`;
 
 const getUserPrompt = ({
   currentThreadMessages,
@@ -47,16 +37,18 @@ ${getEmailListPrompt({ messages: historicalMessages, messageMaxLength: 10_000 })
 ${getUserInfoPrompt({ emailAccount })}
 
 ${getTodayForLLM()}
-Analyze the historical email threads and extract any relevant information that would be helpful for drafting a response to the current email thread. Provide a concise summary of the key historical context.`;
+Summarize only the historical context relevant to replying to the current email thread.`;
 
 const schema = z.object({
   hasHistoricalContext: z
     .preprocess(preprocessBooleanLike, z.boolean())
-    .describe("Whether there is any relevant historical context found."),
+    .describe(
+      "Whether the history contains context needed to reply to the current thread.",
+    ),
   summary: z
     .string()
     .describe(
-      "A concise summary of relevant historical context, including key points, commitments, deadlines, from past conversations.",
+      "Only the historical context needed to reply to the current thread. Empty if none.",
     ),
 });
 
@@ -104,7 +96,7 @@ export async function aiExtractFromEmailHistory({
       schema,
     });
 
-    return result.object.summary;
+    return result.object.hasHistoricalContext ? result.object.summary : null;
   } catch (error) {
     logger.error("Failed to extract information from email history", { error });
     return null;

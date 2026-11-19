@@ -12,6 +12,9 @@ vi.mock("@/utils/actions/rule", () => ({
   deleteRuleAction: vi.fn(),
   toggleRuleAction: vi.fn(),
 }));
+vi.mock("@/utils/actions/mail-split", () => ({
+  deleteMailSplitAction: vi.fn(),
+}));
 vi.mock("next-safe-action/hooks", () => ({
   useAction: vi.fn(),
 }));
@@ -40,10 +43,12 @@ describe("SearchInboxResult", () => {
   it("renders search failures inside the collapsible search card instead of a raw error card", () => {
     render(
       <SearchInboxResult
-        output={{
-          queryUsed: "from:sender@example.com",
-          error: "Failed to search inbox",
-        }}
+        outputs={[
+          {
+            queryUsed: "from:sender@example.com",
+            error: "Failed to search inbox",
+          },
+        ]}
       />,
     );
 
@@ -60,5 +65,21 @@ describe("SearchInboxResult", () => {
     ).toBeTruthy();
     expect(screen.getByText("Failed to search inbox")).toBeTruthy();
     expect(screen.getByText("from:sender@example.com")).toBeTruthy();
+  });
+
+  it("merges consecutive searches into one row that lists every query", () => {
+    render(
+      <SearchInboxResult
+        outputs={[
+          { queryUsed: "from:cursor.sh", messages: [] },
+          { queryUsed: "from:x.ai", messages: [] },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Search Inbox ×2"));
+
+    expect(screen.getByText("from:cursor.sh")).toBeTruthy();
+    expect(screen.getByText("from:x.ai")).toBeTruthy();
   });
 });

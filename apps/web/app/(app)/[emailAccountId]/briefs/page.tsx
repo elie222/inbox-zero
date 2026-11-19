@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { SettingCard } from "@/components/SettingCard";
@@ -30,6 +31,7 @@ export default function MeetingBriefsPage() {
 }
 
 function MeetingBriefsPageContent() {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const analytics = useProductAnalytics("meeting_briefs");
   const { data: calendarsData, isLoading: isLoadingCalendars } = useCalendars();
@@ -43,11 +45,11 @@ function MeetingBriefsPageContent() {
     {
       onSuccess: () => {
         analytics.captureAction("meeting_briefs_enabled_saved");
-        toastSuccess({ description: "Settings saved!" });
+        toastSuccess({ description: t`Settings saved!` });
         mutate();
       },
       onError: () => {
-        toastError({ description: "Failed to save settings" });
+        toastError({ description: t`Failed to save settings` });
       },
     },
   );
@@ -80,7 +82,7 @@ function MeetingBriefsPageContent() {
 
   return (
     <PageWrapper>
-      <PageHeader title="Meeting Briefs" />
+      <PageHeader title={t`Meeting Briefs`} />
 
       <div className="mt-4 space-y-4 max-w-3xl">
         <PremiumAlertWithData />
@@ -88,8 +90,8 @@ function MeetingBriefsPageContent() {
         <LoadingContent loading={isLoading} error={error}>
           <div className="space-y-2">
             <SettingCard
-              title="Enable Meeting Briefs"
-              description="Receive email briefings before meetings with external guests"
+              title={t`Enable Meeting Briefs`}
+              description={t`Receive email briefings before meetings with external guests`}
               right={
                 <Toggle
                   name="enabled"
@@ -108,8 +110,8 @@ function MeetingBriefsPageContent() {
             {!!data?.enabled && (
               <>
                 <SettingCard
-                  title="Send briefing before meeting"
-                  description="How long before the meeting to send the briefing"
+                  title={t`Send briefing before meeting`}
+                  description={t`How long before the meeting to send the briefing`}
                   collapseOnMobile
                   right={
                     <TimeDurationSetting

@@ -17,12 +17,10 @@ import {
 } from "@/utils/redis/gmail-history-catch-up";
 import { handleLabelRemovedEvent } from "@/utils/webhook/google/process-label-removed-event";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
-import {
-  findRuleByLabelId,
-  saveClassificationFeedback,
-} from "@/utils/rule/classification-feedback";
+import { saveClassificationFeedback } from "@/utils/rule/classification-feedback";
 import { SystemType } from "@/generated/prisma/enums";
 import type { EmailProvider } from "@/utils/email/types";
+import { captureException, SafeError } from "@/utils/error";
 
 const logger = createTestLogger();
 
@@ -46,6 +44,7 @@ vi.mock("@/utils/prisma", () => ({
     },
     $executeRaw: vi.fn().mockResolvedValue(1),
     classificationFeedback: { count: vi.fn().mockResolvedValue(0) },
+    executedRule: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
 
@@ -85,7 +84,6 @@ vi.mock("@/utils/rule/learned-patterns", () => ({
 }));
 
 vi.mock("@/utils/rule/classification-feedback", () => ({
-  findRuleByLabelId: vi.fn(),
   saveClassificationFeedback: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -214,10 +212,19 @@ describe("processHistoryForUser - 404 Handling", () => {
         hasAiAccess: true,
       },
     } as any);
-    vi.mocked(findRuleByLabelId).mockResolvedValue({
-      id: "rule-newsletter",
-      systemType: SystemType.NEWSLETTER,
-    });
+    vi.mocked(prisma.executedRule.findMany).mockResolvedValue([
+      {
+        status: "APPLIED",
+        rule: {
+          id: "rule-newsletter",
+          systemType: SystemType.NEWSLETTER,
+          actions: [],
+        },
+        actionItems: [
+          { labelId: "label-newsletter", label: null, executionStatus: null },
+        ],
+      },
+    ] as any);
 
     let feedbackCount = 0;
     vi.mocked(saveClassificationFeedback).mockImplementation(async () => {
@@ -709,6 +716,36 @@ describe("processHistoryForUser - authentication failures", () => {
     );
 
     expect(cleanupInvalidTokens).toHaveBeenCalledOnce();
+    expect(await response.json()).toEqual({ ok: true });
+  });
+
+  it.each([
+    new SafeError("No refresh token"),
+    new Error("invalid_grant"),
+  ])("stops processing the remaining history once the account loses its credentials (%s)", async (error) => {
+    vi.mocked(getGmailHistoryCatchUp).mockResolvedValueOnce("catch-up-token");
+    vi.mocked(getHistory).mockResolvedValueOnce({
+      history: [1100, 1200, 1300].map((id) => ({
+        id: String(id),
+        messagesAdded: [
+          {
+            message: { id: `m${id}`, threadId: `t${id}`, labelIds: ["INBOX"] },
+          },
+        ],
+      })),
+    } as any);
+    vi.mocked(processHistoryItem).mockRejectedValue(error);
+
+    const response = await processHistoryForUser(
+      { emailAddress: "user@example.com", historyId: 1300 },
+      {},
+      logger,
+    );
+
+    expect(processHistoryItem).toHaveBeenCalledOnce();
+    expect(captureException).not.toHaveBeenCalled();
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
+    expect(clearGmailHistoryCatchUp).not.toHaveBeenCalled();
     expect(await response.json()).toEqual({ ok: true });
   });
 

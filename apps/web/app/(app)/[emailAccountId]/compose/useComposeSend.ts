@@ -1,10 +1,16 @@
 import type { EmailEditorHandle } from "@inboxzero/email-editor/web";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import { type RefObject, useCallback, useRef, useState } from "react";
 import type { SubmitHandler } from "react-hook-form";
 import { useSWRConfig } from "swr";
 import type { ScopedMutator } from "swr";
-import { threadScheduledEmailsKey } from "@/components/email-list/ThreadDeliveryStatus";
+import type { ScheduledEmailsResponse } from "@/app/api/user/scheduled-emails/route";
+import {
+  threadScheduledEmailsKey,
+  UNCONFIRMED_SCHEDULED_EMAIL_PREFIX,
+} from "@/components/email-list/ThreadDeliveryStatus";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import {
@@ -13,7 +19,7 @@ import {
 } from "@/hooks/useHiddenDraftMessageIds";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
-import { prepareOutgoingInlineImages } from "@/utils/email/outgoing-inline-images";
+import { publishOutgoingInlineImages } from "@/utils/email/outgoing-inline-images";
 import { getActionErrorMessage } from "@/utils/error";
 import {
   getDraftSessionMessageIds,
@@ -32,7 +38,10 @@ import {
   resolveComposeRecipientFields,
 } from "./compose-recipients";
 import { parseDeliveryTimes } from "./delivery-times";
-import { waitForDraftOperations } from "./draft-operation-queue";
+import {
+  hasPendingDraftOperations,
+  waitForDraftOperations,
+} from "./draft-operation-queue";
 import type { createInitialComposeContent } from "./initial-compose-content";
 import {
   queueReaderEmail,
@@ -41,6 +50,7 @@ import {
 } from "./queued-reply";
 import { getReplyToEmailPayload } from "./reply-to-email-payload";
 import { resolveSendDraftId } from "./send-draft-reference";
+import { getComposeErrorMessage } from "./compose-error-messages";
 import {
   getEditableText,
   getSendWarnings,
@@ -105,6 +115,7 @@ export function useComposeSend({
   onClose?: (queuedOperationId?: string) => void;
   onRestore?: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId } = useAccount();
   const { showEmail } = useDisplayedEmail();
   const { mutate } = useSWRConfig();
@@ -153,19 +164,20 @@ export function useComposeSend({
         pendingRecipients: pendingRecipientsRef.current,
       });
       if (!recipients.to) {
-        toastError({ description: "Enter a valid recipient email address." });
+        toastError({ description: t`Enter a valid recipient email address.` });
         return;
       }
 
       // Files go to the mailbox draft as they are attached, so a send waits
       // for them and never carries their bytes itself.
-      await waitForDraftOperations(draftQueueKey);
+      if (attachmentsRef.current.length)
+        await waitForDraftOperations(draftQueueKey);
       const failedAttachment = attachmentsRef.current.find(
         (attachment) => attachment.status !== "uploaded",
       );
       if (failedAttachment) {
         toastError({
-          description: `${failedAttachment.filename} isn't attached. Remove it or attach it again before sending.`,
+          description: t`${failedAttachment.filename} isn't attached. Remove it or attach it again before sending.`,
         });
         return;
       }
@@ -200,7 +212,7 @@ export function useComposeSend({
 
       const deliveryTimes = parseDeliveryTimes(sendAt, remindAt);
       if (!deliveryTimes.valid) {
-        setSubmissionError(deliveryTimes.error);
+        setSubmissionError(i18n._(deliveryTimes.error));
         return;
       }
 
@@ -217,26 +229,100 @@ export function useComposeSend({
         }
       }
       setSubmissionError("");
-      await stopProviderAutosave();
+      // Read once: whether to wait for the draft and whether to hold for undo
+      // must agree.
+      const online = navigator.onLine;
+      // A draft save already on its way to the mailbox would hold Send for a
+      // round trip. Instead the send carries its own content, and once it is
+      // delivered the server removes the session's draft, even one that save
+      // creates afterwards. Sending through the draft would let the late save
+      // overwrite the final text (specs/compose-send.qnt).
+      const replacesSavingDraft =
+        hasPendingDraftOperations(draftQueueKey) &&
+        attachmentsRef.current.length === 0 &&
+        !providerDraftMessageId &&
+        Boolean(localDraftIdentity) &&
+        online &&
+        !sendAt &&
+        !remindAt &&
+        deliveryPath.current !== "scheduled";
+      const draftSaveSettled = stopProviderAutosave().then(() =>
+        waitForDraftOperations(draftQueueKey),
+      );
+      // Scheduling is confirmed by the server, so the composer closes and the
+      // thread shows it being scheduled at once; a refusal reopens it.
+      const schedulesAtOnce =
+        Boolean(deliveryTimes.sendAt) &&
+        (isInlineReply
+          ? deliveryPath.current !== "outbox"
+          : canScheduleDelivery);
+      const scheduledThreadId = replyingToEmail?.threadId ?? null;
+      let withdrawSchedule = () => {};
+      let sessionDraftIds: string[] = [];
+      if (schedulesAtOnce) {
+        // The reply's mailbox draft would otherwise show in the thread until
+        // the server confirms; the ids are read from this device.
+        sessionDraftIds = providerDraftMessageId
+          ? getDraftSessionMessageIds(
+              selectedEmailAccountId,
+              providerDraftMessageId,
+            )
+          : localDraftIdentity
+            ? ((await getReplyDraft(localDraftIdentity))?.content
+                ?.providerDraftMessageIds ?? [])
+            : [];
+        const showSessionDrafts = hideSendingDraftMessages(
+          selectedEmailAccountId,
+          sessionDraftIds,
+        );
+        const withdrawRow = showScheduledEmail(
+          mutate,
+          selectedEmailAccountId,
+          scheduledThreadId,
+          {
+            id: `${UNCONFIRMED_SCHEDULED_EMAIL_PREFIX}${requestId}`,
+            sendAt: deliveryTimes.sendAt,
+            remindAt: deliveryTimes.remindAt,
+          },
+        );
+        withdrawSchedule = () => {
+          withdrawRow();
+          showSessionDrafts();
+        };
+        if (!scheduledThreadId)
+          toastSuccess({ description: t`Email scheduled.` });
+        onClose?.();
+      }
+      const failSchedule = (description: string) => {
+        withdrawSchedule();
+        setSubmissionError(description);
+        if (!schedulesAtOnce) return;
+        toastError({ description });
+        onRestore?.();
+      };
+      if (!replacesSavingDraft) await draftSaveSettled;
       let deliveryAccepted = false;
       try {
         // Autosave can replace a draft's message ID; its provider draft ID survives.
-        enrichedData.providerDraftId = await resolveSendDraftId(
-          providerDraftId.current,
-          localDraftIdentity,
-        );
+        if (replacesSavingDraft)
+          enrichedData.replacesDraftOfSession = requestId;
+        enrichedData.providerDraftId = replacesSavingDraft
+          ? undefined
+          : await resolveSendDraftId(
+              providerDraftId.current,
+              localDraftIdentity,
+            );
         // The mailbox draft is what carries the files to the recipient.
         if (attachmentsRef.current.length && !enrichedData.providerDraftId) {
-          toastError({
-            description:
-              "Could not find this draft in your mailbox to send its attachments. Reopen it and try again.",
-          });
+          const description = t`Could not find this draft in your mailbox to send its attachments. Reopen it and try again.`;
+          if (schedulesAtOnce) failSchedule(description);
+          else toastError({ description });
           return;
         }
         if (isInlineReply) {
           if (deliveryPath.current === "outbox" && (sendAt || remindAt)) {
             setSubmissionError(
-              "This reply was already submitted to the outbox. Check its delivery status before scheduling a new reply.",
+              t`This reply was already submitted to the outbox. Check its delivery status before scheduling a new reply.`,
             );
             return;
           }
@@ -256,8 +342,19 @@ export function useComposeSend({
         const isScheduled = isInlineReply
           ? deliveryPath.current === "scheduled"
           : canScheduleDelivery && Boolean(sendAt || remindAt);
+        if (schedulesAtOnce) {
+          // A save that finished meanwhile may have added a draft message.
+          const showLaterDrafts = hideSendingDraftMessages(
+            selectedEmailAccountId,
+            draftMessageIds.filter((id) => !sessionDraftIds.includes(id)),
+          );
+          const withdrawEarlier = withdrawSchedule;
+          withdrawSchedule = () => {
+            withdrawEarlier();
+            showLaterDrafts();
+          };
+        }
         if (isScheduled) {
-          const scheduledThreadId = replyingToEmail?.threadId ?? null;
           const result = await scheduleEmailAction(selectedEmailAccountId, {
             clientMutationId: requestId,
             threadId: scheduledThreadId,
@@ -268,11 +365,11 @@ export function useComposeSend({
             remindAt: deliveryTimes.remindAt,
           });
           if (!result?.data) {
-            setSubmissionError(
+            failSchedule(
               getActionErrorMessage(result ?? {}, {
                 prefix: scheduledThreadId
-                  ? "Could not schedule this reply"
-                  : "Could not schedule this email",
+                  ? t`Could not schedule this reply`
+                  : t`Could not schedule this email`,
               }),
             );
             return;
@@ -283,8 +380,7 @@ export function useComposeSend({
             await clearLocalDraft();
           } catch {
             toastError({
-              description:
-                "Reply scheduled, but its local draft copy could not be cleared.",
+              description: t`Reply scheduled, but its local draft copy could not be cleared.`,
             });
           }
           if (markDoneAfterSend) onMarkDone?.();
@@ -297,10 +393,11 @@ export function useComposeSend({
             selectedEmailAccountId,
             scheduledThreadId,
           );
-          if (!scheduledThreadId) {
-            toastSuccess({ description: "Email scheduled." });
+          if (!schedulesAtOnce) {
+            if (!scheduledThreadId)
+              toastSuccess({ description: t`Email scheduled.` });
+            onClose?.();
           }
-          onClose?.();
           refetch?.();
           return;
         }
@@ -312,24 +409,26 @@ export function useComposeSend({
           (isInlineReply ? draftKeyMessageId : replyingToEmail?.messageId) ??
           localDraftIdentity?.messageId ??
           requestId;
-        const online = navigator.onLine;
         if (!client) {
           setSubmissionError(
-            "Mail is still starting. Try sending again in a moment.",
+            t`Mail is still starting. Try sending again in a moment.`,
           );
           toastError({
-            description:
-              "Mail is still starting. Try sending again in a moment.",
+            description: t`Mail is still starting. Try sending again in a moment.`,
           });
           return;
         }
         let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
-        let showDraftAgain = () => {};
+        let showSentDrafts = () => {};
+        let showSavedDraft = () => {};
+        let draftShownAgain = false;
+        const showDraftAgain = () => {
+          draftShownAgain = true;
+          showSentDrafts();
+          showSavedDraft();
+        };
         try {
-          const publishInlineImages = await prepareOutgoingInlineImages(
-            selectedEmailAccountId,
-            attachmentsRef.current,
-          );
+          const attachments = attachmentsRef.current;
           outcome = await queueReaderEmail({
             client,
             email: enrichedData,
@@ -338,21 +437,41 @@ export function useComposeSend({
             holdForUndo: online,
             messageIds: isNewCompose ? [] : [readerMessageId],
             providerDraftMessageIds: draftMessageIds,
-            attachments: attachmentsRef.current.flatMap(toAttachmentReference),
+            attachments: attachments.flatMap(toAttachmentReference),
             online,
             threadId: readerThreadId,
             onSubmitting: (operationId) => {
-              publishInlineImages(operationId);
+              publishOutgoingInlineImages(
+                selectedEmailAccountId,
+                operationId,
+                attachments,
+              );
               return onSubmitting?.(operationId) ?? (() => {});
             },
             onQueued: async (operationId) => {
               deliveryAccepted = true;
-              showDraftAgain = hideSendingDraftMessages(
+              showSentDrafts = hideSendingDraftMessages(
                 selectedEmailAccountId,
                 draftMessageIds,
               );
+              if (replacesSavingDraft && localDraftIdentity) {
+                // The save may give the draft a message the send has not seen.
+                draftSaveSettled
+                  .then(() => getReplyDraft(localDraftIdentity))
+                  .then((saved) => {
+                    // An undo before the save landed already handed it back.
+                    if (draftShownAgain) return;
+                    showSavedDraft = hideSendingDraftMessages(
+                      selectedEmailAccountId,
+                      (saved?.content?.providerDraftMessageIds ?? []).filter(
+                        (id) => !draftMessageIds.includes(id),
+                      ),
+                    );
+                  })
+                  .catch(() => {});
+              }
               if (replyingToEmail?.threadId?.trim()) {
-                await mutate([
+                mutate([
                   "thread-deliveries",
                   selectedEmailAccountId,
                   readerThreadId,
@@ -364,10 +483,11 @@ export function useComposeSend({
         } catch (error) {
           // biome-ignore lint/suspicious/noConsole: send failures stay visible in the browser console
           console.error(error);
-          const description =
-            error instanceof Error
-              ? error.message
-              : "Could not confirm this reply was queued. Check the thread delivery status before retrying.";
+          const description = getComposeErrorMessage(
+            error,
+            i18n,
+            t`Could not confirm this reply was queued. Check the thread delivery status before retrying.`,
+          );
           showDraftAgain();
           setSubmissionError(description);
           toastError({ description });
@@ -380,13 +500,14 @@ export function useComposeSend({
           } catch {
             toastError({
               description: isInlineReply
-                ? "Reply queued, but its local draft copy could not be cleared."
-                : "Email queued, but its local draft copy could not be cleared.",
+                ? t`Reply queued, but its local draft copy could not be cleared.`
+                : t`Email queued, but its local draft copy could not be cleared.`,
             });
           }
         };
         if (outcome.status === "held") {
           beginUndoSend({
+            i18n,
             client,
             operationId: outcome.mutationId,
             emailAccountId: selectedEmailAccountId,
@@ -413,6 +534,7 @@ export function useComposeSend({
                       ),
                     }
                   : { sent: false },
+                i18n,
               );
               if (settled.status === "cancelled" || settled.status === "failed")
                 showDraftAgain();
@@ -425,19 +547,20 @@ export function useComposeSend({
                 return;
               }
               if (settled.status === "failed" && settled.ownsNotification) {
-                toastError({ description: settled.error });
+                toastError({
+                  description: getComposeErrorMessage(settled.error, i18n),
+                });
               } else if (
                 settled.status === "uncertain" &&
                 settled.ownsNotification
               ) {
                 toastError({
-                  description:
-                    "This reply may have been sent. Check Sent before retrying.",
+                  description: t`This reply may have been sent. Check Sent before retrying.`,
                 });
               }
             })
             .catch(() =>
-              finishUndoSendToast(outcome.mutationId, { sent: false }),
+              finishUndoSendToast(outcome.mutationId, { sent: false }, i18n),
             );
           return;
         }
@@ -451,9 +574,9 @@ export function useComposeSend({
               outcome.threadId,
             );
             toastSuccess({
-              description: "Email sent!",
+              description: t`Email sent!`,
               action: viewSentEmail
-                ? { label: "View", onClick: viewSentEmail }
+                ? { label: t`View`, onClick: viewSentEmail }
                 : undefined,
             });
           }
@@ -463,28 +586,35 @@ export function useComposeSend({
         } else if (outcome.status === "queued") {
           if (!isInlineReply)
             toastSuccess({
-              description: getQueuedEmailDescription(outcome.reason),
+              description: i18n._(getQueuedEmailDescription(outcome.reason)),
             });
           if (markDoneAfterSend) onMarkDone?.();
           onClose?.();
         } else if (outcome.status === "uncertain") {
           if (outcome.ownsNotification) {
             toastError({
-              description:
-                "This reply may have been sent. Check Sent before retrying.",
+              description: t`This reply may have been sent. Check Sent before retrying.`,
             });
           }
           onClose?.();
         } else if (outcome.status === "failed" && outcome.ownsNotification) {
-          toastError({ description: outcome.error });
+          toastError({
+            description: getComposeErrorMessage(outcome.error, i18n),
+          });
         }
       } catch (error) {
         // biome-ignore lint/suspicious/noConsole: send failures stay visible in the browser console
         console.error(error);
+        if (schedulesAtOnce) {
+          failSchedule(
+            t`Could not schedule this email. Check the thread status before trying again.`,
+          );
+          return;
+        }
         setSubmissionError(
-          "Could not confirm delivery. Check the thread status before trying again.",
+          t`Could not confirm delivery. Check the thread status before trying again.`,
         );
-        toastError({ description: "There was an error sending the email :(" });
+        toastError({ description: t`There was an error sending the email :(` });
       } finally {
         if (!deliveryAccepted) resumeProviderAutosave();
       }
@@ -529,6 +659,8 @@ export function useComposeSend({
       pendingRecipientsRef,
       sendAndMarkDoneButtonRef,
       setSubmissionError,
+      t,
+      i18n,
     ],
   );
 
@@ -550,12 +682,12 @@ function getQueuedEmailDescription(
   reason: "offline" | "pending" | "blocked_auth",
 ) {
   if (reason === "offline") {
-    return "Email queued. It will send when you're back online.";
+    return msg`Email queued. It will send when you're back online.`;
   }
   if (reason === "blocked_auth") {
-    return "Email queued. Reconnect this account to send it.";
+    return msg`Email queued. Reconnect this account to send it.`;
   }
-  return "Email queued and will keep sending in the background.";
+  return msg`Email queued and will keep sending in the background.`;
 }
 
 /**
@@ -573,4 +705,47 @@ async function refreshScheduledEmails(
     ...(threadId ? [threadScheduledEmailsKey(emailAccountId, threadId)] : []),
   ];
   await Promise.all(keys.map((key) => mutate(key).catch(() => {})));
+}
+
+/**
+ * Shows a scheduled email in its thread before the server confirms it. The
+ * server's row replaces it on the next refresh; the returned function takes
+ * it back out if scheduling fails.
+ */
+function showScheduledEmail(
+  mutate: ScopedMutator,
+  emailAccountId: string,
+  threadId: string | null,
+  pending: { id: string; sendAt: string | null; remindAt: string | null },
+) {
+  if (!threadId || !pending.sendAt) return () => {};
+  const key = threadScheduledEmailsKey(emailAccountId, threadId);
+  const row: ScheduledEmailsResponse["scheduledEmails"][number] = {
+    id: pending.id,
+    status: "PENDING",
+    sendAt: new Date(pending.sendAt),
+    remindAt: pending.remindAt ? new Date(pending.remindAt) : null,
+    reminderStatus: pending.remindAt ? "PENDING" : "NONE",
+    sentAt: null,
+    error: null,
+    draftMessageIds: [],
+  };
+  mutate<ScheduledEmailsResponse>(
+    key,
+    (current) => ({
+      scheduledEmails: [row, ...(current?.scheduledEmails ?? [])],
+    }),
+    { revalidate: false },
+  );
+  return () => {
+    mutate<ScheduledEmailsResponse>(
+      key,
+      (current) => ({
+        scheduledEmails: (current?.scheduledEmails ?? []).filter(
+          (scheduled) => scheduled.id !== row.id,
+        ),
+      }),
+      { revalidate: false },
+    );
+  };
 }

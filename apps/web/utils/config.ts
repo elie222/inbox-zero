@@ -5,6 +5,7 @@ export const EMAIL_ACCOUNT_ID_REQUIRED_ERROR = "Email account ID is required";
 
 export const NO_REFRESH_TOKEN_ERROR_CODE = "NO_REFRESH_TOKEN";
 export const MICROSOFT_AUTH_EXPIRED_ERROR_CODE = "MICROSOFT_AUTH_EXPIRED";
+export const CHAT_ACCOUNT_MISMATCH_ERROR_CODE = "CHAT_ACCOUNT_MISMATCH";
 
 export const userMinCount = "25,000";
 export const userCount = `${userMinCount}+`;

@@ -96,6 +96,41 @@ describe("setup port selection", () => {
 });
 
 describe("start/update port conflicts", () => {
+  it("resolves duplicate free ports without suggesting configured or repeated ports", async () => {
+    const conflicts = await findBusyPorts({
+      WEB_PORT: "3000",
+      POSTGRES_PORT: "3000",
+      REDIS_PORT: "3000",
+      REDIS_HTTP_PORT: "3001",
+    });
+
+    expect(conflicts).toEqual([
+      {
+        key: "POSTGRES_PORT",
+        label: "PostgreSQL",
+        port: 3000,
+        suggestedPort: 3002,
+      },
+      {
+        key: "REDIS_PORT",
+        label: "Redis TCP",
+        port: 3000,
+        suggestedPort: 3003,
+      },
+    ]);
+  });
+
+  it("accepts distinct free configured ports", async () => {
+    expect(
+      await findBusyPorts({
+        WEB_PORT: "3000",
+        POSTGRES_PORT: "3001",
+        REDIS_PORT: "3002",
+        REDIS_HTTP_PORT: "3003",
+      }),
+    ).toEqual([]);
+  });
+
   it.each([
     "stdin",
     "stdout",

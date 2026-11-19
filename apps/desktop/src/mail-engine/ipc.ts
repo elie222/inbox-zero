@@ -36,6 +36,11 @@ export async function dispatchMailIpc(engine: MailEngine, payload: unknown) {
         status: "ok" as const,
         result: await engine.readDraft(request.payload),
       };
+    case "listDrafts":
+      return {
+        status: "ok" as const,
+        result: await engine.listDrafts(request.payload.accountId),
+      };
     case "submitSend":
       return {
         status: "ok" as const,

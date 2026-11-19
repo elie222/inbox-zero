@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { useCallback, useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
@@ -40,6 +41,7 @@ import { createSearchParams } from "@/utils/url";
 export function useUnsubscribeSender(
   message: Pick<ParsedMessage, "headers" | "threadId"> | null,
 ) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
   const { PremiumModal, openModal } = usePremiumModal();
@@ -111,7 +113,9 @@ export function useUnsubscribeSender(
 
     setIsUpdatingAutoArchive(true);
     const toastId = toast.loading(
-      `${isAutoArchived ? "Disabling" : "Enabling"} auto archive for ${senderName}`,
+      isAutoArchived
+        ? t`Disabling auto archive for ${senderName}`
+        : t`Enabling auto archive for ${senderName}`,
     );
 
     try {
@@ -128,7 +132,9 @@ export function useUnsubscribeSender(
     } catch (error) {
       captureException(error);
       toast.error(
-        `Couldn't ${isAutoArchived ? "disable" : "enable"} auto archive for ${senderName}`,
+        isAutoArchived
+          ? t`Couldn't disable auto archive for ${senderName}`
+          : t`Couldn't enable auto archive for ${senderName}`,
         { id: toastId },
       );
       return;
@@ -137,13 +143,16 @@ export function useUnsubscribeSender(
     }
 
     if (isAutoArchived) {
-      toast.success(`Future emails from ${senderName} will stay in the inbox`, {
-        id: toastId,
-      });
+      toast.success(
+        t`Future emails from ${senderName} will stay in the inbox`,
+        {
+          id: toastId,
+        },
+      );
       return;
     }
 
-    toast.success(`Future emails from ${senderName} will be archived`, {
+    toast.success(t`Future emails from ${senderName} will be archived`, {
       id: toastId,
     });
 
@@ -166,6 +175,7 @@ export function useUnsubscribeSender(
     refetchPremium,
     senderEmail,
     senderName,
+    t,
   ]);
 
   const onUnsubscribe = useCallback(async () => {
@@ -196,12 +206,12 @@ export function useUnsubscribeSender(
       return;
     }
 
-    const toastId = toast.loading(`Unsubscribing from ${senderName}`);
+    const toastId = toast.loading(t`Unsubscribing from ${senderName}`);
     const failed = () =>
-      toast.error(`Couldn't unsubscribe from ${senderName}`, {
+      toast.error(t`Couldn't unsubscribe from ${senderName}`, {
         id: toastId,
         action: {
-          label: "Open page",
+          label: t`Open page`,
           onClick: () => openUnsubscribePage(manualLink),
         },
       });
@@ -221,7 +231,7 @@ export function useUnsubscribeSender(
       return;
     }
 
-    toast.success(`Unsubscribed from ${senderName}`, { id: toastId });
+    toast.success(t`Unsubscribed from ${senderName}`, { id: toastId });
 
     queueArchiveSenders({ senders: [senderEmail] }).catch(() => {});
 
@@ -248,6 +258,7 @@ export function useUnsubscribeSender(
     unsubscribeLink,
     userFacingLink,
     queueArchiveSenders,
+    t,
   ]);
 
   return {
@@ -256,10 +267,11 @@ export function useUnsubscribeSender(
       (isSenderStatsLoading && !httpLink) ||
       (!canUnsubscribe && (isAutoArchiveStatusLoading || isAutoArchived)),
     unsubscribeLabel: canUnsubscribe
-      ? "Unsubscribe from sender"
+      ? t`Unsubscribe`
       : isAutoArchived
-        ? "Sender blocked"
-        : "Block sender",
+        ? t`Sender blocked`
+        : t`Block sender`,
+    canUnsubscribe,
     canManageAutoArchive: Boolean(senderEmail),
     isAutoArchived,
     isAutoArchiveStatusLoading,

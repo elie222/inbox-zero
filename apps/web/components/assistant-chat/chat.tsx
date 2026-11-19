@@ -3,12 +3,19 @@
 import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AlertCircleIcon,
+  ClockIcon,
   HistoryIcon,
   Loader2,
+  MailIcon,
   PaperclipIcon,
   PlusIcon,
+  WrenchIcon,
   XIcon,
 } from "lucide-react";
+import type { I18n } from "@lingui/core";
+import { msg, plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Messages } from "./messages";
 import { PreviewAttachment } from "./preview-attachment";
 import { Button } from "@/components/ui/button";
@@ -21,7 +28,7 @@ import {
 import { useChats } from "@/hooks/useChats";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
-import { useChat } from "@/providers/ChatProvider";
+import { QueuedMessageNotSentError, useChat } from "@/providers/ChatProvider";
 import type { Attachment } from "@/providers/ChatProvider";
 import {
   PromptInput,
@@ -31,7 +38,6 @@ import {
 import { useSession } from "@/utils/auth-client";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
-import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { ChatHistoryItem } from "@/components/assistant-chat/ChatHistoryItem";
 import {
@@ -41,6 +47,8 @@ import {
 import { RenameChatDialog } from "@/components/assistant-chat/RenameChatDialog";
 import { DeleteChatDialog } from "@/components/assistant-chat/DeleteChatDialog";
 import { randomUuid } from "@/utils/uuid";
+import { extractNameFromEmail } from "@/utils/email";
+import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
 import { VoiceInput } from "@/components/voice/VoiceInput";
 import { liveHistoryFromUiMessages } from "@/utils/voice/live-history";
 
@@ -60,12 +68,14 @@ export function Chat({
   open: boolean;
   onClose?: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const analytics = useProductAnalytics("assistant_chat");
   const {
     chat,
     chatId,
     input,
     persistedMessageIds,
+    sendError,
     setInput,
     handleSubmit,
     setNewChat,
@@ -74,6 +84,9 @@ export function Chat({
     attachments,
     setAttachments,
     submitTextMessage,
+    queuedMessage,
+    sendQueuedMessageNow,
+    unqueueMessage,
     stop,
   } = useChat();
   const { messages, status, regenerate, setMessages } = chat;
@@ -182,24 +195,46 @@ export function Chat({
   const { data: session } = useSession();
   const firstName = session?.user?.name?.split(" ")[0];
   const hasMessages = messages.length > 0;
-  const hasContent =
-    input.trim().length > 0 || attachments.length > 0 || !!context;
+  const hasContent = input.trim().length > 0 || attachments.length > 0;
+  const isRunActive = status === "streaming" || status === "submitted";
 
   const inputArea = (
     <PromptInput
       onSubmit={(e) => {
         e.preventDefault();
-        if (hasContent && (status === "ready" || status === "error")) {
+        if (hasContent) {
           analytics.captureAction("chat_message_submitted", {
             has_text: input.trim().length > 0,
             attachment_count: attachments.length,
             has_context: Boolean(context),
             message_count: messages.length,
+            queued: isRunActive,
           });
           handleSubmit();
         }
       }}
     >
+      {sendError ? (
+        <ChatSendError
+          message={sendError.message}
+          onNewChat={sendError.offerNewChat ? setNewChat : undefined}
+        />
+      ) : null}
+      {queuedMessage ? (
+        <QueuedMessageChip
+          message={queuedMessage}
+          onSendNow={() => {
+            analytics.captureAction("chat_queued_message_sent_now", {
+              status,
+            });
+            sendQueuedMessageNow();
+          }}
+          onRemove={unqueueMessage}
+        />
+      ) : null}
+      {context ? (
+        <ChatContextChip context={context} onRemove={() => setContext(null)} />
+      ) : null}
       {(attachments.length > 0 || uploadQueue.length > 0) && (
         <div className="flex gap-2 overflow-x-auto p-2 pb-0">
           {attachments.map((attachment) => (
@@ -224,7 +259,7 @@ export function Chat({
       <PromptInputTextarea
         data-testid="chat-input"
         value={input}
-        placeholder="Ask me anything"
+        placeholder={t`Ask me anything`}
         onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
           setInput(e.currentTarget.value)
         }
@@ -257,15 +292,21 @@ export function Chat({
               message_count: messages.length,
               via_voice: true,
             });
-            submitTextMessage(text).catch(() => undefined);
+            // A dictated message has no draft, so keep it for a retry.
+            submitTextMessage(text).catch((error: unknown) => {
+              if (error instanceof QueuedMessageNotSentError) return;
+              setInput((current) =>
+                current.trim() ? `${text}\n\n${current}` : text,
+              );
+            });
           }}
         />
-        <Tooltip content="Attach images">
+        <Tooltip content={t`Attach images`}>
           <Button
             type="button"
             variant="ghostMuted"
             size="icon"
-            aria-label="Attach images"
+            aria-label={t`Attach images`}
             className="size-9 rounded-full"
             onClick={() => {
               analytics.captureAction("chat_attach_button_clicked", {
@@ -279,23 +320,22 @@ export function Chat({
           </Button>
         </Tooltip>
 
+        {/* While a reply runs, typing turns stop into send, which queues. */}
         <PromptInputSubmit
-          status={
-            status === "streaming"
-              ? "streaming"
-              : status === "submitted"
-                ? "submitted"
-                : "ready"
+          status={isRunActive && !hasContent ? status : "ready"}
+          aria-label={
+            isRunActive && !hasContent ? t`Stop response` : t`Send message`
           }
-          disabled={
-            status === "ready" || status === "error" ? !hasContent : false
-          }
+          disabled={!isRunActive && !hasContent}
           onClick={(e) => {
-            if (status === "streaming" || status === "submitted") {
+            if (isRunActive && !hasContent) {
               analytics.captureAction("chat_generation_stopped", {
                 status,
               });
               e.preventDefault();
+              // A stop means "not that", so the queued message comes back
+              // for editing instead of going out.
+              unqueueMessage();
               stop();
               setMessages((messages) => messages);
             }
@@ -324,22 +364,20 @@ export function Chat({
           setMessages={setMessages}
           setInput={setInput}
           regenerate={regenerate}
-          context={context}
-          setContext={setContext}
           inputArea={inputArea}
         />
       ) : (
         <NewChatView
-          firstName={firstName}
+          greeting={context ? null : getGreeting(firstName, i18n)}
+          suggestions={
+            context ? [] : CHAT_EXAMPLES.map((example) => i18n._(example))
+          }
           inputArea={inputArea}
-          onSuggestionClick={(text) => {
+          onSuggestionClick={(text, index) => {
             analytics.captureAction("chat_suggestion_clicked", {
-              suggestion_index: CHAT_EXAMPLES.indexOf(text),
+              suggestion_index: index,
             });
-            chat.sendMessage({
-              role: "user",
-              parts: [{ type: "text", text }],
-            });
+            submitTextMessage(text).catch(() => undefined);
             saveDraftInput("");
           }}
         />
@@ -355,8 +393,6 @@ function ChatMessagesView({
   setMessages,
   setInput,
   regenerate,
-  context,
-  setContext,
   inputArea,
 }: {
   status: UseChatHelpers<ChatMessage>["status"];
@@ -365,8 +401,6 @@ function ChatMessagesView({
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   setInput: (input: string) => void;
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
-  context: MessageContext | null;
-  setContext: (context: MessageContext | null) => void;
   inputArea: React.ReactNode;
 }) {
   return (
@@ -382,22 +416,6 @@ function ChatMessagesView({
         isArtifactVisible={false}
         footer={
           <>
-            {context ? (
-              <div className="mb-2 flex items-center gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-                  Fix: {context.message.headers.subject.slice(0, 60)}
-                  {context.message.headers.subject.length > 60 ? "..." : ""}
-                  <button
-                    type="button"
-                    aria-label="Remove context"
-                    className="ml-1 rounded p-0.5 hover:bg-muted-foreground/10"
-                    onClick={() => setContext(null)}
-                  >
-                    ×
-                  </button>
-                </span>
-              </div>
-            ) : null}
             <div className="relative z-10">{inputArea}</div>
             <div className="absolute w-full bottom-0 h-20 bg-background pointer-events-none" />
           </>
@@ -408,35 +426,39 @@ function ChatMessagesView({
 }
 
 const CHAT_EXAMPLES = [
-  "Help me handle my inbox today",
-  "Clean up my inbox",
-  "Suggest rules I should add",
+  msg`Help me handle my inbox today`,
+  msg`Clean up my inbox`,
+  msg`Suggest rules I should add`,
 ];
 
 function NewChatView({
-  firstName,
+  greeting,
+  suggestions,
   inputArea,
   onSuggestionClick,
 }: {
-  firstName: string | undefined;
+  greeting: string | null;
+  suggestions: string[];
   inputArea: React.ReactNode;
-  onSuggestionClick: (text: string) => void;
+  onSuggestionClick: (text: string, index: number) => void;
 }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-[var(--chat-px)]">
       <div className="w-full max-w-[var(--chat-max-w)]">
-        <h1 className="mb-6 text-center text-2xl sm:text-3xl md:text-4xl font-extralight tracking-tight">
-          {getGreeting(firstName)}
-        </h1>
+        {greeting ? (
+          <h1 className="mb-6 text-center text-2xl sm:text-3xl md:text-4xl font-extralight tracking-tight">
+            {greeting}
+          </h1>
+        ) : null}
         {inputArea}
         <div className="mt-3 flex flex-wrap justify-center gap-2">
-          {CHAT_EXAMPLES.map((example) => (
+          {suggestions.map((example, index) => (
             <Button
               key={example}
               variant="outline"
               size="sm"
               className="rounded-full"
-              onClick={() => onSuggestionClick(example)}
+              onClick={() => onSuggestionClick(example, index)}
             >
               {example}
             </Button>
@@ -466,27 +488,32 @@ function ChatTopBar({
 }
 
 function NewChatButton() {
+  const { t } = useLingui();
   const { setNewChat } = useChat();
 
   return (
-    <Tooltip content="Start a new conversation">
+    <Tooltip content={t`Start a new conversation`}>
       <Button variant="ghost" size="icon" onClick={setNewChat}>
         <PlusIcon className="size-5" />
-        <span className="sr-only">New Chat</span>
+        <span className="sr-only">
+          <Trans>New Chat</Trans>
+        </span>
       </Button>
     </Tooltip>
   );
 }
 
 function CloseChatButton({ onClose }: { onClose: () => void }) {
+  const { t } = useLingui();
+
   return (
-    <Tooltip content="Close assistant">
+    <Tooltip content={t`Close assistant`}>
       <Button
         type="button"
         variant="ghost"
         size="icon"
         onClick={onClose}
-        aria-label="Close assistant"
+        aria-label={t`Close assistant`}
       >
         <XIcon className="size-5" aria-hidden="true" />
       </Button>
@@ -495,6 +522,7 @@ function CloseChatButton({ onClose }: { onClose: () => void }) {
 }
 
 function ChatHistoryDropdown() {
+  const { t, i18n } = useLingui();
   const [shouldLoadChats, setShouldLoadChats] = useState(false);
   const [open, setOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<ChatHistoryEntry | null>(
@@ -515,7 +543,7 @@ function ChatHistoryDropdown() {
           if (value) setShouldLoadChats(true);
         }}
       >
-        <Tooltip content="View previous conversations">
+        <Tooltip content={t`View previous conversations`}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
@@ -527,7 +555,9 @@ function ChatHistoryDropdown() {
               }}
             >
               <HistoryIcon className="size-5" />
-              <span className="sr-only">Chat History</span>
+              <span className="sr-only">
+                <Trans>Chat History</Trans>
+              </span>
             </Button>
           </DropdownMenuTrigger>
         </Tooltip>
@@ -541,11 +571,13 @@ function ChatHistoryDropdown() {
                 className="flex items-center justify-center"
               >
                 <Loader2 className="mr-2 size-4 animate-spin" />
-                Loading chats...
+                <Trans>Loading chats...</Trans>
               </DropdownMenuItem>
             }
             errorComponent={
-              <DropdownMenuItem disabled>Error loading chats</DropdownMenuItem>
+              <DropdownMenuItem disabled>
+                <Trans>Error loading chats</Trans>
+              </DropdownMenuItem>
             }
           >
             {data && data.chats.length > 0 ? (
@@ -569,7 +601,7 @@ function ChatHistoryDropdown() {
               ))
             ) : (
               <DropdownMenuItem disabled>
-                No previous chats found
+                <Trans>No previous chats found</Trans>
               </DropdownMenuItem>
             )}
           </LoadingContent>
@@ -583,7 +615,9 @@ function ChatHistoryDropdown() {
         }}
         chatId={renameTarget?.id ?? ""}
         currentName={renameTarget?.name ?? ""}
-        defaultLabel={renameTarget ? getChatHistoryLabel(renameTarget) : ""}
+        defaultLabel={
+          renameTarget ? getChatHistoryLabel(renameTarget, i18n) : ""
+        }
         onRenamed={mutate}
       />
       <DeleteChatDialog
@@ -592,7 +626,7 @@ function ChatHistoryDropdown() {
           if (!value) setDeleteTarget(null);
         }}
         chatId={deleteTarget?.id ?? ""}
-        label={deleteTarget ? getChatHistoryLabel(deleteTarget) : ""}
+        label={deleteTarget ? getChatHistoryLabel(deleteTarget, i18n) : ""}
         onDeleted={() => {
           if (deleteTarget && chatId === deleteTarget.id) setChatId(null);
           mutate();
@@ -602,13 +636,154 @@ function ChatHistoryDropdown() {
   );
 }
 
-function getGreeting(firstName: string | undefined): string {
+function ChatSendError({
+  message,
+  onNewChat,
+}: {
+  message: string;
+  onNewChat?: () => void;
+}) {
+  return (
+    <div className="px-2 pt-2">
+      <div
+        role="alert"
+        data-testid="chat-send-error"
+        className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-2.5 py-1.5 text-sm text-destructive"
+      >
+        <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+        <span className="min-w-0 flex-1">{message}</span>
+        {onNewChat ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="h-auto shrink-0 px-1.5 py-0.5 text-destructive hover:text-destructive"
+            onClick={onNewChat}
+          >
+            <Trans>New chat</Trans>
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function QueuedMessageChip({
+  message,
+  onSendNow,
+  onRemove,
+}: {
+  message: { text: string; attachments: Attachment[] };
+  onSendNow: () => void;
+  onRemove: () => void;
+}) {
+  const { t } = useLingui();
+  const attachmentCount = message.attachments.length;
+
+  return (
+    <div className="px-2 pt-2">
+      <div
+        data-testid="chat-queued-message"
+        className="flex max-w-full items-center gap-2.5 rounded-lg border border-dashed bg-muted/40 py-1.5 pl-2.5 pr-1"
+      >
+        <ClockIcon className="size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="truncate text-sm">
+            {message.text ||
+              t`${plural(attachmentCount, {
+                one: "# image",
+                other: "# images",
+              })}`}
+          </div>
+          <div className="truncate text-xs text-muted-foreground">
+            <Trans>Sends when the assistant finishes</Trans>
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          className="shrink-0"
+          onClick={onSendNow}
+        >
+          <Trans>Send now</Trans>
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="iconXs"
+          aria-label={t`Remove queued message`}
+          className="shrink-0 text-muted-foreground"
+          onClick={onRemove}
+        >
+          <XIcon className="size-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ChatContextChip({
+  context,
+  onRemove,
+}: {
+  context: MessageContext;
+  onRemove: () => void;
+}) {
+  const { t } = useLingui();
+  const { subject, from } = context.message.headers;
+  const Icon = context.type === "fix-rule" ? WrenchIcon : MailIcon;
+
+  return (
+    <div className="px-2 pt-2">
+      <div
+        data-testid="chat-context-card"
+        className="flex max-w-full items-center gap-2.5 rounded-lg border bg-muted/40 py-1.5 pl-2.5 pr-1"
+      >
+        <Icon className="size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="truncate text-sm font-medium">
+            {subject || t`(no subject)`}
+          </div>
+          <div className="truncate text-xs text-muted-foreground">
+            {extractNameFromEmail(from)}
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="iconXs"
+          aria-label={t`Remove email from chat`}
+          className="shrink-0 text-muted-foreground"
+          onClick={onRemove}
+        >
+          <XIcon className="size-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function getGreeting(firstName: string | undefined, i18n: I18n): string {
   const hour = new Date().getHours();
-  const name = firstName ? `, ${firstName}` : "";
-  if (hour < 5) return `Hey there${name}`;
-  if (hour < 12) return `Good morning${name}`;
-  if (hour < 18) return `Good afternoon${name}`;
-  return `Good evening${name}`;
+  if (hour < 5) {
+    return firstName
+      ? i18n._(msg`Hey there, ${firstName}`)
+      : i18n._(msg`Hey there`);
+  }
+  if (hour < 12) {
+    return firstName
+      ? i18n._(msg`Good morning, ${firstName}`)
+      : i18n._(msg`Good morning`);
+  }
+  if (hour < 18) {
+    return firstName
+      ? i18n._(msg`Good afternoon, ${firstName}`)
+      : i18n._(msg`Good afternoon`);
+  }
+  return firstName
+    ? i18n._(msg`Good evening, ${firstName}`)
+    : i18n._(msg`Good evening`);
 }
 
 const DRAFT_INPUT_STORAGE_KEY = "input";

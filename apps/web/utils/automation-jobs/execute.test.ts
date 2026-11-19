@@ -13,6 +13,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { getAutomationJobMessage } from "@/utils/automation-jobs/message";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import { executeAutomationJobRun } from "@/utils/automation-jobs/execute";
+import { SafeError } from "@/utils/error";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/premium", () => ({
@@ -105,6 +106,30 @@ describe("executeAutomationJobRun", () => {
       data: expect.objectContaining({
         status: AutomationJobRunStatus.SKIPPED,
         error: "Scheduled check-in destination is not configured",
+      }),
+    });
+  });
+
+  it("skips the run when the email account has been disconnected", async () => {
+    prisma.automationJobRun.findUnique.mockResolvedValue(
+      createRun({ routes: [createScheduledRoute()] }),
+    );
+    mockCreateEmailProvider.mockRejectedValue(
+      new SafeError("No refresh token"),
+    );
+
+    const response = await executeAutomationJobRun({
+      automationJobRunId: "run-1",
+      logger,
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockSendAutomationMessage).not.toHaveBeenCalled();
+    expect(prisma.automationJobRun.update).toHaveBeenCalledWith({
+      where: { id: "run-1" },
+      data: expect.objectContaining({
+        status: AutomationJobRunStatus.SKIPPED,
+        error: "Email account needs to be reconnected",
       }),
     });
   });

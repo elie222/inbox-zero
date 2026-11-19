@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import Image from "next/image";
 import { CheckIcon, PenIcon, XIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
@@ -18,6 +19,8 @@ export function StepDraft({
   provider: string;
   onNext: () => void;
 }) {
+  const { t } = useLingui();
+
   const onSetDraftReplies = useCallback(
     async (value: string) => {
       const result = await enableDraftRepliesAction(emailAccountId, {
@@ -26,13 +29,13 @@ export function StepDraft({
 
       if (result?.serverError) {
         toastError({
-          description: `There was an error: ${result.serverError || ""}`,
+          description: t`There was an error: ${result.serverError || ""}`,
         });
       }
 
       onNext();
     },
-    [onNext, emailAccountId],
+    [onNext, emailAccountId, t],
   );
 
   return (
@@ -44,24 +47,28 @@ export function StepDraft({
           </IconCircle>
 
           <div className="text-center mt-4">
-            <PageHeading>Should we draft replies for you?</PageHeading>
+            <PageHeading>
+              <Trans>Should we draft replies for you?</Trans>
+            </PageHeading>
             <TypographyP className="mt-2 max-w-lg mx-auto">
-              The drafts will appear in your inbox, written in your tone.
-              <br />
-              Our AI learns from your previous conversations to draft the best
-              reply.
+              <Trans>
+                The drafts will appear in your inbox, written in your tone.
+                <br />
+                Our AI learns from your previous conversations to draft the best
+                reply.
+              </Trans>
             </TypographyP>
           </div>
 
           <div className="mt-4 grid gap-2">
             <OnboardingButton
-              text="Yes, please"
+              text={t`Yes, please`}
               icon={<CheckIcon className="size-4" />}
               onClick={() => onSetDraftReplies("yes")}
             />
 
             <OnboardingButton
-              text="No, thanks"
+              text={t`No, thanks`}
               icon={<XIcon className="size-4" />}
               onClick={() => onSetDraftReplies("no")}
             />
@@ -73,7 +80,7 @@ export function StepDraft({
         <div className="rounded-2xl p-4 bg-slate-50 dark:bg-background border border-border">
           <Image
             src="/images/onboarding/draft.png"
-            alt="Draft replies"
+            alt={t`Draft replies`}
             width={1200}
             height={800}
             className="rounded-xl border border-border"

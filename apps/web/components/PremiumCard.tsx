@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { XIcon, CreditCardIcon, AlertTriangleIcon } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
 import { useUser } from "@/hooks/useUser";
 import { env } from "@/env";
 import { isPremiumRecord } from "@/utils/premium";
@@ -12,6 +13,7 @@ import { cn } from "@/utils";
 import { HoverCard } from "@/components/HoverCard";
 import { MutedText } from "@/components/Typography";
 import type { PremiumTier } from "@/generated/prisma/enums";
+import type { SidebarCard } from "@/components/sidebar-cards/SidebarCardStack";
 
 interface PremiumData {
   appleExpiresAt?: Date | string | null;
@@ -34,24 +36,19 @@ export function PremiumExpiredCardContent({
   onDismiss,
   isCollapsed = false,
 }: PremiumExpiredCardProps & { isCollapsed?: boolean }) {
+  const { t } = useLingui();
   const lemonSqueezyRenewsAt = premium?.lemonSqueezyRenewsAt
     ? typeof premium.lemonSqueezyRenewsAt === "string"
       ? new Date(premium.lemonSqueezyRenewsAt)
       : premium.lemonSqueezyRenewsAt
     : null;
 
-  const isUserPremium = isPremiumRecord(premium);
-
-  // Self-hosters running with NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS already have
-  // every premium feature enabled — hasAiAccess and friends short-circuit to
-  // true — so prompting them to upgrade is misleading. They have no premium
-  // record, so the isPremiumRecord check alone never hides this.
-  if (isUserPremium || env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return null;
+  if (!shouldShowPremiumCard(premium)) return null;
 
   const getSubscriptionMessage = () => {
     const UPGRADE_MESSAGE = {
-      title: "Upgrade to Premium",
-      description: "Upgrade to Premium to enable your AI email assistant.",
+      title: t`Upgrade to Premium`,
+      description: t`Upgrade to Premium to enable your AI email assistant.`,
     };
 
     if (!premium) {
@@ -70,50 +67,50 @@ export function PremiumExpiredCardContent({
 
     if (!premium || hasNoSubscription) {
       return {
-        title: "Upgrade to Premium",
-        description: "Upgrade to Premium to enable your AI email assistant.",
+        title: t`Upgrade to Premium`,
+        description: t`Upgrade to Premium to enable your AI email assistant.`,
       };
     }
 
     if (status === "past_due") {
       return {
-        title: "Payment Past Due",
-        description: "Update your payment method to continue service",
+        title: t`Payment Past Due`,
+        description: t`Update your payment method to continue service`,
       };
     }
 
     if (status === "canceled" || status === "cancelled") {
       return {
-        title: "Subscription Cancelled",
-        description: "Reactivate to resume AI email management",
+        title: t`Subscription Cancelled`,
+        description: t`Reactivate to resume AI email management`,
       };
     }
 
     if (status === "incomplete" || status === "incomplete_expired") {
       return {
-        title: "Payment Incomplete",
-        description: "Complete your payment to activate service",
+        title: t`Payment Incomplete`,
+        description: t`Complete your payment to activate service`,
       };
     }
 
     if (status === "unpaid") {
       return {
-        title: "Payment Required",
-        description: "Update payment to continue AI features",
+        title: t`Payment Required`,
+        description: t`Update payment to continue AI features`,
       };
     }
 
     if (hasLemonSqueezyExpired || status === "expired") {
       return {
-        title: "Subscription Expired",
-        description: "Renew your subscription to continue",
+        title: t`Subscription Expired`,
+        description: t`Renew your subscription to continue`,
       };
     }
 
     // Default fallback
     return {
-      title: "Subscription Issue",
-      description: "Please check your subscription status",
+      title: t`Subscription Issue`,
+      description: t`Please check your subscription status`,
     };
   };
 
@@ -125,7 +122,7 @@ export function PremiumExpiredCardContent({
       !premium.stripeSubscriptionId &&
       !premium.lemonSqueezySubscriptionId);
 
-  const buttonText = isNewUser ? "Upgrade" : "Reactivate";
+  const buttonText = isNewUser ? t`Upgrade` : t`Reactivate`;
   const buttonHref = isNewUser ? "/premium" : "/settings";
 
   // When collapsed, show only the alert icon with a hover card
@@ -156,6 +153,7 @@ export function PremiumExpiredCardContent({
         }
       >
         <Link
+          aria-label={title}
           href={buttonHref}
           className="flex items-center justify-center p-2 rounded-lg bg-orange-100 hover:bg-orange-200 transition-colors dark:bg-orange-900/30 dark:hover:bg-orange-900/50"
         >
@@ -189,7 +187,7 @@ export function PremiumExpiredCardContent({
               type="button"
               className="flex-shrink-0 rounded p-1 text-orange-600 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-300 transition-colors dark:text-orange-400 dark:hover:bg-orange-900/20 dark:focus:ring-orange-700"
               onClick={onDismiss}
-              aria-label="Dismiss banner"
+              aria-label={t`Dismiss banner`}
             >
               <XIcon className="h-3 w-3" />
             </button>
@@ -216,23 +214,31 @@ export function PremiumExpiredCardContent({
   );
 }
 
-export function PremiumCard({
-  isCollapsed = false,
-}: {
-  isCollapsed?: boolean;
-}) {
+export function usePremiumSidebarCard(): SidebarCard | null {
   const [dismissed, setDismissed] = useState(false);
   const { data: user, isLoading } = useUser();
 
-  if (isLoading || dismissed || !user) return null;
+  if (isLoading || dismissed || !user || !shouldShowPremiumCard(user.premium))
+    return null;
 
-  return (
-    <div className={cn("px-3 pt-4", isCollapsed && "flex justify-center")}>
+  return {
+    id: "premium",
+    content: (
       <PremiumExpiredCardContent
         premium={user.premium}
-        onDismiss={isCollapsed ? undefined : () => setDismissed(true)}
-        isCollapsed={isCollapsed}
+        onDismiss={() => setDismissed(true)}
       />
-    </div>
-  );
+    ),
+    collapsedContent: (
+      <PremiumExpiredCardContent premium={user.premium} isCollapsed />
+    ),
+  };
+}
+
+// Self-hosters running with NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS already have
+// every premium feature enabled — hasAiAccess and friends short-circuit to
+// true — so prompting them to upgrade is misleading. They have no premium
+// record, so the isPremiumRecord check alone never hides this.
+function shouldShowPremiumCard(premium: PremiumData | null | undefined) {
+  return !isPremiumRecord(premium) && !env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS;
 }

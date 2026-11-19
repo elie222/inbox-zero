@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import type { ThreadMessage } from "@/components/email-list/types";
 import {
   extractEmailAddress,
@@ -15,21 +16,22 @@ export function EmailDetails({
   /** Shown after the date, such as the control that hides these details. */
   children?: React.ReactNode;
 }) {
+  const { t, i18n } = useLingui();
   const headers = message.headers;
 
   const details = [
-    { label: "From", value: headers?.from },
-    { label: "To", value: headers?.to },
-    { label: "Cc", value: headers?.cc },
-    { label: "Bcc", value: headers?.bcc },
+    { key: "from", label: t`From`, value: headers?.from },
+    { key: "to", label: t`To`, value: headers?.to },
+    { key: "cc", label: t`Cc`, value: headers?.cc },
+    { key: "bcc", label: t`Bcc`, value: headers?.bcc },
   ];
 
   return (
     <span className="grid grid-cols-[3rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-left text-sm leading-6">
       {details.map(
-        ({ label, value }) =>
+        ({ key, label, value }) =>
           value && (
-            <span key={label} className="contents">
+            <span key={key} className="contents">
               <span className="text-muted-foreground">{label}</span>
               <span className="break-words">
                 {splitRecipientList(value).map((recipient, index) => (
@@ -43,7 +45,7 @@ export function EmailDetails({
           ),
       )}
       <span className="col-span-full flex items-center gap-2 text-muted-foreground">
-        {new Date(headers?.date ?? message.date).toLocaleString(undefined, {
+        {new Date(headers?.date ?? message.date).toLocaleString(i18n.locale, {
           dateStyle: "full",
           timeStyle: "short",
         })}

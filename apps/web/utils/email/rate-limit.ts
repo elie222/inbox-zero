@@ -303,6 +303,32 @@ export function getProviderRateLimitDelayMs({
   return getMicrosoftRateLimitDelayMs(error, attemptNumber);
 }
 
+/** Seconds until the provider should accept requests again, for a Retry-After header. */
+export function getProviderRateLimitRetryAfterSeconds({
+  error,
+  provider,
+}: {
+  error: unknown;
+  provider: string | null | undefined;
+}): number | undefined {
+  const rateLimitProvider = toRateLimitProvider(provider);
+  let delayMs: number | null = null;
+  if (isProviderRateLimitModeError(error)) {
+    delayMs = error.retryAt
+      ? new Date(error.retryAt).getTime() - Date.now()
+      : null;
+  } else if (rateLimitProvider) {
+    delayMs = getProviderRateLimitDelayMs({
+      error,
+      provider: rateLimitProvider,
+      attemptNumber: 1,
+    });
+  }
+
+  if (!delayMs || delayMs <= 0) return;
+  return Math.ceil(delayMs / 1000);
+}
+
 function getGoogleRateLimitDelayMs(error: unknown, attemptNumber: number) {
   return calculateProviderRateLimitDelay({
     error,

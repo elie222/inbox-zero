@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { subDays } from "date-fns/subDays";
@@ -81,34 +84,34 @@ import {
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
 const filterOptions: {
-  label: string;
+  label: MessageDescriptor;
   value: NewsletterFilterType;
   icon: React.ReactNode;
   separatorAfter?: boolean;
 }[] = [
   {
-    label: "To review",
+    label: msg`To review`,
     value: "unhandled",
     icon: <InboxIcon className="size-4" />,
   },
   {
-    label: "All senders",
+    label: msg`All senders`,
     value: "all",
     icon: <ListIcon className="size-4" />,
     separatorAfter: true,
   },
   {
-    label: "Unsubscribed",
+    label: msg`Unsubscribed`,
     value: "unsubscribed",
     icon: <MailXIcon className="size-4" />,
   },
   {
-    label: "Auto-archived",
+    label: msg`Auto-archived`,
     value: "autoArchived",
     icon: <ArchiveIcon className="size-4" />,
   },
   {
-    label: "Kept",
+    label: msg`Kept`,
     value: "approved",
     icon: <ThumbsUpIcon className="size-4" />,
   },
@@ -124,6 +127,7 @@ const selectOptions = [
 const defaultSelected = selectOptions[2];
 
 export function BulkUnsubscribe() {
+  const { t, i18n } = useLingui();
   const [dateDropdown, setDateDropdown] = useState<string>(
     defaultSelected.label,
   );
@@ -155,7 +159,7 @@ export function BulkUnsubscribe() {
   const { isLoading: isStatsLoaderLoading, onLoad } = useStatLoader();
   const refreshInterval = isStatsLoaderLoading ? 5000 : 1_000_000;
   useEffect(() => {
-    onLoad({ loadBefore: false, showToast: false });
+    onLoad({ loadBefore: false, showToast: false }).catch(() => undefined);
   }, [onLoad]);
 
   const { emailAccountId, userEmail } = useAccount();
@@ -397,11 +401,11 @@ export function BulkUnsubscribe() {
     <PageWrapper>
       <div className="flex items-start justify-between gap-4">
         <PageHeader
-          title="Bulk Unsubscriber"
+          title={t`Bulk Unsubscriber`}
           video={{
-            title: "Getting started with Bulk Unsubscribe",
+            title: t`Getting started with Bulk Unsubscribe`,
             description: (
-              <>
+              <Trans>
                 Learn how to quickly bulk unsubscribe from and archive unwanted
                 emails. You can read more in our{" "}
                 <TextLink
@@ -412,7 +416,7 @@ export function BulkUnsubscribe() {
                   help center
                 </TextLink>
                 .
-              </>
+              </Trans>
             ),
             muxPlaybackId: "qxP8P5aKm7k7I01seCEMP1ZepHQAmdKCcW02x1fM7xQm00",
           }}
@@ -423,10 +427,8 @@ export function BulkUnsubscribe() {
       <DismissibleVideoCard
         className="my-4"
         icon={<ArchiveIcon className="size-5" />}
-        title="Getting started with Bulk Unsubscribe"
-        description={
-          "Learn how to use the Bulk Unsubscribe to unsubscribe from and archive unwanted emails."
-        }
+        title={t`Getting started with Bulk Unsubscribe`}
+        description={t`Learn how to use the Bulk Unsubscribe to unsubscribe from and archive unwanted emails.`}
         muxPlaybackId="qxP8P5aKm7k7I01seCEMP1ZepHQAmdKCcW02x1fM7xQm00"
         storageKey="bulk-unsubscribe-onboarding-video"
         videoAnalytics={{
@@ -445,7 +447,9 @@ export function BulkUnsubscribe() {
             >
               <span className="flex items-center">
                 {selectedFilter?.icon}
-                <span className="ml-2">{selectedFilter?.label ?? "All"}</span>
+                <span className="ml-2">
+                  {selectedFilter ? i18n._(selectedFilter.label) : t`All`}
+                </span>
               </span>
               <ChevronDown className="ml-2 h-4 w-4 text-gray-400" />
             </Button>
@@ -459,7 +463,7 @@ export function BulkUnsubscribe() {
                 >
                   <span className="flex items-center gap-2">
                     {option.icon}
-                    {option.label}
+                    {i18n._(option.label)}
                   </span>
                   {filter === option.value && (
                     <CheckIcon className="h-4 w-4 text-primary" />
@@ -479,7 +483,7 @@ export function BulkUnsubscribe() {
                   }}
                   onSelect={(event) => event.preventDefault()}
                 >
-                  Include senders without an unsubscribe link
+                  <Trans>Include senders without an unsubscribe link</Trans>
                 </DropdownMenuCheckboxItem>
               </>
             )}
@@ -507,16 +511,27 @@ export function BulkUnsubscribe() {
                 >
                   <SparklesIcon className="size-4 text-amber-500" />
                   <span className="ml-2">
-                    {isSuggestedMode ? "Showing" : "Select"}{" "}
-                    {suggestedRows.length} suggested
+                    {isSuggestedMode ? (
+                      <Plural
+                        value={suggestedRows.length}
+                        one="Showing # suggested"
+                        other="Showing # suggested"
+                      />
+                    ) : (
+                      <Plural
+                        value={suggestedRows.length}
+                        one="Select # suggested"
+                        other="Select # suggested"
+                      />
+                    )}
                   </span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
                 <p className="max-w-xs">
                   {isSuggestedMode
-                    ? "Click to show all senders"
-                    : "Senders you get a lot of email from but rarely open"}
+                    ? t`Click to show all senders`
+                    : t`Senders you get a lot of email from but rarely open`}
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -535,12 +550,12 @@ export function BulkUnsubscribe() {
                 htmlFor="archive-on-unsubscribe"
                 className="cursor-pointer select-none"
               >
-                Archive on unsubscribe
+                <Trans>Archive on unsubscribe</Trans>
               </label>
             </div>
           </TooltipTrigger>
           <TooltipContent>
-            Also archive existing emails when you unsubscribe
+            <Trans>Also archive existing emails when you unsubscribe</Trans>
           </TooltipContent>
         </Tooltip>
       </div>
@@ -593,12 +608,16 @@ export function BulkUnsubscribe() {
                   {expanded ? (
                     <>
                       <ChevronsUpIcon className="h-4 w-4" />
-                      <span className="ml-2">Show less</span>
+                      <span className="ml-2">
+                        <Trans>Show less</Trans>
+                      </span>
                     </>
                   ) : (
                     <>
                       <ChevronsDownIcon className="h-4 w-4" />
-                      <span className="ml-2">Show more</span>
+                      <span className="ml-2">
+                        <Trans>Show more</Trans>
+                      </span>
                     </>
                   )}
                 </Button>
@@ -632,6 +651,7 @@ export function BulkUnsubscribe() {
 }
 
 function ScanOlderEmailsButton() {
+  const { t } = useLingui();
   const { isLoading, onLoadBatch } = useStatLoader();
 
   return (
@@ -643,7 +663,7 @@ function ScanOlderEmailsButton() {
           className="shrink-0"
           onClick={() => onLoadBatch({ loadBefore: true, showToast: true })}
           disabled={isLoading}
-          aria-label="Scan older emails"
+          aria-label={t`Scan older emails`}
         >
           {isLoading ? (
             <Loader2Icon className="size-4 animate-spin" />
@@ -653,7 +673,7 @@ function ScanOlderEmailsButton() {
         </Button>
       </TooltipTrigger>
       <TooltipContent>
-        {isLoading ? "Scanning older emails…" : "Scan older emails"}
+        {isLoading ? t`Scanning older emails…` : t`Scan older emails`}
       </TooltipContent>
     </Tooltip>
   );
@@ -672,7 +692,7 @@ function EmptyState({
     return (
       <div className="flex flex-col items-center justify-center px-4 py-14">
         <h3 className="font-title text-xl font-medium">
-          Only senders without an unsubscribe link are left
+          <Trans>Only senders without an unsubscribe link are left</Trans>
         </h3>
         <Button
           variant="outline"
@@ -680,7 +700,7 @@ function EmptyState({
           className="mt-4"
           onClick={onIncludeLinkless}
         >
-          Show them
+          <Trans>Show them</Trans>
         </Button>
       </div>
     );
@@ -689,12 +709,18 @@ function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center px-4 py-14">
       <h3 className="font-title text-xl font-medium">
-        {isReviewView ? "Nothing left to review" : "No senders found"}
+        {isReviewView ? (
+          <Trans>Nothing left to review</Trans>
+        ) : (
+          <Trans>No senders found</Trans>
+        )}
       </h3>
       <p className="mt-1.5 text-center text-sm text-muted-foreground">
-        {isReviewView
-          ? "New senders will show up here as they arrive."
-          : "Try a different filter or date range."}
+        {isReviewView ? (
+          <Trans>New senders will show up here as they arrive.</Trans>
+        ) : (
+          <Trans>Try a different filter or date range.</Trans>
+        )}
       </p>
     </div>
   );

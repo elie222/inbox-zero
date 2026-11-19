@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { escapeODataString } from "@/utils/outlook/odata-escape";
+import {
+  encodeODataFilter,
+  escapeODataString,
+} from "@/utils/outlook/odata-escape";
 
 describe("OData String Escaping", () => {
   it("should escape single quotes by doubling them", () => {
@@ -53,6 +56,16 @@ describe("OData String Escaping", () => {
     // Verify the malicious pattern has been neutralized
     expect(filter).toBe(
       "from/emailAddress/address eq 'attacker@example.com'' or subject eq ''sensitive'",
+    );
+  });
+});
+
+describe("encodeODataFilter", () => {
+  it("encodes a subject cut mid-emoji instead of throwing", () => {
+    const filter = "contains(subject, 'Deal \uD83D')";
+
+    expect(decodeURIComponent(encodeODataFilter(filter))).toBe(
+      "contains(subject, 'Deal \uFFFD')",
     );
   });
 });

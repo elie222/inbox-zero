@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Table,
   TableBody,
@@ -28,10 +29,11 @@ import {
 } from "@/components/ui/dialog";
 import { useApiKeys } from "@/hooks/useApiKeys";
 import { LoadingContent } from "@/components/LoadingContent";
-import { formatApiKeyScope } from "@/utils/api-key-scopes";
+import { API_KEY_SCOPE_MESSAGES } from "./api-key-messages";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function ApiKeysSection() {
+  const { i18n, t } = useLingui();
   const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } = useApiKeys();
   const keyCount = data?.apiKeys.length ?? 0;
@@ -39,32 +41,49 @@ export function ApiKeysSection() {
   return (
     <Item size="sm">
       <ItemContent>
-        <ItemTitle>API Access</ItemTitle>
+        <ItemTitle>
+          <Trans>API Access</Trans>
+        </ItemTitle>
       </ItemContent>
       <ItemActions>
         <Dialog>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
-              View keys{keyCount > 0 ? ` (${keyCount})` : ""}
+              <Trans>View keys</Trans>
+              {keyCount > 0 ? ` (${keyCount})` : ""}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>API Keys</DialogTitle>
+              <DialogTitle>
+                <Trans>API Keys</Trans>
+              </DialogTitle>
             </DialogHeader>
             <p className="text-sm text-muted-foreground">
-              Keys created here are limited to the current inbox account.
+              <Trans>
+                Keys created here are limited to the current inbox account.
+              </Trans>
             </p>
             <LoadingContent loading={isLoading} error={error}>
               {keyCount > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Permissions</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Expires</TableHead>
-                      <TableHead>Last used</TableHead>
+                      <TableHead>
+                        <Trans>Name</Trans>
+                      </TableHead>
+                      <TableHead>
+                        <Trans>Permissions</Trans>
+                      </TableHead>
+                      <TableHead>
+                        <Trans>Created</Trans>
+                      </TableHead>
+                      <TableHead>
+                        <Trans>Expires</Trans>
+                      </TableHead>
+                      <TableHead>
+                        <Trans>Last used</Trans>
+                      </TableHead>
                       <TableHead />
                     </TableRow>
                   </TableHeader>
@@ -73,20 +92,32 @@ export function ApiKeysSection() {
                       <TableRow key={apiKey.id}>
                         <TableCell>{apiKey.name}</TableCell>
                         <TableCell>
-                          {apiKey.scopes.map(formatApiKeyScope).join(", ")}
+                          {apiKey.scopes
+                            .map((scope) => {
+                              const label =
+                                API_KEY_SCOPE_MESSAGES[scope]?.label;
+                              return label ? i18n._(label) : scope;
+                            })
+                            .join(", ")}
                         </TableCell>
                         <TableCell>
-                          {new Date(apiKey.createdAt).toLocaleString()}
+                          {new Date(apiKey.createdAt).toLocaleString(
+                            i18n.locale,
+                          )}
                         </TableCell>
                         <TableCell>
                           {apiKey.expiresAt
-                            ? new Date(apiKey.expiresAt).toLocaleString()
-                            : "Never"}
+                            ? new Date(apiKey.expiresAt).toLocaleString(
+                                i18n.locale,
+                              )
+                            : t`Never`}
                         </TableCell>
                         <TableCell>
                           {apiKey.lastUsedAt
-                            ? new Date(apiKey.lastUsedAt).toLocaleString()
-                            : "Never"}
+                            ? new Date(apiKey.lastUsedAt).toLocaleString(
+                                i18n.locale,
+                              )
+                            : t`Never`}
                         </TableCell>
                         <TableCell>
                           <ApiKeysDeactivateButton
@@ -101,7 +132,7 @@ export function ApiKeysSection() {
                 </Table>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  No API keys yet.
+                  <Trans>No API keys yet.</Trans>
                 </p>
               )}
             </LoadingContent>

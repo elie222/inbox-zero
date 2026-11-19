@@ -1,15 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import { AlertCircleIcon, ClockIcon, LoaderCircleIcon } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import type { UpcomingScheduledEmailsResponse } from "@/app/api/user/scheduled-emails/route";
 import { InlineActionButton } from "@/components/InlineActionButton";
 import { LoadingContent } from "@/components/LoadingContent";
-import {
-  cancelScheduledEmailAction,
-  retryScheduledEmailAction,
-} from "@/utils/actions/scheduled-email";
-import { getActionErrorMessage } from "@/utils/error";
+import { useScheduledEmailActions } from "@/hooks/useScheduledEmailActions";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useUpcomingScheduledEmails } from "@/hooks/useHiddenDraftMessageIds";
@@ -18,56 +16,26 @@ type ScheduledEmail =
   UpcomingScheduledEmailsResponse["scheduledEmails"][number];
 
 export function ScheduledEmailList() {
+  const { t, i18n } = useLingui();
   const { emailAccountId } = useAccount();
-  const [actionError, setActionError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const { data, isLoading, error, mutate } =
-    useUpcomingScheduledEmails(emailAccountId);
-
-  const runScheduledAction = async (
-    action: typeof cancelScheduledEmailAction,
-    id: string,
-  ) => {
-    const result = await action(emailAccountId, { id });
-    if (result?.serverError || result?.validationErrors)
-      throw new Error(getActionErrorMessage(result));
-  };
-
-  const act = async (action: () => Promise<unknown>) => {
-    setBusy(true);
-    setActionError("");
-    try {
-      await action();
-      // The action already succeeded; a refresh that fails is stale data, not a
-      // failed cancel, and SWR retries on its own.
-      await mutate().catch(() => {});
-    } catch (failure) {
-      setActionError(
-        failure instanceof Error ? failure.message : "Something went wrong",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
+  const { data, isLoading, error } = useUpcomingScheduledEmails(emailAccountId);
+  const { cancelSend, retrySend } = useScheduledEmailActions(emailAccountId);
 
   const rows = data?.scheduledEmails ?? [];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {actionError && (
-        <p role="alert" className="px-4 py-2 text-destructive text-xs">
-          {actionError}
-        </p>
-      )}
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <LoadingContent loading={isLoading} error={error}>
           {rows.length === 0 ? (
             <div className="px-6 py-12 text-center text-muted-foreground text-sm">
-              Nothing scheduled. Emails you send later show up here until
-              they&apos;re on their way.
+              <Trans>
+                Nothing scheduled. Emails you send later show up here until
+                they&apos;re on their way.
+              </Trans>
             </div>
           ) : (
-            <ul aria-label="Scheduled emails">
+            <ul aria-label={t`Scheduled emails`}>
               {rows.map((row) => (
                 <li
                   key={row.id}
@@ -75,10 +43,10 @@ export function ScheduledEmailList() {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-foreground text-sm">
-                      {row.subject?.trim() || "(no subject)"}
+                      {row.subject?.trim() || t`(no subject)`}
                     </p>
                     <p className="truncate text-muted-foreground text-xs">
-                      {row.to?.trim() || "No recipient"}
+                      {row.to?.trim() || t`No recipient`}
                     </p>
                   </div>
                   <p
@@ -86,24 +54,14 @@ export function ScheduledEmailList() {
                     className="flex shrink-0 items-center gap-2 text-muted-foreground text-xs"
                   >
                     <StatusIcon status={row.status} />
-                    {statusLabel(row)}
+                    {statusLabel(row, i18n)}
                   </p>
                   <div className="flex shrink-0 gap-2">
                     {["PENDING", "BLOCKED_AUTH", "FAILED"].includes(
                       row.status,
                     ) && (
-                      <InlineActionButton
-                        disabled={busy}
-                        onClick={() =>
-                          act(() =>
-                            runScheduledAction(
-                              cancelScheduledEmailAction,
-                              row.id,
-                            ),
-                          )
-                        }
-                      >
-                        Cancel send
+                      <InlineActionButton onClick={() => cancelSend(row.id)}>
+                        <Trans>Cancel send</Trans>
                       </InlineActionButton>
                     )}
                     {row.status === "UNCERTAIN" && (
@@ -113,22 +71,12 @@ export function ScheduledEmailList() {
                         className="text-xs underline underline-offset-4"
                         href={prefixPath(emailAccountId, "/mail?type=sent")}
                       >
-                        Check Sent
+                        <Trans>Check Sent</Trans>
                       </a>
                     )}
                     {["BLOCKED_AUTH", "FAILED"].includes(row.status) && (
-                      <InlineActionButton
-                        disabled={busy}
-                        onClick={() =>
-                          act(() =>
-                            runScheduledAction(
-                              retryScheduledEmailAction,
-                              row.id,
-                            ),
-                          )
-                        }
-                      >
-                        Retry send
+                      <InlineActionButton onClick={() => retrySend(row.id)}>
+                        <Trans>Retry send</Trans>
                       </InlineActionButton>
                     )}
                   </div>
@@ -154,23 +102,23 @@ function StatusIcon({ status }: { status: ScheduledEmail["status"] }) {
   return <AlertCircleIcon className="size-3.5 text-destructive" />;
 }
 
-function statusLabel(row: ScheduledEmail) {
+function statusLabel(row: ScheduledEmail, i18n: I18n) {
   switch (row.status) {
     case "PENDING":
-      return formatTime(row.sendAt);
+      return formatTime(row.sendAt, i18n);
     case "PROCESSING":
-      return "Sending…";
+      return i18n._(msg`Sending…`);
     case "UNCERTAIN":
-      return "Couldn't confirm delivery";
+      return i18n._(msg`Couldn't confirm delivery`);
     case "BLOCKED_AUTH":
-      return "Reconnect your account to send this";
+      return i18n._(msg`Reconnect your account to send this`);
     default:
-      return "Needs attention";
+      return i18n._(msg`Needs attention`);
   }
 }
 
-function formatTime(value: string | Date) {
-  return new Date(value).toLocaleString(undefined, {
+function formatTime(value: string | Date, i18n: I18n) {
+  return i18n.date(new Date(value), {
     month: "short",
     day: "numeric",
     hour: "numeric",

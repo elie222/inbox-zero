@@ -29,14 +29,6 @@ export const saveSignupIntentAction = actionClientUser
       data: { signupIntent: intent },
     });
 
-    // Email-client-only users skip the AI setup steps and the upgrade page.
-    if (intent === "MAIL_CLIENT") {
-      await prisma.user.updateMany({
-        where: { id: userId, completedOnboardingAt: null },
-        data: { completedOnboardingAt: new Date() },
-      });
-    }
-
     after(() => trackSignupIntent(userEmail, intent));
   });
 

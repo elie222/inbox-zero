@@ -1,7 +1,10 @@
-import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
+import {
+  type CalendarConnectionForProvider,
+  createCalendarEventProvidersFromConnections,
+  getConnectedCalendarConnections,
+} from "@/utils/calendar/event-provider";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
-import prisma from "@/utils/prisma";
 
 export interface CalendarEventsInWindow {
   /**
@@ -18,14 +21,19 @@ export interface CalendarEventsInWindow {
  * sorted by start time. A provider that fails is skipped rather than failing
  * the whole fetch, since most accounts have a single calendar and a partial
  * result still beats none.
+ *
+ * Pass `connections` when they were already loaded in bulk, so a caller looping
+ * over many accounts does not query them once per account.
  */
 export async function fetchCalendarEventsInWindow({
+  connections,
   emailAccountId,
   timeMin,
   timeMax,
   maxResultsPerProvider,
   logger,
 }: {
+  connections?: CalendarConnectionForProvider[];
   emailAccountId: string;
   timeMin: Date;
   timeMax: Date;
@@ -33,8 +41,15 @@ export async function fetchCalendarEventsInWindow({
   logger: Logger;
 }): Promise<CalendarEventsInWindow> {
   logger.info("Starting calendar event window fetch");
-  const providers = await createCalendarEventProviders(emailAccountId, logger);
+  const connectedCalendars =
+    connections ?? (await getConnectedCalendarConnections(emailAccountId));
+  const providers = createCalendarEventProvidersFromConnections({
+    connections: connectedCalendars,
+    emailAccountId,
+    logger,
+  });
   logger.info("Created calendar event providers", {
+    connectedCalendars: connectedCalendars.length,
     providerCount: providers.length,
   });
   // Zero providers never proves an empty calendar: connections are silently
@@ -50,11 +65,6 @@ export async function fetchCalendarEventsInWindow({
     });
     return { events: [], complete: false };
   }
-
-  const connectedCalendars = await prisma.calendarConnection.count({
-    where: { emailAccountId, isConnected: true },
-  });
-  logger.info("Counted connected calendars", { connectedCalendars });
 
   const results = await Promise.allSettled(
     providers.map(async (provider, providerIndex) => {
@@ -122,7 +132,7 @@ export async function fetchCalendarEventsInWindow({
   const complete =
     failedProviders === 0 &&
     !truncated &&
-    providers.length >= connectedCalendars;
+    providers.length >= connectedCalendars.length;
 
   logger.info("Completed calendar event window fetch", {
     complete,

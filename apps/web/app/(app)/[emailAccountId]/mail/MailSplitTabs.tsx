@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { memo, type ReactNode, useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { getMailCategories } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
@@ -21,6 +22,7 @@ import {
   createMailSplitAction,
   deleteMailSplitAction,
   reorderMailSplitsAction,
+  setMailSplitBundleAction,
   updateMailSplitAction,
 } from "@/utils/actions/mail-split";
 import { toggleRuleAction } from "@/utils/actions/rule";
@@ -46,6 +48,8 @@ export const MailSplitTabs = memo(function MailSplitTabs({
   splits,
   activeSplitId,
   onSelectSplit,
+  allSplitId,
+  onOpenAllSettings,
   isAllAccounts,
   getSenders,
   countAccountIds,
@@ -57,6 +61,8 @@ export const MailSplitTabs = memo(function MailSplitTabs({
   splits: (MailSplit & MailSplitTab)[];
   activeSplitId: string | null;
   onSelectSplit: (splitId: string | null) => void;
+  allSplitId?: string;
+  onOpenAllSettings?: () => void;
   isAllAccounts: boolean;
   /** Senders the user corresponds with, read when a split is described. */
   getSenders: () => string[];
@@ -68,6 +74,7 @@ export const MailSplitTabs = memo(function MailSplitTabs({
   /** Shown once the list scrolls under the tabs. */
   showDivider: boolean;
 }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId, provider } = useAccount();
   const isGoogle = isGoogleProvider(provider);
   const isOutlook = isMicrosoftProvider(provider);
@@ -84,16 +91,24 @@ export const MailSplitTabs = memo(function MailSplitTabs({
   });
 
   const labelChoices = useMemo(
-    () =>
-      [
-        ...allLabels,
-        ...(isGoogle ? [{ id: GmailLabel.IMPORTANT, name: "Important" }] : []),
-      ].map((label) => ({
+    () => [
+      ...allLabels.map((label) => ({
         id: `label:${label.id}`,
         name: label.name,
         value: label.id,
       })),
-    [allLabels, isGoogle],
+      ...(isGoogle
+        ? [
+            {
+              id: `label:${GmailLabel.IMPORTANT}`,
+              name: "Important",
+              value: GmailLabel.IMPORTANT,
+              label: t`Important`,
+            },
+          ]
+        : []),
+    ],
+    [allLabels, isGoogle, t],
   );
   const categoryChoices = useMemo(
     () =>
@@ -101,8 +116,9 @@ export const MailSplitTabs = memo(function MailSplitTabs({
         id: `category:${category.type}`,
         name: category.name,
         value: category.type,
+        label: i18n._(category.label),
       })),
-    [isGoogle, isOutlook],
+    [i18n, isGoogle, isOutlook],
   );
 
   const savedSplits: ExistingSplit[] = useMemo(
@@ -223,6 +239,48 @@ export const MailSplitTabs = memo(function MailSplitTabs({
     [activeSplitId, emailAccountId, mutateSettings, onSelectSplit],
   );
 
+  const onToggleBundle = useCallback(
+    async (splitId: string, bundleInInbox: boolean) => {
+      if (!settings) return;
+      const loadedSettings = settings;
+      await mutateSettings(
+        async (current) => {
+          const result = await setMailSplitBundleAction(emailAccountId, {
+            id: splitId,
+            bundleInInbox,
+          });
+          if (result?.serverError || result?.validationErrors)
+            throw new Error(getActionErrorMessage(result));
+          const base = current ?? loadedSettings;
+          return {
+            ...base,
+            splits: base.splits.map((split) =>
+              split.id === splitId ? { ...split, bundleInInbox } : split,
+            ),
+          };
+        },
+        {
+          optimisticData: (current) => {
+            const base = current ?? loadedSettings;
+            return {
+              ...base,
+              splits: base.splits.map((split) =>
+                split.id === splitId ? { ...split, bundleInInbox } : split,
+              ),
+            };
+          },
+          revalidate: true,
+          rollbackOnError: true,
+        },
+      ).catch((error) => {
+        toast.error(
+          error instanceof Error ? error.message : t`Couldn't save that`,
+        );
+      });
+    },
+    [emailAccountId, mutateSettings, settings, t],
+  );
+
   const onToggleSystemType = useCallback(
     async (systemType: SystemType, enabled: boolean) => {
       const result = await toggleRuleAction(emailAccountId, {
@@ -248,7 +306,12 @@ export const MailSplitTabs = memo(function MailSplitTabs({
         leading={leading}
         activeSplitId={activeSplitId}
         onSelect={onSelectSplit}
+        allSplitId={allSplitId}
+        onOpenAllSettings={onOpenAllSettings}
         onDelete={onDelete}
+        onToggleBundle={
+          settings?.bundleInbox && !isAllAccounts ? onToggleBundle : undefined
+        }
         onReorder={isAllAccounts ? undefined : onReorder}
         onEdit={
           isAllAccounts

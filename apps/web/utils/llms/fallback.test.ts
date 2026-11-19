@@ -13,7 +13,7 @@ const {
   mockCaptureAiGeneration,
   mockGetPosthogLlmClient,
   mockIsPosthogLlmEvalApproved,
-  mockCreateClaudeCodeLanguageModelWithBridgedTools,
+  mockCreateCliLanguageModelWithTools,
 } = vi.hoisted(() => ({
   mockGenerateText: vi.fn(),
   mockSaveAiUsage: vi.fn(),
@@ -24,7 +24,7 @@ const {
   mockCaptureAiGeneration: vi.fn(),
   mockGetPosthogLlmClient: vi.fn(),
   mockIsPosthogLlmEvalApproved: vi.fn(),
-  mockCreateClaudeCodeLanguageModelWithBridgedTools: vi.fn(),
+  mockCreateCliLanguageModelWithTools: vi.fn(),
 }));
 
 vi.mock("ai", async () => {
@@ -54,8 +54,7 @@ vi.mock("@/utils/llms/cli-provider", async () => {
   >("@/utils/llms/cli-provider");
   return {
     ...actual,
-    createClaudeCodeLanguageModelWithBridgedTools:
-      mockCreateClaudeCodeLanguageModelWithBridgedTools,
+    createCliLanguageModelWithTools: mockCreateCliLanguageModelWithTools,
   };
 });
 
@@ -90,7 +89,7 @@ describe("createGenerateText fallback chain", () => {
     mockIsPosthogLlmEvalApproved.mockReturnValue(false);
     mockCaptureAiGeneration.mockResolvedValue(undefined);
     mockSaveAiUsage.mockResolvedValue(undefined);
-    mockCreateClaudeCodeLanguageModelWithBridgedTools.mockReset();
+    mockCreateCliLanguageModelWithTools.mockReset();
   });
 
   it("falls back to the next provider on retryable provider failures", async () => {
@@ -304,9 +303,7 @@ describe("createGenerateText fallback chain", () => {
         execute: vi.fn(),
       },
     };
-    mockCreateClaudeCodeLanguageModelWithBridgedTools.mockResolvedValue(
-      bridgedModel,
-    );
+    mockCreateCliLanguageModelWithTools.mockResolvedValue(bridgedModel);
     mockGenerateText.mockImplementation(async (request) => {
       expect(request.model).toBe(bridgedModel);
       expect(request.tools).toBeUndefined();
@@ -328,9 +325,8 @@ describe("createGenerateText fallback chain", () => {
       tools,
     });
 
-    expect(
-      mockCreateClaudeCodeLanguageModelWithBridgedTools,
-    ).toHaveBeenCalledWith({
+    expect(mockCreateCliLanguageModelWithTools).toHaveBeenCalledWith({
+      provider: "claude-code",
       modelName: "sonnet",
       tools,
     });
@@ -460,6 +456,37 @@ describe("createGenerateText fallback chain", () => {
         providerRequestIds: ["gen-step-1", "gen-final"],
         stepCount: 2,
         toolCallCount: 2,
+      }),
+    );
+  });
+
+  it("records Perplexity Agent API cost and the resolved model", async () => {
+    const model = createModel("agent-fast");
+    mockGenerateText.mockResolvedValue(
+      createTextResult({
+        usage: { inputTokens: 100, outputTokens: 30, totalTokens: 130 },
+        providerMetadata: {
+          perplexity: { cost: 0.012, model: "test/resolved-model" },
+        },
+        response: { id: "research-response" },
+      }),
+    );
+    const generateText = createGenerateTextForTest({
+      label: "Perplexity Search",
+      modelOptions: createModelOptions({
+        provider: "perplexity",
+        modelName: "agent-fast",
+        model,
+      }),
+    });
+    await generateText({ model, prompt: "Synthetic research" });
+    expect(mockSaveAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "perplexity",
+        model: "test/resolved-model",
+        providerReportedCost: 0.012,
+        providerCostSource: "perplexity_usage",
+        providerRequestIds: ["research-response"],
       }),
     );
   });
@@ -820,7 +847,7 @@ function createOpenRouterUsageMetadata(
     openrouter: {
       usage: {
         cost,
-        cost_details: { upstream_inference_cost: upstreamInferenceCost },
+        costDetails: { upstreamInferenceCost },
       },
     },
   };

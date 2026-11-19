@@ -3,6 +3,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
 import { subDays } from "date-fns/subDays";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { EmailAnalytics } from "@/app/(app)/[emailAccountId]/stats/EmailAnalytics";
 import { StatsSummary } from "@/app/(app)/[emailAccountId]/stats/StatsSummary";
 import { StatsOnboarding } from "@/app/(app)/[emailAccountId]/stats/StatsOnboarding";
@@ -31,7 +33,15 @@ const selectOptions = [
 ];
 const defaultSelected = selectOptions[1];
 
+const groupByLabels = {
+  day: msg`Group by day`,
+  week: msg`Group by week`,
+  month: msg`Group by month`,
+  year: msg`Group by year`,
+};
+
 export function Stats() {
+  const { t, i18n } = useLingui();
   const analytics = useProductAnalytics("analytics");
   const [dateDropdown, setDateDropdown] = useState<string>(
     defaultSelected.label,
@@ -74,14 +84,15 @@ export function Stats() {
   useEffect(() => {
     // Skip stat loading when viewing someone else's account
     if (isAccountOwner) {
-      onLoad({ loadBefore: false, showToast: false });
+      onLoad({ loadBefore: false, showToast: false }).catch(() => undefined);
     }
   }, [onLoad, isAccountOwner]);
 
+  const accountName = accountInfo?.name;
   const title =
-    !isAccountOwner && accountInfo?.name
-      ? `Analytics for ${accountInfo.name}`
-      : "Analytics";
+    !isAccountOwner && accountName
+      ? t`Analytics for ${accountName}`
+      : t`Analytics`;
 
   return (
     <PageWrapper>
@@ -95,11 +106,11 @@ export function Stats() {
           onSetDateDropdown={onSetDateDropdown}
         />
         <DetailedStatsFilter
-          label={`Group by ${period}`}
+          label={i18n._(groupByLabels[period])}
           icon={<LayoutGrid className="mr-2 h-4 w-4" />}
           columns={[
             {
-              label: "Day",
+              label: t`Day`,
               checked: period === "day",
               setChecked: () => {
                 analytics.captureAction("analytics_grouping_changed", {
@@ -109,7 +120,7 @@ export function Stats() {
               },
             },
             {
-              label: "Week",
+              label: t`Week`,
               checked: period === "week",
               setChecked: () => {
                 analytics.captureAction("analytics_grouping_changed", {
@@ -119,7 +130,7 @@ export function Stats() {
               },
             },
             {
-              label: "Month",
+              label: t`Month`,
               checked: period === "month",
               setChecked: () => {
                 analytics.captureAction("analytics_grouping_changed", {
@@ -129,7 +140,7 @@ export function Stats() {
               },
             },
             {
-              label: "Year",
+              label: t`Year`,
               checked: period === "year",
               setChecked: () => {
                 analytics.captureAction("analytics_grouping_changed", {
@@ -142,33 +153,33 @@ export function Stats() {
         />
       </ActionBar>
       <div className="grid gap-2 sm:gap-4 mt-2 sm:mt-4">
-        <ErrorBoundary fallback={<SectionError title="Summary" />}>
+        <ErrorBoundary fallback={<SectionError title={t`Summary`} />}>
           <StatsSummary
             dateRange={dateRange}
             refreshInterval={refreshInterval}
             period={period}
           />
         </ErrorBoundary>
-        <ErrorBoundary fallback={<SectionError title="Email Analytics" />}>
+        <ErrorBoundary fallback={<SectionError title={t`Email Analytics`} />}>
           <EmailAnalytics
             dateRange={dateRange}
             refreshInterval={refreshInterval}
           />
         </ErrorBoundary>
-        <ErrorBoundary fallback={<SectionError title="Response Time" />}>
+        <ErrorBoundary fallback={<SectionError title={t`Response Time`} />}>
           <ResponseTimeAnalytics
             dateRange={dateRange}
             refreshInterval={refreshInterval}
           />
         </ErrorBoundary>
-        <ErrorBoundary fallback={<SectionError title="Rule Stats" />}>
+        <ErrorBoundary fallback={<SectionError title={t`Rule Stats`} />}>
           <RuleStatsChart
             dateRange={dateRange}
-            title="Assistant processed emails"
+            title={t`Assistant processed emails`}
           />
         </ErrorBoundary>
         {isAccountOwner && (
-          <ErrorBoundary fallback={<SectionError title="Email Actions" />}>
+          <ErrorBoundary fallback={<SectionError title={t`Email Actions`} />}>
             <EmailActionsAnalytics />
           </ErrorBoundary>
         )}
@@ -182,7 +193,7 @@ function SectionError({ title }: { title: string }) {
   return (
     <CardBasic>
       <p className="text-muted-foreground">
-        Unable to load {title}. Please try refreshing the page.
+        <Trans>Unable to load {title}. Please try refreshing the page.</Trans>
       </p>
     </CardBasic>
   );

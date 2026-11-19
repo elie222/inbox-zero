@@ -11,6 +11,7 @@ export type InboxZeroDesktopApi = {
     provider: DesktopAuthProvider,
     options?: { callbackPath?: string },
   ) => Promise<void>;
+  supportsNoMatchingMessage?: boolean;
   mailEngine?: (payload: unknown) => Promise<unknown>;
   mailEngineSubscribe?: (input: unknown) => Promise<unknown>;
   mailEngineUnsubscribe?: (subscriptionId: string) => Promise<unknown>;
@@ -21,6 +22,8 @@ export type InboxZeroDesktopApi = {
   onUpdateStatus?: (
     listener: (status: DesktopUpdateStatus) => void,
   ) => () => void;
+  /** True while the app opens the local mailbox, including any migrations. */
+  onMailEngineOpening?: (listener: (opening: boolean) => void) => () => void;
   installUpdate?: () => Promise<void>;
   wipeMailbox?: () => Promise<unknown>;
   getDesktopHealth?: () => Promise<DesktopHealth | null>;

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getMockEmailAccountWithAccount } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { DraftNotFoundError } from "@/utils/error";
-import { deleteDraftAction, updateDraftAction } from "@/utils/actions/mail";
+import { updateDraftAction } from "@/utils/actions/mail";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
@@ -13,23 +13,18 @@ vi.mock("@/utils/auth", () => ({
 
 const mocks = vi.hoisted(() => ({
   createEmailProvider: vi.fn(),
-  deleteDraft: vi.fn(),
   updateDraft: vi.fn(),
   getDraft: vi.fn(),
   getDraftReferenceForMessage: vi.fn(),
-  markTrackedDraftDeleted: vi.fn(),
 }));
 
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: mocks.createEmailProvider,
 }));
-vi.mock("@/utils/ai/draft-cleanup", () => ({
-  markTrackedDraftDeleted: mocks.markTrackedDraftDeleted,
-}));
 
 const EMAIL_ACCOUNT_ID = "email-account-1";
 
-describe("deleteDraftAction", () => {
+describe("updateDraftAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.emailAccount.findUnique.mockResolvedValue(
@@ -40,7 +35,6 @@ describe("deleteDraftAction", () => {
       }),
     );
     mocks.createEmailProvider.mockResolvedValue({
-      deleteDraft: mocks.deleteDraft,
       updateDraft: mocks.updateDraft,
       getDraft: mocks.getDraft,
       getDraftReferenceForMessage: mocks.getDraftReferenceForMessage,
@@ -49,7 +43,6 @@ describe("deleteDraftAction", () => {
       id: "draft-1",
       version: 'W/"version-1"',
     });
-    mocks.deleteDraft.mockResolvedValue(true);
   });
 
   it("saves edits using the stable draft ID after Gmail replaces its message ID", async () => {
@@ -92,6 +85,28 @@ describe("deleteDraftAction", () => {
     expect(result?.serverError).toBeTruthy();
   });
 
+  it("saves reply and forward draft edits without incomplete recipients", async () => {
+    mocks.getDraft.mockResolvedValue({ id: "new-message" });
+    const result = await updateDraftAction(EMAIL_ACCOUNT_ID, {
+      draftMessageId: "old-message",
+      draftId: "draft-1",
+      messageHtml: "<p>Edited</p>",
+      subject: "Reply",
+      to: '"Doe, Jane" <jane@example.com>, next@',
+      cc: "copied@example.com, good@example.com next@",
+      bcc: "hidden@example.com, Name <good@example.com",
+    });
+
+    expect(result?.data).toMatchObject({ status: "saved", draftId: "draft-1" });
+    expect(mocks.updateDraft).toHaveBeenCalledWith("draft-1", {
+      messageHtml: "<p>Edited</p>",
+      subject: "Reply",
+      to: '"Doe, Jane" <jane@example.com>',
+      cc: "copied@example.com",
+      bcc: "hidden@example.com",
+    });
+  });
+
   it("reports a missing draft when the provider no longer has it", async () => {
     mocks.updateDraft.mockRejectedValueOnce(
       new DraftNotFoundError("Could not find this draft to update."),
@@ -121,68 +136,5 @@ describe("deleteDraftAction", () => {
     });
     expect(result?.data).toEqual({ status: "missing" });
     expect(mocks.updateDraft).not.toHaveBeenCalled();
-  });
-
-  it("discards an autosaved draft using its current message and version", async () => {
-    mocks.getDraft.mockResolvedValue({ id: "new-message" });
-    await deleteDraftAction(EMAIL_ACCOUNT_ID, {
-      draftMessageId: "old-message",
-      draftId: "draft-1",
-    });
-    expect(mocks.getDraftReferenceForMessage).toHaveBeenCalledWith(
-      "new-message",
-    );
-    expect(mocks.deleteDraft).toHaveBeenCalledWith("draft-1", 'W/"version-1"');
-  });
-
-  it("updates tracking after the provider deletes the draft", async () => {
-    const result = await deleteDraftAction(EMAIL_ACCOUNT_ID, {
-      draftMessageId: "message-1",
-    });
-
-    expect(result?.serverError).toBeUndefined();
-    expect(mocks.markTrackedDraftDeleted).toHaveBeenCalledWith(
-      expect.objectContaining({
-        draftId: "draft-1",
-        emailAccountId: EMAIL_ACCOUNT_ID,
-      }),
-    );
-  });
-
-  it("preserves tracking when the draft changes before deletion", async () => {
-    mocks.deleteDraft.mockResolvedValue(false);
-
-    const result = await deleteDraftAction(EMAIL_ACCOUNT_ID, {
-      draftMessageId: "message-1",
-    });
-
-    expect(result?.serverError).toBeUndefined();
-    expect(mocks.deleteDraft).toHaveBeenCalledWith("draft-1", 'W/"version-1"');
-    expect(mocks.markTrackedDraftDeleted).not.toHaveBeenCalled();
-  });
-
-  it("succeeds without deleting when the draft is already gone", async () => {
-    mocks.getDraftReferenceForMessage.mockResolvedValue(null);
-
-    const result = await deleteDraftAction(EMAIL_ACCOUNT_ID, {
-      draftMessageId: "message-1",
-    });
-
-    expect(result?.serverError).toBeUndefined();
-    expect(mocks.deleteDraft).not.toHaveBeenCalled();
-    expect(mocks.markTrackedDraftDeleted).not.toHaveBeenCalled();
-  });
-
-  it("completes deletion when the tracking update fails", async () => {
-    mocks.markTrackedDraftDeleted.mockRejectedValue(
-      new Error("Database unavailable"),
-    );
-
-    const result = await deleteDraftAction(EMAIL_ACCOUNT_ID, {
-      draftMessageId: "message-1",
-    });
-
-    expect(result?.serverError).toBeUndefined();
-    expect(mocks.deleteDraft).toHaveBeenCalledWith("draft-1", 'W/"version-1"');
   });
 });

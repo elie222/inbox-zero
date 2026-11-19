@@ -161,15 +161,17 @@ test("Command K acts on highlighted and selected conversations", async ({
     palette.getByPlaceholder("When should it return? Try Friday at 3pm"),
   ).toBeFocused();
   await expect(
+    palette.getByRole("option", { name: /^In 1 hour/ }),
+  ).toBeVisible();
+  await expect(
+    palette.getByRole("option", { name: /^In 3 hours/ }),
+  ).toBeVisible();
+  await expect(
     palette.getByRole("option", { name: /^Tomorrow/ }),
   ).toBeVisible();
   await expect(palette.getByText("Back to commands")).toHaveCount(0);
   await expect(palette.getByText("Archive conversation")).toHaveCount(0);
-  await attachScreenshotForChangedTest(
-    testInfo,
-    palette,
-    "Snooze preset options",
-  );
+  await capturePlaywrightCheckpoint(palette, testInfo, "Snooze preset options");
 
   const snoozeInput = palette.getByPlaceholder(
     "When should it return? Try Friday at 3pm",
@@ -418,7 +420,7 @@ test("the open reader exposes its actions in Command K and forwards with F", asy
   ).toBeVisible();
   await expect(
     palette.getByRole("option", {
-      name: /Unsubscribe from sender|Block sender|Sender blocked/,
+      name: /^(Unsubscribe|Block sender|Sender blocked) ⇧U$/,
     }),
   ).toBeVisible();
   await expect(

@@ -9,8 +9,8 @@ import {
 } from "react";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isError } from "@/utils/error";
-import { loadEmailStatsAction } from "@/utils/actions/stats";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { fetchWithAccount } from "@/utils/fetch";
 
 type Context = {
   isLoading: boolean;
@@ -35,51 +35,72 @@ const StatLoaderContext = createContext<Context>({
 export const useStatLoader = () => useContext(StatLoaderContext);
 
 class StatLoader {
-  #isLoading = false;
+  readonly #inFlight = new Map<string, Promise<void>>();
 
   async loadStats({
     emailAccountId,
     loadBefore,
-    showToast,
   }: {
     emailAccountId: string;
     loadBefore: boolean;
-    showToast: boolean;
   }) {
-    if (this.#isLoading) return;
+    const key = `${emailAccountId}:${loadBefore}`;
+    const existing = this.#inFlight.get(key);
+    if (existing) return existing;
 
-    this.#isLoading = true;
-
-    const res = await loadEmailStatsAction(emailAccountId, { loadBefore });
-
-    if (showToast) {
-      if (isError(res)) {
-        toastError({ description: "Error loading stats." });
-      } else {
-        toastSuccess({ description: "Stats loaded!" });
-      }
-    }
-
-    this.#isLoading = false;
+    // Reads use an independent request so they cannot queue ahead of UI saves.
+    const request = fetchWithAccount({
+      url: "/api/user/stats/load",
+      emailAccountId,
+      init: {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ loadBefore }),
+      },
+    })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok || isError(result))
+          throw new Error("Error loading stats.");
+      })
+      .finally(() => this.#inFlight.delete(key));
+    this.#inFlight.set(key, request);
+    return request;
   }
 }
 
 const statLoader = new StatLoader();
 
 export function StatLoaderProvider(props: { children: React.ReactNode }) {
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingCounts, setLoadingCounts] = useState<Record<string, number>>(
+    {},
+  );
   const [stopLoading, setStopLoading] = useState(false);
   const { emailAccountId } = useAccount();
+  const isLoading = Boolean(loadingCounts[emailAccountId]);
 
   const onLoad = useCallback(
     async (options: { loadBefore: boolean; showToast: boolean }) => {
-      setIsLoading(true);
-      await statLoader.loadStats({
-        emailAccountId,
-        loadBefore: options.loadBefore,
-        showToast: options.showToast,
-      });
-      setIsLoading(false);
+      setLoadingCounts((counts) => ({
+        ...counts,
+        [emailAccountId]: (counts[emailAccountId] || 0) + 1,
+      }));
+      try {
+        await statLoader.loadStats({
+          emailAccountId,
+          loadBefore: options.loadBefore,
+        });
+        if (options.showToast) toastSuccess({ description: "Stats loaded!" });
+      } catch (error) {
+        if (options.showToast)
+          toastError({ description: "Error loading stats." });
+        throw error;
+      } finally {
+        setLoadingCounts((counts) => ({
+          ...counts,
+          [emailAccountId]: Math.max(0, (counts[emailAccountId] || 0) - 1),
+        }));
+      }
     },
     [emailAccountId],
   );
@@ -87,15 +108,19 @@ export function StatLoaderProvider(props: { children: React.ReactNode }) {
   const onLoadBatch = useCallback(
     async (options: { loadBefore: boolean; showToast: boolean }) => {
       const batchSize = 50;
-      for (let i = 0; i < batchSize; i++) {
-        if (stopLoading) break;
-        console.log("Loading batch", i);
-        await onLoad({
-          ...options,
-          showToast: options.showToast && i === batchSize - 1,
-        });
+      try {
+        for (let i = 0; i < batchSize; i++) {
+          if (stopLoading) return;
+          console.log("Loading batch", i);
+          await onLoad({ ...options, showToast: false });
+        }
+        if (options.showToast) toastSuccess({ description: "Stats loaded!" });
+      } catch {
+        if (options.showToast)
+          toastError({ description: "Error loading stats." });
+      } finally {
+        setStopLoading(false);
       }
-      setStopLoading(false);
     },
     [onLoad, stopLoading],
   );
@@ -117,7 +142,7 @@ export function LoadStats(props: { loadBefore: boolean; showToast: boolean }) {
   const { onLoad } = useStatLoader();
 
   useEffect(() => {
-    onLoad(props);
+    onLoad(props).catch(() => undefined);
   }, [onLoad, props]);
 
   return null;

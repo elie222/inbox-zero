@@ -8,12 +8,13 @@ import {
   useEffect,
   useRef,
 } from "react";
-import { SWRConfig, mutate, useSWRConfig } from "swr";
+import { SWRConfig, mutate, unstable_serialize, useSWRConfig } from "swr";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { swrFetcher } from "./swr-fetcher";
 import {
   accountIdFromSnapshotKey,
   clearPersistedSwrCacheForAccount,
+  getPersistedSwrKeys,
   PERSISTED_SWR_KEYS,
   persistSwrEntries,
   readPersistedSwrEntries,
@@ -113,8 +114,8 @@ function PersistedSwrCache() {
     const isAccountSwitch = hydratedForRef.current !== null;
     hydratedForRef.current = emailAccountId;
     const persisted = readPersistedSwrEntries(emailAccountId);
-    for (const key of PERSISTED_SWR_KEYS) {
-      const data = persisted.get(key)?.data;
+    for (const { path, key } of getPersistedSwrKeys(emailAccountId)) {
+      const data = persisted.get(path)?.data;
       if (isAccountSwitch) {
         // The provider reset doesn't reach the live scoped cache (SWR only
         // initializes its provider once), so the previous account's values
@@ -122,7 +123,10 @@ function PersistedSwrCache() {
         // (or clear them) so they can't render or get persisted under the
         // wrong account.
         scopedMutate(key, data, { populateCache: true, revalidate: false });
-      } else if (data !== undefined && cache.get(key)?.data === undefined) {
+      } else if (
+        data !== undefined &&
+        cache.get(unstable_serialize(key))?.data === undefined
+      ) {
         scopedMutate(key, data, { populateCache: true, revalidate: false });
       }
     }

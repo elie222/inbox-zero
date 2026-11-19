@@ -175,7 +175,10 @@ async function captureToolSet(
     logger,
   });
 
-  return mockToolCallAgentStream.mock.calls[0][0].tools;
+  return withToolExecutionOptions(
+    mockToolCallAgentStream.mock.calls[0][0].tools,
+    messages,
+  );
 }
 
 async function captureCalendarChat(
@@ -300,12 +303,14 @@ describe("aiProcessAssistantChat", () => {
         expect(args.stopWhen()).toBe(false);
 
         vi.advanceTimersByTime(toolBudgetMs - 1);
-        expect(
-          await args.prepareStep({ messages: baseMessages }),
-        ).toBeUndefined();
+        const toolStep = await args.prepareStep({ messages: baseMessages });
+        expect(toolStep.activeTools).toBeUndefined();
+        expect(toolStep.toolChoice).toBeUndefined();
 
         vi.advanceTimersByTime(1);
-        expect(await args.prepareStep({ messages: baseMessages })).toEqual({
+        expect(
+          await args.prepareStep({ messages: baseMessages }),
+        ).toMatchObject({
           activeTools: [],
           toolChoice: "none",
         });
@@ -650,27 +655,29 @@ describe("aiProcessAssistantChat", () => {
       logger,
     });
 
-    const args = mockToolCallAgentStream.mock.calls[0][0];
+    const tools = withToolExecutionOptions(
+      mockToolCallAgentStream.mock.calls[0][0].tools,
+      baseMessages,
+    );
 
     expect(
-      args.tools.createRule.inputSchema.safeParse(getWebhookRuleInput())
-        .success,
-    ).toBe(false);
+      await getToolInputError(tools, "createRule", getWebhookRuleInput()),
+    ).not.toBeNull();
     expect(
-      args.tools.updateRule.inputSchema.safeParse({
+      await getToolInputError(tools, "updateRule", {
         ruleName: "Webhook",
         updates: {
           actions: getWebhookRuleActionsInput().actions,
         },
-      }).success,
-    ).toBe(false);
+      }),
+    ).not.toBeNull();
   });
 
   it("accepts sparse rule action fields for createRule and updateRule", async () => {
     const tools = await captureToolSet(true);
 
     expect(
-      tools.createRule.inputSchema.safeParse({
+      await getToolInputError(tools, "createRule", {
         name: "Finance",
         condition: {
           conditionalOperator: null,
@@ -693,11 +700,11 @@ describe("aiProcessAssistantChat", () => {
             delayInMinutes: null,
           },
         ],
-      }).success,
-    ).toBe(true);
+      }),
+    ).toBeNull();
 
     expect(
-      tools.updateRule.inputSchema.safeParse({
+      await getToolInputError(tools, "updateRule", {
         ruleName: "Finance",
         updates: {
           actions: [
@@ -715,15 +722,15 @@ describe("aiProcessAssistantChat", () => {
             },
           ],
         },
-      }).success,
-    ).toBe(true);
+      }),
+    ).toBeNull();
   });
 
   it("rejects updateRule payloads that omit required action fields", async () => {
     const tools = await captureToolSet(true);
 
     expect(
-      tools.updateRule.inputSchema.safeParse({
+      await getToolInputError(tools, "updateRule", {
         ruleName: "Finance",
         updates: {
           actions: [
@@ -734,11 +741,11 @@ describe("aiProcessAssistantChat", () => {
             },
           ],
         },
-      }).success,
-    ).toBe(false);
+      }),
+    ).not.toBeNull();
 
     expect(
-      tools.updateRule.inputSchema.safeParse({
+      await getToolInputError(tools, "updateRule", {
         ruleName: "Webhook",
         updates: {
           actions: [
@@ -749,8 +756,8 @@ describe("aiProcessAssistantChat", () => {
             },
           ],
         },
-      }).success,
-    ).toBe(false);
+      }),
+    ).not.toBeNull();
   });
 
   it("gates MOVE_FOLDER rule actions by provider", async () => {
@@ -759,7 +766,7 @@ describe("aiProcessAssistantChat", () => {
     const microsoftTools = await captureToolSet(true, "microsoft");
 
     expect(
-      googleTools.updateRule.inputSchema.safeParse({
+      await getToolInputError(googleTools, "updateRule", {
         ruleName: "Finance",
         updates: {
           actions: [
@@ -772,11 +779,11 @@ describe("aiProcessAssistantChat", () => {
             },
           ],
         },
-      }).success,
-    ).toBe(false);
+      }),
+    ).not.toBeNull();
 
     expect(
-      microsoftTools.updateRule.inputSchema.safeParse({
+      await getToolInputError(microsoftTools, "updateRule", {
         ruleName: "Finance",
         updates: {
           actions: [
@@ -789,8 +796,8 @@ describe("aiProcessAssistantChat", () => {
             },
           ],
         },
-      }).success,
-    ).toBe(true);
+      }),
+    ).toBeNull();
   });
 
   it("adds OpenAI prompt cache key when chatId is provided", async () => {
@@ -849,16 +856,18 @@ describe("aiProcessAssistantChat", () => {
       content: "assistant response",
     });
     expect(args.messages[3].role).toBe("user");
-    expect(args.messages[3].content).toContain(
+    expect(args.messages[3].content).toContain("Current timestamp:");
+    expect(args.messages[4].role).toBe("user");
+    expect(args.messages[4].content).toContain(
       "Memories from previous conversations:",
     );
-    expect(args.messages.at(-1)).toEqual({
+    expect(args.messages.at(-1)).toMatchObject({
       role: "user",
       content: "latest user message",
     });
   });
 
-  it("adds anthropic cache breakpoints to stable-prefix messages", async () => {
+  it("adds anthropic cache breakpoints to the system prompt, history, and latest message", async () => {
     const { aiProcessAssistantChat } = await loadAssistantChatModule({
       emailSend: true,
     });
@@ -879,13 +888,105 @@ describe("aiProcessAssistantChat", () => {
     });
 
     const args = mockToolCallAgentStream.mock.calls[0][0];
-    expect(args.messages[0].providerOptions?.anthropic?.cacheControl).toEqual({
-      type: "ephemeral",
-    });
-    expect(args.messages[2].providerOptions?.anthropic?.cacheControl).toEqual({
-      type: "ephemeral",
-    });
-    expect(args.messages.at(-1).providerOptions).toBeUndefined();
+    const cacheControls = args.messages.map(
+      (message: ModelMessage) =>
+        message.providerOptions?.anthropic?.cacheControl,
+    );
+    // OpenRouter ignores cache control on assistant messages, so history's
+    // breakpoint sits on the user message before the reply.
+    expect(cacheControls).toEqual([
+      { type: "ephemeral" },
+      { type: "ephemeral" },
+      undefined,
+      undefined,
+      { type: "ephemeral" },
+    ]);
+  });
+
+  it("keeps the system prompt and cached history prefix identical across turns", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const { aiProcessAssistantChat } = await loadAssistantChatModule({
+        emailSend: true,
+      });
+      mockToolCallAgentStream.mockResolvedValue({
+        toUIMessageStreamResponse: vi.fn(),
+      });
+
+      const secondTurn: ModelMessage[] = [
+        { role: "user", content: "What came in today?" },
+        { role: "assistant", content: "Two newsletters and a receipt." },
+        { role: "user", content: "Archive the newsletters." },
+      ];
+      const thirdTurn: ModelMessage[] = [
+        ...secondTurn,
+        { role: "assistant", content: "Archived both newsletters." },
+        { role: "user", content: "Anything from yesterday?" },
+      ];
+
+      vi.setSystemTime(new Date("2026-03-02T09:15:00.123Z"));
+      await aiProcessAssistantChat({
+        messages: secondTurn,
+        emailAccountId: "email-account-id",
+        user: getEmailAccount(),
+        logger,
+        chatId: "chat-1",
+        memories: [{ content: "Prefers short replies", date: "2026-02-18" }],
+      });
+
+      vi.setSystemTime(new Date("2026-03-02T09:17:42.456Z"));
+      await aiProcessAssistantChat({
+        messages: thirdTurn,
+        emailAccountId: "email-account-id",
+        user: getEmailAccount(),
+        logger,
+        chatId: "chat-1",
+        memories: [
+          { content: "Prefers short replies", date: "2026-02-18" },
+          { content: "Works at Acme", date: "2026-03-02" },
+        ],
+      });
+
+      const [second, third] = mockToolCallAgentStream.mock.calls.map(
+        ([args]) => args.messages as ModelMessage[],
+      );
+      const withoutCacheControl = (messages: ModelMessage[]) =>
+        messages.map(({ role, content }) => ({ role, content }));
+
+      expect(third[0]).toEqual(second[0]);
+      // The second turn's history breakpoint covers the system prompt and
+      // its history, which the third turn must repeat exactly to reuse it.
+      const secondTurnHistoryEnd = second.findIndex(
+        (message, index) =>
+          index > 0 && message.providerOptions?.anthropic?.cacheControl,
+      );
+      expect(secondTurnHistoryEnd).toBe(1);
+      expect(
+        withoutCacheControl(third.slice(0, secondTurnHistoryEnd + 1)),
+      ).toEqual(withoutCacheControl(second.slice(0, secondTurnHistoryEnd + 1)));
+      expect(withoutCacheControl(third.slice(0, 5))).toEqual(
+        withoutCacheControl([second[0], ...thirdTurn.slice(0, -1)]),
+      );
+
+      for (const [messages, timestamp] of [
+        [second, "2026-03-02T09:15:00.123Z"],
+        [third, "2026-03-02T09:17:42.456Z"],
+      ] as const) {
+        expect(messages[0].content).not.toContain(timestamp);
+        const timeMessage = messages.find(
+          (message) =>
+            typeof message.content === "string" &&
+            message.content.includes(timestamp),
+        );
+        expect(timeMessage?.role).toBe("user");
+        expect(timeMessage?.content).toContain("User timezone:");
+        // Before the memories and the latest user message.
+        expect(messages.indexOf(timeMessage!)).toBe(messages.length - 3);
+      }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("uses systemType (not rule name) to detect conversation status fix context", async () => {
@@ -1474,7 +1575,10 @@ describe("aiProcessAssistantChat", () => {
     expect(freshRuleContext?.content).toContain('"name": "To Reply"');
     expect(onRulesStateExposed).toHaveBeenCalledWith(2);
 
-    const result = await args.tools.updateRule.execute({
+    const result = await withToolExecutionOptions(
+      args.tools,
+      args.messages,
+    ).updateRule.execute({
       ruleName: "To Reply",
       updates: {
         condition: {
@@ -1572,7 +1676,10 @@ describe("aiProcessAssistantChat", () => {
 
     // The chat already saw this revision, so a rule write must succeed without
     // requiring another getUserRulesAndSettings round trip first.
-    const result = await args.tools.updateRule.execute({
+    const result = await withToolExecutionOptions(
+      args.tools,
+      args.messages,
+    ).updateRule.execute({
       ruleName: "To Reply",
       updates: {
         condition: {
@@ -1756,7 +1863,13 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("returns exact rule execution history for a specific message", async () => {
-    const tools = await captureToolSet(true, "google");
+    const tools = await captureToolSet(
+      true,
+      "google",
+      conversationWithSearchResults([
+        { messageId: "message-1", threadId: "thread-1" },
+      ]),
+    );
 
     mockPrisma.executedRule.findMany.mockResolvedValue([
       {
@@ -1915,7 +2028,13 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("marks an empty rule execution history as missing evidence", async () => {
-    const tools = await captureToolSet(true, "google");
+    const tools = await captureToolSet(
+      true,
+      "google",
+      conversationWithSearchResults([
+        { messageId: "message-without-history", threadId: "thread-1" },
+      ]),
+    );
 
     mockPrisma.executedRule.findMany.mockResolvedValue([]);
 
@@ -1937,7 +2056,13 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("marks ambiguous skipped execution history as inconclusive", async () => {
-    const tools = await captureToolSet(true, "google");
+    const tools = await captureToolSet(
+      true,
+      "google",
+      conversationWithSearchResults([
+        { messageId: "message-fallback", threadId: "thread-1" },
+      ]),
+    );
 
     mockPrisma.executedRule.findMany.mockResolvedValue([
       {
@@ -1971,7 +2096,13 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("keeps applied execution evidence when the original rule is unavailable", async () => {
-    const tools = await captureToolSet(true, "google");
+    const tools = await captureToolSet(
+      true,
+      "google",
+      conversationWithSearchResults([
+        { messageId: "message-deleted-rule", threadId: "thread-1" },
+      ]),
+    );
 
     mockPrisma.executedRule.findMany.mockResolvedValue([
       {
@@ -2109,7 +2240,7 @@ describe("aiProcessAssistantChat", () => {
       messageHtml: "<p>Hello</p>",
     } as any);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       error: `Invalid sendEmail input: unsupported field "${field}"`,
     });
     expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
@@ -2128,7 +2259,7 @@ describe("aiProcessAssistantChat", () => {
       messageHtml: "<p>Hello</p>",
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       error: "Invalid sendEmail input: to must include valid email address(es)",
     });
     expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
@@ -2172,7 +2303,13 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("forwards email with allowlisted chat params only", async () => {
-    const tools = await captureToolSet(true, "google");
+    const tools = await captureToolSet(
+      true,
+      "google",
+      conversationWithSearchResults([
+        { messageId: "message-1", threadId: "thread-1" },
+      ]),
+    );
     const message = getMockMessage({ id: "message-1", threadId: "thread-1" });
     const getMessage = vi.fn().mockResolvedValue(message);
     const forwardEmail = vi.fn().mockResolvedValue(undefined);
@@ -2232,7 +2369,7 @@ describe("aiProcessAssistantChat", () => {
       from: "sender.alias@example.test",
     } as any);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       error: 'Invalid forwardEmail input: unsupported field "from"',
     });
     expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
@@ -2318,23 +2455,23 @@ describe("aiProcessAssistantChat", () => {
   it("saveMemory schema allows assistant_inference without userEvidence", async () => {
     const tools = await captureToolSet();
 
-    const parsed = (tools.saveMemory as any).inputSchema.safeParse({
-      content: "User may prefer concise responses.",
-      source: "assistant_inference",
-    });
-
-    expect(parsed.success).toBe(true);
+    expect(
+      await getToolInputError(tools, "saveMemory", {
+        content: "User may prefer concise responses.",
+        source: "assistant_inference",
+      }),
+    ).toBeNull();
   });
 
   it("saveMemory schema requires userEvidence for user_message", async () => {
     const tools = await captureToolSet();
 
-    const parsed = (tools.saveMemory as any).inputSchema.safeParse({
-      content: "I prefer concise responses.",
-      source: "user_message",
-    });
-
-    expect(parsed.success).toBe(false);
+    expect(
+      await getToolInputError(tools, "saveMemory", {
+        content: "I prefer concise responses.",
+        source: "user_message",
+      }),
+    ).not.toBeNull();
   });
 
   it("searchMemories supports empty query for broad recall", async () => {
@@ -2563,6 +2700,44 @@ describe("aiProcessAssistantChat", () => {
     expect(result.updated).toBe("First instructions");
   });
 
+  it("reports how many messages sender archiving actually moved", async () => {
+    const tools = await captureToolSet();
+    const bulkArchiveFromSenders = vi.fn().mockResolvedValue(7);
+    mockCreateEmailProvider.mockResolvedValue({ bulkArchiveFromSenders });
+
+    const result = await tools.manageInbox.execute({
+      action: "bulk_archive_senders",
+      fromEmails: ["done@example.com", "also-done@example.com"],
+    });
+
+    expect(bulkArchiveFromSenders).toHaveBeenCalledWith(
+      ["done@example.com", "also-done@example.com"],
+      expect.any(String),
+      "email-account-id",
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        sendersCount: 2,
+        archivedMessagesCount: 7,
+      }),
+    );
+  });
+
+  it("explains how to fix an empty sender list for sender actions", async () => {
+    const tools = await captureToolSet();
+    mockCreateEmailProvider.mockClear();
+
+    const result = await tools.manageInbox.execute({
+      action: "bulk_archive_senders",
+      fromEmails: [],
+    });
+
+    expect(result.error).toContain("No sender-level action was taken.");
+    expect(result.error).toContain("archive_threads");
+    expect(mockCreateEmailProvider).not.toHaveBeenCalled();
+  });
+
   it("blocks sender actions without sender emails before provider calls", async () => {
     const tools = await captureToolSet();
     mockCreateEmailProvider.mockClear();
@@ -2727,7 +2902,14 @@ describe("aiProcessAssistantChat", () => {
   });
 
   it("executes searchInbox and manageInbox tools with resilient behavior", async () => {
-    const tools = await captureToolSet(true, "microsoft");
+    const tools = await captureToolSet(
+      true,
+      "microsoft",
+      conversationWithSearchResults([
+        { messageId: "message-1", threadId: "thread-1" },
+        { messageId: "message-2", threadId: "thread-2" },
+      ]),
+    );
 
     const archiveThreadWithLabel = vi
       .fn()
@@ -2821,6 +3003,73 @@ describe("aiProcessAssistantChat", () => {
     );
   });
 });
+
+// The chat only acts on email IDs that earlier tool results returned.
+function conversationWithSearchResults(
+  results: Array<{ messageId: string; threadId: string }>,
+): ModelMessage[] {
+  return [
+    ...baseMessages,
+    {
+      role: "assistant",
+      content: [
+        {
+          type: "tool-call",
+          toolCallId: "search-1",
+          toolName: "searchInbox",
+          input: { query: "in:inbox" },
+        },
+      ],
+    },
+    {
+      role: "tool",
+      content: [
+        {
+          type: "tool-result",
+          toolCallId: "search-1",
+          toolName: "searchInbox",
+          output: { type: "json", value: { messages: results } },
+        },
+      ],
+    },
+  ];
+}
+
+// Mirrors what the AI SDK passes to execute, so chat tool guards see the
+// conversation the call was made in.
+function withToolExecutionOptions(
+  tools: Record<string, any>,
+  messages: ModelMessage[],
+) {
+  return Object.fromEntries(
+    Object.entries(tools).map(([toolName, toolDefinition]) => [
+      toolName,
+      {
+        ...toolDefinition,
+        execute: (input: unknown, options?: Record<string, unknown>) =>
+          toolDefinition.execute(input, {
+            toolCallId: "test-tool-call",
+            messages,
+            context: undefined,
+            ...options,
+          }),
+      },
+    ]),
+  ) as Record<string, any>;
+}
+
+async function getToolInputError(
+  tools: Record<string, any>,
+  toolName: string,
+  input: unknown,
+) {
+  const result = await tools[toolName].execute(input);
+  const error = result?.error;
+  return typeof error === "string" &&
+    error.startsWith(`Invalid ${toolName} input`)
+    ? error
+    : null;
+}
 
 function getWebhookRuleInput() {
   return {

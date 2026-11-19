@@ -52,7 +52,9 @@ export async function updateEmailMessagesForSender(options: {
       const result = await prisma.emailMessage.deleteMany({
         where: {
           emailAccountId,
-          from: sender,
+          // Stored from addresses keep the header's casing; callers often pass
+          // a lowercased sender.
+          from: { equals: sender, mode: "insensitive" },
           messageId: { in: messageIds },
         },
       });
@@ -68,7 +70,7 @@ export async function updateEmailMessagesForSender(options: {
       const result = await prisma.emailMessage.updateMany({
         where: {
           emailAccountId,
-          from: sender,
+          from: { equals: sender, mode: "insensitive" },
           messageId: { in: messageIds },
         },
         data: {

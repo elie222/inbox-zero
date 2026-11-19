@@ -45,6 +45,8 @@ export function createDesktopMailProcessOwner(input: {
   cookieHeader: (url: string) => Promise<string>;
   onEngineError: (error: Error) => void;
   onNewMail?: (payload: unknown) => void;
+  /** True while a child opens the mailbox, which runs any pending migrations. */
+  onOpeningChange?: (opening: boolean) => void;
 }): DesktopMailProcessOwner {
   const subscriptions = new Map<
     string,
@@ -55,6 +57,13 @@ export function createDesktopMailProcessOwner(input: {
   let consecutiveCrashes = 0;
   let restarts = 0;
   let closed = false;
+  let opening = false;
+
+  function setOpening(next: boolean) {
+    if (opening === next) return;
+    opening = next;
+    input.onOpeningChange?.(next);
+  }
 
   function spawn() {
     const child = input.fork();
@@ -73,6 +82,7 @@ export function createDesktopMailProcessOwner(input: {
       origin: input.origin,
     })).then(() => {
       running.isReady = true;
+      if (running === current) setOpening(false);
       for (const [subscriptionId, { payload }] of subscriptions) {
         child.postMessage({ type: "subscribe", subscriptionId, payload });
       }
@@ -95,6 +105,7 @@ export function createDesktopMailProcessOwner(input: {
       exited,
     };
     current = running;
+    setOpening(true);
     return running;
   }
 
@@ -170,6 +181,7 @@ export function createDesktopMailProcessOwner(input: {
     running.pending.clear();
     if (running !== current) return;
     current = undefined;
+    setOpening(false);
     if (closed) return;
     consecutiveCrashes =
       Date.now() - running.startedAt >= STABLE_UPTIME_MS
@@ -241,6 +253,7 @@ export function createDesktopMailProcessOwner(input: {
       clearTimeout(restartTimer);
       restartTimer = undefined;
       subscriptions.clear();
+      setOpening(false);
       const running = current;
       if (!running) return;
       // Wipe deletes the database files next, so the child must be gone.

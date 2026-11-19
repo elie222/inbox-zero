@@ -1,8 +1,17 @@
 import { z } from "zod";
-import { messageContextSchema } from "@/utils/ai/assistant/chat-context-validation";
+import {
+  mailViewContextSchema,
+  messageContextSchema,
+} from "@/utils/ai/assistant/chat-context-validation";
 import { inlineEmailActionSchema } from "@/utils/ai/assistant/inline-email-actions";
+import {
+  bulkInboxActionSearchSchema,
+  bulkInboxActionTypes,
+} from "@/utils/bulk-inbox-action/validation";
 
 export const ASSISTANT_CHAT_MAX_TEXT_LENGTH = 20_000;
+// How long a confirmation may stay "processing" before it counts as abandoned.
+export const ASSISTANT_CONFIRMATION_PROCESSING_LEASE_MS = 5 * 60 * 1000;
 export const ASSISTANT_CHAT_MAX_TEXT_LENGTH_MESSAGE =
   "Messages can be up to 20,000 characters.";
 
@@ -172,6 +181,90 @@ export type ConfirmAssistantSaveMemoryBody = z.infer<
   typeof confirmAssistantSaveMemoryBody
 >;
 
+export const pendingBulkInboxActionToolOutputSchema = z.object({
+  success: z.literal(true),
+  actionType: z.literal("bulk_inbox_action"),
+  requiresConfirmation: z.literal(true),
+  confirmationState: z.enum([
+    "pending",
+    "processing",
+    "confirmed",
+    "cancelled",
+  ]),
+  confirmationProcessingAt: z.string().optional(),
+  pendingAction: z.object({
+    search: bulkInboxActionSearchSchema,
+    action: z.enum(bulkInboxActionTypes),
+    labelId: z.string().nullable(),
+    labelName: z.string().nullable(),
+    instruction: z.string().nullable(),
+  }),
+  estimate: z
+    .object({
+      threadCount: z.number(),
+      isApproximate: z.boolean(),
+      isLowerBound: z.boolean().optional(),
+      searchThreadCount: z.number(),
+    })
+    .optional(),
+  matchSummary: z.string().nullish(),
+  samples: z
+    .array(
+      z.object({ from: z.string(), subject: z.string(), date: z.string() }),
+    )
+    .optional(),
+  confirmationResult: z
+    .object({
+      jobId: z.string().min(1),
+      confirmedAt: z.string().min(1),
+    })
+    .optional(),
+});
+
+export type PendingBulkInboxActionToolOutput = z.infer<
+  typeof pendingBulkInboxActionToolOutputSchema
+>;
+
+export const confirmAssistantBulkInboxActionBody =
+  confirmAssistantActionBaseBody;
+
+export const dismissAssistantBulkInboxActionBody =
+  confirmAssistantActionBaseBody;
+
+export const pendingTrashThreadsToolOutputSchema = z.object({
+  success: z.literal(true),
+  actionType: z.enum(["trash_threads", "delete_drafts"]),
+  requiresConfirmation: z.literal(true),
+  confirmationState: z.enum([
+    "pending",
+    "processing",
+    "confirmed",
+    "cancelled",
+  ]),
+  confirmationProcessingAt: z.string().optional(),
+  pendingAction: z.object({
+    threadIds: z.array(z.string().min(1)).min(1),
+  }),
+  confirmationResult: z
+    .object({
+      successCount: z.number(),
+      failedThreadIds: z.array(z.string()),
+      confirmedAt: z.string().min(1),
+    })
+    .optional(),
+});
+export type PendingTrashThreadsToolOutput = z.infer<
+  typeof pendingTrashThreadsToolOutputSchema
+>;
+
+export const confirmAssistantTrashThreadsBody = confirmAssistantActionBaseBody;
+
+export const dismissAssistantTrashThreadsBody = confirmAssistantActionBaseBody;
+
+export const cancelBulkInboxActionJobBody = z.object({
+  jobId: z.string().min(1),
+});
+
 const assistantChatTextPartSchema = z.object({
   type: z.literal("text"),
   text: z.string().min(1).max(ASSISTANT_CHAT_MAX_TEXT_LENGTH),
@@ -206,6 +299,9 @@ export const assistantInputSchema = z.object({
       }),
   }),
   context: messageContextSchema.optional(),
+  // Sent with every message from the mail screen; the server records it only
+  // when it changes.
+  mailView: mailViewContextSchema.optional(),
   inlineActions: z.array(inlineEmailActionSchema).max(20).optional(),
   // Clients that can't render the assistant's inline email card markup would
   // show it as raw XML, so cards are opt-in per client.

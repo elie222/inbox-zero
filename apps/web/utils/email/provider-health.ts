@@ -3,6 +3,7 @@ import {
   getErrorMessage,
   isGmailInsufficientPermissionsError,
   isInvalidGrantError,
+  isOutlookMailboxUnavailableError,
 } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import {
@@ -14,7 +15,8 @@ type ProviderIssueReason =
   | "invalid_grant"
   | "insufficient_permissions"
   | "policy_enforced"
-  | "mail_service_not_enabled";
+  | "mail_service_not_enabled"
+  | "mailbox_unavailable";
 
 type ProviderIssue = {
   reason: ProviderIssueReason;
@@ -111,6 +113,10 @@ export function classifyEmailAccountProviderIssue({
 
   if (provider === "google" && message?.includes("Mail service not enabled")) {
     return { reason: "mail_service_not_enabled" };
+  }
+
+  if (provider === "microsoft" && isOutlookMailboxUnavailableError(error)) {
+    return { reason: "mailbox_unavailable" };
   }
 
   if (isInvalidGrantError(error) || message?.includes("No refresh token")) {

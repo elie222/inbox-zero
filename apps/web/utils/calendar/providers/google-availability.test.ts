@@ -50,6 +50,38 @@ describe("createGoogleAvailabilityProvider", () => {
     expect(result).toEqual([]);
   });
 
+  it("queries large calendar lists in batches Google accepts", async () => {
+    // Google answers only the first 20 calendars of a request and returns
+    // tooManyCalendarsRequested for the rest.
+    query.mockImplementation(({ requestBody }) => ({
+      data: {
+        calendars: Object.fromEntries(
+          requestBody.items.map(({ id }: { id: string }, index: number) => [
+            id,
+            index < 20
+              ? { busy: [{ start: `${id}-start`, end: `${id}-end` }] }
+              : { errors: [{ reason: "tooManyCalendarsRequested" }] },
+          ]),
+        ),
+      },
+    }));
+    const calendarIds = Array.from({ length: 66 }, (_, i) => `cal-${i}`);
+
+    const provider = createGoogleAvailabilityProvider(logger);
+    const result = await provider.fetchBusyPeriods({
+      accessToken: "token",
+      calendarIds,
+      connectionId: "connection-id",
+      emailAccountId: "email-account-id",
+      expiresAt: Date.now() + 60_000,
+      refreshToken: "refresh-token",
+      timeMax: "2026-05-05T00:00:00.000Z",
+      timeMin: "2026-05-04T00:00:00.000Z",
+    });
+
+    expect(result).toHaveLength(66);
+  });
+
   it("fails closed on individual calendar errors when requested", async () => {
     const calendarErrors = [{ reason: "internalError" }];
     query.mockResolvedValue({

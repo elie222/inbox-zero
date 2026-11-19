@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { XIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -21,6 +22,7 @@ export function ConversationParticipants({
   publisherMemberId: string;
   onRemove?: (memberId: string) => void;
 }) {
+  const { t } = useLingui();
   const publisher = participants.find(
     (participant) => participant.memberId === publisherMemberId,
   );
@@ -29,7 +31,7 @@ export function ConversationParticipants({
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label="Shared participants"
+          aria-label={t`Shared participants`}
           className="inline-flex h-6 items-center gap-1.5 rounded-md border px-1.5 text-muted-foreground text-xs outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
         >
           <span className="-space-x-1 flex">
@@ -41,12 +43,12 @@ export function ConversationParticipants({
               />
             ))}
           </span>
-          Shared
+          <Trans>Shared</Trans>
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-0">
         <p className="px-3 pt-3 pb-1 text-muted-foreground text-xs">
-          This conversation is shared with:
+          <Trans>This conversation is shared with:</Trans>
         </p>
         <ul className="px-1 pb-1">
           {participants.map((participant) => (
@@ -58,13 +60,16 @@ export function ConversationParticipants({
               <span className="min-w-0 flex-1 truncate">
                 {participant.name}
                 {participant.memberId === currentMemberId && (
-                  <span className="text-muted-foreground"> (you)</span>
+                  <span className="text-muted-foreground">
+                    {" "}
+                    <Trans>(you)</Trans>
+                  </span>
                 )}
               </span>
               {onRemove && participant.memberId !== currentMemberId && (
                 <button
                   type="button"
-                  aria-label={`Remove ${participant.name}`}
+                  aria-label={t`Remove ${participant.name}`}
                   className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                   onClick={() => onRemove(participant.memberId)}
                 >
@@ -75,9 +80,13 @@ export function ConversationParticipants({
           ))}
         </ul>
         <p className="border-t px-3 py-2 text-muted-foreground text-xs">
-          {publisherMemberId === currentMemberId
-            ? "Conversation shared by you"
-            : `Conversation shared by ${publisher?.name ?? "a teammate"}`}
+          {publisherMemberId === currentMemberId ? (
+            <Trans>Conversation shared by you</Trans>
+          ) : publisher ? (
+            <Trans>Conversation shared by {publisher.name}</Trans>
+          ) : (
+            <Trans>Conversation shared by a teammate</Trans>
+          )}
         </p>
       </PopoverContent>
     </Popover>

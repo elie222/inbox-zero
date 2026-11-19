@@ -328,6 +328,117 @@ describe("createEmailProviderOperationExecutor", () => {
     expect(markNotSpam).toHaveBeenCalledWith("thread-spam");
   });
 
+  it("discards a draft by its provider id and drops every copy it was saved as", async () => {
+    const deleteDraft = vi.fn(async () => true);
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        getDraft: vi.fn(async () => ({ id: "m2" })),
+        getDraftReferenceForMessage: vi.fn(async (messageId: string) =>
+          messageId === "m2" ? { id: "d1", version: "v2" } : null,
+        ),
+        deleteDraft,
+        getMessage: vi.fn(async () => {
+          throw new Error("Requested entity was not found. 404");
+        }),
+      } as unknown as EmailProvider,
+    });
+
+    const result = await executor.execute({
+      operation: discardOperation(["m1", "m2"], "d1"),
+      attemptId: "attempt-1",
+      signal: new AbortController().signal,
+    });
+
+    expect(deleteDraft).toHaveBeenCalledExactlyOnceWith("d1", "v2");
+    expect(result).toMatchObject({
+      status: "confirmed",
+      observations: [
+        { kind: "message_deleted", key: { messageId: "m1" } },
+        { kind: "message_deleted", key: { messageId: "m2" } },
+      ],
+    });
+  });
+
+  it("rejects a discard when the draft changed since it was opened", async () => {
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        getDraftReferenceForMessage: vi.fn(async () => ({
+          id: "d1",
+          version: "v1",
+        })),
+        deleteDraft: vi.fn(async () => false),
+        getDraft: vi.fn(async () => ({ id: "m1" })),
+      } as unknown as EmailProvider,
+    });
+
+    const result = await executor.execute({
+      operation: discardOperation(["m1"]),
+      attemptId: "attempt-1",
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toMatchObject({ status: "rejected", code: "draft_changed" });
+  });
+
+  it("settles a refused discard as applied when the draft is already gone", async () => {
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        getDraftReferenceForMessage: vi.fn(async () => ({
+          id: "d1",
+          version: "v1",
+        })),
+        deleteDraft: vi.fn(async () => false),
+        getDraft: vi.fn(async () => null),
+        getMessage: vi.fn(async () => null),
+      } as unknown as EmailProvider,
+    });
+
+    const result = await executor.execute({
+      operation: discardOperation(["m1"]),
+      attemptId: "attempt-1",
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toMatchObject({ status: "confirmed" });
+  });
+
+  it("keeps a draft that was sent elsewhere as the sent message", async () => {
+    const deleteDraft = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        getDraftReferenceForMessage: vi.fn(async () => null),
+        deleteDraft,
+        getMessage: vi.fn(async (id: string) => ({
+          id,
+          threadId: "t1",
+          headers: { from: "owner@example.com", to: "friend@example.com" },
+          labelIds: ["SENT"],
+          snippet: "hello",
+        })),
+      } as unknown as EmailProvider,
+    });
+
+    const result = await executor.execute({
+      operation: discardOperation(["m1"]),
+      attemptId: "attempt-1",
+      signal: new AbortController().signal,
+    });
+
+    expect(deleteDraft).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      status: "confirmed",
+      observations: [{ kind: "message_patch", key: { messageId: "m1" } }],
+    });
+  });
+
   it("executes sends through the existing durable receipt ledger", async () => {
     vi.mocked(executeDurableEmailSend).mockResolvedValue({
       status: "applied",
@@ -923,6 +1034,24 @@ function metadataOperation(
       kind: "metadata",
       targets,
       change: { kind: "archive" },
+    },
+  };
+}
+
+function discardOperation(
+  messageIds: string[],
+  draftId?: string,
+): PreparedOperation {
+  const targets = messageIds.map((messageId) => ({
+    accountId: "acc-1",
+    messageId,
+  }));
+  return {
+    ...metadataOperation(targets),
+    intent: {
+      kind: "metadata",
+      targets,
+      change: { kind: "discard_draft", draftId },
     },
   };
 }

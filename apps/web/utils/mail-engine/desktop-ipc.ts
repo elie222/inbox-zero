@@ -1,5 +1,6 @@
 import type { MailClient } from "@inboxzero/mail-core/engine";
 import { createMailIpcClient } from "@inboxzero/mail-core/protocol/mail-ipc-client";
+import type { MailPredicate } from "@inboxzero/mail-core/queries";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import {
   pageConnectivityOnline,
@@ -36,7 +37,22 @@ export function createDesktopIpcMailClient(input?: {
     requestSyncUnlessOffline(pageConnectivityOnline(), () =>
       originalRequestSync(accountIds),
     );
-  return client;
+  if (desktop.supportsNoMatchingMessage) return client;
+
+  const observeMailboxWindow = client.observeMailboxWindow;
+  return {
+    ...client,
+    observeMailbox: (query) => client.observeMailbox(legacyMailboxQuery(query)),
+    observeMailboxWindow: observeMailboxWindow
+      ? (query, options) =>
+          observeMailboxWindow(legacyMailboxQuery(query), options)
+      : undefined,
+    observeMailboxCounts: (query) =>
+      client.observeMailboxCounts({
+        ...query,
+        targets: query.targets.map(legacyMailboxQuery),
+      }),
+  } satisfies typeof client;
 }
 
 export async function startDesktopIpcMailClient(input: {
@@ -48,4 +64,27 @@ export async function startDesktopIpcMailClient(input: {
   const client = createDesktopIpcMailClient({ provider: input.provider });
   await input.publish(client);
   client.requestSync([input.accountId]).catch(input.onSyncError);
+}
+
+function legacyMailboxQuery<T extends { predicate: MailPredicate }>(
+  query: T,
+): T {
+  return { ...query, predicate: legacyMailboxPredicate(query.predicate) };
+}
+
+function legacyMailboxPredicate(predicate: MailPredicate): MailPredicate {
+  if (predicate.kind === "no_matching_message" || predicate.kind === "not") {
+    // Older desktop builds only support negation against a single message.
+    return {
+      kind: "not",
+      predicate: legacyMailboxPredicate(predicate.predicate),
+    };
+  }
+  if (predicate.kind === "all" || predicate.kind === "any") {
+    return {
+      ...predicate,
+      predicates: predicate.predicates.map(legacyMailboxPredicate),
+    };
+  }
+  return predicate;
 }

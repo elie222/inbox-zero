@@ -136,7 +136,7 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `SENTRY_PROJECT` | No | Project slug | — |
 | `NEXT_PUBLIC_SENTRY_DSN` | No | Client-side DSN | — |
 | **Resend** ||||
-| `RESEND_API_KEY` | No | API key for transactional emails | — |
+| `RESEND_API_KEY` | No | API key for transactional emails. If unset, notification emails (digests, meeting briefs, meeting recaps) are sent from each user's own mailbox to themselves | — |
 | `RESEND_AUDIENCE_ID` | No | Audience ID for contacts | — |
 | `RESEND_FROM_EMAIL` | No | From email address | `Inbox Zero <updates@transactional.getinboxzero.com>` |
 | `NEXT_PUBLIC_IS_RESEND_CONFIGURED` | No | Client-side flag indicating if Resend is configured | — |

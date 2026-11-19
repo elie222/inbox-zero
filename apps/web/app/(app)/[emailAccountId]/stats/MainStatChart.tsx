@@ -1,6 +1,9 @@
 "use client";
 
 import * as React from "react";
+import mapValues from "lodash/mapValues";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { parse, format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ChartConfig } from "@/components/ui/chart";
@@ -9,13 +12,13 @@ import { BarChart } from "@/app/(app)/[emailAccountId]/stats/BarChart";
 import { COLORS } from "@/utils/colors";
 
 const chartConfig = {
-  received: { label: "Received", color: COLORS.analytics.blue },
-  sent: { label: "Sent", color: COLORS.analytics.purple },
-  read: { label: "Read", color: COLORS.analytics.pink },
-  unread: { label: "Unread", color: COLORS.analytics.lightPink },
-  archived: { label: "Archived", color: COLORS.analytics.green },
-  inbox: { label: "Inbox", color: COLORS.analytics.lightGreen },
-} satisfies ChartConfig;
+  received: { label: msg`Received`, color: COLORS.analytics.blue },
+  sent: { label: msg`Sent`, color: COLORS.analytics.purple },
+  read: { label: msg`Read`, color: COLORS.analytics.pink },
+  unread: { label: msg`Unread`, color: COLORS.analytics.lightPink },
+  archived: { label: msg`Archived`, color: COLORS.analytics.green },
+  inbox: { label: msg`Inbox`, color: COLORS.analytics.lightGreen },
+};
 
 function getActiveChart(activChart: keyof typeof chartConfig): string[] {
   if (activChart === "received") return ["received"];
@@ -29,6 +32,15 @@ export function MainStatChart(props: {
   data: StatsByPeriodResponse;
   period: "day" | "week" | "month" | "year";
 }) {
+  const { i18n } = useLingui();
+  const translatedChartConfig = React.useMemo(
+    () =>
+      mapValues(chartConfig, (item) => ({
+        ...item,
+        label: i18n._(item.label),
+      })) satisfies ChartConfig,
+    [i18n],
+  );
   const [activeChart, setActiveChart] =
     React.useState<keyof typeof chartConfig>("received");
 
@@ -82,7 +94,7 @@ export function MainStatChart(props: {
                   className="h-2 w-2 rounded-full"
                   style={{ backgroundColor: chartConfig[chart].color }}
                 />
-                {chartConfig[chart].label}
+                {translatedChartConfig[chart].label}
               </span>
               <span className="text-lg leading-none font-bold sm:text-3xl">
                 {total[key].toLocaleString()}
@@ -94,7 +106,7 @@ export function MainStatChart(props: {
       <CardContent className="p-6 pl-0 sm:px-2">
         <BarChart
           data={chartData}
-          config={chartConfig}
+          config={translatedChartConfig}
           activeCharts={getActiveChart(activeChart)}
           period={props.period}
         />

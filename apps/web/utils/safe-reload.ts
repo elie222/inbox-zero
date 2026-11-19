@@ -12,7 +12,7 @@ export function registerOpenComposer() {
 }
 
 export function isSafeToReload() {
-  if (openComposers.size) return false;
+  if (document.visibilityState !== "hidden" || openComposers.size) return false;
   const element = document.activeElement;
   if (!(element instanceof HTMLElement)) return true;
   return !(
@@ -25,11 +25,17 @@ export function isSafeToReload() {
   );
 }
 
-export function reloadAtNextSafeMoment(reload: () => void) {
+export function reloadAtNextSafeMoment(
+  reload: () => void,
+  { waitForVisibilityChange = false } = {},
+) {
   // A page that is still queuing work is not unloading.
   unloading = false;
   pendingReloads.add(reload);
-  document.addEventListener("visibilitychange", onVisibilityChange);
+  document.addEventListener("visibilitychange", runPendingReloads);
+  document.addEventListener("focusout", onFocusOut);
+  if (!waitForVisibilityChange && isSafeToReload())
+    queueMicrotask(runPendingReloads);
   window.addEventListener("pagehide", onPageHide);
   window.addEventListener("pageshow", onPageShow);
   return () => {
@@ -38,9 +44,10 @@ export function reloadAtNextSafeMoment(reload: () => void) {
   };
 }
 
-// Called after client navigation, once the departing compose surface has unmounted.
+// Navigation may drain the queue only after the window is hidden. A visible
+// route change is still active use and must never flash a full-page reload.
 export function runPendingReloads() {
-  if (!isSafeToReload()) return;
+  if (unloading || !isSafeToReload()) return;
   const reloads = [...pendingReloads];
   pendingReloads.clear();
   stopListening();
@@ -48,7 +55,8 @@ export function runPendingReloads() {
 }
 
 function stopListening() {
-  document.removeEventListener("visibilitychange", onVisibilityChange);
+  document.removeEventListener("visibilitychange", runPendingReloads);
+  document.removeEventListener("focusout", onFocusOut);
   window.removeEventListener("pagehide", onPageHide);
   window.removeEventListener("pageshow", onPageShow);
 }
@@ -64,6 +72,6 @@ function onPageShow() {
   unloading = false;
 }
 
-function onVisibilityChange() {
-  if (document.visibilityState === "hidden" && !unloading) runPendingReloads();
+function onFocusOut() {
+  if (document.visibilityState === "hidden") queueMicrotask(runPendingReloads);
 }

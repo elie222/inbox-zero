@@ -1,12 +1,16 @@
 "use client";
 
 import type { ReactElement, ReactNode } from "react";
+import type { I18n, MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
   ArrowLeftIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
+  MessageCircleIcon,
   MailIcon,
   MailOpenIcon,
 } from "lucide-react";
@@ -17,6 +21,7 @@ import {
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
 import { Tooltip } from "@/components/Tooltip";
+import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 
 type ReaderToolbarProps = {
@@ -37,6 +42,7 @@ type ReaderToolbarProps = {
   onMoveToInbox?: () => void;
   onMarkRead: () => void;
   onMarkUnread: () => void;
+  showChat?: boolean;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
   messageExpansion?: {
@@ -63,8 +69,11 @@ export function ReaderToolbar({
   onMarkRead,
   onMarkUnread,
   menu,
+  showChat = true,
   messageExpansion,
 }: ReaderToolbarProps) {
+  const { t, i18n } = useLingui();
+  const { toggleSidebar } = useSidebar();
   return (
     <MailReaderToolbar
       icons={{
@@ -87,27 +96,50 @@ export function ReaderToolbar({
           onRemove={onRemoveLabel ? () => onRemoveLabel(label.id) : undefined}
         />
       ))}
-      menu={menu}
+      menu={
+        <>
+          {showChat && (
+            <Button
+              aria-label={t`Chat about this email`}
+              title={t`Chat about this email`}
+              size="iconXs"
+              variant="ghost"
+              onClick={() => toggleSidebar(["chat-sidebar"])}
+            >
+              <MessageCircleIcon className="size-3.5" />
+            </Button>
+          )}
+          {menu}
+        </>
+      }
       messageExpansion={messageExpansion}
       onArchive={onArchive}
       onMoveToInbox={onMoveToInbox}
       onBackToInbox={onBackToInbox}
       onMarkRead={onMarkRead}
       onMarkUnread={onMarkUnread}
-      renderActionTooltip={renderActionTooltip}
-      renderButton={renderButton}
+      renderActionTooltip={(button, children) =>
+        renderActionTooltip(button, children, i18n)
+      }
+      renderButton={(button) => renderButton(button, i18n)}
+      strings={{
+        starredConversation: t`Starred conversation`,
+        threadActions: t`Thread actions`,
+      }}
       subject={subject}
     />
   );
 }
 
-function renderButton(button: MailReaderToolbarButton) {
+function renderButton(button: MailReaderToolbarButton, i18n: I18n) {
+  // The shared toolbar names its buttons in English.
+  const label = i18n._(TOOLBAR_BUTTON_LABELS[button.action]);
   return (
     <Button
-      aria-label={button.ariaLabel}
+      aria-label={label}
       onClick={button.onClick}
       size="iconXs"
-      title={button.title}
+      title={button.title ? label : undefined}
       variant="ghost"
     >
       {button.icon}
@@ -118,18 +150,32 @@ function renderButton(button: MailReaderToolbarButton) {
 function renderActionTooltip(
   button: MailReaderToolbarButton,
   children: ReactElement,
+  i18n: I18n,
 ) {
   if (button.action === "archive") {
     return <Tooltip shortcuts={["archive"]}>{children}</Tooltip>;
   }
   if (button.action === "move_to_inbox") {
-    return <Tooltip content="Move to inbox">{children}</Tooltip>;
+    return <Tooltip content={i18n._(msg`Move to inbox`)}>{children}</Tooltip>;
   }
   if (button.action === "mark_unread") {
     return <Tooltip shortcuts={["markUnread"]}>{children}</Tooltip>;
   }
   if (button.action === "mark_read") {
-    return <Tooltip content="Mark as read">{children}</Tooltip>;
+    return <Tooltip content={i18n._(msg`Mark as read`)}>{children}</Tooltip>;
   }
   return children;
 }
+
+const TOOLBAR_BUTTON_LABELS: Record<
+  MailReaderToolbarButton["action"],
+  MessageDescriptor
+> = {
+  back: msg`Back to inbox`,
+  expand_all: msg`Expand all messages`,
+  collapse_all: msg`Collapse all messages`,
+  archive: msg`Archive`,
+  move_to_inbox: msg`Move to inbox`,
+  mark_read: msg`Mark as read`,
+  mark_unread: msg`Mark as unread`,
+};

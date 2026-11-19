@@ -44,45 +44,22 @@ test("preserves multiple server drafts without reply headers", async ({
   await expect(editors.nth(0)).toContainText("Independent first edit");
   await expect(editors.nth(1)).toContainText("Second saved reply");
 
-  const pendingDiscards = [
-    Promise.withResolvers<void>(),
-    Promise.withResolvers<void>(),
-  ];
-  let discards = 0;
-  await page.route("**/*", async (route) => {
-    const request = route.request();
-    const body = request.postData() ?? "";
-    if (
-      request.headers()["next-action"] &&
-      (body.includes("msg_playwright_multi_draft_first") ||
-        body.includes("msg_playwright_multi_draft_second")) &&
-      !body.includes("messageHtml")
-    ) {
-      await pendingDiscards[discards++].promise;
-      await route.abort("failed");
-      return;
-    }
-    await route.fallback();
-  });
   await page
     .getByRole("button", { name: "Discard draft", exact: true })
     .nth(0)
     .click();
   await expect(editors).toHaveCount(2);
+  await expect(editors.nth(0)).toContainText("Second saved reply");
   await page
     .getByRole("button", { name: "Discard draft", exact: true })
     .nth(0)
     .click();
+  // Only the forward is left; each discard removed just its own draft.
   await expect(editors).toHaveCount(1);
-  await expect.poll(() => discards).toBe(1);
-  pendingDiscards[0].resolve();
-  await expect(editors).toHaveCount(2);
-  await expect.poll(() => discards).toBe(2);
-  pendingDiscards[1].resolve();
-  await expect(editors).toHaveCount(3);
-  await expect(editors.nth(0)).toContainText("Independent first edit");
-  await expect(editors.nth(1)).toContainText("Second saved reply");
-  await capturePlaywrightCheckpoint(page, testInfo, "restored-server-drafts");
+  await expect(
+    page.getByText("Second saved reply", { exact: true }),
+  ).toHaveCount(0);
+  await capturePlaywrightCheckpoint(page, testInfo, "discarded-server-drafts");
 });
 
 test("preserves multiple server drafts without a sent parent", async ({

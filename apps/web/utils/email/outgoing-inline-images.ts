@@ -5,50 +5,36 @@ import {
   storeLoadedInlineImage,
 } from "@/utils/email/inline-image-cache";
 
-// Copy local previews before closing the composer revokes its object URLs.
-// The reader cache owns the copies through the provider's sent-message handoff.
-export async function prepareOutgoingInlineImages(
+// Mint reader-owned URLs from the local blobs. The app's CSP blocks fetching
+// blob: URLs, and closing the composer revokes its own preview URLs.
+export function publishOutgoingInlineImages(
   accountId: string,
+  operationId: string,
   attachments: {
     disposition: "inline" | "attachment";
     contentId?: string;
-    previewUrl?: string;
+    preview?: { blob: Blob };
   }[],
 ) {
-  const previews = await Promise.all(
-    attachments.map(async (attachment) => {
-      const contentId = normalizeContentId(attachment.contentId);
-      if (
-        attachment.disposition !== "inline" ||
-        !contentId ||
-        !attachment.previewUrl?.startsWith("blob:")
-      )
-        return null;
-      try {
-        const response = await fetch(attachment.previewUrl, {
-          signal: AbortSignal.timeout(5000),
-        });
-        if (!response.ok) return null;
-        return { contentId, blob: await response.blob() };
-      } catch {
-        return null;
-      }
-    }),
+  const previews = attachments.flatMap(
+    ({ disposition, contentId, preview }) => {
+      const normalizedId = normalizeContentId(contentId);
+      return disposition === "inline" && normalizedId && preview
+        ? [{ contentId: normalizedId, blob: preview.blob }]
+        : [];
+    },
   );
-  return (operationId: string) => {
-    if (!previews.some(Boolean)) return;
-    const messageId = inlineImageCacheKey(accountId, "", operationId);
-    // The outgoing row mounts after publication. A short lease bridges that
-    // gap; mounted readers retain their own reference after the lease expires.
-    const release = retainInlineImages(messageId);
-    setTimeout(release, 30_000);
-    for (const preview of previews) {
-      if (!preview) continue;
-      storeLoadedInlineImage({
-        messageId,
-        contentId: preview.contentId,
-        objectUrl: URL.createObjectURL(preview.blob),
-      });
-    }
-  };
+  if (!previews.length) return;
+
+  const messageId = inlineImageCacheKey(accountId, "", operationId);
+  // Keep previews available until the outgoing row mounts and retains them.
+  const release = retainInlineImages(messageId);
+  setTimeout(release, 30_000);
+  for (const { contentId, blob } of previews) {
+    storeLoadedInlineImage({
+      messageId,
+      contentId,
+      objectUrl: URL.createObjectURL(blob),
+    });
+  }
 }

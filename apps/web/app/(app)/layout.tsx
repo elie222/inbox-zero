@@ -16,11 +16,13 @@ import { PostHogIdentify } from "@/providers/PostHogProvider";
 import { CommandK } from "@/components/CommandK";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { AppProviders } from "@/providers/AppProviders";
+import { LinguiClientProvider } from "@/providers/LinguiClientProvider";
 import { AssessUser } from "@/app/(app)/[emailAccountId]/assess";
 import { SentryIdentify } from "@/app/(app)/sentry-identify";
 import { AiAutomationStatusBanner } from "@/app/(app)/AiAutomationStatusBanner";
 import { ErrorMessages } from "@/app/(app)/ErrorMessages";
 import { DesktopMailIndicators } from "@/app/(app)/DesktopMailIndicators";
+import { DesktopMailboxOpeningToast } from "@/app/(app)/DesktopMailboxOpeningToast";
 import { DesktopUpdateToast } from "@/app/(app)/DesktopUpdateToast";
 import { ProviderRateLimitBanner } from "@/app/(app)/ProviderRateLimitBanner";
 import { MailEngineRuntime } from "@/utils/mail-engine/MailEngineHost";
@@ -33,6 +35,7 @@ import { parsePanelWidthCookie } from "@/utils/panel-width";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { booleanString } from "@/utils/zod";
+import { getLocale, getMessages } from "@/utils/i18n/server";
 
 const logger = createScopedLogger("AppLayout");
 
@@ -71,6 +74,7 @@ export default async function AppLayout({
 
   if (!session?.user.email) redirect("/login");
 
+  const locale = await getLocale();
   const cookieStore = await cookies();
   const isClosed = cookieStore.get("left-sidebar:state")?.value === "false";
   const chatSidebarWidth =
@@ -100,33 +104,36 @@ export default async function AppLayout({
   return (
     <div className={inter.variable}>
       <div className="font-inter">
-        <AppProviders>
-          <MailEngineRuntime>
-            <SideNavWithTopNav
-              defaultOpen={!isClosed}
-              feedbackEnabled={feedbackEnabled}
-              chatSidebarWidth={chatSidebarWidth}
-            >
-              <DesktopMailIndicators />
-              <DesktopUpdateToast />
-              <AiAutomationStatusBanner />
-              <ErrorMessages />
-              <ProviderRateLimitBanner />
-              {children}
-            </SideNavWithTopNav>
-            <EmailViewer />
-            <SettingsDialog />
-            <AnnouncementDialog />
-            {feedbackEnabled && <FeedbackDialog />}
-            <ErrorBoundary extra={{ component: "AppLayout" }}>
-              <PostHogIdentify />
+        <LinguiClientProvider locale={locale} messages={getMessages(locale)}>
+          <AppProviders>
+            <MailEngineRuntime>
+              <SideNavWithTopNav
+                defaultOpen={!isClosed}
+                feedbackEnabled={feedbackEnabled}
+                chatSidebarWidth={chatSidebarWidth}
+              >
+                <DesktopMailIndicators />
+                <DesktopUpdateToast />
+                <DesktopMailboxOpeningToast />
+                <AiAutomationStatusBanner />
+                <ErrorMessages />
+                <ProviderRateLimitBanner />
+                {children}
+              </SideNavWithTopNav>
+              <EmailViewer />
+              <SettingsDialog />
+              <AnnouncementDialog />
+              {feedbackEnabled && <FeedbackDialog />}
+              <ErrorBoundary extra={{ component: "AppLayout" }}>
+                <PostHogIdentify />
 
-              <CommandK feedbackEnabled={feedbackEnabled} />
-              <AssessUser />
-              <SentryIdentify email={session.user.email} />
-            </ErrorBoundary>
-          </MailEngineRuntime>
-        </AppProviders>
+                <CommandK feedbackEnabled={feedbackEnabled} />
+                <AssessUser />
+                <SentryIdentify email={session.user.email} />
+              </ErrorBoundary>
+            </MailEngineRuntime>
+          </AppProviders>
+        </LinguiClientProvider>
       </div>
     </div>
   );

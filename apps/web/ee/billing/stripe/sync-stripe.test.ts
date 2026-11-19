@@ -38,6 +38,7 @@ describe("getEffectiveStripeSubscriptionStatus", () => {
       getEffectiveStripeSubscriptionStatus({
         status: "trialing",
         cancel_at_period_end: true,
+        pause_collection: null,
       }),
     ).toBe("canceled");
   });
@@ -47,6 +48,7 @@ describe("getEffectiveStripeSubscriptionStatus", () => {
       getEffectiveStripeSubscriptionStatus({
         status: "active",
         cancel_at_period_end: true,
+        pause_collection: null,
       }),
     ).toBe("active");
   });
@@ -56,8 +58,49 @@ describe("getEffectiveStripeSubscriptionStatus", () => {
       getEffectiveStripeSubscriptionStatus({
         status: "trialing",
         cancel_at_period_end: false,
+        pause_collection: null,
       }),
     ).toBe("trialing");
+  });
+
+  it("treats subscriptions with paused payment collection as paused", () => {
+    expect(
+      getEffectiveStripeSubscriptionStatus({
+        status: "active",
+        cancel_at_period_end: false,
+        pause_collection: { behavior: "void", resumes_at: null },
+      }),
+    ).toBe("paused");
+  });
+
+  it("keeps terminal statuses even if payment collection was paused", () => {
+    expect(
+      getEffectiveStripeSubscriptionStatus({
+        status: "canceled",
+        cancel_at_period_end: false,
+        pause_collection: { behavior: "void", resumes_at: null },
+      }),
+    ).toBe("canceled");
+  });
+
+  it("restores the real status once payment collection resumes", () => {
+    expect(
+      getEffectiveStripeSubscriptionStatus({
+        status: "active",
+        cancel_at_period_end: false,
+        pause_collection: null,
+      }),
+    ).toBe("active");
+  });
+
+  it("keeps Stripe's paused status for trials that ended without payment", () => {
+    expect(
+      getEffectiveStripeSubscriptionStatus({
+        status: "paused",
+        cancel_at_period_end: false,
+        pause_collection: null,
+      }),
+    ).toBe("paused");
   });
 });
 
@@ -178,6 +221,52 @@ describe("syncStripeDataToDb", () => {
     expect(prisma.premium.upsert).toHaveBeenLastCalledWith(
       expect.objectContaining({
         update: expect.objectContaining({ stripeCancelAt: null }),
+      }),
+    );
+  });
+
+  it("persists the cancellation survey answer", async () => {
+    prisma.premium.findUnique.mockResolvedValue(null);
+    prisma.premium.upsert.mockResolvedValue({
+      id: "premium-1",
+      users: [],
+      admins: [],
+    });
+    mocks.listSubscriptions.mockResolvedValue({
+      data: [
+        {
+          id: "sub_test",
+          status: "active",
+          cancel_at: 1_800_000_000,
+          canceled_at: 1_790_000_000,
+          cancellation_details: {
+            reason: "cancellation_requested",
+            feedback: "too_expensive",
+            comment: "Costs more than I expected",
+          },
+          items: {
+            data: [
+              {
+                id: "si_test",
+                price: { id: "price_test", product: "prod_test" },
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    await syncStripeDataToDb({
+      customerId: "cus_1",
+      logger: createTestLogger(),
+    });
+
+    expect(prisma.premium.upsert).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          stripeCancellationFeedback: "too_expensive",
+          stripeCancellationComment: "Costs more than I expected",
+        }),
       }),
     );
   });

@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { getAccountScopedKey } from "@/utils/swr";
 import useSWR from "swr";
 import { useAction } from "next-safe-action/hooks";
@@ -14,11 +15,13 @@ import { getActionErrorMessage } from "@/utils/error";
 import type { CalendarInvitationResponse } from "@/app/api/messages/calendar-invitation/route";
 import { formatInvitationTime } from "@/utils/calendar/invitations/format-time";
 import type { InvitationResponse } from "@/utils/calendar/invitations/parser";
+import { getDateFnsLocale } from "@/utils/i18n/date-fns-locale";
 
 // The card reads the meeting time in the zone the viewer's device is set to.
 const viewerTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 export function CalendarInvitation({ messageId }: { messageId: string }) {
+  const { t, i18n } = useLingui();
   const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } = useSWR<CalendarInvitationResponse>(
     getAccountScopedKey(
@@ -45,21 +48,19 @@ export function CalendarInvitation({ messageId }: { messageId: string }) {
   if (!isLoading && !error && !data?.invitation) return null;
   const invitation = data?.invitation;
   const response = submitted?.response ?? invitation?.response;
-  let status =
-    "No matching calendar event was verified. Your response will be emailed to the organizer.";
+  let status = t`No matching calendar event was verified. Your response will be emailed to the organizer.`;
   if (invitation?.calendarSynced)
-    status =
-      "Your response will update your calendar and notify the organizer.";
+    status = t`Your response will update your calendar and notify the organizer.`;
   if (submitted) {
     status = submitted.calendarSynced
-      ? "Response sent and calendar updated."
-      : "Response emailed to the organizer. Calendar sync wasn’t confirmed.";
+      ? t`Response sent and calendar updated.`
+      : t`Response emailed to the organizer. Calendar sync wasn’t confirmed.`;
   }
-  if (isExecuting) status = "Sending response…";
+  if (isExecuting) status = t`Sending response…`;
   return (
     <section
       className="mb-4 rounded-lg border bg-muted/30 p-4"
-      aria-label="Calendar invitation"
+      aria-label={t`Calendar invitation`}
     >
       <LoadingContent loading={isLoading} error={error}>
         {invitation && (
@@ -68,7 +69,11 @@ export function CalendarInvitation({ messageId }: { messageId: string }) {
               <CalendarIcon className="mt-0.5 size-4 shrink-0" />
               <div className="min-w-0 space-y-0.5">
                 <p className="font-medium break-words">
-                  {formatInvitationTime(invitation, viewerTimeZone)}
+                  {formatInvitationTime(
+                    invitation,
+                    viewerTimeZone,
+                    getDateFnsLocale(i18n.locale),
+                  )}
                 </p>
                 <p className="break-words">{invitation.title}</p>
                 <p className="break-all text-sm text-muted-foreground">
@@ -76,7 +81,7 @@ export function CalendarInvitation({ messageId }: { messageId: string }) {
                 </p>
                 {invitation.recurring && (
                   <p className="text-sm text-muted-foreground">
-                    Recurring invitation
+                    <Trans>Recurring invitation</Trans>
                   </p>
                 )}
               </div>
@@ -102,12 +107,14 @@ export function CalendarInvitation({ messageId }: { messageId: string }) {
             )}
 
             <fieldset className="flex flex-wrap gap-2">
-              <legend className="sr-only">Your response</legend>
+              <legend className="sr-only">
+                <Trans>Your response</Trans>
+              </legend>
               {(
                 [
-                  ["accepted", "Yes"],
-                  ["declined", "No"],
-                  ["tentative", "Maybe"],
+                  ["accepted", t`Yes`],
+                  ["declined", t`No`],
+                  ["tentative", t`Maybe`],
                 ] as const
               ).map(([value, label]) => (
                 <Button

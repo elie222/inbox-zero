@@ -5,6 +5,7 @@ import type { ConversationView } from "@inboxzero/mail-core/ports/mail-store";
 import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useMailEngineDemand } from "@/utils/mail-engine/MailEngineHost";
 import {
   CONVERSATION_PAGE_SIZE,
   conversationOutgoingMessages,
@@ -33,6 +34,7 @@ export function useThread(
     parseReplies?: boolean;
   },
 ) {
+  useMailEngineDemand(Boolean(id));
   const { emailAccountId: currentEmailAccountId } = useAccount();
   const emailAccountId = explicitEmailAccountId ?? currentEmailAccountId;
   const client = useOptionalMailClient();

@@ -128,6 +128,13 @@ services:
         ) &
         (
           while true; do
+            echo \"[cron] Recovering stalled bulk inbox actions...\"
+            curl -s -X GET 'http://web:3000/api/cron/bulk-inbox-action-recovery' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: bulk-inbox-action-recovery request failed\"
+            sleep 600
+          done
+        ) &
+        (
+          while true; do
             echo \"[cron] Processing follow-up reminders...\"
             curl -s -X GET 'http://web:3000/api/follow-up-reminders' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: follow-up-reminders request failed\"
             sleep 3600

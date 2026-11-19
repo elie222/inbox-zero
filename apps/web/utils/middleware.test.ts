@@ -20,7 +20,10 @@ import { getEmailAccount } from "@/utils/redis/account-validation";
 import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { isProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
-import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
+import {
+  getProviderRateLimitRetryAfterSeconds,
+  recordRateLimitFromApiError,
+} from "@/utils/email/rate-limit";
 import { getAuditContext } from "@/utils/audit/context";
 
 vi.mock("better-auth", () => {
@@ -48,6 +51,7 @@ vi.mock("@/utils/email/provider", () => ({
 }));
 vi.mock("@/utils/email/rate-limit", () => ({
   recordRateLimitFromApiError: vi.fn(),
+  getProviderRateLimitRetryAfterSeconds: vi.fn(),
 }));
 vi.mock("@/utils/email/rate-limit-mode-error", () => ({
   isProviderRateLimitModeError: vi.fn(),
@@ -626,6 +630,63 @@ describe("Middleware", () => {
     });
 
     it.each([
+      "invalid_grant",
+      "AADSTS50173",
+    ])("returns the reconnect response when provider initialization rejects a revoked grant (%s)", async (message) => {
+      mockReq = createMockRequest(
+        "POST",
+        "http://localhost/api/mail/v1/accounts/acc-456/changes",
+        {
+          [EMAIL_ACCOUNT_HEADER]: mockAccountId,
+        },
+      );
+      mockGetEmailAccount.mockResolvedValue(mockEmail);
+      mockPrismaEmailAccountFindUnique.mockResolvedValue({
+        id: mockAccountId,
+        account: { provider: "google" },
+      } as any);
+      mockCreateEmailProvider.mockRejectedValue(new Error(message));
+      const handler = vi.fn(async () => NextResponse.json({ ok: true }));
+
+      const response = await withEmailProvider("mail/v1/changes", handler)(
+        mockReq,
+        mockContext,
+      );
+
+      expect(response.status).toBe(401);
+      await expect(response.json()).resolves.toEqual({
+        error: "Authorization required. Please grant permissions.",
+        errorCode: "NO_REFRESH_TOKEN",
+        isKnownError: true,
+      });
+      expect(handler).not.toHaveBeenCalled();
+      expect(mockCaptureException).not.toHaveBeenCalled();
+    });
+
+    it("keeps unexpected provider initialization failures as server errors", async () => {
+      mockReq = createMockRequest("GET", "http://localhost/api/labels", {
+        [EMAIL_ACCOUNT_HEADER]: mockAccountId,
+      });
+      mockGetEmailAccount.mockResolvedValue(mockEmail);
+      mockPrismaEmailAccountFindUnique.mockResolvedValue({
+        id: mockAccountId,
+        account: { provider: "google" },
+      } as any);
+      mockCreateEmailProvider.mockRejectedValue(
+        new Error("provider unavailable"),
+      );
+      const handler = vi.fn(async () => NextResponse.json({ ok: true }));
+
+      const response = await withEmailProvider("labels", handler)(
+        mockReq,
+        mockContext,
+      );
+
+      expect(response.status).toBe(500);
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it.each([
       [
         "Gmail",
         "google",
@@ -660,6 +721,8 @@ describe("Middleware", () => {
         (error) => error === rateLimitError,
       );
       mockCheckCommonErrors.mockReturnValue(commonError);
+      mockRecordRateLimitFromApiError.mockResolvedValueOnce(provider);
+      vi.mocked(getProviderRateLimitRetryAfterSeconds).mockReturnValueOnce(120);
 
       const handler = vi.fn(async () => NextResponse.json({ ok: true }));
       const wrappedHandler = withEmailProvider("labels", handler);
@@ -682,6 +745,11 @@ describe("Middleware", () => {
         }),
       );
       expect(response.status).toBe(429);
+      expect(response.headers.get("Retry-After")).toBe("120");
+      expect(getProviderRateLimitRetryAfterSeconds).toHaveBeenCalledWith({
+        error: rateLimitError,
+        provider,
+      });
       expect(responseBody).toEqual({
         error: commonError.message,
         isKnownError: true,

@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback } from "react";
 import { Toggle } from "@/components/Toggle";
 import { enableMultiRuleSelectionAction } from "@/utils/actions/rule";
@@ -12,6 +13,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 export function MultiRuleSetting() {
+  const { t } = useLingui();
   const { data, isLoading, error, mutate } = useEmailAccountFull();
 
   const { execute } = useAction(
@@ -22,7 +24,7 @@ export function MultiRuleSetting() {
       },
       onError: createSettingActionErrorHandler({
         mutate,
-        prefix: "There was an error",
+        prefix: t`There was an error`,
       }),
     },
   );
@@ -48,14 +50,16 @@ export function MultiRuleSetting() {
     <SettingCard
       title={
         <div className="flex items-center gap-1.5">
-          <span>Multi-rule selection</span>
+          <span>
+            <Trans>Multi-rule selection</Trans>
+          </span>
           <TooltipExplanation
             side="top"
-            text="Turning this off stops the AI from intentionally choosing multiple custom rules for one email. Inbox Zero can still apply more than one rule in a few special cases."
+            text={t`Turning this off stops the AI from intentionally choosing multiple custom rules for one email. Inbox Zero can still apply more than one rule in a few special cases.`}
           />
         </div>
       }
-      description="Allow the AI to select multiple rules for a single email when appropriate."
+      description={t`Allow the AI to select multiple rules for a single email when appropriate.`}
       right={
         <LoadingContent
           loading={isLoading}

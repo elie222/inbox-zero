@@ -121,7 +121,11 @@ export async function generateFollowUpDraft({
         () =>
           prisma.threadTracker.update({
             where: { id: trackerId },
-            data: { followUpDraftId: draftId },
+            data: {
+              followUpDraftId: draftId,
+              followUpDraftContent: draftContent,
+              followUpDraftCreatedAt: new Date(),
+            },
           }),
         { logger },
       );

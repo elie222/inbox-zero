@@ -8,7 +8,11 @@ export type GetSignatureResponse = Awaited<
 
 export const GET = withEmailAccount("user/signature", async (request) => {
   const { emailAccountId, userId } = request.auth;
-  const result = await getComposeSignature({ emailAccountId, userId });
+  const result = await getComposeSignature({
+    emailAccountId,
+    userId,
+    logger: request.logger,
+  });
   return NextResponse.json(result, {
     headers: { "Cache-Control": "no-store" },
   });

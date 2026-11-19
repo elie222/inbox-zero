@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
+import { ContactsAccessDeniedError } from "@/utils/email/contact";
 import { searchContacts } from "./contact";
 
 describe("searchContacts", () => {
@@ -7,6 +8,7 @@ describe("searchContacts", () => {
     ["no-reply@example.com", '"no-reply@example.com"'],
     ["  First Last  ", '"First Last"'],
     ['First "Nickname" Last', String.raw`"First \"Nickname\" Last"`],
+    ["Smith & Co #2", '"Smith & Co #2"'],
   ])("quotes the People API search literal for %s", async (query, expected) => {
     const { api } = createGraphClient({});
 
@@ -20,7 +22,9 @@ describe("searchContacts", () => {
       api.mock.results[
         api.mock.calls.findIndex(([endpoint]) => endpoint === "/me/people")
       ].value;
-    expect(peopleRequest.search).toHaveBeenCalledWith(expected);
+    expect(peopleRequest.search).toHaveBeenCalledWith(
+      encodeURIComponent(expected),
+    );
   });
 
   it("loads saved Outlook contacts and maps all usable addresses", async () => {
@@ -155,7 +159,7 @@ describe("searchContacts", () => {
         "anyone",
         createTestLogger(),
       ),
-    ).rejects.toBe(contactsError);
+    ).rejects.toThrow(ContactsAccessDeniedError);
   });
 
   it("surfaces non-permission failures instead of returning partial results", async () => {

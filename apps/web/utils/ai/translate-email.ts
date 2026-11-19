@@ -2,9 +2,6 @@ import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("translate-email");
 
 const MAX_TEXT_LENGTH = 30_000;
 
@@ -60,22 +57,9 @@ ${formatTextsForPrompt(truncatedTexts)}`;
     schema: translationSchema(texts.length),
   });
 
-  const translations = result.object.translations;
-
-  if (translations.length !== texts.length) {
-    logger.error("Translation count mismatch", {
-      expected: texts.length,
-      actual: translations.length,
-      targetLanguage,
-    });
-    throw new Error(
-      `Expected ${texts.length} translations, received ${translations.length}`,
-    );
-  }
-
   // Blank inputs have no language; a model-supplied tag (e.g. "und") would
   // make the client show an empty translation in place of the original.
-  return translations.map((translation, index) =>
+  return result.object.translations.map((translation, index) =>
     texts[index].trim() ? translation : { text: "", sourceLanguage: null },
   );
 }
@@ -95,7 +79,11 @@ function translationSchema(textCount: number) {
             ),
         }),
       )
-      .length(textCount)
+      // `.length()` would emit minItems/maxItems, which some providers'
+      // structured outputs reject. A refinement validates without them.
+      .refine((translations) => translations.length === textCount, {
+        message: `Expected ${textCount} translations`,
+      })
       .describe(
         "Translated texts in the same order and length as the input texts",
       ),

@@ -13,18 +13,27 @@ export type EffectiveMessage = MessageMetadata & {
 export function messageMatchesPredicate(
   message: EffectiveMessage,
   predicate: MailPredicate,
+  conversation?: EffectiveMessage[],
 ): boolean {
   switch (predicate.kind) {
     case "all":
       return predicate.predicates.every((child) =>
-        messageMatchesPredicate(message, child),
+        messageMatchesPredicate(message, child, conversation),
       );
     case "any":
       return predicate.predicates.some((child) =>
-        messageMatchesPredicate(message, child),
+        messageMatchesPredicate(message, child, conversation),
       );
     case "not":
-      return !messageMatchesPredicate(message, predicate.predicate);
+      return !messageMatchesPredicate(
+        message,
+        predicate.predicate,
+        conversation,
+      );
+    case "no_matching_message":
+      return !(conversation ?? [message]).some((candidate) =>
+        messageMatchesPredicate(candidate, predicate.predicate, conversation),
+      );
     case "role":
       return message.roles.includes(predicate.role);
     case "mailbox":
@@ -93,7 +102,7 @@ export function conversationMatchesPredicate(
     return conversationMatchesMailbox(messages, predicate.mailbox);
   }
   return messages.some((message) =>
-    messageMatchesPredicate(message, predicate),
+    messageMatchesPredicate(message, predicate, messages),
   );
 }
 
@@ -103,7 +112,8 @@ export function conversationIsUnread(
 ): boolean {
   return messages.some(
     (message) =>
-      messageMatchesPredicate(message, predicate) && message.read === false,
+      messageMatchesPredicate(message, predicate, messages) &&
+      message.read === false,
   );
 }
 
@@ -114,7 +124,7 @@ export function extractTextPredicates(
   if (predicate.kind === "all" || predicate.kind === "any") {
     return predicate.predicates.flatMap(extractTextPredicates);
   }
-  if (predicate.kind === "not") {
+  if (predicate.kind === "not" || predicate.kind === "no_matching_message") {
     return extractTextPredicates(predicate.predicate);
   }
   return [];

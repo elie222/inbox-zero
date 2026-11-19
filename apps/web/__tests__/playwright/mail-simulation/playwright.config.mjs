@@ -28,6 +28,13 @@ export default defineConfig({
       testMatch: "loading.spec.ts",
       use: { storageState: process.env.PLAYWRIGHT_AUTH_FILE },
     },
+    {
+      name: "bulk-run-rate-limits",
+      dependencies: ["emulated-setup"],
+      testDir: path.resolve("__tests__/playwright/mail-simulation"),
+      testMatch: "bulk-run.spec.ts",
+      use: { storageState: process.env.PLAYWRIGHT_AUTH_FILE },
+    },
   ],
   reporter: [
     ["list"],

@@ -8,6 +8,7 @@ const KINDS_REQUIRING_VALUE = new Set<MailSplitFilterKind>([
   MailSplitFilterKind.LABEL,
   MailSplitFilterKind.CATEGORY,
   MailSplitFilterKind.FROM,
+  MailSplitFilterKind.TO,
   MailSplitFilterKind.OLDER_THAN,
 ]);
 
@@ -36,6 +37,15 @@ export const mailSplitFilterSchema = z
   )
   .refine(
     (filter) =>
+      filter.kind !== MailSplitFilterKind.TO ||
+      senderFilterSchema.safeParse(filter.value).success,
+    {
+      message: "Enter a recipient email address or @domain.com",
+      path: ["value"],
+    },
+  )
+  .refine(
+    (filter) =>
       filter.kind !== MailSplitFilterKind.OLDER_THAN ||
       OLDER_THAN_VALUES.includes(filter.value ?? ""),
     { message: "Unknown age", path: ["value"] },
@@ -44,7 +54,7 @@ export const mailSplitFilterSchema = z
 export type MailSplitFilterDraft = z.infer<typeof mailSplitFilterSchema>;
 
 /** One condition row per filter, so the cap matches what the builder can show. */
-export const MAX_SPLIT_FILTERS = 10;
+export const MAX_SPLIT_FILTERS = 25;
 
 export const mailSplitFiltersSchema = z
   .array(mailSplitFilterSchema)

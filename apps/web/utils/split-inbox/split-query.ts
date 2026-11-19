@@ -16,6 +16,7 @@ export type MailSplit = {
   /** False means "show mail matching any of these conditions". */
   matchAll: boolean;
   filters: MailSplitFilter[];
+  hideFromAll?: boolean;
 };
 
 type QuerySplit = Pick<MailSplit, "matchAll" | "filters"> & { name?: string };
@@ -37,6 +38,23 @@ export function otherMailSplitQuery(splits: MailSplit[]): ThreadsQuery {
   };
 }
 
+/** All is the inbox minus whichever splits the reader left out of it. */
+export function allMailSplitQuery(splits: MailSplit[]): ThreadsQuery {
+  const hidden = splits.filter((split) => split.hideFromAll);
+  return hidden.length ? otherMailSplitQuery(hidden) : { type: "inbox" };
+}
+
+/** The list query for a tab, shared by the thread list and its count. */
+export function splitToThreadsQuery(
+  split: MailSplit,
+  splits: MailSplit[],
+  now: Date = new Date(),
+): ThreadsQuery {
+  if (split.id === OTHER_SPLIT_ID) return otherMailSplitQuery(splits);
+  if (!split.filters.length) return allMailSplitQuery(splits);
+  return mailSplitToThreadsQuery(split, now);
+}
+
 export type PortableLabelSplit = MailSplit & { labelNames: string[] };
 
 /** Tokens the "Older than" condition offers, and how far back each one reaches. */
@@ -45,6 +63,12 @@ const OLDER_THAN_DAYS: Record<string, number> = {
   "1w": 7,
   "1m": 30,
 };
+
+export function olderThanCutoff(token: string, now: Date): Date | undefined {
+  const days = OLDER_THAN_DAYS[token];
+  if (!Object.hasOwn(OLDER_THAN_DAYS, token)) return;
+  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+}
 
 export const OLDER_THAN_OPTIONS = [
   { value: "3d", name: "3 days" },
@@ -134,6 +158,9 @@ function matchAllQuery(split: QuerySplit, now: Date): ThreadsQuery {
       case MailSplitFilterKind.FROM:
         query.fromEmail = requireValue(filter, split, "sender");
         break;
+      case MailSplitFilterKind.TO:
+        query.toEmail = requireValue(filter, split, "recipient");
+        break;
       case MailSplitFilterKind.OLDER_THAN: {
         const before = olderThanDate(
           requireValue(filter, split, "age"),
@@ -174,6 +201,8 @@ function matchAnyQuery(split: QuerySplit, now: Date): ThreadsQuery {
       }
       case MailSplitFilterKind.FROM:
         return { fromEmail: requireValue(filter, split, "sender") };
+      case MailSplitFilterKind.TO:
+        return { toEmail: requireValue(filter, split, "recipient") };
       case MailSplitFilterKind.OLDER_THAN:
         return {
           before: olderThanDate(requireValue(filter, split, "age"), split, now),
@@ -195,10 +224,10 @@ function requireValue(
 }
 
 function olderThanDate(token: string, split: QuerySplit, now: Date): Date {
-  const days = OLDER_THAN_DAYS[token];
-  if (!days)
+  const before = olderThanCutoff(token, now);
+  if (!before)
     throw new Error(`Split "${split.name ?? "Other"}" has an unknown age`);
-  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  return before;
 }
 
 export function labelIdsToThreadsQuery(labelIds: string[]): ThreadsQuery {

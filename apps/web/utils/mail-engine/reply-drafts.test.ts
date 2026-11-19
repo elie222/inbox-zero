@@ -6,6 +6,8 @@ import {
   createReplyDraftWriter,
   dropReplyDraftDeletedFromMailbox,
   getDraftSessionMessageIds,
+  getReplyDraftThreadKeys,
+  hydrateReplyDrafts,
   rememberReplacedDraftMessage,
   getReplyDraft,
   getReplyDraftForSession,
@@ -51,6 +53,168 @@ describe("local reply drafts", () => {
   });
 
   afterEach(() => setActiveMailClient(null));
+
+  it("lists a thread with an unsent reply until the reply is cleared", async () => {
+    const writer = createReplyDraftWriter(replyIdentity);
+    expect(getReplyDraftThreadKeys()).toBe("");
+
+    await writer.save(content);
+    expect(getReplyDraftThreadKeys()).toBe("account:thread");
+
+    await writer.clear();
+    expect(getReplyDraftThreadKeys()).toBe("");
+  });
+
+  it("tells subscribers about a new draft before its local save finishes", async () => {
+    const client = createRevisionCheckingClient();
+    let finishSave: () => void = () => {};
+    const saveDraft = client.saveDraft.bind(client);
+    client.saveDraft = vi.fn(async (input) => {
+      await new Promise<void>((resolve) => {
+        finishSave = resolve;
+      });
+      return saveDraft(input);
+    }) as typeof client.saveDraft;
+    setActiveMailClient(client as never);
+    const listener = vi.fn();
+    const unsubscribe = subscribeToReplyDrafts(listener);
+
+    const saved = createReplyDraftWriter(replyIdentity).save(content);
+    try {
+      await vi.waitFor(() => expect(listener).toHaveBeenCalled());
+      expect(getReplyDraftThreadKeys()).toBe("account:thread");
+    } finally {
+      // Left blocked, the save would hold up every later test's writes.
+      finishSave();
+      await saved;
+      unsubscribe();
+    }
+  });
+
+  it("lists threads with drafts saved on this device before they're opened", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(replyIdentity).save(content);
+    await createReplyDraftWriter({
+      ...replyIdentity,
+      threadId: "other-thread",
+      messageId: "other-parent:reply",
+    }).save(content);
+    // A send's draft and a discarded reply aren't drafts the list should mark.
+    await client.saveDraft({
+      key: { accountId: "account", draftId: "send-operation" },
+      expectedRevision: null,
+      content: sendEmailToDraftContent(
+        { ...content.values, messageHtml: "<p>Sending</p>" },
+        "sending-thread",
+      ),
+    });
+    const discarded = createReplyDraftWriter({
+      ...replyIdentity,
+      threadId: "discarded-thread",
+      messageId: "discarded-parent:reply",
+    });
+    await discarded.save(content);
+    await discarded.clear();
+    clearLocalReplyDrafts();
+    expect(getReplyDraftThreadKeys()).toBe("");
+    const listener = vi.fn();
+    const unsubscribe = subscribeToReplyDrafts(listener);
+
+    await hydrateReplyDrafts("account");
+    unsubscribe();
+
+    expect(getReplyDraftThreadKeys()).toBe(
+      "account:other-thread\naccount:thread",
+    );
+    expect(listener).toHaveBeenCalled();
+    expect((await getReplyDraft(replyIdentity))?.content).toEqual(content);
+  });
+
+  it("hydrates a draft under its full session id when that's longer than the engine's key", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    const longIdentity = {
+      ...identity,
+      messageId: getReplyDraftSessionId(
+        `<${"x".repeat(200)}@example.com>`,
+        "reply",
+      ),
+    };
+    await createReplyDraftWriter(longIdentity).save(content);
+    clearLocalReplyDrafts();
+
+    await hydrateReplyDrafts("account");
+    expect(getReplyDraftThreadKeys()).toBe("account:thread");
+    const draft = await getReplyDraft(longIdentity);
+    await createReplyDraftWriter(longIdentity, draft?.revision).clear();
+
+    expect(getReplyDraftThreadKeys()).toBe("");
+  });
+
+  it("leaves a draft from before reply sessions for its thread to migrate", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(identity).save(content);
+    clearLocalReplyDrafts();
+
+    await hydrateReplyDrafts("account");
+
+    expect(getReplyDraftThreadKeys()).toBe("");
+  });
+
+  it("ignores a draft read from a client that was replaced meanwhile", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(replyIdentity).save(content);
+    clearLocalReplyDrafts();
+    const listDrafts = client.listDrafts.bind(client);
+    client.listDrafts = vi.fn(async (accountId: string) => {
+      setActiveMailClient(createRevisionCheckingClient() as never);
+      return listDrafts(accountId);
+    }) as typeof client.listDrafts;
+
+    await hydrateReplyDrafts("account");
+
+    expect(getReplyDraftThreadKeys()).toBe("");
+  });
+
+  it("keeps the draft in memory over the stored copy when hydrating", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    const writer = createReplyDraftWriter(replyIdentity);
+    await writer.save(content);
+    const edited = {
+      ...content,
+      values: { ...content.values, subject: "New" },
+    };
+    client.saveDraft.mockImplementationOnce(async () => ({
+      status: "rejected" as const,
+      code: "storage_unavailable" as const,
+    }));
+    await writer.save(edited);
+
+    await hydrateReplyDrafts("account");
+
+    expect((await getReplyDraft(replyIdentity))?.content).toEqual(edited);
+  });
+
+  it("doesn't hydrate drafts for an account cleared during the read", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    await createReplyDraftWriter(replyIdentity).save(content);
+    clearLocalReplyDrafts();
+    const listDrafts = client.listDrafts.bind(client);
+    client.listDrafts = async (accountId: string) => {
+      const listed = await listDrafts(accountId);
+      clearLocalReplyDrafts("account");
+      return listed;
+    };
+
+    await hydrateReplyDrafts("account");
+
+    expect(getReplyDraftThreadKeys()).toBe("");
+  });
 
   it("loads saved reply and forward sessions when a thread opens", async () => {
     const client = createRevisionCheckingClient();
@@ -158,6 +322,7 @@ describe("local reply drafts", () => {
     await createReplyDraftWriter(replyIdentity).save(content);
     clearLocalReplyDrafts();
     const snapshot = await client.readDraft({
+      accountId: "account",
       draftId: replyIdentity.messageId,
     });
     let resolveRead!: (value: typeof snapshot) => void;
@@ -368,6 +533,89 @@ describe("local reply drafts", () => {
       )?.content?.values.subject,
     ).toBe("Mailbox draft example");
     setActiveMailClient(null);
+  });
+
+  it("lets a replacement composer discard after the departing form flushes", async () => {
+    const original = { ...content, requestId: "compose-session" };
+    const first = createReplyDraftWriter(identity);
+    await first.save(original);
+    const remounted = createReplyDraftWriter(identity, 1);
+    // The departing composer flushes after its replacement read the revision.
+    await first.save(original);
+    await remounted.clear();
+    expect((await getReplyDraft(identity))?.content).toBeNull();
+  });
+
+  it("serializes overlapping saves from replacement composers", async () => {
+    const client = createRevisionCheckingClient();
+    setActiveMailClient(client as never);
+    const original = { ...content, requestId: "compose-session" };
+    const first = createReplyDraftWriter(identity);
+    await first.save(original);
+    const replacement = createReplyDraftWriter(identity, 1);
+    const saveDraft = client.saveDraft.bind(client);
+    let finishSave!: () => void;
+    client.saveDraft.mockImplementationOnce(async (input) => {
+      await new Promise<void>((resolve) => {
+        finishSave = resolve;
+      });
+      return saveDraft(input);
+    });
+    const departing = first.save(original);
+    await vi.waitFor(() => expect(finishSave).toBeDefined());
+    const edited = {
+      ...original,
+      draft: { ...original.draft, editableHtml: "<p>Latest edits</p>" },
+    };
+    const continued = replacement.save(edited);
+    finishSave();
+    await Promise.all([departing, continued]);
+    expect((await getReplyDraft(identity))?.content).toEqual(edited);
+    expect(
+      (await client.readDraft({ accountId: "account", draftId: "parent" }))
+        .content?.editableHtml,
+    ).toBe("<p>Latest edits</p>");
+    expect(client.conflicts).toBe(0);
+  });
+
+  it("invalidates older writers when discarding an already-empty draft", async () => {
+    const first = createReplyDraftWriter(identity);
+    await first.clear();
+    const empty = await getReplyDraft(identity);
+    const stale = createReplyDraftWriter(identity, empty?.revision);
+    await createReplyDraftWriter(identity, empty?.revision).clear();
+
+    await expect(stale.save(content)).rejects.toThrow();
+    expect((await getReplyDraft(identity))?.content).toBeNull();
+  });
+
+  it("protects newer edits when two composers share a request id", async () => {
+    const original = { ...content, requestId: "compose-session" };
+    const first = createReplyDraftWriter(identity);
+    await first.save(original);
+    const stale = createReplyDraftWriter(identity, 1);
+    const edited = {
+      ...original,
+      values: { ...original.values, subject: "Newer" },
+    };
+    await first.save(edited);
+
+    await expect(stale.save(original)).rejects.toThrow();
+    expect((await getReplyDraft(identity))?.content).toEqual(edited);
+  });
+
+  it("does not let a stale composer overwrite a different session or revive a discard", async () => {
+    const first = createReplyDraftWriter(identity);
+    const stale = createReplyDraftWriter(identity);
+    await first.save({ ...content, requestId: "new-session" });
+    await expect(
+      stale.save({ ...content, requestId: "old-session" }),
+    ).rejects.toThrow();
+    await first.clear();
+    await expect(
+      stale.save({ ...content, requestId: "new-session" }),
+    ).rejects.toThrow();
+    expect((await getReplyDraft(identity))?.content).toBeNull();
   });
 
   it("saves edits after the first save without a revision conflict", async () => {
@@ -672,8 +920,12 @@ describe("drafts deleted from the mailbox", () => {
       requestId: "compose-2",
     });
     expect(
-      (await client.readDraft({ draftId: identity.messageId })).content
-        ?.subject,
+      (
+        await client.readDraft({
+          accountId: "account",
+          draftId: identity.messageId,
+        })
+      ).content?.subject,
     ).toBe(content.values.subject);
   });
 
@@ -687,8 +939,12 @@ describe("drafts deleted from the mailbox", () => {
 
     expect(await dropReplyDraftDeletedFromMailbox(stored)).toBe(stored);
     expect(
-      (await client.readDraft({ draftId: identity.messageId })).content
-        ?.subject,
+      (
+        await client.readDraft({
+          accountId: "account",
+          draftId: identity.messageId,
+        })
+      ).content?.subject,
     ).toBe(content.values.subject);
   });
 
@@ -700,7 +956,10 @@ describe("drafts deleted from the mailbox", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async () => {
-        const current = await client.readDraft({ draftId: identity.messageId });
+        const current = await client.readDraft({
+          accountId: "account",
+          draftId: identity.messageId,
+        });
         const newer = {
           ...content,
           requestId: "compose-2",
@@ -708,7 +967,7 @@ describe("drafts deleted from the mailbox", () => {
           values: { ...content.values, subject: "Newer edits" },
         };
         await client.saveDraft({
-          key: { draftId: identity.messageId },
+          key: { accountId: "account", draftId: identity.messageId },
           expectedRevision: current.draftRevision ?? null,
           content: {
             ...current.content,
@@ -725,8 +984,12 @@ describe("drafts deleted from the mailbox", () => {
 
     expect(reconciled?.content?.values.subject).toBe("Newer edits");
     expect(
-      (await client.readDraft({ draftId: identity.messageId })).content
-        ?.subject,
+      (
+        await client.readDraft({
+          accountId: "account",
+          draftId: identity.messageId,
+        })
+      ).content?.subject,
     ).toBe("Newer edits");
   });
 
@@ -843,6 +1106,299 @@ describe("drafts deleted from the mailbox", () => {
   });
 });
 
+describe("drafts still saving when the page is left", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    const storage = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      get length() {
+        return storage.size;
+      },
+      key: (index: number) => [...storage.keys()][index] ?? null,
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    });
+    vi.stubGlobal("window", new EventTarget());
+    vi.stubGlobal(
+      "document",
+      Object.assign(new EventTarget(), { visibilityState: "visible" }),
+    );
+    vi.stubGlobal("BroadcastChannel", undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it("brings back the last keystrokes after a reload cuts their save short", async () => {
+    const leaving = await loadPage({
+      // The engine's worker dies with the page before it answers.
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    });
+    const writer = leaving.drafts.createReplyDraftWriter(replyIdentity);
+    leaving.drafts.flushReplyDraftBeforeLeaving(() => {
+      writer.save({ ...content, composeMode: "reply" }).catch(() => {});
+    });
+    window.dispatchEvent(new Event("pagehide"));
+
+    vi.resetModules();
+    const engine = createRevisionCheckingClient();
+    const reloaded = await loadPage(engine);
+
+    expect(await reloaded.drafts.getReplyDraft(replyIdentity)).toMatchObject({
+      content: { draft: { editableHtml: "<p>My reply</p>" } },
+    });
+    expect(
+      await engine.readDraft({
+        accountId: "account",
+        draftId: replyIdentity.messageId,
+      }),
+    ).toMatchObject({ status: "found" });
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("keeps a newer save from another tab over a draft kept from a reload", async () => {
+    const engine = createRevisionCheckingClient();
+    const leaving = await loadPage({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    });
+    const clock = vi.spyOn(Date, "now").mockReturnValue(1000);
+    leaving.drafts
+      .createReplyDraftWriter(replyIdentity)
+      .save({ ...content, composeMode: "reply" })
+      .catch(() => {});
+    window.dispatchEvent(new Event("pagehide"));
+
+    vi.resetModules();
+    const otherTab = await loadPage(engine);
+    clock.mockReturnValue(2000);
+    await otherTab.drafts.createReplyDraftWriter(replyIdentity).save({
+      ...content,
+      composeMode: "reply",
+      draft: { ...content.draft, editableHtml: "<p>Newer</p>" },
+    });
+    clock.mockRestore();
+
+    vi.resetModules();
+    const reloaded = await loadPage(engine);
+    expect(await reloaded.drafts.getReplyDraft(replyIdentity)).toMatchObject({
+      content: { draft: { editableHtml: "<p>Newer</p>" } },
+    });
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("doesn't bring back a reply another tab discarded before this one left", async () => {
+    const engine = createRevisionCheckingClient();
+    const leaving = await loadPage(engine);
+    const writer = leaving.drafts.createReplyDraftWriter(replyIdentity);
+    await writer.save({ ...content, composeMode: "reply" });
+    leaving.activeClient.setActiveMailClient({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    } as never);
+    writer
+      .save({ ...content, composeMode: "reply", requestId: "later" })
+      .catch(() => {});
+
+    vi.resetModules();
+    const otherTab = await loadPage(engine);
+    const opened = await otherTab.drafts.getReplyDraft(replyIdentity);
+    await otherTab.drafts
+      .createReplyDraftWriter(replyIdentity, opened?.revision)
+      .clear();
+    window.dispatchEvent(new Event("pagehide"));
+
+    vi.resetModules();
+    const reloaded = await loadPage(engine);
+    expect(
+      (await reloaded.drafts.getReplyDraft(replyIdentity))?.content ?? null,
+    ).toBeNull();
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("keeps the last edit when the page's earlier save reached the engine after all", async () => {
+    const engine = createRevisionCheckingClient();
+    const leaving = await loadPage({
+      ...engine,
+      // The save lands, but the page is gone before the engine answers.
+      saveDraft: (input: Parameters<typeof engine.saveDraft>[0]) => {
+        engine.saveDraft(input);
+        return new Promise(() => {});
+      },
+    });
+    const writer = leaving.drafts.createReplyDraftWriter(replyIdentity);
+    // Both saves in one millisecond, so their edit times can't order them.
+    const clock = vi.spyOn(Date, "now").mockReturnValue(1000);
+    writer.save({ ...content, composeMode: "reply" }).catch(() => {});
+    writer
+      .save({
+        ...content,
+        composeMode: "reply",
+        draft: { ...content.draft, editableHtml: "<p>Last edit</p>" },
+      })
+      .catch(() => {});
+    clock.mockRestore();
+    await vi.waitFor(() => expect(engine.saveDraft).toHaveBeenCalled());
+    window.dispatchEvent(new Event("pagehide"));
+
+    vi.resetModules();
+    const reloaded = await loadPage(engine);
+
+    expect(await reloaded.drafts.getReplyDraft(replyIdentity)).toMatchObject({
+      content: { draft: { editableHtml: "<p>Last edit</p>" } },
+    });
+  });
+
+  it("keeps the mailbox draft a recovered reply was saved as", async () => {
+    const engine = createRevisionCheckingClient();
+    const leaving = await loadPage(engine);
+    const writer = leaving.drafts.createReplyDraftWriter(replyIdentity);
+    const edit = {
+      ...content,
+      composeMode: "reply" as const,
+      requestId: "compose-1",
+    };
+    await writer.save(edit);
+    await leaving.drafts.updateReplyDraftProviderState(
+      replyIdentity,
+      "compose-1",
+      "provider-1",
+    );
+    leaving.activeClient.setActiveMailClient({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    } as never);
+    writer.save(edit).catch(() => {});
+    // Queued behind the save above, so the writer hasn't added the reference.
+    writer
+      .save({
+        ...edit,
+        draft: { ...content.draft, editableHtml: "<p>Last edit</p>" },
+      })
+      .catch(() => {});
+    window.dispatchEvent(new Event("pagehide"));
+
+    vi.resetModules();
+    const reloaded = await loadPage(engine);
+
+    expect(await reloaded.drafts.getReplyDraft(replyIdentity)).toMatchObject({
+      content: {
+        providerDraftId: "provider-1",
+        draft: { editableHtml: "<p>Last edit</p>" },
+      },
+    });
+  });
+
+  it("keeps a mailbox draft another tab saved the reply as before recovery", async () => {
+    const engine = createRevisionCheckingClient();
+    const edit = {
+      ...content,
+      composeMode: "reply" as const,
+      requestId: "compose-1",
+    };
+    const clock = vi.spyOn(Date, "now").mockReturnValue(2000);
+    const leaving = await loadPage({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    });
+    leaving.drafts
+      .createReplyDraftWriter(replyIdentity)
+      .save({
+        ...edit,
+        draft: { ...content.draft, editableHtml: "<p>Last edit</p>" },
+      })
+      .catch(() => {});
+    window.dispatchEvent(new Event("pagehide"));
+
+    vi.resetModules();
+    const otherTab = await loadPage(engine);
+    clock.mockReturnValue(1000);
+    await otherTab.drafts.createReplyDraftWriter(replyIdentity).save(edit);
+    await otherTab.drafts.updateReplyDraftProviderState(
+      replyIdentity,
+      "compose-1",
+      "provider-1",
+    );
+    clock.mockRestore();
+
+    vi.resetModules();
+    const reloaded = await loadPage(engine);
+
+    expect(await reloaded.drafts.getReplyDraft(replyIdentity)).toMatchObject({
+      content: {
+        providerDraftId: "provider-1",
+        draft: { editableHtml: "<p>Last edit</p>" },
+      },
+    });
+  });
+
+  it("doesn't bring back an edit discarded before its save finished", async () => {
+    const leaving = await loadPage({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    });
+    const writer = leaving.drafts.createReplyDraftWriter(replyIdentity);
+    writer.save({ ...content, composeMode: "reply" }).catch(() => {});
+    writer.clear().catch(() => {});
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("doesn't keep a reply written after its account's local mail was cleared", async () => {
+    const page = await loadPage({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    });
+    const writer = page.drafts.createReplyDraftWriter(replyIdentity);
+    page.drafts.clearLocalReplyDrafts("account");
+    writer.save({ ...content, composeMode: "reply" }).catch(() => {});
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("recovers a kept reply when another kept entry is damaged", async () => {
+    localStorage.setItem("inbox-zero:unsaved-reply-draft:broken", "{");
+    const leaving = await loadPage({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    });
+    leaving.drafts
+      .createReplyDraftWriter(replyIdentity)
+      .save({ ...content, composeMode: "reply" })
+      .catch(() => {});
+    window.dispatchEvent(new Event("pagehide"));
+
+    vi.resetModules();
+    const reloaded = await loadPage(createRevisionCheckingClient());
+    await reloaded.drafts.hydrateReplyDrafts("account");
+
+    expect(reloaded.drafts.getReplyDraftThreadKeys()).toBe("account:thread");
+  });
+
+  it("drops drafts kept from a reload when the account's local mail is cleared", async () => {
+    const leaving = await loadPage({
+      saveDraft: () => new Promise(() => {}),
+      readDraft: async () => ({ status: "missing" }),
+    });
+    leaving.drafts
+      .createReplyDraftWriter(replyIdentity)
+      .save({ ...content, composeMode: "reply" })
+      .catch(() => {});
+    window.dispatchEvent(new Event("pagehide"));
+    expect(localStorage.length).toBe(1);
+
+    leaving.drafts.clearLocalReplyDrafts("account");
+
+    expect(localStorage.length).toBe(0);
+  });
+});
+
 async function saveDraftWithProvider() {
   await createReplyDraftWriter(identity).save({
     ...content,
@@ -862,19 +1418,27 @@ function stubMailboxDraftLookup(exists: boolean) {
 }
 
 function createRevisionCheckingClient() {
+  // Keyed like the real store, by account and draft.
   const drafts = new Map<
     string,
-    { revision: number; content: Record<string, unknown> }
+    {
+      accountId: string;
+      draftId: string;
+      revision: number;
+      content: Record<string, unknown>;
+    }
   >();
+  const keyOf = (key: { accountId: string; draftId: string }) =>
+    `${key.accountId}:${key.draftId}`;
   const client = {
     conflicts: 0,
     saveDraft: vi.fn(
       async (input: {
-        key: { draftId: string };
+        key: { accountId: string; draftId: string };
         expectedRevision: number | null;
         content: Record<string, unknown>;
       }) => {
-        const currentRevision = drafts.get(input.key.draftId)?.revision ?? null;
+        const currentRevision = drafts.get(keyOf(input.key))?.revision ?? null;
         if (input.expectedRevision !== currentRevision) {
           client.conflicts += 1;
           return {
@@ -883,7 +1447,8 @@ function createRevisionCheckingClient() {
           };
         }
         const next = (currentRevision ?? 0) + 1;
-        drafts.set(input.key.draftId, {
+        drafts.set(keyOf(input.key), {
+          ...input.key,
           revision: next,
           content: input.content,
         });
@@ -894,8 +1459,8 @@ function createRevisionCheckingClient() {
         };
       },
     ),
-    async readDraft(key: { draftId: string }) {
-      const stored = drafts.get(key.draftId);
+    async readDraft(key: { accountId: string; draftId: string }) {
+      const stored = drafts.get(keyOf(key));
       if (!stored) return { status: "missing" as const, content: undefined };
       return {
         status: "found" as const,
@@ -903,6 +1468,24 @@ function createRevisionCheckingClient() {
         content: stored.content,
       };
     },
+    async listDrafts(accountId: string) {
+      return [...drafts.values()]
+        .filter((stored) => stored.accountId === accountId)
+        .map((stored) => ({
+          key: { accountId, draftId: stored.draftId },
+          draftRevision: stored.revision,
+          content: stored.content,
+        }));
+    },
   };
   return client;
+}
+
+async function loadPage(client: unknown) {
+  const [drafts, activeClient] = await Promise.all([
+    import("./reply-drafts"),
+    import("./active-client"),
+  ]);
+  activeClient.setActiveMailClient(client as never);
+  return { drafts, activeClient };
 }

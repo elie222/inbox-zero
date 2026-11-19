@@ -21,6 +21,7 @@ import { runWithBoundedConcurrency } from "@/utils/async";
 import { findNestedLabelMatches } from "@/utils/label/find-nested-label-matches";
 import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
+import { applyLabelToThread } from "@/utils/label/apply-label-to-thread";
 import {
   buildMicrosoftSearchErrorResult,
   normalizeOutlookSearchInput,
@@ -37,6 +38,11 @@ import {
 } from "@/utils/ai/assistant/manage-inbox-actions";
 import { hideToolErrorFromUser } from "@/utils/ai/assistant/tool-error-visibility";
 import {
+  addChatActionTotals,
+  type ChatActionTotals,
+} from "@/utils/ai/assistant/chat-action-totals";
+import { isThreadNotFoundError } from "@/utils/email/thread-not-found";
+import {
   type AutomaticUnsubscribeResult,
   unsubscribeSenderAndMark,
 } from "@/utils/senders/unsubscribe";
@@ -49,11 +55,16 @@ import {
   extractErrorInfo as extractGmailErrorInfo,
   isRetryableError as isGmailRetryableError,
 } from "@/utils/gmail/retry";
-import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
+import {
+  isAllowedMicrosoftGraphPageToken,
+  microsoftGraphPageTokenSchema,
+} from "@/utils/outlook/page-token";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { SafeError } from "@/utils/error";
+import { notifyMailboxChanged } from "@/utils/mailbox-push";
 
 const SEARCH_INBOX_MAX_RESULTS = 20;
+const SEARCH_INBOX_PAGE_TOKEN_PREFIX = "search:";
 const MAX_SENDER_CATEGORIZATION_WAIT_MS = 1500;
 const recipientListSchema = z
   .string()
@@ -133,6 +144,8 @@ type InboxToolOptions = {
   emailAccountId: string;
   provider: string;
   logger: Logger;
+  chatId?: string;
+  responseSurface?: "web" | "messaging";
 };
 
 type ProviderToolFactory = (options: InboxToolOptions) => unknown;
@@ -344,7 +357,7 @@ export const startSenderCategorizationTool = ({
 }) =>
   tool({
     description:
-      "Start sender categorization for the current account. This creates default categories if needed, enables automatic sender categorization, queues uncategorized senders for AI categorization, and returns current progress. Use this only when category cleanup is needed and getSenderCategoryOverview shows category coverage is not ready. After starting, poll getSenderCategorizationStatus only briefly before deciding whether cleanup can continue. Safe to call again: if a run is already active, it returns the existing run instead of starting a duplicate job.",
+      "Start sender categorization for the current account. This creates default categories if needed, turns on automatic sender categorization as a lasting setting, queues uncategorized senders for AI categorization, and returns current progress. Use this only when category cleanup is needed and getSenderCategoryOverview shows category coverage is not ready. Unless the user explicitly asked to categorize their senders, offer to start it and wait for their confirmation before calling this. After starting, poll getSenderCategorizationStatus only briefly before deciding whether cleanup can continue. Safe to call again: if a run is already active, it returns the existing run instead of starting a duplicate job.",
     inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({ tool: "start_sender_categorization", email, logger });
@@ -364,6 +377,15 @@ export const startSenderCategorizationTool = ({
           logger,
         });
       } catch (error) {
+        if (error instanceof SafeError && error.statusCode === 403) {
+          logger.info("Sender categorization needs AI access");
+          return {
+            upgradeRequired: true as const,
+            message:
+              "Nothing was started. Sender categorization needs AI access on this account, and the chat is showing the user how to enable it.",
+          };
+        }
+
         if (error instanceof SafeError) {
           logger.warn("Unable to start sender categorization", { error });
           return { error: error.message };
@@ -483,68 +505,80 @@ const searchInboxBaseFields = {
       `Maximum number of messages to return, up to ${SEARCH_INBOX_MAX_RESULTS}. Larger values are clamped; use pagination for more results.`,
     ),
   pageToken: microsoftGraphPageTokenSchema.describe(
-    "Use the page token returned from a prior search to paginate.",
+    "nextPageToken from a prior searchInbox result. It continues that search with its original query and filters, so other search fields can be omitted.",
   ),
 };
 
-const gmailSearchInboxInputSchema = z.object({
+export const gmailSearchQuerySchema = z
+  .string()
+  .trim()
+  .max(500)
+  .describe(
+    "Gmail search query. Required unless pageToken is set. Use from:person@example.com for an exact sender search. Also supports: to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.",
+  );
+
+const gmailSearchInboxInputSchema = z
+  .object({
+    query: gmailSearchQuerySchema.optional(),
+    ...searchInboxBaseFields,
+  })
+  .refine((value) => Boolean(value.query || value.pageToken), {
+    message: "query or pageToken is required",
+  });
+
+const gmailSearchPageStateSchema = z.object({
+  query: gmailSearchQuerySchema,
+  pageToken: z.string().min(1),
+});
+
+export const outlookSearchFilterFields = {
   query: z
     .string()
     .trim()
-    .min(1)
     .max(500)
+    .default("")
     .describe(
-      "Gmail search query. Use from:person@example.com for an exact sender search. Also supports: to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.",
+      "Outlook search for a sender name or brand, recipient, subject, message content, or date/age filters. Use to:person@example.com for an exact recipient. Do not put an exact sender address, mailbox category, folder, mail class, or read/unread state here.",
     ),
-  ...searchInboxBaseFields,
-});
+  fromEmail: z
+    .string()
+    .trim()
+    .refine(isValidEmail, "Invalid email address")
+    .nullish()
+    .describe(
+      "Exact sender email address. Use this instead of query when the sender address is known.",
+    ),
+  readState: z
+    .enum(["read", "unread"])
+    .nullish()
+    .describe(
+      "Structured read-state filter. For mark-as-read requests use unread; for mark-as-unread requests use read.",
+    ),
+  categoryName: z
+    .string()
+    .trim()
+    .min(1)
+    .nullish()
+    .describe(
+      "Exact Outlook category name or category ID. Filters by category membership; use folderName for mail folders.",
+    ),
+  folderName: z
+    .string()
+    .trim()
+    .min(1)
+    .nullish()
+    .describe(
+      "Exact Outlook mail folder name, folder path, or folder ID from listFolders. Filters messages in that folder, independently of categories. Use a path or ID when folder names are ambiguous.",
+    ),
+};
 
 const outlookSearchInboxInputSchema = z
-  .object({
-    query: z
-      .string()
-      .trim()
-      .max(500)
-      .default("")
-      .describe(
-        "Outlook search for a sender name or brand, recipient, subject, message content, or date/age filters. Use to:person@example.com for an exact recipient. Do not put an exact sender address, mailbox category, folder, mail class, or read/unread state here.",
-      ),
-    ...searchInboxBaseFields,
-    fromEmail: z
-      .string()
-      .trim()
-      .refine(isValidEmail, "Invalid email address")
-      .nullish()
-      .describe(
-        "Exact sender email address. Use this instead of query when the sender address is known.",
-      ),
-    readState: z
-      .enum(["read", "unread"])
-      .nullish()
-      .describe(
-        "Structured read-state filter. For mark-as-read requests use unread; for mark-as-unread requests use read.",
-      ),
-    categoryName: z
-      .string()
-      .trim()
-      .min(1)
-      .nullish()
-      .describe(
-        "Exact Outlook category name or category ID. Filters by category membership; use folderName for mail folders.",
-      ),
-    folderName: z
-      .string()
-      .trim()
-      .min(1)
-      .nullish()
-      .describe(
-        "Exact Outlook mail folder name, folder path, or folder ID from listFolders. Filters messages in that folder, independently of categories. Use a path or ID when folder names are ambiguous.",
-      ),
-  })
+  .object({ ...outlookSearchFilterFields, ...searchInboxBaseFields })
   .refine(
     (value) =>
       Boolean(
-        value.query ||
+        value.pageToken ||
+          value.query ||
           value.fromEmail ||
           value.readState ||
           value.categoryName ||
@@ -552,9 +586,14 @@ const outlookSearchInboxInputSchema = z
       ),
     {
       message:
-        "query, fromEmail, readState, categoryName, or folderName is required",
+        "pageToken, query, fromEmail, readState, categoryName, or folderName is required",
     },
   );
+
+const outlookSearchPageStateSchema = z.object({
+  ...outlookSearchFilterFields,
+  pageToken: z.string().min(1).refine(isAllowedMicrosoftGraphPageToken),
+});
 
 const gmailSearchInboxTool = ({
   email,
@@ -569,9 +608,16 @@ const gmailSearchInboxTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
 
-      const { query, limit, pageToken } = input;
+      const { limit } = input;
+      let query = input.query ?? "";
 
       try {
+        const page = decodeSearchInboxPageToken(
+          input.pageToken,
+          gmailSearchPageStateSchema,
+        );
+        if (page) query = page.query;
+
         const emailProvider = await createEmailProvider({
           emailAccountId,
           provider,
@@ -582,17 +628,24 @@ const gmailSearchInboxTool = ({
           emailProvider.searchMessages({
             query,
             maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
-            pageToken: pageToken ?? undefined,
+            pageToken: page?.pageToken,
           }),
           getLabelsForSearchResults({ emailProvider, logger }),
         ]);
 
-        return formatSearchInboxResult({
-          searchResult,
-          queryUsed: query,
-          labels,
-          taxonomyNamesKey: "labelNames",
-        });
+        return {
+          ...formatSearchInboxResult({
+            searchResult,
+            queryUsed: query,
+            labels,
+            taxonomyNamesKey: "labelNames",
+            isContinuation: Boolean(page?.pageToken),
+          }),
+          nextPageToken: encodeSearchInboxPageToken(
+            { query },
+            searchResult.nextPageToken,
+          ),
+        };
       } catch (error) {
         // Provider failures are logged and flushed at the provider boundary.
         const errorInfo = extractGmailErrorInfo(error);
@@ -625,17 +678,18 @@ const outlookSearchInboxTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
 
-      const {
-        query = "",
-        fromEmail,
-        limit,
-        pageToken,
-        readState,
-        categoryName,
-        folderName,
-      } = input;
+      const { limit } = input;
+      let query = input.query ?? "";
 
       try {
+        const page = decodeSearchInboxPageToken(
+          input.pageToken,
+          outlookSearchPageStateSchema,
+        );
+        const { pageToken, ...filters } = page ?? input;
+        query = filters.query ?? "";
+        const { fromEmail, readState, categoryName, folderName } = filters;
+
         const emailProvider = await createEmailProvider({
           emailAccountId,
           provider,
@@ -675,7 +729,12 @@ const outlookSearchInboxTool = ({
             queryUsed: searchResult.queryUsed,
             labels,
             taxonomyNamesKey: "categoryNames",
+            isContinuation: Boolean(pageToken),
           }),
+          nextPageToken: encodeSearchInboxPageToken(
+            { query, fromEmail, readState, categoryName, folderName },
+            searchResult.result.nextPageToken,
+          ),
           ...(searchResult.exactCount !== undefined && {
             exactCount: searchResult.exactCount,
           }),
@@ -891,15 +950,24 @@ const threadIdsSchema = z
   .max(100)
   .transform((ids) => [...new Set(ids)]);
 
+const SENDER_EMAILS_HINT =
+  "No sender-level action was taken. If you only meant the emails already shown, use archive_threads with threadIds instead.";
+
 const senderEmailsSchema = z
-  .array(z.string().trim().min(3))
-  .min(1)
+  .array(
+    z
+      .string()
+      .trim()
+      .min(3, `must be a sender email address. ${SENDER_EMAILS_HINT}`),
+  )
+  .min(1, `must list at least one sender. ${SENDER_EMAILS_HINT}`)
   .max(100)
   .transform((emails) => [...new Set(emails)]);
 
 const outlookManageInboxActions = [
   "archive_threads",
   "trash_threads",
+  "delete_drafts",
   "categorize_threads",
   "remove_category_threads",
   "mark_read_threads",
@@ -912,7 +980,7 @@ const outlookManageInboxInputSchema = z
     action: z
       .enum(outlookManageInboxActions)
       .describe(
-        "Outlook inbox action. archive_threads archives selected threads; trash_threads moves selected threads to trash; categorize_threads applies an existing category; remove_category_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
+        "Outlook inbox action. archive_threads archives selected threads; trash_threads asks the user to confirm moving selected threads to trash; delete_drafts asks the user to confirm deleting only the unsent drafts in selected threads, keeping sent and received messages (search the Drafts folder with folderName to find them); categorize_threads applies an existing category; remove_category_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
       ),
     threadIds: threadIdsSchema
       .optional()
@@ -952,7 +1020,7 @@ const gmailManageInboxInputSchema = z
     action: z
       .enum(manageInboxActions)
       .describe(
-        "Gmail inbox action. archive_threads archives selected threads; trash_threads moves selected threads to trash; label_threads applies an existing label; remove_label_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
+        "Gmail inbox action. archive_threads archives selected threads; trash_threads asks the user to confirm moving selected threads to trash; delete_drafts asks the user to confirm deleting only the unsent drafts in selected threads, keeping sent and received messages (search with in:drafts to find them); label_threads applies an existing label; remove_label_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
       ),
     threadIds: threadIdsSchema
       .optional()
@@ -1053,31 +1121,65 @@ const buildManageInboxTool = ({
   ) => NormalizedManageInboxInput;
   taxonomy: ManageInboxTaxonomyConfig;
 }) => {
-  const { email, emailAccountId, provider, logger } = options;
+  const { email, emailAccountId, provider, logger, chatId, responseSurface } =
+    options;
+
+  const withChatTotals = async <T extends object>(
+    result: T,
+    counts: ChatActionTotals,
+  ) => {
+    if (!chatId) return result;
+    try {
+      const totalsInThisChat = await addChatActionTotals({ chatId, counts });
+      return { ...result, totalsInThisChat };
+    } catch (error) {
+      logger.error("Failed to update chat action totals", { error });
+      return result;
+    }
+  };
+
+  // Provider pushes miss some of these changes, so open mail views would
+  // otherwise keep showing the old state until their next idle sync.
+  const refreshOpenMailViews = async (changedCount: number) => {
+    if (changedCount > 0)
+      await notifyMailboxChanged({ emailAccountId, logger });
+  };
 
   return tool({
     description:
-      "Run inbox actions on threads or senders. For emails already shown or found in this turn, prefer thread actions with threadIds. Use archive_threads for ordinary inbox cleanup; only use trash_threads when the user explicitly asks to delete or trash. Do not widen a limited thread-level request into sender-wide cleanup. Only use sender-wide cleanup with fromEmails when the user clearly wants all mail from that sender, and get confirmation before doing broad sender-wide cleanup. Only use unsubscribe_senders for an explicit unsubscribe request.",
+      "Run inbox actions on threads or senders. For emails already shown or found in this turn, prefer thread actions with threadIds. Use archive_threads for ordinary inbox cleanup; only use trash_threads when the user explicitly asks to delete or trash. Use delete_drafts when the user asks to delete drafts. Do not widen a limited thread-level request into sender-wide cleanup. Only use sender-wide cleanup with fromEmails when the user clearly wants all mail from that sender, and get confirmation before doing broad sender-wide cleanup. Only use unsubscribe_senders for an explicit unsubscribe request.",
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });
 
-      const parsedInputResult = inputSchema.safeParse(input);
-      if (!parsedInputResult.success) {
-        const errorMessage = getManageInboxValidationError(
-          parsedInputResult.error,
-        );
-        logger.warn("Invalid manageInbox input", {
-          issues: parsedInputResult.error.issues,
-        });
-        return { error: errorMessage };
-      }
-
-      const parsedInput = normalizeInput(
-        parsedInputResult.data as Record<string, unknown>,
-      );
+      const parsedInput = normalizeInput(input as Record<string, unknown>);
       const { action, labelName, originalAction } = parsedInput;
       const isSenderAction = requiresSenderEmails(action);
+
+      // Chat never removes mail on its own: the user confirms on a card first.
+      if (action === "trash_threads" || action === "delete_drafts") {
+        const isTrash = action === "trash_threads";
+        if (responseSurface === "messaging") {
+          return {
+            error: isTrash
+              ? "Nothing was trashed. Trashing needs a confirmation that is only available in the Inbox Zero web app."
+              : "No drafts were deleted. Deleting drafts needs a confirmation that is only available in the Inbox Zero web app.",
+          };
+        }
+        const threadIds = parsedInput.threadIds!;
+        return {
+          success: true,
+          action: originalAction,
+          actionType: action,
+          requiresConfirmation: true as const,
+          confirmationState: "pending" as const,
+          requestedCount: threadIds.length,
+          pendingAction: { threadIds },
+          nextStep: isTrash
+            ? "Nothing is trashed yet. The user confirms on the card before anything moves to trash."
+            : "No drafts are deleted yet. The user confirms on the card before any draft is deleted.",
+        };
+      }
 
       try {
         const emailProvider = await createEmailProvider({
@@ -1118,37 +1220,52 @@ const buildManageInboxTool = ({
               (result) => result.unsubscribe.attempted,
             ).length;
 
+            const archivedMessagesCount =
+              await emailProvider.bulkArchiveFromSenders(
+                normalizedFromEmails,
+                email,
+                emailAccountId,
+              );
+            await refreshOpenMailViews(archivedMessagesCount);
+
+            return withChatTotals(
+              {
+                success: failedSenders.length === 0,
+                action: originalAction,
+                sendersCount: normalizedFromEmails.length,
+                archivedMessagesCount,
+                senders: normalizedFromEmails,
+                successCount,
+                failedCount: failedSenders.length,
+                failedSenders,
+                autoUnsubscribeCount,
+                autoUnsubscribeAttemptedCount,
+              },
+              {
+                senders_unsubscribed: successCount,
+                sender_messages_archived: archivedMessagesCount,
+              },
+            );
+          }
+
+          const archivedMessagesCount =
             await emailProvider.bulkArchiveFromSenders(
               normalizedFromEmails,
               email,
               emailAccountId,
             );
+          await refreshOpenMailViews(archivedMessagesCount);
 
-            return {
-              success: failedSenders.length === 0,
+          return withChatTotals(
+            {
+              success: true,
               action: originalAction,
               sendersCount: normalizedFromEmails.length,
+              archivedMessagesCount,
               senders: normalizedFromEmails,
-              successCount,
-              failedCount: failedSenders.length,
-              failedSenders,
-              autoUnsubscribeCount,
-              autoUnsubscribeAttemptedCount,
-            };
-          }
-
-          await emailProvider.bulkArchiveFromSenders(
-            normalizedFromEmails,
-            email,
-            emailAccountId,
+            },
+            { sender_messages_archived: archivedMessagesCount },
           );
-
-          return {
-            success: true,
-            action: originalAction,
-            sendersCount: normalizedFromEmails.length,
-            senders: normalizedFromEmails,
-          };
         }
 
         const threadIds = parsedInput.threadIds!;
@@ -1188,6 +1305,7 @@ const buildManageInboxTool = ({
 
         const threadActionResults = await runThreadActionsInParallel({
           threadIds,
+          emailProvider,
           concurrency: THREAD_ACTION_CONCURRENCY,
           runAction: async (threadId) => {
             if (action === "archive_threads") {
@@ -1196,8 +1314,6 @@ const buildManageInboxTool = ({
                 email,
                 resolvedArchiveLabelId,
               );
-            } else if (action === "trash_threads") {
-              await emailProvider.trashThread(threadId, email, "user");
             } else if (action === "label_threads") {
               await applyLabelToThread({
                 emailProvider,
@@ -1224,19 +1340,25 @@ const buildManageInboxTool = ({
           .map((result) => result.threadId);
         const successCount =
           threadActionResults.length - failedThreadIds.length;
+        await refreshOpenMailViews(successCount);
 
-        return {
-          success: failedThreadIds.length === 0,
-          action: originalAction,
-          requestedCount: threadIds.length,
-          successCount,
-          failedCount: failedThreadIds.length,
-          failedThreadIds,
-          ...(resolvedThreadLabel && {
-            [taxonomy.resultKeys.id]: resolvedThreadLabel.labelId,
-            [taxonomy.resultKeys.name]: resolvedThreadLabel.labelName,
-          }),
-        };
+        return withChatTotals(
+          {
+            success: failedThreadIds.length === 0,
+            action: originalAction,
+            requestedCount: threadIds.length,
+            successCount,
+            failedCount: failedThreadIds.length,
+            failedThreadIds,
+            ...(resolvedThreadLabel && {
+              [taxonomy.resultKeys.id]: resolvedThreadLabel.labelId,
+              [taxonomy.resultKeys.name]: resolvedThreadLabel.labelName,
+            }),
+          },
+          {
+            [getThreadActionTotalKey(action, parsedInput.read)]: successCount,
+          },
+        );
       } catch (error) {
         logger.error("Failed to run inbox action", { error });
         return { error: "Failed to update emails" };
@@ -1265,11 +1387,6 @@ export const sendEmailTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "send_email", email, logger });
 
-      const parsedInput = sendEmailToolInputSchema.safeParse(input);
-      if (!parsedInput.success) {
-        return { error: getSendEmailValidationError(parsedInput.error) };
-      }
-
       try {
         const from =
           (await getFormattedSenderAddress({
@@ -1277,7 +1394,7 @@ export const sendEmailTool = ({
             fallbackEmail: email,
           })) || email;
         return createPendingSendEmailOutput(
-          parsedInput.data,
+          input,
           from || null,
           provider,
           emailAccountId,
@@ -1309,26 +1426,15 @@ export const replyEmailTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "reply_email", email, logger });
 
-      const parsedInput = replyEmailToolInputSchema.safeParse(input);
-      if (!parsedInput.success) {
-        return { error: getReplyEmailValidationError(parsedInput.error) };
-      }
-
       try {
         const emailProvider = await createEmailProvider({
           emailAccountId,
           provider,
           logger,
         });
-        const message = await emailProvider.getMessage(
-          parsedInput.data.messageId,
-        );
+        const message = await emailProvider.getMessage(input.messageId);
 
-        return createPendingReplyEmailOutput(
-          parsedInput.data,
-          message,
-          emailAccountId,
-        );
+        return createPendingReplyEmailOutput(input, message, emailAccountId);
       } catch (error) {
         logger.error("Failed to prepare reply from chat", { error });
         return { error: "Failed to prepare reply" };
@@ -1356,25 +1462,14 @@ export const forwardEmailTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "forward_email", email, logger });
 
-      const parsedInput = forwardEmailToolInputSchema.safeParse(input);
-      if (!parsedInput.success) {
-        return { error: getForwardEmailValidationError(parsedInput.error) };
-      }
-
       try {
         const emailProvider = await createEmailProvider({
           emailAccountId,
           provider,
           logger,
         });
-        const message = await emailProvider.getMessage(
-          parsedInput.data.messageId,
-        );
-        return createPendingForwardEmailOutput(
-          parsedInput.data,
-          message,
-          emailAccountId,
-        );
+        const message = await emailProvider.getMessage(input.messageId);
+        return createPendingForwardEmailOutput(input, message, emailAccountId);
       } catch (error) {
         logger.error("Failed to prepare email forward from chat", { error });
         return { error: "Failed to prepare email forward" };
@@ -1504,9 +1599,9 @@ async function getLabelsForSearchResults({
   emailProvider: EmailProvider;
   logger: Logger;
 }) {
-  return emailProvider.getLabels().catch((error) => {
+  return emailProvider.getLabels({ includeHidden: true }).catch((error) => {
     logger.warn("Failed to load labels for search results", { error });
-    return [] as Array<{ id: string; name: string }>;
+    return null;
   });
 }
 
@@ -1514,21 +1609,69 @@ type SearchMessagesResult = Awaited<
   ReturnType<EmailProvider["searchMessages"]>
 >;
 
+// The model often sends only the token for the next page, so the token carries
+// the original search; continuation pages must re-apply the same filters. Bare
+// provider tokens are rejected because they would continue without them.
+function encodeSearchInboxPageToken(
+  search: Record<string, unknown>,
+  providerPageToken: string | undefined,
+) {
+  if (!providerPageToken) return;
+
+  return `${SEARCH_INBOX_PAGE_TOKEN_PREFIX}${Buffer.from(
+    JSON.stringify({ ...search, pageToken: providerPageToken }),
+  ).toString("base64url")}`;
+}
+
+function decodeSearchInboxPageToken<T extends z.ZodType>(
+  pageToken: string | null | undefined,
+  schema: T,
+): z.infer<T> | undefined {
+  if (!pageToken) return;
+
+  try {
+    if (!pageToken.startsWith(SEARCH_INBOX_PAGE_TOKEN_PREFIX)) {
+      throw new Error("Not a searchInbox page token");
+    }
+    const encoded = pageToken.slice(SEARCH_INBOX_PAGE_TOKEN_PREFIX.length);
+    return schema.parse(
+      JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")),
+    );
+  } catch {
+    throw new Error(
+      "Invalid page token. Run the search again without a pageToken.",
+    );
+  }
+}
+
 function formatSearchInboxResult({
   searchResult,
   queryUsed,
   labels,
   taxonomyNamesKey,
+  isContinuation,
 }: {
   searchResult: SearchMessagesResult;
   queryUsed: string;
-  labels: Array<{ id: string; name: string }>;
+  labels: Array<{ id: string; name: string }> | null;
   taxonomyNamesKey: "categoryNames" | "labelNames";
+  isContinuation: boolean;
 }) {
-  const labelsById = createLabelLookupMap(labels);
+  const labelsById = createLabelLookupMap(labels ?? []);
   const items = searchResult.messages.map((message) =>
     mapMessageForSearchResult(message, labelsById, taxonomyNamesKey),
   );
+
+  // An empty search often means the user's term names one of their own labels
+  // or categories rather than text in the messages, so give the model the
+  // names it can filter by instead of leaving it to guess.
+  // Only a first page can show the search matched nothing, and the hint is
+  // omitted when labels failed to load so it never reads as "no labels".
+  const noMatches =
+    items.length === 0 &&
+    !searchResult.nextPageToken &&
+    !isContinuation &&
+    labels !== null;
 
   return {
     queryUsed,
@@ -1537,8 +1680,23 @@ function formatSearchInboxResult({
     hasMore: Boolean(searchResult.nextPageToken),
     summary: summarizeSearchResults(items),
     messages: items,
+    ...(noMatches && {
+      [taxonomyNamesKey === "categoryNames"
+        ? "availableCategoryNames"
+        : "availableLabelNames"]: getUserLabelNames(labels ?? []),
+    }),
   };
 }
+
+function getUserLabelNames(labels: Array<{ id: string; name: string }>) {
+  return labels
+    .filter((label) => !SYSTEM_LABEL_ID_PATTERN.test(label.id))
+    .map((label) => label.name)
+    .slice(0, MAX_AVAILABLE_LABEL_NAMES);
+}
+
+const SYSTEM_LABEL_ID_PATTERN = /^[A-Z_]+$/;
+const MAX_AVAILABLE_LABEL_NAMES = 50;
 
 function mapMessageForSearchResult(
   message: ParsedMessage,
@@ -1645,20 +1803,110 @@ function createLabelLookupMap(labels: Array<{ id: string; name: string }>) {
   ] as const);
 }
 
+export async function trashChatThreads({
+  emailProvider,
+  threadIds,
+  email,
+}: {
+  emailProvider: EmailProvider;
+  threadIds: string[];
+  email: string;
+}) {
+  const results = await runThreadActionsInParallel({
+    threadIds,
+    emailProvider,
+    concurrency: THREAD_ACTION_CONCURRENCY,
+    runAction: (threadId) => emailProvider.trashThread(threadId, email, "user"),
+  });
+  const failedThreadIds = results
+    .filter((result) => !result.success)
+    .map((result) => result.threadId);
+  return {
+    successCount: results.length - failedThreadIds.length,
+    failedThreadIds,
+  };
+}
+
+export async function deleteChatDrafts({
+  emailProvider,
+  threadIds,
+}: {
+  emailProvider: EmailProvider;
+  threadIds: string[];
+}) {
+  let deletedDraftCount = 0;
+  const results = await runThreadActionsInParallel({
+    threadIds,
+    emailProvider,
+    concurrency: THREAD_ACTION_CONCURRENCY,
+    runAction: async (threadId) => {
+      const thread = await emailProvider.getThread(threadId, {
+        includeDrafts: true,
+        complete: true,
+      });
+      const drafts = thread.messages.filter((message) =>
+        message.labelIds?.includes("DRAFT"),
+      );
+      // A thread with no drafts left is already in the requested state, which
+      // also lets a retry succeed after an earlier attempt deleted them.
+      let failedDraftCount = 0;
+      for (const draft of drafts) {
+        const deleted = await deleteDraftForMessage(emailProvider, draft.id);
+        if (deleted) deletedDraftCount += 1;
+        else failedDraftCount += 1;
+      }
+      if (failedDraftCount) throw new Error("Some drafts were not deleted");
+    },
+  });
+  const failedThreadIds = results
+    .filter((result) => !result.success)
+    .map((result) => result.threadId);
+  return {
+    successCount: results.length - failedThreadIds.length,
+    failedThreadIds,
+    deletedDraftCount,
+  };
+}
+
+async function deleteDraftForMessage(
+  emailProvider: EmailProvider,
+  messageId: string,
+) {
+  try {
+    const reference =
+      await emailProvider.getDraftReferenceForMessage(messageId);
+    if (!reference) return false;
+    return await emailProvider.deleteDraft(reference.id, reference.version);
+  } catch {
+    return false;
+  }
+}
+
 async function runThreadActionsInParallel({
   threadIds,
   concurrency,
   runAction,
+  emailProvider,
 }: {
   threadIds: string[];
   concurrency: number;
   runAction: (threadId: string) => Promise<void>;
+  emailProvider: EmailProvider;
 }) {
   const results = await runWithBoundedConcurrency({
     items: threadIds,
     concurrency,
     run: async (threadId) => {
-      await runAction(threadId);
+      try {
+        await runAction(threadId);
+      } catch (error) {
+        // Models often pass a message ID where a thread ID belongs.
+        const resolvedThreadId = isThreadNotFoundError(error)
+          ? await findThreadIdForMessageId(emailProvider, threadId)
+          : null;
+        if (!resolvedThreadId) throw error;
+        await runAction(resolvedThreadId);
+      }
     },
   });
 
@@ -1668,40 +1916,21 @@ async function runThreadActionsInParallel({
   }));
 }
 
-async function applyLabelToThread({
-  emailProvider,
-  threadId,
-  labelId,
-  labelName,
-}: {
-  emailProvider: EmailProvider;
-  threadId: string;
-  labelId: string;
-  labelName: string | null;
-}) {
-  const messages = await emailProvider.getThreadMessages(threadId);
-  const results = await runWithBoundedConcurrency({
-    items: messages,
-    concurrency: LABEL_MESSAGE_CONCURRENCY,
-    run: async (message) => {
-      await emailProvider.labelMessage({
-        messageId: message.id,
-        labelId,
-        labelName,
-      });
-    },
-  });
-
-  const failedCount = results.filter(
-    ({ result }) => result.status === "rejected",
-  ).length;
-
-  if (failedCount > 0) {
-    throw new Error(`Failed to label ${failedCount} messages in thread`);
+async function findThreadIdForMessageId(
+  emailProvider: EmailProvider,
+  messageId: string,
+) {
+  try {
+    const message = await emailProvider.getMessage(messageId);
+    return message.threadId && message.threadId !== messageId
+      ? message.threadId
+      : null;
+  } catch {
+    return null;
   }
 }
 
-async function resolveThreadLabel({
+export async function resolveThreadLabel({
   emailProvider,
   labelName,
   action,
@@ -1836,40 +2065,13 @@ function validateManageInboxInput(
       context.addIssue({
         code: "custom",
         path: [field],
-        message: `is required for ${action}`,
+        message:
+          field === "fromEmails"
+            ? `is required for ${action}. ${SENDER_EMAILS_HINT}`
+            : `is required for ${action}`,
       });
     }
   }
-}
-
-function getManageInboxValidationError(error: z.ZodError) {
-  const firstIssue = error.issues[0];
-  if (!firstIssue) return "Invalid manageInbox input";
-
-  if (firstIssue.path[0] === "fromEmails") {
-    return 'No sender-level action was taken. "fromEmails" is required for bulk_archive_senders and unsubscribe_senders. If you only meant the emails already shown, use archive_threads with threadIds instead.';
-  }
-
-  if (firstIssue.code === "too_small" && firstIssue.path[0] === "threadIds") {
-    return "Invalid manageInbox input: threadIds must include at least one thread ID";
-  }
-
-  const field = firstIssue.path.map(String).join(".");
-  if (!field) return `Invalid manageInbox input: ${firstIssue.message}`;
-
-  return `Invalid manageInbox input: ${field} ${firstIssue.message}`;
-}
-
-function getSendEmailValidationError(error: z.ZodError) {
-  return getValidationErrorMessage("sendEmail", error);
-}
-
-function getForwardEmailValidationError(error: z.ZodError) {
-  return getValidationErrorMessage("forwardEmail", error);
-}
-
-function getReplyEmailValidationError(error: z.ZodError) {
-  return getValidationErrorMessage("replyEmail", error);
 }
 
 function hasOnlyValidRecipients(recipientList: string) {
@@ -1935,26 +2137,7 @@ function isThreadLabelAction(
   return action === "label_threads" || action === "remove_label_threads";
 }
 
-const LABEL_MESSAGE_CONCURRENCY = 1;
 const THREAD_ACTION_CONCURRENCY = 3;
-
-function getValidationErrorMessage(toolName: string, error: z.ZodError) {
-  const firstIssue = error.issues[0];
-  if (!firstIssue) return `Invalid ${toolName} input`;
-
-  if (firstIssue.code === "unrecognized_keys") {
-    const firstKey = firstIssue.keys[0];
-    if (firstKey) {
-      return `Invalid ${toolName} input: unsupported field "${firstKey}"`;
-    }
-    return `Invalid ${toolName} input: unsupported fields`;
-  }
-
-  const field = firstIssue.path.map(String).join(".");
-  if (!field) return `Invalid ${toolName} input: ${firstIssue.message}`;
-
-  return `Invalid ${toolName} input: ${field} ${firstIssue.message}`;
-}
 
 const MAX_ATTACHMENT_TEXT_LENGTH = 8000;
 
@@ -2020,3 +2203,21 @@ async function extractAttachmentText(
 
   return { text: "", truncated: false };
 }
+
+function getThreadActionTotalKey(
+  action: ManageInboxAction,
+  read: boolean | null | undefined,
+) {
+  if (action === "mark_read_threads") {
+    return read === false ? "threads_marked_unread" : "threads_marked_read";
+  }
+
+  return THREAD_ACTION_TOTAL_KEYS[action] ?? action;
+}
+
+const THREAD_ACTION_TOTAL_KEYS: Partial<Record<ManageInboxAction, string>> = {
+  archive_threads: "threads_archived",
+  trash_threads: "threads_trashed",
+  label_threads: "threads_labeled",
+  remove_label_threads: "threads_unlabeled",
+};

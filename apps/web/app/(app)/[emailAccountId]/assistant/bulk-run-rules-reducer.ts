@@ -1,3 +1,5 @@
+import type { I18n } from "@lingui/core";
+import { plural, t } from "@lingui/core/macro";
 import type { ThreadsResponse } from "@/app/api/threads/route";
 
 type Thread = ThreadsResponse["threads"][number];
@@ -12,6 +14,8 @@ export type BulkRunState = {
   fetchedThreads: Map<string, Thread>;
   stoppedCount: number | null;
   runResult: { count: number } | null;
+  // Set while the email provider is rate limiting the run.
+  rateLimitResumeAt: Date | null;
 };
 
 export type BulkRunAction =
@@ -21,6 +25,7 @@ export type BulkRunAction =
   | { type: "PAUSE" }
   | { type: "RESUME" }
   | { type: "STOP"; completedCount: number }
+  | { type: "RATE_LIMIT_WAIT"; resumeAt: Date | null }
   | { type: "RESET" };
 
 export const initialBulkRunState: BulkRunState = {
@@ -29,6 +34,7 @@ export const initialBulkRunState: BulkRunState = {
   fetchedThreads: new Map(),
   stoppedCount: null,
   runResult: null,
+  rateLimitResumeAt: null,
 };
 
 export function bulkRunReducer(
@@ -44,6 +50,7 @@ export function bulkRunReducer(
         fetchedThreads: new Map(),
         stoppedCount: null,
         runResult: null,
+        rateLimitResumeAt: null,
       };
 
     case "THREADS_QUEUED": {
@@ -68,6 +75,7 @@ export function bulkRunReducer(
         ...state,
         status: "idle",
         runResult: { count: action.count },
+        rateLimitResumeAt: null,
       };
 
     case "PAUSE":
@@ -91,6 +99,14 @@ export function bulkRunReducer(
         ...state,
         status: "stopped",
         stoppedCount: action.completedCount,
+        rateLimitResumeAt: null,
+      };
+
+    case "RATE_LIMIT_WAIT":
+      if (action.resumeAt && !isRunActive(state.status)) return state;
+      return {
+        ...state,
+        rateLimitResumeAt: action.resumeAt,
       };
 
     case "RESET":
@@ -104,18 +120,29 @@ export function bulkRunReducer(
 export function getProgressMessage(
   state: BulkRunState,
   remaining: number,
+  i18n: I18n,
 ): string | null {
   if (state.processedThreadIds.size === 0) return null;
 
   const completed = state.processedThreadIds.size - remaining;
+  const total = state.processedThreadIds.size;
 
   if (remaining > 0) {
-    return `Progress: ${completed}/${state.processedThreadIds.size} emails completed`;
+    return t(i18n)`Progress: ${completed}/${total} emails completed`;
   }
 
   if (state.status === "stopped" && state.stoppedCount !== null) {
-    return `Processed ${state.stoppedCount} emails`;
+    const stoppedCount = state.stoppedCount;
+    return t(
+      i18n,
+    )`${plural(stoppedCount, { one: "Processed # email", other: "Processed # emails" })}`;
   }
 
-  return `Processed ${state.processedThreadIds.size} emails`;
+  return t(
+    i18n,
+  )`${plural(total, { one: "Processed # email", other: "Processed # emails" })}`;
+}
+
+function isRunActive(status: ProcessingStatus) {
+  return status === "processing" || status === "paused";
 }

@@ -6,12 +6,27 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { MailboxThreadList } from "@inboxzero/mail-ui/MailboxSurface";
 import { ThreadRow } from "@/app/(app)/[emailAccountId]/mail/ThreadRow";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import {
+  getReplyDraftThreadKeys,
+  subscribeToReplyDrafts,
+} from "@/utils/mail-engine/reply-drafts";
+import {
+  InboxBundleHeader,
+  InboxBundleRow,
+} from "@/app/(app)/[emailAccountId]/mail/InboxBundleRow";
+import type { InboxBundleRow as InboxBundleRowInfo } from "@/app/(app)/[emailAccountId]/mail/inbox-bundles";
 import type {
   ListThread,
   MailLayoutMode,
@@ -28,6 +43,7 @@ import { getThreadTimestamp } from "@/utils/threads/sort";
 import { GmailLabel } from "@/utils/gmail/label";
 
 const NO_LABELS: EmailLabels = {};
+const NO_BUNDLES = new Map<string, InboxBundleRowInfo>();
 
 export type ThreadListProps = {
   threads: ListThread[];
@@ -53,11 +69,14 @@ export type ThreadListProps = {
   listKey: string;
   showSentOpenStatus?: boolean;
   onScrolledChange?: (scrolled: boolean) => void;
+  /** Rows that stand for, or belong to, an inbox bundle, by thread key. */
+  rowBundles?: Map<string, InboxBundleRowInfo>;
+  onToggleBundle?: (bundleId: string) => void;
 };
 
 export const ThreadList = memo(function ThreadList({
   threads,
-  emptyMessage = "No emails in this view",
+  emptyMessage = <Trans>No emails in this view</Trans>,
   layout,
   expandedPreview,
   userEmail,
@@ -77,8 +96,36 @@ export const ThreadList = memo(function ThreadList({
   listKey,
   showSentOpenStatus = false,
   onScrolledChange,
+  rowBundles = NO_BUNDLES,
+  onToggleBundle,
 }: ThreadListProps) {
+  const { i18n } = useLingui();
   const isMobile = useIsMobile();
+  const { emailAccountId } = useAccount();
+  // One subscription for the list: a reply shows as a draft from its first
+  // keystroke, not from its first provider save.
+  const draftThreadKeys = useSyncExternalStore(
+    subscribeToReplyDrafts,
+    getReplyDraftThreadKeys,
+    () => "",
+  );
+  const draftThreads = useMemo(
+    () => new Set(draftThreadKeys.split("\n")),
+    [draftThreadKeys],
+  );
+  // Collapsing removes the focused header, so a keyboard user's focus moves
+  // to the collapsed row once it renders.
+  const pendingFocusKeyRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const key = pendingFocusKeyRef.current;
+    if (!key || rowBundles.get(key)?.kind !== "collapsed") return;
+    pendingFocusKeyRef.current = null;
+    document
+      .querySelector<HTMLElement>(
+        `[data-mail-thread-key="${CSS.escape(key)}"] [role="option"]`,
+      )
+      ?.focus();
+  }, [rowBundles]);
   const dayStart = useDayStart();
   const sentThreadIds = useMemo(
     () =>
@@ -99,12 +146,16 @@ export const ThreadList = memo(function ThreadList({
   );
   const getGroupLabel = useCallback(
     (thread: ListThread) => {
-      const timestamp = getThreadTimestamp(thread);
+      // An expanded bundle stays together under its newest thread's day.
+      const bundleRow = rowBundles.get(getListThreadKey(thread));
+      const timestamp = getThreadTimestamp(
+        bundleRow?.bundle.threads[0] ?? thread,
+      );
       return timestamp
-        ? formatDateGroupLabel(new Date(timestamp), new Date(dayStart))
+        ? formatDateGroupLabel(new Date(timestamp), i18n, new Date(dayStart))
         : null;
     },
-    [dayStart],
+    [dayStart, i18n, rowBundles],
   );
 
   return (
@@ -112,6 +163,8 @@ export const ThreadList = memo(function ThreadList({
       emptyMessage={emptyMessage}
       focusedIndex={focusedIndex}
       getGroupLabel={getGroupLabel}
+      todayGroupLabel={i18n._(msg`Today`)}
+      listLabel={i18n._(msg`Conversations`)}
       getKey={getListThreadKey}
       groupHeaderClassName={groupHeaderClassName}
       isLoadingMore={isLoadingMore}
@@ -120,13 +173,13 @@ export const ThreadList = memo(function ThreadList({
       listKey={listKey}
       loadMoreButton={
         <Button onClick={onLoadMore} size="sm" variant="outline">
-          Load more
+          <Trans>Load more</Trans>
         </Button>
       }
       loadingMoreIndicator={
         <div className="flex items-center gap-2 text-muted-foreground text-xs">
           <LoadingMiniSpinner />
-          Loading more
+          <Trans>Loading more</Trans>
         </div>
       }
       onLoadMore={onLoadMore}
@@ -134,40 +187,86 @@ export const ThreadList = memo(function ThreadList({
       onScrolledChange={onScrolledChange}
       onSelectRangeTo={onSelectRangeTo}
       onToggleSelect={onToggleSelect}
-      renderItem={(row) => (
-        <div
-          data-mail-thread-key={row.rowKey}
-          key={row.rowKey}
-          onPointerEnter={() => onHoverThread?.(row.item)}
-        >
-          <ThreadRow
-            compact={isMobile}
-            expandedPreview={expandedPreview}
-            hasAnySelection={row.hasAnySelection}
-            index={row.index}
-            isFocused={row.isFocused}
-            isSelected={row.isSelected}
-            layout={layout}
-            onOpen={row.onOpen}
-            onSelectRangeTo={row.onSelectRangeTo}
-            onToggleSelect={row.onToggleSelect}
-            rowRef={row.rowRef}
-            selectionEnabled={row.selectionEnabled}
-            sentMessageOpen={
-              showSentOpenStatus
-                ? sentMessageOpens?.opens[row.item.messages.at(-1)?.id ?? ""]
-                : undefined
-            }
-            thread={row.item}
-            userEmail={userEmail}
-            userLabels={
-              "account" in row.item
-                ? (labelsByAccount?.[row.item.account.id] ?? NO_LABELS)
-                : userLabels
-            }
-          />
-        </div>
-      )}
+      renderItem={(row) => {
+        const bundleRow = rowBundles.get(row.rowKey);
+        if (bundleRow?.kind === "collapsed") {
+          return (
+            <div
+              data-mail-thread-key={row.rowKey}
+              key={row.rowKey}
+              onPointerEnter={() => onHoverThread?.(row.item)}
+            >
+              <InboxBundleRow
+                bundle={bundleRow.bundle}
+                compact={isMobile}
+                expandedPreview={expandedPreview}
+                hasAnySelection={row.hasAnySelection}
+                index={row.index}
+                isFocused={row.isFocused}
+                isSelected={row.isSelected}
+                layout={layout}
+                onOpen={row.onOpen}
+                onSelectRangeTo={row.onSelectRangeTo}
+                onToggleSelect={row.onToggleSelect}
+                rowRef={row.rowRef}
+                selectionEnabled={row.selectionEnabled}
+                userEmail={userEmail}
+              />
+            </div>
+          );
+        }
+        return (
+          <div
+            className={cn(
+              bundleRow && "border-primary/40 border-l-2 bg-muted/20",
+            )}
+            data-mail-thread-key={row.rowKey}
+            key={row.rowKey}
+            onPointerEnter={() => onHoverThread?.(row.item)}
+          >
+            {bundleRow?.kind === "member" &&
+            bundleRow.isFirst &&
+            onToggleBundle ? (
+              <InboxBundleHeader
+                bundle={bundleRow.bundle}
+                onCollapse={(fromKeyboard) => {
+                  if (fromKeyboard) pendingFocusKeyRef.current = row.rowKey;
+                  onToggleBundle(bundleRow.bundle.id);
+                }}
+              />
+            ) : null}
+            <ThreadRow
+              compact={isMobile}
+              expandedPreview={expandedPreview}
+              hasAnySelection={row.hasAnySelection}
+              index={row.index}
+              isFocused={row.isFocused}
+              isSelected={row.isSelected}
+              layout={layout}
+              onOpen={row.onOpen}
+              onSelectRangeTo={row.onSelectRangeTo}
+              onToggleSelect={row.onToggleSelect}
+              rowRef={row.rowRef}
+              selectionEnabled={row.selectionEnabled}
+              sentMessageOpen={
+                showSentOpenStatus
+                  ? sentMessageOpens?.opens[row.item.messages.at(-1)?.id ?? ""]
+                  : undefined
+              }
+              hasLocalDraft={draftThreads.has(
+                `${"account" in row.item ? row.item.account.id : emailAccountId}:${row.item.id}`,
+              )}
+              thread={row.item}
+              userEmail={userEmail}
+              userLabels={
+                "account" in row.item
+                  ? (labelsByAccount?.[row.item.account.id] ?? NO_LABELS)
+                  : userLabels
+              }
+            />
+          </div>
+        );
+      }}
       selectedCount={selectedCount}
       selectionEnabled={selectionEnabled}
       showLoadMore={showLoadMore}

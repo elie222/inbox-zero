@@ -19,7 +19,7 @@ export function LabelCombobox({
     id: string | null;
     name: string | null;
   };
-  onChangeValue: (value: string) => void;
+  onChangeValue: (label: { id: string; name: string }) => void;
   userLabels: EmailLabel[];
   isLoading: boolean;
   mutate: () => Promise<unknown>;
@@ -38,7 +38,10 @@ export function LabelCombobox({
         label: label.name || "",
       }))}
       value={value.id || ""}
-      onChangeValue={onChangeValue}
+      onChangeValue={(id) => {
+        const label = userLabels.find((label) => label.id === id);
+        onChangeValue({ id, name: label?.name ?? "" });
+      }}
       search={search}
       onSearch={setSearch}
       placeholder={selectedLabel?.name || "Select a label"}
@@ -65,7 +68,10 @@ export function LabelCombobox({
 
                     // Auto-select the newly created label
                     if (res?.data?.id) {
-                      onChangeValue(res.data.id);
+                      onChangeValue({
+                        id: res.data.id,
+                        name: res.data.name || searchValue,
+                      });
                     }
 
                     return res;

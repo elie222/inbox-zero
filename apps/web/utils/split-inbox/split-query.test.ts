@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
 import {
+  allMailSplitQuery,
   getPortableLabelSplits,
   mailSplitToThreadsQuery,
   threadListQueryRequiresInbox,
@@ -198,4 +199,39 @@ it.each([
       NOW,
     ).before,
   ).toEqual(new Date("2026-08-10T12:00:00.000Z"));
+});
+
+describe("allMailSplitQuery", () => {
+  const newsletters = {
+    ...split([{ kind: MailSplitFilterKind.LABEL, value: "Label_news" }]),
+    id: "newsletters",
+  };
+  const unread = {
+    ...split([{ kind: MailSplitFilterKind.UNREAD }]),
+    id: "unread",
+  };
+
+  it("is the plain inbox when no split is hidden from All", () => {
+    expect(allMailSplitQuery([split([]), newsletters, unread])).toEqual({
+      type: "inbox",
+    });
+  });
+
+  it("leaves out only the splits hidden from All", () => {
+    expect(
+      allMailSplitQuery([
+        split([]),
+        { ...newsletters, hideFromAll: true },
+        unread,
+      ]),
+    ).toEqual({
+      type: "inbox",
+      excludeSplits: [
+        {
+          matchAll: true,
+          filters: [{ kind: MailSplitFilterKind.LABEL, value: "Label_news" }],
+        },
+      ],
+    });
+  });
 });

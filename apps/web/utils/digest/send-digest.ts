@@ -1,11 +1,17 @@
+import { render } from "@react-email/render";
 import { env } from "@/env";
 import { sendDigestEmail } from "@inboxzero/transactional-email";
+import DigestEmail, {
+  generateDigestSubject,
+  type DigestEmailProps,
+} from "@inboxzero/transactional-email/emails/digest";
 import {
   MessagingProvider,
   MessagingRoutePurpose,
   type MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
+import { sendNotificationEmail } from "@/utils/email/send-notification-email";
 import {
   DIGEST_MAX_ITEMS_PER_RULE,
   formatDigestDate,
@@ -46,7 +52,10 @@ export async function sendDigest({
 
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
-    select: { digestSendEmail: true },
+    select: {
+      digestSendEmail: true,
+      account: { select: { provider: true } },
+    },
   });
 
   const sendEmail = emailAccount?.digestSendEmail ?? true;
@@ -72,11 +81,12 @@ export async function sendDigest({
 
   const deliveryPromises: Promise<void>[] = [];
 
-  if (sendEmail) {
+  if (sendEmail && emailAccount) {
     deliveryPromises.push(
       sendDigestViaEmail({
         emailAccountId,
         userEmail,
+        provider: emailAccount.account.provider,
         unsubscribeToken,
         date,
         ruleNames,
@@ -162,6 +172,7 @@ export async function sendDigest({
 async function sendDigestViaEmail({
   emailAccountId,
   userEmail,
+  provider,
   unsubscribeToken,
   date,
   ruleNames,
@@ -170,26 +181,37 @@ async function sendDigestViaEmail({
 }: {
   emailAccountId: string;
   userEmail: string;
+  provider: string;
   unsubscribeToken: string;
   date: Date;
   ruleNames: Record<string, string>;
   itemsByRule: ItemsByRule;
   logger: Logger;
 }) {
+  const emailProps: DigestEmailProps = {
+    baseUrl: env.NEXT_PUBLIC_BASE_URL,
+    unsubscribeToken,
+    date,
+    ruleNames,
+    ...itemsByRule,
+    emailAccountId,
+  };
+
   logger.info("Sending digest via email");
-  await sendDigestEmail({
-    from: env.RESEND_FROM_EMAIL,
-    to: userEmail,
-    emailProps: {
-      baseUrl: env.NEXT_PUBLIC_BASE_URL,
-      unsubscribeToken,
-      date,
-      ruleNames,
-      ...itemsByRule,
-      emailAccountId,
-    },
+  await sendNotificationEmail({
+    emailAccountId,
+    userEmail,
+    provider,
+    subject: generateDigestSubject(emailProps),
+    sendViaResend: () =>
+      sendDigestEmail({
+        from: env.RESEND_FROM_EMAIL,
+        to: userEmail,
+        emailProps,
+      }),
+    renderHtml: () => render(DigestEmail(emailProps)),
+    logger,
   });
-  logger.info("Digest email sent");
 }
 
 async function sendDigestViaSlack({

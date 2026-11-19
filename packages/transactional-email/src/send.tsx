@@ -148,7 +148,8 @@ const sendTransactionalEmail = async ({
       text,
       attachments,
       headers: {
-        "X-Entity-Ref-ID": nanoid(),
+        // Resend rejects a reused idempotency key if the body changes.
+        "X-Entity-Ref-ID": idempotencyKey ?? nanoid(),
       },
       tags,
     },

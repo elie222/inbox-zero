@@ -1,5 +1,6 @@
 import type { people_v1 } from "@googleapis/people";
 import {
+  ContactsAccessDeniedError,
   MAX_CONTACT_RESULTS,
   normalizeContactCandidates,
 } from "@/utils/email/contact";
@@ -12,6 +13,7 @@ import {
 } from "@/utils/error";
 import { extractErrorInfo } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
+import { sleep } from "@/utils/sleep";
 
 const CONTACT_READ_MASK = "names,emailAddresses,photos";
 const PHOTO_READ_MASK = "emailAddresses,photos";
@@ -19,14 +21,27 @@ const PHOTO_PAGE_SIZE = 1000;
 const MAX_PHOTO_PAGES = 5;
 // Bounds the cached map and the payload sent to the browser.
 const MAX_CONTACT_PHOTOS = 2000;
+// The People API rejects longer queries, and no name or address prefix is that long.
+const MAX_PEOPLE_QUERY_LENGTH = 100;
 
 export async function searchContacts(
   client: people_v1.People,
   query: string,
   logger: Logger,
 ) {
+  if (query.length > MAX_PEOPLE_QUERY_LENGTH) return [];
+
   if (!env.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED) {
-    return normalizeContactCandidates(await searchSavedContacts(client, query));
+    const onlySource = await loadContactSource(
+      () => searchSavedContacts(client, query),
+      "contacts",
+      logger,
+    );
+    if (onlySource.deniedError) {
+      throw new ContactsAccessDeniedError({ cause: onlySource.deniedError });
+    }
+
+    return normalizeContactCandidates(onlySource.contacts ?? []);
   }
 
   // Saved Google Contacts are only the address book the user curated. Gmail's
@@ -45,7 +60,9 @@ export async function searchContacts(
     ),
   ]);
 
-  if (saved.deniedError && other.deniedError) throw saved.deniedError;
+  if (saved.deniedError && other.deniedError) {
+    throw new ContactsAccessDeniedError({ cause: saved.deniedError });
+  }
 
   return normalizeContactCandidates([
     ...(saved.contacts ?? []),
@@ -166,21 +183,42 @@ function isContactSourceDenied(error: unknown) {
 }
 
 async function searchSavedContacts(client: people_v1.People, query: string) {
-  const res = await client.people.searchContacts({
-    query,
-    readMask: CONTACT_READ_MASK,
-    pageSize: MAX_CONTACT_RESULTS,
-  });
+  // Google requires an empty-query warmup before searching its contact cache.
+  if (query) {
+    await client.people.searchContacts({
+      query: "",
+      readMask: CONTACT_READ_MASK,
+      pageSize: MAX_CONTACT_RESULTS,
+    });
+  }
+
+  const res = await withContactCacheRetry(() =>
+    client.people.searchContacts({
+      query,
+      readMask: CONTACT_READ_MASK,
+      pageSize: MAX_CONTACT_RESULTS,
+    }),
+  );
 
   return mapSearchResults(res.data.results);
 }
 
 async function searchOtherContacts(client: people_v1.People, query: string) {
-  const res = await client.otherContacts.search({
-    query,
-    readMask: CONTACT_READ_MASK,
-    pageSize: MAX_CONTACT_RESULTS,
-  });
+  if (query) {
+    await client.otherContacts.search({
+      query: "",
+      readMask: CONTACT_READ_MASK,
+      pageSize: MAX_CONTACT_RESULTS,
+    });
+  }
+
+  const res = await withContactCacheRetry(() =>
+    client.otherContacts.search({
+      query,
+      readMask: CONTACT_READ_MASK,
+      pageSize: MAX_CONTACT_RESULTS,
+    }),
+  );
 
   return mapSearchResults(res.data.results);
 }
@@ -230,4 +268,26 @@ async function listPeoplePages(
 // Google fills in a generated letter tile when a person has no photo.
 function getPhotoUrl(person: people_v1.Schema$Person) {
   return person.photos?.find((photo) => !photo.default)?.url ?? undefined;
+}
+
+async function withContactCacheRetry<T>(search: () => Promise<T>): Promise<T> {
+  try {
+    return await search();
+  } catch (error) {
+    const { status, googleErrorStatus, errorMessage, googleErrorMessage } =
+      extractErrorInfo(error);
+    if (
+      (status !== 400 && googleErrorStatus !== "FAILED_PRECONDITION") ||
+      ![errorMessage, googleErrorMessage].some(
+        (message) =>
+          typeof message === "string" && message.includes("cold cache data"),
+      )
+    ) {
+      throw error;
+    }
+
+    // Google's lazy cache can still be rebuilding after the warmup returns.
+    await sleep(5000);
+    return search();
+  }
 }

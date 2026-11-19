@@ -10,8 +10,8 @@ const bodySchema = z.object({ loadBefore: z.boolean() });
 export type LoadEmailStatsResponse = Awaited<ReturnType<typeof loadEmails>>;
 
 /**
- * REST equivalent of `loadEmailStatsAction`. Populates `EmailMessage`, which
- * backs every sender-level stat including `/api/user/stats/newsletters`.
+ * Populates `EmailMessage`, which backs every sender-level stat including
+ * `/api/user/stats/newsletters`.
  *
  * One call loads a bounded number of pages. Keep calling while `hasMoreAfter`
  * or `hasMoreBefore` is true, the same way the web app's stat loader does.

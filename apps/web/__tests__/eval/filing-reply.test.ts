@@ -51,6 +51,30 @@ describe.runIf(shouldRunEval)("filing reply eval", () => {
         ],
       },
       {
+        name: "resolves a named parent into its known full path",
+        reply: "Put invoice.pdf in a September subfolder under Invoices.",
+        knownFolderPaths: ["Business/Invoices"],
+        expected: [
+          {
+            filingId: "filing-1",
+            action: "move",
+            folderPath: "Business/Invoices/September",
+          },
+        ],
+      },
+      {
+        name: "uses the known path when moving to an existing folder",
+        reply: "Move invoice.pdf into the Invoices folder.",
+        knownFolderPaths: ["Business/Invoices"],
+        expected: [
+          {
+            filingId: "filing-1",
+            action: "move",
+            folderPath: "Business/Invoices",
+          },
+        ],
+      },
+      {
         name: "applies a clear batch-wide reply to every document",
         reply: "These all look good.",
         expected: filings.map((filing) => ({
@@ -67,7 +91,13 @@ describe.runIf(shouldRunEval)("filing reply eval", () => {
         async () => {
           const result = await aiParseFilingReply({
             messages: [{ role: "user", content: testCase.reply }],
-            filingContexts: filings,
+            filingContexts: filings.map((filing) => ({
+              ...filing,
+              knownFolderPaths:
+                "knownFolderPaths" in testCase
+                  ? [...testCase.knownFolderPaths]
+                  : [],
+            })),
             emailAccount,
           });
           const actual = sortActions(result.actions);
@@ -87,6 +117,44 @@ describe.runIf(shouldRunEval)("filing reply eval", () => {
         TIMEOUT,
       );
     }
+
+    test(
+      "resolves each document's destination within its own drive",
+      async () => {
+        const result = await aiParseFilingReply({
+          messages: [
+            {
+              role: "user",
+              content: "Move both documents into their Invoices folder.",
+            },
+          ],
+          filingContexts: [
+            { ...filings[0], knownFolderPaths: ["Home/Invoices"] },
+            { ...filings[1], knownFolderPaths: ["Business/Invoices"] },
+          ],
+          emailAccount,
+        });
+        const expected = [
+          { filingId: "filing-1", action: "move", folderPath: "Home/Invoices" },
+          {
+            filingId: "filing-2",
+            action: "move",
+            folderPath: "Business/Invoices",
+          },
+        ];
+        const actual = sortActions(result.actions);
+        const pass = JSON.stringify(actual) === JSON.stringify(expected);
+        evalReporter.record({
+          testName: "resolves each document's destination within its own drive",
+          model: model.label,
+          pass,
+          expected: JSON.stringify(expected),
+          actual: JSON.stringify(actual),
+        });
+        expect(actual).toEqual(expected);
+      },
+      TIMEOUT,
+    );
 
     test(
       "does not guess when a multi-document reply is ambiguous",

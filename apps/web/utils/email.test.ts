@@ -61,6 +61,7 @@ describe("email utils", () => {
             "JOHN@example.com",
           ],
           "user@example.com",
+          "me",
         ),
       ).toBe("me, John, Jane, noname@example.com");
     });

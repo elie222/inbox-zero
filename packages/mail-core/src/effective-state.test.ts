@@ -68,6 +68,34 @@ describe("deriveEffectiveMessage", () => {
     expect(confirmed.roles).toEqual(["inbox"]);
   });
 
+  it("hides a draft while its discard is pending", () => {
+    const effective = deriveEffectiveMessage(
+      { ...confirmed, roles: ["draft"] },
+      [
+        {
+          operationId: "op1",
+          change: { kind: "discard_draft" },
+          targets: [{ accountId: "a1", messageId: "m1" }],
+        },
+      ],
+    );
+    expect(effective.deleted).toBe(true);
+  });
+
+  it("keeps showing a pending discard's message once sync sees it sent", () => {
+    const effective = deriveEffectiveMessage(
+      { ...confirmed, roles: ["sent"] },
+      [
+        {
+          operationId: "op1",
+          change: { kind: "discard_draft" },
+          targets: [{ accountId: "a1", messageId: "m1" }],
+        },
+      ],
+    );
+    expect(effective.deleted).toBe(false);
+  });
+
   it("ignores pending effects after the message is deleted", () => {
     const effective = deriveEffectiveMessage({ ...confirmed, deleted: true }, [
       {

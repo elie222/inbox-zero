@@ -11,7 +11,10 @@ import type {
 import type { ParsedMessage, Attachment } from "@/utils/types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { OutlookLabel, WELL_KNOWN_FOLDERS } from "./constants";
-import { escapeODataString } from "@/utils/outlook/odata-escape";
+import {
+  encodeODataFilter,
+  escapeODataString,
+} from "@/utils/outlook/odata-escape";
 import { withMicrosoftGraphRetry } from "@/utils/outlook/retry";
 import { isNotFoundError } from "@/utils/outlook/errors";
 import { formatEmailWithName } from "@/utils/email";
@@ -19,7 +22,8 @@ import type { Logger } from "@/utils/logger";
 import { isOutlookThrottlingError } from "@/utils/error";
 import { isMicrosoftEmulationEnabled } from "@/utils/outlook/oauth";
 import {
-  isNonAdvancingOutlookNextLink,
+  getGraphSkip,
+  isAdvancingGraphNextLink,
   resolveMicrosoftGraphNextLink,
 } from "@/utils/outlook/page-token";
 
@@ -608,16 +612,20 @@ export async function queryBatchMessages(
         : filteredMessages,
     );
 
-    const nextLinkCandidate = response["@odata.nextLink"];
-    const hasNextPage =
-      response.value.length > 0 &&
-      Boolean(nextLinkCandidate) &&
-      !isNonAdvancingOutlookNextLink(nextLink, nextLinkCandidate);
+    const candidateNextLink = response["@odata.nextLink"];
+    if (
+      candidateNextLink &&
+      !isAdvancingGraphNextLink(nextLink, candidateNextLink)
+    ) {
+      // Following a link that repeats the current page would page forever.
+      logger.warn("Stopping Outlook pagination on a non-advancing next link", {
+        skip: getGraphSkip(nextLink),
+        nextSkip: getGraphSkip(candidateNextLink),
+      });
+      return { messages, nextPageToken: undefined };
+    }
 
-    return {
-      messages,
-      nextPageToken: hasNextPage ? nextLinkCandidate : undefined,
-    };
+    return { messages, nextPageToken: candidateNextLink };
   }
 
   const rawSearchQuery = options.mailboxSearch
@@ -663,11 +671,8 @@ export async function queryBatchMessages(
       metadataFilters: metadataSearch.odataFilters,
     });
 
-    request = request.search(
-      options.mailboxSearch
-        ? encodeURIComponent(effectiveSearchQuery!)
-        : effectiveSearchQuery!,
-    );
+    // The Graph SDK does not URL-encode $search, so a raw "#" or "&" would cut the query off.
+    request = request.search(encodeURIComponent(effectiveSearchQuery!));
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withMicrosoftGraphRetry(() => request.get(), logger);
@@ -690,9 +695,7 @@ export async function queryBatchMessages(
       await normalizeOutlookSearchIds(client, filteredMessages, logger),
     );
 
-    const hasSearchNextPage =
-      response.value.length > 0 && Boolean(response["@odata.nextLink"]);
-    nextPageToken = hasSearchNextPage ? response["@odata.nextLink"] : undefined;
+    nextPageToken = response["@odata.nextLink"];
 
     logger.info("Search results", {
       totalFound: response.value.length,
@@ -733,7 +736,7 @@ export async function queryBatchMessages(
 
     // Only apply filter if we have something to filter
     if (combinedFilter) {
-      request = request.filter(combinedFilter);
+      request = request.filter(encodeODataFilter(combinedFilter));
     }
 
     // Graph rejects $orderby combined with $filter on sender or metadata
@@ -746,9 +749,7 @@ export async function queryBatchMessages(
       await withMicrosoftGraphRetry(() => request.get(), logger);
     const messages = await parseMessages(response.value);
 
-    const hasFilterNextPage =
-      response.value.length > 0 && Boolean(response["@odata.nextLink"]);
-    nextPageToken = hasFilterNextPage ? response["@odata.nextLink"] : undefined;
+    nextPageToken = response["@odata.nextLink"];
 
     logger.info("Filter results", {
       messageCount: messages.length,
@@ -844,7 +845,7 @@ export async function queryMessagesWithFilters(
   const combinedFilter = combinedFilters.join(" and ");
 
   if (combinedFilter) {
-    request = request.filter(combinedFilter);
+    request = request.filter(encodeODataFilter(combinedFilter));
   }
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
@@ -1035,7 +1036,9 @@ export async function getMessages(
 
   if (options.query) {
     request = request.filter(
-      `contains(subject, '${escapeODataString(options.query)}')`,
+      encodeODataFilter(
+        `contains(subject, '${escapeODataString(options.query)}')`,
+      ),
     );
   }
 

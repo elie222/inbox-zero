@@ -453,6 +453,28 @@ describe("queryBatchMessages", () => {
     );
   });
 
+  it.each([
+    ["Ticket #4521 follow up", '"Ticket #4521 follow up"'],
+    ["C&A invoice", '"C&A invoice"'],
+    ["deposit 50% + fees", '"deposit 50% + fees"'],
+  ])("keeps free-text search %s intact in the Graph URL", async (query, expected) => {
+    const request = createMockMessagesRequest();
+    await queryBatchMessages(
+      createCachedOutlookClient(vi.fn().mockReturnValue(request)),
+      { searchQuery: query },
+      createTestLogger(),
+    );
+    const search = request.search.mock.calls[0]?.[0] as string;
+    const graph = Client.init({ authProvider: (done) => done(null, "unused") });
+    const actual = graph.api("/me/messages").search(search) as unknown as {
+      buildFullUrl(): string;
+    };
+    const url = new URL(actual.buildFullUrl());
+    expect([...url.searchParams.keys()]).toEqual(["$search"]);
+    expect(url.hash).toBe("");
+    expect(url.searchParams.get("$search")).toBe(expected);
+  });
+
   it("sends one correctly quoted and URL-encoded expression through the real Graph SDK", async () => {
     const request = createMockMessagesRequest();
     await queryBatchMessages(
@@ -655,49 +677,23 @@ describe("queryBatchMessages", () => {
     );
   });
 
-  it("terminates continuation pagination when nextLink does not advance", async () => {
+  it("stops paging when Graph returns a next link that does not advance", async () => {
+    const pageUrl =
+      "https://graph.microsoft.com/v1.0/me/mailFolders('archive')/messages?%24top=20&%24skip=200";
     const request = createMockMessagesRequest();
     request.get.mockResolvedValue({
-      value: [
-        {
-          id: "msg-1",
-          conversationId: "thread-1",
-          parentFolderId: "archive",
-        },
-      ],
-      "@odata.nextLink":
-        "https://graph.microsoft.com/v1.0/me/messages?$skip=200",
+      value: [{ id: "msg-1", conversationId: "thread-1" }],
+      "@odata.nextLink": pageUrl,
     });
     const api = vi.fn().mockReturnValue(request);
-    const result = await queryBatchMessages(
-      createCachedOutlookClient(api),
-      {
-        folderId: "archive",
-        pageToken: "https://graph.microsoft.com/v1.0/me/messages?$skip=200",
-      },
-      createTestLogger(),
-    );
-    expect(result.messages.map((m) => m.id)).toEqual(["msg-1"]);
-    expect(result.nextPageToken).toBeUndefined();
-  });
 
-  it("terminates continuation pagination when response.value is empty", async () => {
-    const request = createMockMessagesRequest();
-    request.get.mockResolvedValue({
-      value: [],
-      "@odata.nextLink":
-        "https://graph.microsoft.com/v1.0/me/messages?$skip=220",
-    });
-    const api = vi.fn().mockReturnValue(request);
     const result = await queryBatchMessages(
       createCachedOutlookClient(api),
-      {
-        folderId: "archive",
-        pageToken: "https://graph.microsoft.com/v1.0/me/messages?$skip=200",
-      },
+      { pageToken: pageUrl },
       createTestLogger(),
     );
-    expect(result.messages).toEqual([]);
+
+    expect(result.messages.map((m) => m.id)).toEqual(["msg-1"]);
     expect(result.nextPageToken).toBeUndefined();
   });
 
@@ -838,7 +834,9 @@ describe("queryBatchMessages", () => {
 
     expect(request.search).not.toHaveBeenCalled();
     expect(request.filter).toHaveBeenCalledWith(
-      "isRead eq false and categories/any(category: category eq 'Newsletter')",
+      encodeURIComponent(
+        "isRead eq false and categories/any(category: category eq 'Newsletter')",
+      ),
     );
     expect(request.orderby).not.toHaveBeenCalled();
   });
@@ -858,7 +856,9 @@ describe("queryBatchMessages", () => {
     );
 
     expect(request.search).not.toHaveBeenCalled();
-    expect(request.filter).toHaveBeenCalledWith("isRead eq false");
+    expect(request.filter).toHaveBeenCalledWith(
+      encodeURIComponent("isRead eq false"),
+    );
     expect(request.orderby).not.toHaveBeenCalled();
   });
 
@@ -890,7 +890,9 @@ describe("queryBatchMessages", () => {
       createTestLogger(),
     );
 
-    expect(request.search).toHaveBeenCalledWith('"newsletter"');
+    expect(request.search).toHaveBeenCalledWith(
+      encodeURIComponent('"newsletter"'),
+    );
     expect(request.filter).not.toHaveBeenCalled();
     expect(result.messages).toHaveLength(1);
     expect(result.messages[0]?.id).toBe("message-unread");
@@ -910,7 +912,9 @@ describe("queryBatchMessages", () => {
       createTestLogger(),
     );
 
-    expect(request.search).toHaveBeenCalledWith('"newsletter"');
+    expect(request.search).toHaveBeenCalledWith(
+      encodeURIComponent('"newsletter"'),
+    );
     expect(request.filter).not.toHaveBeenCalled();
   });
 
@@ -929,7 +933,9 @@ describe("queryBatchMessages", () => {
     );
 
     expect(request.filter).toHaveBeenCalledWith(
-      "from/emailAddress/address eq 'o''connor@example.com'",
+      encodeURIComponent(
+        "from/emailAddress/address eq 'o''connor@example.com'",
+      ),
     );
     expect(request.orderby).not.toHaveBeenCalled();
   });
@@ -971,7 +977,9 @@ describe("queryBatchMessages", () => {
       expect(api).toHaveBeenCalledWith(pageToken);
       expect(request.search).not.toHaveBeenCalled();
     } else {
-      expect(request.search).toHaveBeenCalledWith('"invoice"');
+      expect(request.search).toHaveBeenCalledWith(
+        encodeURIComponent('"invoice"'),
+      );
     }
     expect(result.messages.map((message) => message.id)).toEqual([
       "matching-message",

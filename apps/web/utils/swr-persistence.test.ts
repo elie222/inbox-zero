@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { unstable_serialize } from "swr";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import {
@@ -41,6 +42,33 @@ describe("swr-persistence", () => {
     expect(restored.get("/api/mail/settings")?.data).toEqual({ splits: [] });
   });
 
+  it("keeps the signature and send-as entries under the account's own key", () => {
+    persistSwrEntries(
+      ACCOUNT_A,
+      cacheWith({
+        [unstable_serialize(["/api/user/signature", ACCOUNT_A])]: {
+          signatureHtml: "A",
+        },
+        [unstable_serialize(["/api/user/send-as", ACCOUNT_A])]: {
+          addresses: [{ email: "a@example.com" }],
+        },
+        // Fetched for whichever account the route belongs to, so never kept.
+        "/api/user/signature": { signatureHtml: "route account" },
+        [unstable_serialize(["/api/user/send-as", ACCOUNT_B])]: {
+          addresses: [{ email: "b@example.com" }],
+        },
+      }),
+    );
+
+    const restored = readPersistedSwrEntries(ACCOUNT_A);
+    expect(restored.get("/api/user/signature")?.data).toEqual({
+      signatureHtml: "A",
+    });
+    expect(restored.get("/api/user/send-as")?.data).toEqual({
+      addresses: [{ email: "a@example.com" }],
+    });
+  });
+
   it("does not leak entries across accounts", () => {
     persistSwrEntries(ACCOUNT_A, cacheWith({ "/api/labels": { labels: [] } }));
 
@@ -65,18 +93,31 @@ describe("swr-persistence", () => {
     const settings: MailSettingsResponse = {
       layout: "SPLIT",
       expandedPreview: true,
+      bundleInbox: false,
+      defaultSplitId: null,
+      setup: "DONE",
       splits: [
         {
           id: "split-1",
           name: "Saved",
           order: 0,
           matchAll: false,
+          bundleInInbox: false,
+          hideFromAll: false,
           filters: [
             { kind: "LABEL", value: "label-1" },
             { kind: "LABEL", value: "label-2" },
           ],
         },
-        { id: "split-2", name: "Inbox", order: 1, matchAll: true, filters: [] },
+        {
+          id: "split-2",
+          name: "Inbox",
+          order: 1,
+          matchAll: true,
+          bundleInInbox: false,
+          hideFromAll: false,
+          filters: [],
+        },
       ],
     };
     persistSwrEntries(ACCOUNT_A, cacheWith({ "/api/mail/settings": settings }));

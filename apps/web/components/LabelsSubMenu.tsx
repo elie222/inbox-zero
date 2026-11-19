@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import {
   DropdownMenuSubContent,
   DropdownMenuItem,
@@ -5,7 +6,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { EmailLabel } from "@/providers/email-label-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { getEmailTerminology } from "@/utils/terminology";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 export function LabelsSubMenu({
   labels,
@@ -17,7 +18,7 @@ export function LabelsSubMenu({
   isLabelActive?: (label: EmailLabel) => boolean;
 }) {
   const { provider } = useAccount();
-  const terminology = getEmailTerminology(provider);
+  const isOutlook = isMicrosoftProvider(provider);
 
   return (
     <DropdownMenuSubContent className="max-h-[415px] overflow-auto">
@@ -38,7 +39,11 @@ export function LabelsSubMenu({
         })
       ) : (
         <DropdownMenuItem>
-          You don't have any {terminology.label.plural} yet.
+          {isOutlook ? (
+            <Trans>You don't have any categories yet.</Trans>
+          ) : (
+            <Trans>You don't have any labels yet.</Trans>
+          )}
         </DropdownMenuItem>
       )}
     </DropdownMenuSubContent>

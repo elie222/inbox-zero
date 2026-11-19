@@ -15,6 +15,7 @@ import { GlobalProviders } from "./GlobalProviders";
 import { SWRProvider } from "./SWRProvider";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { registerOpenComposer } from "@/utils/safe-reload";
+import { claimAutomaticReload } from "@/utils/automatic-reload";
 import { SKIP_WAITING } from "@/utils/offline/mail-cache";
 
 const serwistState = vi.hoisted(() => ({
@@ -41,6 +42,7 @@ vi.mock("sonner", () => ({ toast: { info: vi.fn() } }));
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
   vi.mocked(toast.info).mockClear();
   serwistState.serwist = undefined;
@@ -159,42 +161,84 @@ describe("global user-data fetching", () => {
 });
 
 describe("service worker updates", () => {
-  it.each([
-    "hidden",
-    "route",
-  ])("activates a waiting worker only at a safe %s moment", async (moment) => {
+  it("activates a waiting worker only when hidden and no composer is open", async () => {
     const { registration, serviceWorker, waiting, reload } =
       setUpDesktopUpdate();
     const view = render(<GlobalProviders>mail</GlobalProviders>);
     await waitFor(() => expect(registration.update).toHaveBeenCalled());
     vi.useFakeTimers();
     expect(toast.info).not.toHaveBeenCalled();
-    expect(waiting.postMessage).not.toHaveBeenCalled();
     const close = registerOpenComposer();
-    const nextMoment = () => {
-      if (moment === "hidden") {
-        vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
-        document.dispatchEvent(new Event("visibilitychange"));
-      } else {
-        serwistState.pathname += "/next";
-        view.rerender(<GlobalProviders>mail</GlobalProviders>);
-      }
-    };
-    act(nextMoment);
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
     expect(waiting.postMessage).not.toHaveBeenCalled();
     close();
-    act(nextMoment);
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
     expect(waiting.postMessage).toHaveBeenCalledExactlyOnceWith({
       type: SKIP_WAITING,
     });
-    // Editing can begin while the worker is activating.
-    const stopEditing = registerOpenComposer();
+    // Returning while activation is in flight must not flash a reload.
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
     act(() => serviceWorker.dispatchEvent(new Event("controllerchange")));
     act(() => vi.advanceTimersByTime(5000));
+    serwistState.pathname += "/next";
+    view.rerender(<GlobalProviders>mail</GlobalProviders>);
     expect(reload).not.toHaveBeenCalled();
-    stopEditing();
-    act(nextMoment);
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reload before a waiting worker takes control", async () => {
+    const { registration, waiting, reload } = setUpDesktopUpdate();
+    const view = render(<GlobalProviders>mail</GlobalProviders>);
+    await waitFor(() => expect(registration.update).toHaveBeenCalled());
+    vi.useFakeTimers();
+    serwistState.pathname += "/next";
+    view.rerender(<GlobalProviders>mail</GlobalProviders>);
+    expect(waiting.postMessage).not.toHaveBeenCalled();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    expect(waiting.postMessage).toHaveBeenCalledOnce();
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("stops repeated controller-change reloads across page loads", async () => {
+    const { registration, serviceWorker, reload } = setUpDesktopUpdate();
+    for (let load = 0; load < 2; load++) {
+      const view = render(<GlobalProviders>mail</GlobalProviders>);
+      await waitFor(() => expect(registration.update).toHaveBeenCalled());
+      vi.useFakeTimers();
+      act(() => vi.advanceTimersByTime(3000));
+      vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+      act(() => serviceWorker.dispatchEvent(new Event("controllerchange")));
+      view.unmount();
+      vi.useRealTimers();
+    }
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a controller reload at a safe moment after the cooldown", async () => {
+    const { registration, serviceWorker, reload } = setUpDesktopUpdate();
+    vi.stubEnv("NEXT_DEPLOYMENT_ID", "previous-build");
+    expect(claimAutomaticReload()).toBe(true);
+    vi.stubEnv("NEXT_DEPLOYMENT_ID", "current-build");
+    const view = render(<GlobalProviders>mail</GlobalProviders>);
+    await waitFor(() => expect(registration.update).toHaveBeenCalled());
+    vi.useFakeTimers();
+    act(() => vi.advanceTimersByTime(3000));
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    act(() => serviceWorker.dispatchEvent(new Event("controllerchange")));
+    expect(reload).not.toHaveBeenCalled();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    act(() => vi.advanceTimersByTime(5 * 60_000));
+    serwistState.pathname += "/next";
+    view.rerender(<GlobalProviders>mail</GlobalProviders>);
+    expect(reload).not.toHaveBeenCalled();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    expect(reload).toHaveBeenCalledOnce();
   });
 
   it("leaves a waiting worker alone in a browser tab", async () => {
@@ -219,6 +263,9 @@ describe("service worker updates", () => {
     close();
     serwistState.pathname = "/account/automation";
     view.rerender(<GlobalProviders>mail</GlobalProviders>);
+    expect(reload).not.toHaveBeenCalled();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
     expect(reload).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { cn } from "@/utils";
 import { formatShortDate } from "@/utils/date";
 
@@ -8,6 +9,8 @@ export function EmailDate({
   date: Date;
   className?: string;
 }) {
+  const { i18n } = useLingui();
+
   return (
     <div
       className={cn(
@@ -15,7 +18,7 @@ export function EmailDate({
         className,
       )}
     >
-      {formatShortDate(date)}
+      {formatShortDate(date, { locale: i18n.locale })}
     </div>
   );
 }

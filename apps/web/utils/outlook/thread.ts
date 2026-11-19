@@ -11,7 +11,10 @@ import {
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Message, Attachment } from "@microsoft/microsoft-graph-types";
 import type { ParsedMessage } from "@/utils/types";
-import { escapeODataString } from "@/utils/outlook/odata-escape";
+import {
+  encodeODataFilter,
+  escapeODataString,
+} from "@/utils/outlook/odata-escape";
 import type { Logger } from "@/utils/logger";
 import {
   MESSAGE_SELECT_FIELDS,
@@ -38,7 +41,9 @@ export async function getThread(
   const filter = `conversationId eq '${escapedThreadId}'`;
 
   try {
-    const request = createMessagesRequest(client).filter(filter).top(100);
+    const request = createMessagesRequest(client)
+      .filter(encodeODataFilter(filter))
+      .top(100);
     const messages = options?.complete
       ? {
           value: await getCompleteThreadMessages(
@@ -103,7 +108,7 @@ export async function getThreads(
 
   if (query) {
     request = request.filter(
-      `contains(subject, '${escapeODataString(query)}')`,
+      encodeODataFilter(`contains(subject, '${escapeODataString(query)}')`),
     );
   }
 
@@ -157,7 +162,7 @@ export async function getThreadsWithNextPageToken({
 
   if (query) {
     request = request.filter(
-      `contains(subject, '${escapeODataString(query)}')`,
+      encodeODataFilter(`contains(subject, '${escapeODataString(query)}')`),
     );
   }
 
@@ -192,7 +197,11 @@ export async function getThreadsFromSender(
       client
         .getClient()
         .api("/me/messages")
-        .filter(`from/emailAddress/address eq '${escapeODataString(sender)}'`)
+        .filter(
+          encodeODataFilter(
+            `from/emailAddress/address eq '${escapeODataString(sender)}'`,
+          ),
+        )
         .top(limit)
         .select("id,conversationId,bodyPreview")
         .get(),
@@ -224,7 +233,11 @@ export async function getThreadsFromSenderWithSubject(
       client
         .getClient()
         .api("/me/messages")
-        .filter(`from/emailAddress/address eq '${escapeODataString(sender)}'`)
+        .filter(
+          encodeODataFilter(
+            `from/emailAddress/address eq '${escapeODataString(sender)}'`,
+          ),
+        )
         .top(limit)
         .select("id,conversationId,subject,bodyPreview")
         .get(),

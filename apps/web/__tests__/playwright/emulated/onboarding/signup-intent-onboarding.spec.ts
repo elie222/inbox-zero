@@ -3,10 +3,6 @@ import { test } from "../playwright-test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { getEmailAccountId } from "../account-test-helpers";
 import {
-  getPremiumBillingState,
-  resetBillingState,
-} from "../billing/billing-test-helpers";
-import {
   chooseSignupIntent,
   getSignupIntentState,
   resetOnboardingTestState,
@@ -14,16 +10,14 @@ import {
 } from "./onboarding-test-helpers";
 
 test.beforeEach(async () => {
-  await resetBillingState();
   await setupOnboardingTestState();
 });
 
 test.afterEach(async () => {
   await resetOnboardingTestState();
-  await resetBillingState();
 });
 
-test("email app users get a short intro and land in mail without the paywall", async ({
+test("email app users skip the AI setup and go from the survey to picking a plan", async ({
   page,
 }, testInfo) => {
   const emailAccountId = await getEmailAccountId(page);
@@ -33,40 +27,40 @@ test("email app users get a short intro and land in mail without the paywall", a
   await chooseSignupIntent(page, "Email app");
 
   await expect(
-    page.getByRole("heading", { name: "Meet your new email app" }),
+    page.getByRole("heading", { name: "What do you do?" }),
   ).toBeVisible({ timeout: 60_000 });
-  await capturePlaywrightCheckpoint(page, testInfo, "mail-app-step");
+  await page.getByRole("button", { name: "Founder", exact: true }).click();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page
+    .getByRole("button", { name: "11-100 people", exact: true })
+    .click();
+  await page.getByRole("button", { name: "GitHub", exact: true }).click();
 
-  await expect(page).toHaveURL(new RegExp(`/${emailAccountId}/mail`), {
+  await expect(page).toHaveURL(/\/welcome-upgrade(?:\?.*)?$/, {
     timeout: 60_000,
   });
   await expect(
-    page.getByRole("listbox", { name: "Conversations" }),
+    page.getByRole("heading", { name: "Start your 7-day FREE trial" }),
   ).toBeVisible({ timeout: 60_000 });
+  await capturePlaywrightCheckpoint(page, testInfo, "email-app-upgrade");
   expect(await getSignupIntentState()).toEqual({
     completed: true,
     signupIntent: "MAIL_CLIENT",
   });
-  expect(await getPremiumBillingState()).toBeNull();
 });
 
-test("the upgrade page lets users continue free with the email app", async ({
+test("opening mail without a plan sends users to pick one", async ({
   page,
 }, testInfo) => {
   const emailAccountId = await getEmailAccountId(page);
 
-  await page.goto("/welcome-upgrade");
-  await page
-    .getByRole("button", { name: "Continue for free", exact: true })
-    .click();
+  await page.goto(`/${emailAccountId}/mail`);
 
-  await expect(page).toHaveURL(new RegExp(`/${emailAccountId}/mail`), {
+  await expect(page).toHaveURL(/\/welcome-upgrade(?:\?.*)?$/, {
     timeout: 60_000,
   });
-  await capturePlaywrightCheckpoint(page, testInfo, "upgrade-continue-free");
-  expect(await getSignupIntentState()).toEqual({
-    completed: true,
-    signupIntent: "MAIL_CLIENT",
-  });
+  await expect(
+    page.getByRole("heading", { name: "Start your 7-day FREE trial" }),
+  ).toBeVisible({ timeout: 60_000 });
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-without-plan");
 });

@@ -1,16 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
-import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
+import {
+  createCalendarEventProvidersFromConnections,
+  getConnectedCalendarConnections,
+} from "@/utils/calendar/event-provider";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { fetchCalendarEventsInWindow } from "@/utils/calendar/fetch-events-in-window";
-import prisma from "@/utils/prisma";
-
-vi.mock("@/utils/prisma", () => ({
-  default: { calendarConnection: { count: vi.fn() } },
-}));
 
 vi.mock("@/utils/calendar/event-provider", () => ({
-  createCalendarEventProviders: vi.fn(),
+  createCalendarEventProvidersFromConnections: vi.fn(),
+  getConnectedCalendarConnections: vi.fn(),
 }));
 
 const logger = createTestLogger();
@@ -26,14 +25,16 @@ const fetchParams = {
 describe("fetchCalendarEventsInWindow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(prisma.calendarConnection.count).mockResolvedValue(1);
+    vi.mocked(getConnectedCalendarConnections).mockResolvedValue(
+      connections(1),
+    );
   });
 
   it("reports incomplete when no provider could be created", async () => {
     // Connections with a missing refresh token or a failed construction are
     // silently skipped, so an empty provider list proves nothing about the
     // calendar. Complete here would cancel every booked bot.
-    vi.mocked(createCalendarEventProviders).mockResolvedValue([]);
+    vi.mocked(createCalendarEventProvidersFromConnections).mockReturnValue([]);
 
     const result = await fetchCalendarEventsInWindow(fetchParams);
 
@@ -41,8 +42,10 @@ describe("fetchCalendarEventsInWindow", () => {
   });
 
   it("reports incomplete when fewer providers were built than calendars are connected", async () => {
-    vi.mocked(prisma.calendarConnection.count).mockResolvedValue(2);
-    vi.mocked(createCalendarEventProviders).mockResolvedValue([
+    vi.mocked(getConnectedCalendarConnections).mockResolvedValue(
+      connections(2),
+    );
+    vi.mocked(createCalendarEventProvidersFromConnections).mockReturnValue([
       fakeProvider([makeEvent("event-1")]),
     ]);
 
@@ -53,8 +56,10 @@ describe("fetchCalendarEventsInWindow", () => {
   });
 
   it("reports incomplete when a provider fetch fails", async () => {
-    vi.mocked(prisma.calendarConnection.count).mockResolvedValue(2);
-    vi.mocked(createCalendarEventProviders).mockResolvedValue([
+    vi.mocked(getConnectedCalendarConnections).mockResolvedValue(
+      connections(2),
+    );
+    vi.mocked(createCalendarEventProvidersFromConnections).mockReturnValue([
       fakeProvider([makeEvent("event-1")]),
       {
         fetchEvents: vi.fn().mockRejectedValue(new Error("provider down")),
@@ -68,7 +73,7 @@ describe("fetchCalendarEventsInWindow", () => {
   });
 
   it("reports complete when every connected calendar was fetched", async () => {
-    vi.mocked(createCalendarEventProviders).mockResolvedValue([
+    vi.mocked(createCalendarEventProvidersFromConnections).mockReturnValue([
       fakeProvider([makeEvent("event-1")]),
     ]);
 
@@ -77,7 +82,36 @@ describe("fetchCalendarEventsInWindow", () => {
     expect(result.complete).toBe(true);
     expect(result.events.map((event) => event.id)).toEqual(["event-1"]);
   });
+
+  it("uses preloaded connections instead of querying them", async () => {
+    const preloaded = connections(2);
+    vi.mocked(createCalendarEventProvidersFromConnections).mockReturnValue([
+      fakeProvider([makeEvent("event-1")]),
+    ]);
+
+    const result = await fetchCalendarEventsInWindow({
+      ...fetchParams,
+      connections: preloaded,
+    });
+
+    expect(getConnectedCalendarConnections).not.toHaveBeenCalled();
+    expect(createCalendarEventProvidersFromConnections).toHaveBeenCalledWith(
+      expect.objectContaining({ connections: preloaded }),
+    );
+    // Two connected calendars but one provider is still a blind spot.
+    expect(result.complete).toBe(false);
+  });
 });
+
+function connections(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `connection-${index}`,
+    provider: "google",
+    accessToken: "access-token",
+    refreshToken: "refresh-token",
+    expiresAt: null,
+  }));
+}
 
 function makeEvent(id: string): CalendarEvent {
   return {

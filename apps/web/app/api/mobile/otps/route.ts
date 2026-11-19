@@ -4,6 +4,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { loadRecentOtpSummary } from "./summary";
+import { EMAIL_ACCOUNT_ORDER_BY } from "@/utils/email-account-order";
 
 export const maxDuration = 30;
 
@@ -32,7 +33,7 @@ export const GET = withAuth("mobile/otps", async (request) => {
         select: { provider: true },
       },
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: EMAIL_ACCOUNT_ORDER_BY,
   });
 
   const result = await loadRecentOtpSummary({

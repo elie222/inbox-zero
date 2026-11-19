@@ -32,7 +32,10 @@ vi.mock("@/utils/rule/rule-history", () => ({
   ruleHistoryRuleInclude: { actions: true, group: true },
 }));
 vi.mock("@/utils/analytics/rule-events.server", () => ({
-  RULE_ANALYTICS_EVENTS: { ruleChanged: "Rule changed" },
+  RULE_ANALYTICS_EVENTS: {
+    ruleChanged: "Rule changed",
+    ruleDeleted: "Rule deleted",
+  },
   trackRuleEvent: trackRuleEventMock,
 }));
 vi.mock("@/utils/email/provider-types", () => ({
@@ -92,6 +95,48 @@ type ResolvedRuleAction = Parameters<
 
 describe("deleteRule", () => {
   beforeEach(resetRuleMocks);
+
+  it.each([
+    "rule",
+    "group",
+  ])("does not report a failed %s deletion", async (target) => {
+    const error = new Error("Delete failed");
+    if (target === "group") prisma.group.deleteMany.mockRejectedValue(error);
+    else prisma.rule.delete.mockRejectedValue(error);
+
+    await expect(
+      deleteRule({
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        ruleId: RULE_ID,
+        groupId: target === "group" ? GROUP_ID : undefined,
+      }),
+    ).rejects.toThrow("Delete failed");
+
+    expect(trackRuleEventMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "rule",
+    "group",
+    "missing group",
+  ])("reports one successful %s deletion", async (target) => {
+    prisma.group.deleteMany.mockResolvedValue({
+      count: target === "group" ? 1 : 0,
+    });
+    prisma.rule.delete.mockResolvedValue({ id: RULE_ID } as never);
+
+    await deleteRule({
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      ruleId: RULE_ID,
+      groupId: target === "rule" ? undefined : GROUP_ID,
+    });
+
+    expect(trackRuleEventMock).toHaveBeenCalledExactlyOnceWith({
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      event: "Rule deleted",
+      properties: { ruleId: RULE_ID },
+    });
+  });
 
   it("deletes the group first and relies on cascade delete for grouped rules", async () => {
     prisma.group.deleteMany.mockResolvedValue({ count: 1 });
@@ -875,6 +920,47 @@ describe("integration action access", () => {
 
     expect(prisma.mcpConnection.findMany).not.toHaveBeenCalled();
     expect(prisma.rule.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("unsupported action delays", () => {
+  beforeEach(resetRuleMocks);
+
+  it("saves a delay on an action that can't be delayed as no delay", async () => {
+    prisma.rule.findFirst.mockResolvedValue({
+      from: null,
+      actions: [],
+    } as never);
+    prisma.rule.update.mockResolvedValue({
+      id: RULE_ID,
+      actions: [],
+      group: null,
+    } as never);
+
+    await updateRuleActions({
+      ruleId: RULE_ID,
+      actions: [
+        {
+          ...webhookRuleAction("https://example.com/hook"),
+          delayInMinutes: 30,
+        },
+        { ...archiveAction(), delayInMinutes: 30 },
+      ],
+      provider: "gmail",
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      logger,
+    });
+
+    const savedActions = (
+      prisma.rule.update.mock.calls[0][0].data.actions as any
+    ).createMany.data;
+    expect(savedActions).toEqual([
+      expect.objectContaining({
+        type: ActionType.CALL_WEBHOOK,
+        delayInMinutes: null,
+      }),
+      expect.objectContaining({ type: ActionType.ARCHIVE, delayInMinutes: 30 }),
+    ]);
   });
 });
 

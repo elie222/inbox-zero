@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SettingCard } from "@/components/SettingCard";
@@ -14,25 +15,30 @@ import {
 import { AboutSection } from "@/app/(app)/[emailAccountId]/settings/AboutSectionForm";
 
 export function AboutSetting() {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
 
   return (
     <SettingCard
-      title="Personal instructions"
-      description="Tell the AI about yourself and how you'd like it to handle your emails."
+      title={t`Personal instructions`}
+      description={t`Tell the AI about yourself and how you'd like it to handle your emails.`}
       right={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
-              Edit
+              <Trans>Edit</Trans>
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Personal instructions</DialogTitle>
+              <DialogTitle>
+                <Trans>Personal instructions</Trans>
+              </DialogTitle>
               <DialogDescription>
-                Tell the AI about yourself and how you'd like it to handle your
-                emails.
+                <Trans>
+                  Tell the AI about yourself and how you'd like it to handle
+                  your emails.
+                </Trans>
               </DialogDescription>
             </DialogHeader>
 

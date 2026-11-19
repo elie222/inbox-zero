@@ -16,7 +16,7 @@ RUN (type -p wget >/dev/null || (apt-get update && apt-get install wget -y)) \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install pnpm globally
-RUN npm install -g pnpm@10
+RUN npm install -g pnpm@12.18.0
 
 # Create directories with correct ownership BEFORE volumes are mounted
 # Docker preserves ownership when mounting empty named volumes to pre-existing directories

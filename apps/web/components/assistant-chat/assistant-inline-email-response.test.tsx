@@ -25,6 +25,7 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
 
 vi.mock("@/components/assistant-chat/email-lookup-context", () => ({
   useEmailLookup: () => mockUseEmailLookup(),
+  useKnownThreadIds: () => null,
 }));
 
 vi.mock("@/components/Toast", () => ({

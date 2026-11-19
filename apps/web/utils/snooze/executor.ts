@@ -1,5 +1,6 @@
 import { SnoozedThreadStatus } from "@/generated/prisma/enums";
 import type { SnoozedThread } from "@/generated/prisma/client";
+import { isThreadNotFoundError } from "@/utils/email/thread-not-found";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -14,6 +15,28 @@ export async function executeSnoozedThread(
   try {
     await provider.unarchiveThread(snoozedThread.threadId);
   } catch (error) {
+    // A deleted thread can never be restored, so retrying would loop forever.
+    if (isThreadNotFoundError(error)) {
+      const cancelled = await prisma.snoozedThread.updateMany({
+        where: {
+          id: snoozedThread.id,
+          status: SnoozedThreadStatus.EXECUTING,
+          updatedAt: leaseStartedAt,
+        },
+        data: { status: SnoozedThreadStatus.CANCELLED },
+      });
+      if (cancelled.count !== 1) {
+        return {
+          success: false as const,
+          error: new Error("Snoozed thread execution claim was lost"),
+        };
+      }
+      logger.warn("Cancelled snooze for a thread that no longer exists", {
+        snoozedThreadId: snoozedThread.id,
+      });
+      return { success: true as const };
+    }
+
     await releaseSnoozedThreadForRetry(snoozedThread.id, leaseStartedAt);
     logger.error("Failed to restore snoozed thread", {
       error,

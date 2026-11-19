@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { SettingCard } from "@/components/SettingCard";
@@ -18,28 +19,34 @@ import type { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
 
 export function LearnedPatternsSetting() {
+  const { t } = useLingui();
+
   return (
     <SettingCard
-      title="Learned patterns"
-      description="View the patterns the assistant has learned from your email history."
+      title={t`Learned patterns`}
+      description={t`View the patterns the assistant has learned from your email history.`}
       right={
         <Dialog>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
-              View
+              <Trans>View</Trans>
             </Button>
           </DialogTrigger>
           {/* Scroll inside the content row (not DialogContent itself) so the close button stays visible */}
           <DialogContent className="max-w-4xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
             <DialogHeader>
-              <DialogTitle>Learned patterns</DialogTitle>
+              <DialogTitle>
+                <Trans>Learned patterns</Trans>
+              </DialogTitle>
               <DialogDescription>
-                When the AI processes your emails, it learns which senders or
-                email types consistently match the same rules. For example, it
-                might learn that emails from newsletter@example.com always match
-                your "Newsletter" rule. These learned patterns help the AI make
-                faster, more accurate decisions over time. You can view, edit,
-                or remove patterns that have been learned.
+                <Trans>
+                  When the AI processes your emails, it learns which senders or
+                  email types consistently match the same rules. For example, it
+                  might learn that emails from newsletter@example.com always
+                  match your "Newsletter" rule. These learned patterns help the
+                  AI make faster, more accurate decisions over time. You can
+                  view, edit, or remove patterns that have been learned.
+                </Trans>
               </DialogDescription>
             </DialogHeader>
             <div className="min-w-0 overflow-y-auto">
@@ -60,7 +67,9 @@ function Content() {
       {data?.groups.length === 0 ? (
         <Card>
           <CardContent className="flex items-center justify-center p-6">
-            <TypographyP>No learned patterns found yet.</TypographyP>
+            <TypographyP>
+              <Trans>No learned patterns found yet.</Trans>
+            </TypographyP>
           </CardContent>
         </Card>
       ) : (
@@ -68,7 +77,9 @@ function Content() {
           {data?.groups.map((group) => (
             <Card key={group.id}>
               <CardHeader>
-                <CardTitle>{group.rule?.name || "No rule"}</CardTitle>
+                <CardTitle>
+                  {group.rule?.name || <Trans>No rule</Trans>}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <ViewLearnedPatterns groupId={group.id} />

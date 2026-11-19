@@ -1,5 +1,7 @@
 "use client";
 
+import { plural } from "@lingui/core/macro";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { PlusIcon, XIcon } from "lucide-react";
@@ -52,6 +54,7 @@ export function InviteMemberModal({
   onOpenChange?: (open: boolean) => void;
   trigger?: React.ReactNode;
 }) {
+  const { t } = useLingui();
   const internalState = useDialogState();
 
   const isControlled = controlledOpen !== undefined;
@@ -68,17 +71,21 @@ export function InviteMemberModal({
       {trigger !== null &&
         (trigger ?? (
           <DialogTrigger asChild>
-            <Button size="sm">Invite Members</Button>
+            <Button size="sm">
+              <Trans>Invite Members</Trans>
+            </Button>
           </DialogTrigger>
         ))}
 
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Invite teammates</DialogTitle>
+          <DialogTitle>
+            <Trans>Invite teammates</Trans>
+          </DialogTitle>
           <DialogDescription>
             {organizationId
-              ? "We'll send each teammate an email with a link to join your organization. The link expires in two weeks."
-              : "Enter email addresses to invite team members."}
+              ? t`We'll send each teammate an email with a link to join your organization. The link expires in two weeks.`
+              : t`Enter email addresses to invite team members.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -105,6 +112,7 @@ function InviteForm({
   onClose: () => void;
   onSuccess?: () => void;
 }) {
+  const { t } = useLingui();
   const {
     register,
     control,
@@ -136,7 +144,7 @@ function InviteForm({
       .filter((i) => i.email.length > 0);
 
     if (filled.length === 0) {
-      toastError({ description: "Please enter at least one email address" });
+      toastError({ description: t`Please enter at least one email address` });
       return;
     }
 
@@ -147,7 +155,7 @@ function InviteForm({
 
     if (result?.serverError) {
       toastError({
-        title: "Error sending invitations",
+        title: t`Error sending invitations`,
         description: result.serverError,
       });
       return;
@@ -160,7 +168,7 @@ function InviteForm({
 
     if (successCount > 0) {
       toastSuccess({
-        description: `${successCount} invitation${successCount > 1 ? "s" : ""} sent successfully!`,
+        description: t`${plural(successCount, { one: "# invitation sent successfully!", other: "# invitations sent successfully!" })}`,
       });
       onSuccess?.();
       reset();
@@ -169,9 +177,9 @@ function InviteForm({
 
     if (failures.length > 0) {
       toastError({
-        title: `Failed to send ${failures.length} invitation${failures.length > 1 ? "s" : ""}`,
+        title: t`${plural(failures.length, { one: "Failed to send # invitation", other: "Failed to send # invitations" })}`,
         description: failures
-          .map((f) => `${f.email}: ${f.error ?? "Failed"}`)
+          .map((f) => `${f.email}: ${f.error ?? t`Failed`}`)
           .join("\n"),
       });
     }
@@ -191,7 +199,7 @@ function InviteForm({
                   validate: (v) =>
                     !v.trim() ||
                     isValidEmail(v.trim()) ||
-                    "Please enter a valid email address",
+                    t`Please enter a valid email address`,
                 })}
                 error={errors.invitations?.[index]?.email}
               />
@@ -209,8 +217,12 @@ function InviteForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="member">Member</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="member">
+                    <Trans>Member</Trans>
+                  </SelectItem>
+                  <SelectItem value="admin">
+                    <Trans>Admin</Trans>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -220,7 +232,7 @@ function InviteForm({
               size="icon"
               onClick={() => remove(index)}
               disabled={fields.length === 1}
-              aria-label="Remove invitation"
+              aria-label={t`Remove invitation`}
             >
               <XIcon className="size-4" />
             </Button>
@@ -236,15 +248,17 @@ function InviteForm({
         className="px-2 -ml-2"
       >
         <PlusIcon className="size-4 mr-2" />
-        Add another email
+        <Trans>Add another email</Trans>
       </Button>
 
       <DialogFooter>
         <DialogClose asChild>
-          <Button variant="outline">Cancel</Button>
+          <Button variant="outline">
+            <Trans>Cancel</Trans>
+          </Button>
         </DialogClose>
         <Button type="submit" loading={isSubmitting}>
-          Send invites
+          <Trans>Send invites</Trans>
         </Button>
       </DialogFooter>
     </form>
@@ -258,6 +272,7 @@ function CreateOrgAndInviteForm({
   onClose: () => void;
   onSuccess?: () => void;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const [emails, setEmails] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -268,7 +283,7 @@ function CreateOrgAndInviteForm({
 
   const handleSubmit = useCallback(async () => {
     if (emails.length === 0) {
-      toastError({ description: "Please enter at least one email address" });
+      toastError({ description: t`Please enter at least one email address` });
       return;
     }
 
@@ -282,7 +297,7 @@ function CreateOrgAndInviteForm({
 
     if (result?.serverError) {
       toastError({
-        description: "Failed to create organization and send invitations",
+        description: t`Failed to create organization and send invitations`,
       });
     } else if (result?.data) {
       const successCount = result.data.results.filter((r) => r.success).length;
@@ -290,12 +305,12 @@ function CreateOrgAndInviteForm({
 
       if (successCount > 0) {
         toastSuccess({
-          description: `${successCount} invitation${successCount > 1 ? "s" : ""} sent successfully!`,
+          description: t`${plural(successCount, { one: "# invitation sent successfully!", other: "# invitations sent successfully!" })}`,
         });
       }
       if (errorCount > 0) {
         toastError({
-          description: `Failed to send ${errorCount} invitation${errorCount > 1 ? "s" : ""}`,
+          description: t`${plural(errorCount, { one: "Failed to send # invitation", other: "Failed to send # invitations" })}`,
         });
       }
 
@@ -303,7 +318,7 @@ function CreateOrgAndInviteForm({
       onClose();
       onSuccess?.();
     }
-  }, [emails, emailAccountId, onClose, onSuccess]);
+  }, [emails, emailAccountId, onClose, onSuccess, t]);
 
   return (
     <div className="space-y-4">
@@ -311,16 +326,18 @@ function CreateOrgAndInviteForm({
         value={emails}
         onChange={handleEmailsChange}
         validate={(email) =>
-          isValidEmail(email) ? null : "Please enter a valid email address"
+          isValidEmail(email) ? null : t`Please enter a valid email address`
         }
-        label="Email addresses"
+        label={t`Email addresses`}
         id="email-input"
-        placeholder="Enter email addresses separated by commas"
+        placeholder={t`Enter email addresses separated by commas`}
       />
 
       <DialogFooter>
         <DialogClose asChild>
-          <Button variant="outline">Cancel</Button>
+          <Button variant="outline">
+            <Trans>Cancel</Trans>
+          </Button>
         </DialogClose>
         <Button
           type="button"
@@ -328,7 +345,12 @@ function CreateOrgAndInviteForm({
           loading={isSubmitting}
           disabled={emails.length === 0}
         >
-          Send Invitation{emails.length > 1 ? "s" : ""}
+          <Plural
+            value={emails.length}
+            _0="Send Invitation"
+            one="Send Invitation"
+            other="Send Invitations"
+          />
         </Button>
       </DialogFooter>
     </div>

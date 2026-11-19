@@ -13,15 +13,12 @@ import { LabelPickerDialog } from "./LabelPickerDialog";
 
 (globalThis as { React?: typeof React }).React = React;
 
-const { mockUseAccount, mockUseLabels, mockUseFolders, mockClient } =
+const { mockUseAccount, mockUseLabels, mockUseFolders, mockUseLabelCounts } =
   vi.hoisted(() => ({
     mockUseAccount: vi.fn(),
     mockUseLabels: vi.fn(),
     mockUseFolders: vi.fn(),
-    mockClient: {
-      getDiagnostics: vi.fn(),
-      submitConversations: vi.fn(),
-    },
+    mockUseLabelCounts: vi.fn(),
   }));
 
 vi.mock("@/providers/EmailAccountProvider", () => ({
@@ -29,15 +26,16 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
 }));
 
 vi.mock("@/hooks/useLabels", () => ({
+  isLabelsKey: () => true,
   useLabels: () => mockUseLabels(),
+}));
+
+vi.mock("@/hooks/useLabelCounts", () => ({
+  useLabelCounts: () => mockUseLabelCounts(),
 }));
 
 vi.mock("@/hooks/useFolders", () => ({
   useFolders: (provider: string) => mockUseFolders(provider),
-}));
-
-vi.mock("@inboxzero/mail-react/MailEngineProvider", () => ({
-  useOptionalMailClient: () => mockClient,
 }));
 
 vi.mock("@/components/LoadingContent", () => ({
@@ -67,6 +65,7 @@ if (!HTMLElement.prototype.scrollIntoView) {
 
 describe("LabelPickerDialog", () => {
   beforeEach(() => {
+    mockUseLabelCounts.mockReturnValue({ countsById: new Map() });
     mockUseLabels.mockReturnValue({
       userLabels: [{ id: "category-1", name: "Category One", type: "user" }],
       isLoading: false,
@@ -88,8 +87,6 @@ describe("LabelPickerDialog", () => {
       isLoading: false,
       error: undefined,
     });
-    mockClient.getDiagnostics.mockResolvedValue({ revision: 1 });
-    mockClient.submitConversations.mockResolvedValue({ status: "queued" });
   });
 
   afterEach(() => {
@@ -102,14 +99,15 @@ describe("LabelPickerDialog", () => {
       emailAccountId: "account-1",
       provider: "microsoft",
     });
-    const onApplied = vi.fn();
+    const onApply = vi.fn().mockResolvedValue(["thread-1"]);
+    const onClose = vi.fn();
 
     render(
       <LabelPickerDialog
         mode="move"
-        threadIds={["thread-1"]}
-        onClose={vi.fn()}
-        onApplied={onApplied}
+        threadKeys={["thread-1"]}
+        onClose={onClose}
+        onApply={onApply}
       />,
     );
 
@@ -118,44 +116,130 @@ describe("LabelPickerDialog", () => {
     expect(screen.getByText("Inbox / Nested")).toBeTruthy();
     fireEvent.click(screen.getByText("Projects"));
 
-    await waitFor(() => expect(onApplied).toHaveBeenCalled());
-    expect(mockClient.submitConversations).toHaveBeenCalledTimes(1);
-    expect(mockClient.submitConversations).toHaveBeenCalledWith(
-      expect.objectContaining({
-        change: { kind: "move", folderId: "folder-id" },
-      }),
-    );
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(onApply).toHaveBeenCalledWith(["thread-1"], {
+      kind: "folder",
+      id: "folder-id",
+    });
   });
 
-  it("moves Gmail conversations by labeling and archiving", async () => {
+  it("moves Gmail conversations with a label", async () => {
     mockUseAccount.mockReturnValue({
       emailAccountId: "account-1",
       provider: "google",
     });
-    const onApplied = vi.fn();
+    const onApply = vi.fn().mockResolvedValue(["thread-1"]);
 
     render(
       <LabelPickerDialog
         mode="move"
-        threadIds={["thread-1"]}
+        threadKeys={["thread-1"]}
         onClose={vi.fn()}
-        onApplied={onApplied}
+        onApply={onApply}
       />,
     );
 
     fireEvent.click(screen.getByText("Category One"));
 
-    await waitFor(() => expect(onApplied).toHaveBeenCalled());
-    expect(
-      mockClient.submitConversations.mock.calls.map(([call]) => call.change),
-    ).toEqual([
-      {
-        kind: "set_membership",
-        membership: "label",
+    await waitFor(() =>
+      expect(onApply).toHaveBeenCalledWith(["thread-1"], {
+        kind: "label",
         id: "category-1",
-        present: true,
-      },
-      { kind: "archive" },
+      }),
+    );
+  });
+
+  it("stays open with only the conversations that failed, so a pick retries them", async () => {
+    mockUseAccount.mockReturnValue({
+      emailAccountId: "account-1",
+      provider: "google",
+    });
+    const onApply = vi
+      .fn()
+      .mockResolvedValueOnce(["thread-1"])
+      .mockResolvedValueOnce(["thread-2"]);
+    const onClose = vi.fn();
+
+    render(
+      <LabelPickerDialog
+        threadKeys={["thread-1", "thread-2"]}
+        onClose={onClose}
+        onApply={onApply}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Category One"));
+    await waitFor(() => expect(onApply).toHaveBeenCalledTimes(1));
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText("Category One"));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(onApply).toHaveBeenLastCalledWith(["thread-2"], {
+      kind: "label",
+      id: "category-1",
+    });
+  });
+
+  it("lists labels in sidebar order with hidden labels last", () => {
+    mockUseAccount.mockReturnValue({
+      emailAccountId: "account-1",
+      provider: "google",
+    });
+    mockUseLabelCounts.mockReturnValue({
+      countsById: new Map([
+        [
+          "read-only",
+          {
+            id: "read-only",
+            name: "Newsletters",
+            kind: "label",
+            total: 4,
+            unread: 0,
+          },
+        ],
+      ]),
+    });
+    mockUseLabels.mockReturnValue({
+      userLabels: [
+        {
+          id: "hidden",
+          name: "Archive Later",
+          type: "user",
+          labelListVisibility: "labelHide",
+        },
+        { id: "work", name: "Work", type: "user" },
+        { id: "work-plus", name: "Work Plus", type: "user" },
+        { id: "work-child", name: "Work/Clients", type: "user" },
+        {
+          id: "read-only",
+          name: "Newsletters",
+          type: "user",
+          labelListVisibility: "labelShowIfUnread",
+        },
+        { id: "bracket", name: "[Superhuman]/Muted", type: "user" },
+      ],
+      isLoading: false,
+      error: undefined,
+      mutate: vi.fn(),
+    });
+
+    render(
+      <LabelPickerDialog
+        threadKeys={["thread-1"]}
+        onClose={vi.fn()}
+        onApply={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getAllByRole("option").map((option) => option.textContent),
+    ).toEqual([
+      "Work",
+      "Work/Clients",
+      "Work Plus",
+      "[Superhuman]/Muted",
+      "Archive Later",
+      "Newsletters",
     ]);
   });
 });

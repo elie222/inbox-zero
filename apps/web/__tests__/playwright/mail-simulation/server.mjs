@@ -6,27 +6,12 @@ const port = Number(process.argv[2]);
 const email = process.env.PLAYWRIGHT_TEST_EMAIL;
 if (!email || !port)
   throw new Error("Simulation requires a port and PLAYWRIGHT_TEST_EMAIL");
-const messages = [];
-for (let thread = 0; thread < 1000; thread++) {
-  const count = thread === 2 ? 150 : thread % 10 === 0 ? 8 : 1;
-  for (let message = 0; message < count; message++) {
-    const marker = `Simulation body ${thread} message ${message}`;
-    messages.push({
-      id: `sim_${thread}_${message}`,
-      thread_id: `sim_thread_${thread}`,
-      user_email: email,
-      from: "sender@example.com",
-      to: email,
-      subject: `Simulation thread ${String(thread).padStart(4, "0")}`,
-      body_text: marker,
-      body_html: `<p>${marker}</p>${thread === 4 ? "<p>Large newsletter paragraph with a synthetic update.</p>".repeat(15_000) : ""}`,
-      label_ids: ["INBOX", ...(thread % 2 === 0 ? ["UNREAD"] : [])],
-      internal_date: String(
-        Date.now() - thread * 60_000 - (count - message) * 100,
-      ),
-    });
-  }
-}
+// Harness-only switch (set by `test:bulk-run-rate-limits`), like
+// MAIL_SIMULATION_PROFILE; the app never reads it.
+const messages =
+  process.env.MAIL_SIMULATION_SEED === "bulk-run"
+    ? bulkRunMessages(email)
+    : loadingMessages(email);
 const allocator = createServer();
 await new Promise((resolve) => allocator.listen(0, "127.0.0.1", resolve));
 const upstreamPort = allocator.address().port;
@@ -75,3 +60,46 @@ for (const signal of ["SIGINT", "SIGTERM"])
     }
     process.exit(0);
   });
+
+function loadingMessages(email) {
+  const messages = [];
+  for (let thread = 0; thread < 1000; thread++) {
+    const count = thread === 2 ? 150 : thread % 10 === 0 ? 8 : 1;
+    for (let message = 0; message < count; message++) {
+      const marker = `Simulation body ${thread} message ${message}`;
+      messages.push({
+        id: `sim_${thread}_${message}`,
+        thread_id: `sim_thread_${thread}`,
+        user_email: email,
+        from: "sender@example.com",
+        to: email,
+        subject: `Simulation thread ${String(thread).padStart(4, "0")}`,
+        body_text: marker,
+        body_html: `<p>${marker}</p>${thread === 4 ? "<p>Large newsletter paragraph with a synthetic update.</p>".repeat(15_000) : ""}`,
+        label_ids: ["INBOX", ...(thread % 2 === 0 ? ["UNREAD"] : [])],
+        internal_date: String(
+          Date.now() - thread * 60_000 - (count - message) * 100,
+        ),
+      });
+    }
+  }
+  return messages;
+}
+
+// More unread inbox threads than the old 200-email trial cap, all from the
+// last few minutes so a bulk run starting today covers every one.
+function bulkRunMessages(email) {
+  return Array.from({ length: 300 }, (_, thread) => ({
+    // Gmail gives a thread's first message the thread's id.
+    id: `bulk_thread_${thread}`,
+    thread_id: `bulk_thread_${thread}`,
+    user_email: email,
+    from: `sender-${thread}@example.com`,
+    to: email,
+    subject: `Bulk run thread ${String(thread).padStart(3, "0")}`,
+    body_text: `Bulk run body ${thread}`,
+    body_html: `<p>Bulk run body ${thread}</p>`,
+    label_ids: ["INBOX", "UNREAD"],
+    internal_date: String(Date.now() - thread * 1000),
+  }));
+}

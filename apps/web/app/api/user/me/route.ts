@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
+import { deletionCancelsStripeSubscription } from "@/ee/billing/stripe/account-deletion";
 import { auth } from "@/utils/auth";
 import {
   isDecisionModelAvailable,
@@ -13,7 +15,7 @@ import {
 } from "@/utils/premium";
 import {
   billingAccessPremiumSelect,
-  canManageBilling,
+  getBillingAccessDenial,
   organizationBillingPrincipalsSelect,
 } from "@/utils/premium/billing-access";
 
@@ -53,6 +55,7 @@ async function getUser({
           emailAccountsAccess: true,
           lemonLicenseKey: true,
           pendingInvites: true,
+          _count: { select: { users: true } },
         },
       },
       emailAccounts: {
@@ -90,13 +93,22 @@ async function getUser({
   );
 
   const { aiApiKey, webhookSecret, emailAccounts } = user;
-  const canManageBillingAccess = canManageBilling(user.id, user);
+  const billingAccessDenial = getBillingAccessDenial(user.id, user);
+  const canManageBillingAccess = billingAccessDenial === null;
   let premium = null;
   if (user.premium) {
-    const { admins: _admins, id: _premiumId, ...premiumData } = user.premium;
+    const {
+      admins: _admins,
+      id: _premiumId,
+      _count: _memberCount,
+      ...premiumData
+    } = user.premium;
     premium = {
       ...premiumData,
       isAdmin: canManageBillingAccess,
+      deletionCancelsStripeSubscription: deletionCancelsStripeSubscription(
+        user.premium,
+      ),
     };
   }
 
@@ -119,7 +131,10 @@ async function getUser({
     })),
     hasAiApiKey: !!aiApiKey,
     hasWebhookSecret: !!webhookSecret,
+    // Native apps read plans from `premium`; this tells them the server grants everything.
+    premiumChecksBypassed: Boolean(env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS),
     canManageBilling: canManageBillingAccess,
+    billingAccessDenial,
     members,
   };
 }

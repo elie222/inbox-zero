@@ -6,6 +6,7 @@ import {
   PlusIcon,
   Trash2Icon,
 } from "lucide-react";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { Loading } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Empty, EmptyDescription } from "@/components/ui/empty";
@@ -46,6 +47,7 @@ import { OrgRuleDialog } from "./OrgRuleDialog";
 type OrgRule = OrganizationRulesResponse["rules"][number];
 
 export function OrgRules({ organizationId }: { organizationId: string }) {
+  const { t, i18n } = useLingui();
   const { data: membership, isLoading: membershipLoading } =
     useOrganizationMembership();
   const isAdmin = hasOrganizationAdminRole(membership?.role ?? "");
@@ -61,7 +63,9 @@ export function OrgRules({ organizationId }: { organizationId: string }) {
 
   if (!isAdmin) {
     return (
-      <AccessDenied message="You don't have permission to manage organization rules. Only administrators can access this page." />
+      <AccessDenied
+        message={t`You don't have permission to manage organization rules. Only administrators can access this page.`}
+      />
     );
   }
 
@@ -86,8 +90,11 @@ export function OrgRules({ organizationId }: { organizationId: string }) {
         enabled,
       });
       if (result?.serverError) {
+        const serverError = result.serverError;
         toastError({
-          description: `There was an error ${enabled ? "enabling" : "disabling"} the rule. ${result.serverError}`,
+          description: enabled
+            ? t`There was an error enabling the rule. ${serverError}`
+            : t`There was an error disabling the rule. ${serverError}`,
         });
       }
     } finally {
@@ -96,8 +103,9 @@ export function OrgRules({ organizationId }: { organizationId: string }) {
   };
 
   const onDelete = async (rule: OrgRule) => {
+    const ruleName = rule.name;
     const confirmed = confirm(
-      `Delete "${rule.name}"? This removes the rule for all organization members.`,
+      t`Delete "${ruleName}"? This removes the rule for all organization members.`,
     );
     if (!confirmed) return;
 
@@ -109,7 +117,7 @@ export function OrgRules({ organizationId }: { organizationId: string }) {
       toastError({ description: result.serverError });
       return;
     }
-    toastSuccess({ description: "Rule deleted" });
+    toastSuccess({ description: t`Rule deleted` });
     mutate();
   };
 
@@ -117,15 +125,19 @@ export function OrgRules({ organizationId }: { organizationId: string }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <TypographyH3>Organization rules</TypographyH3>
+          <TypographyH3>
+            <Trans>Organization rules</Trans>
+          </TypographyH3>
           <MutedText className="mt-1">
-            Rules you create here are applied to every member of your
-            organization.
+            <Trans>
+              Rules you create here are applied to every member of your
+              organization.
+            </Trans>
           </MutedText>
         </div>
         <Button size="sm" onClick={() => ruleDialog.onOpen({})}>
           <PlusIcon className="mr-2 size-4" />
-          New rule
+          <Trans>New rule</Trans>
         </Button>
       </div>
 
@@ -135,10 +147,18 @@ export function OrgRules({ organizationId }: { organizationId: string }) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">Enabled</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Actions</TableHead>
-                  <TableHead>Enabled for</TableHead>
+                  <TableHead className="w-16">
+                    <Trans>Enabled</Trans>
+                  </TableHead>
+                  <TableHead>
+                    <Trans>Name</Trans>
+                  </TableHead>
+                  <TableHead>
+                    <Trans>Actions</Trans>
+                  </TableHead>
+                  <TableHead>
+                    <Trans>Enabled for</Trans>
+                  </TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -163,13 +183,17 @@ export function OrgRules({ organizationId }: { organizationId: string }) {
                             variant="secondary"
                             className="text-xs"
                           >
-                            {ACTION_TYPE_LABELS[action.type]}
+                            {i18n._(ACTION_TYPE_LABELS[action.type])}
                           </Badge>
                         ))}
                       </div>
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                      {rule._count.memberRules} / {memberCount} members
+                      <Plural
+                        value={memberCount}
+                        one={`${rule._count.memberRules} / # member`}
+                        other={`${rule._count.memberRules} / # members`}
+                      />
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -180,7 +204,9 @@ export function OrgRules({ organizationId }: { organizationId: string }) {
                             variant="ghost"
                           >
                             <MoreHorizontalIcon className="size-4" />
-                            <span className="sr-only">Toggle menu</span>
+                            <span className="sr-only">
+                              <Trans>Toggle menu</Trans>
+                            </span>
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -188,12 +214,12 @@ export function OrgRules({ organizationId }: { organizationId: string }) {
                             onClick={() => ruleDialog.onOpen({ rule })}
                           >
                             <PenIcon className="mr-2 size-4" />
-                            Edit
+                            <Trans>Edit</Trans>
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => onDelete(rule)}>
                             <Trash2Icon className="mr-2 size-4" />
-                            Delete
+                            <Trans>Delete</Trans>
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -204,10 +230,12 @@ export function OrgRules({ organizationId }: { organizationId: string }) {
             </Table>
           ) : (
             <Empty>
-              <EmptyDescription>No organization rules yet.</EmptyDescription>
+              <EmptyDescription>
+                <Trans>No organization rules yet.</Trans>
+              </EmptyDescription>
               <Button size="sm" onClick={() => ruleDialog.onOpen({})}>
                 <PlusIcon className="mr-2 size-4" />
-                Create your first rule
+                <Trans>Create your first rule</Trans>
               </Button>
             </Empty>
           )}

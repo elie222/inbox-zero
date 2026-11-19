@@ -168,7 +168,7 @@ ${getEmailListPrompt({
 })}
 </thread>
 
-Based on the full thread context above, determine the current status of this thread.`.trim();
+${userSentLastEmail ? "The user sent the latest message in this thread, so the other person owes the answer to any question it asks.\n\n" : ""}Based on the full thread context above, determine the current status of this thread.`.trim();
 
   const modelOptions = getModel(emailAccount.user, modelType);
 

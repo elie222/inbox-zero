@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { GaxiosError } from "gaxios";
 import {
   extractErrorInfo,
   isRetryableError,
@@ -234,6 +235,44 @@ describe("Gmail retry helpers", () => {
   });
 
   describe("extractErrorInfo", () => {
+    it("extracts the canonical Google status from a Gaxios API cause", () => {
+      const error = new GaxiosError(
+        "Bad Request",
+        {
+          url: new URL("https://people.googleapis.com"),
+          headers: new Headers(),
+        },
+        undefined,
+        {
+          code: 400,
+          status: "FAILED_PRECONDITION",
+          message: "Request failed due to cold cache data",
+        },
+      );
+      expect(extractErrorInfo(error)).toMatchObject({
+        status: 400,
+        code: "400",
+        googleErrorStatus: "FAILED_PRECONDITION",
+        errorMessage: "Request failed due to cold cache data",
+      });
+    });
+    it("retains the Google response message alongside a generic SDK message", () => {
+      const error = Object.assign(new Error("Bad Request"), {
+        response: {
+          data: {
+            error: {
+              status: "FAILED_PRECONDITION",
+              message: "Request failed due to cold cache data",
+            },
+          },
+        },
+      });
+      expect(extractErrorInfo(error)).toMatchObject({
+        errorMessage: "Bad Request",
+        googleErrorMessage: "Request failed due to cold cache data",
+        googleErrorStatus: "FAILED_PRECONDITION",
+      });
+    });
     it("should extract Gmail error details from response payload", () => {
       const error = {
         cause: {

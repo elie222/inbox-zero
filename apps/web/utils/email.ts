@@ -91,7 +91,12 @@ export function isSameEmailAddress(left: string, right: string) {
 }
 
 // "me, Dana, Alex": who a message goes to, short enough to scan in a header.
-export function formatRecipientNames(recipients: string[], userEmail: string) {
+export function formatRecipientNames(
+  recipients: string[],
+  userEmail: string,
+  /** Shown in place of the account's own address. */
+  selfLabel: string,
+) {
   const seen = new Set<string>();
   let includesMe = false;
   const names: string[] = [];
@@ -106,8 +111,8 @@ export function formatRecipientNames(recipients: string[], userEmail: string) {
       names.push(recipientFirstName(recipient));
     }
   }
-  // "me" leads however the account was addressed, so it's easy to spot.
-  return (includesMe ? ["me", ...names] : names).join(", ");
+  // The account leads however it was addressed, so it's easy to spot.
+  return (includesMe ? [selfLabel, ...names] : names).join(", ");
 }
 
 export function messageRepliesToSourceSender({

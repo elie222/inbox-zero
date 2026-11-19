@@ -1,3 +1,4 @@
+import { setupI18n } from "@lingui/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OperationState } from "@inboxzero/mail-core/operations";
 import type { QueryHandle } from "@inboxzero/mail-core/queries";
@@ -28,6 +29,8 @@ vi.mock("@/lib/shortcuts/registry", () => ({
   getShortcutHint: () => "z",
 }));
 
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
+
 describe("undo send", () => {
   beforeEach(async () => {
     await undoPendingSend();
@@ -44,6 +47,7 @@ describe("undo send", () => {
     const { client, handle } = createClient();
     const holdUntil = Date.now() + UNDO_SEND_DELAY_MS;
     beginUndoSend({
+      i18n,
       client,
       operationId: "mutation",
       emailAccountId: "account",
@@ -74,6 +78,7 @@ describe("undo send", () => {
 
   it("does not offer undo after the hold has already expired", () => {
     beginUndoSend({
+      i18n,
       client: createClient().client,
       operationId: "mutation",
       emailAccountId: "account",
@@ -88,6 +93,7 @@ describe("undo send", () => {
     const restoreComposer = vi.fn();
     const { client, handle } = createClient();
     beginUndoSend({
+      i18n,
       client,
       operationId: "mutation",
       emailAccountId: "account",
@@ -108,6 +114,7 @@ describe("undo send", () => {
     const restoreComposer = vi.fn();
     const { client, handle } = createClient();
     beginUndoSend({
+      i18n,
       client,
       operationId: "mutation",
       emailAccountId: "account",
@@ -131,6 +138,7 @@ describe("undo send", () => {
     vi.setSystemTime(now);
     const { client, handle } = createClient();
     beginUndoSend({
+      i18n,
       client,
       operationId: "mutation",
       emailAccountId: "account",
@@ -149,7 +157,7 @@ describe("undo send", () => {
 
   it("offers to view the email once it has been sent", () => {
     const onView = vi.fn();
-    finishUndoSendToast("mutation", { sent: true, onView });
+    finishUndoSendToast("mutation", { sent: true, onView }, i18n);
 
     const toast = notifications.toastSuccess.mock.calls[0]?.[0];
     expect(toast).toMatchObject({
@@ -163,7 +171,7 @@ describe("undo send", () => {
   });
 
   it("confirms a sent email even when it can't be viewed", () => {
-    finishUndoSendToast("mutation", { sent: true, onView: null });
+    finishUndoSendToast("mutation", { sent: true, onView: null }, i18n);
 
     expect(notifications.dismiss).not.toHaveBeenCalled();
     expect(notifications.toastSuccess).toHaveBeenCalledWith(
@@ -176,7 +184,7 @@ describe("undo send", () => {
   });
 
   it("closes the toast when the send didn't go out", () => {
-    finishUndoSendToast("mutation", { sent: false });
+    finishUndoSendToast("mutation", { sent: false }, i18n);
 
     expect(notifications.dismiss).toHaveBeenCalledWith("undo-send:mutation");
     expect(notifications.toastSuccess).not.toHaveBeenCalled();
@@ -189,6 +197,7 @@ describe("undo send", () => {
     const first = createClient();
     const second = createClient();
     beginUndoSend({
+      i18n,
       client: first.client,
       operationId: "first",
       emailAccountId: "account",
@@ -198,6 +207,7 @@ describe("undo send", () => {
 
     await vi.advanceTimersByTimeAsync(4000);
     beginUndoSend({
+      i18n,
       client: second.client,
       operationId: "second",
       emailAccountId: "account",
@@ -231,6 +241,7 @@ describe("undo send", () => {
     const restoreComposer = vi.fn();
     const { client } = createClient({ cancelStatus: "too_late" });
     beginUndoSend({
+      i18n,
       client,
       operationId: "mutation",
       emailAccountId: "account",
@@ -250,6 +261,7 @@ describe("undo send", () => {
     const restoreComposer = vi.fn();
     const { client } = createClient({ cancelStatus: "unavailable" });
     beginUndoSend({
+      i18n,
       client,
       operationId: "mutation",
       emailAccountId: "account",

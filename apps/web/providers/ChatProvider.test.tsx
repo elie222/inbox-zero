@@ -7,7 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import { ASSISTANT_CHAT_MAX_TEXT_LENGTH } from "@/utils/actions/assistant-chat.validation";
 import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
-import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
+import {
+  CHAT_ACCOUNT_MISMATCH_ERROR_CODE,
+  EMAIL_ACCOUNT_HEADER,
+} from "@/utils/config";
+import { useInlineEmailActionContext } from "@/components/assistant-chat/inline-email-action-context";
 import { ChatProvider, useChat } from "./ChatProvider";
 
 const {
@@ -51,6 +55,8 @@ const {
     status: "ready" as "ready" | "submitted" | "streaming" | "error",
     messages: [] as Array<{ id: string; role: string }>,
     onError: undefined as ((error: Error) => void) | undefined,
+    // Every `id` the provider has passed to useChat, in render order.
+    requestedIds: [] as Array<string | undefined>,
   },
   queryState: {
     initialChatId: "chat-from-account-a" as string | null,
@@ -58,17 +64,19 @@ const {
 }));
 
 vi.mock("@ai-sdk/react", () => ({
-  useChat: (options: { onError?: (error: Error) => void }) => {
+  useChat: (options: { id?: string; onError?: (error: Error) => void }) => {
     chatState.onError = options.onError;
+    chatState.requestedIds.push(options.id);
     return {
-      id: chatState.id,
+      id: options.id ?? chatState.id,
       messages: chatState.messages,
       status: chatState.status,
       setMessages: mockSetMessages,
       sendMessage: (message: unknown, requestOptions?: { body?: unknown }) =>
+        // Like the AI SDK, report request errors via onError and resolve.
+        // useChat calls the latest onError, not the one from this render.
         mockSendMessage(message, requestOptions).catch((error) => {
-          options.onError?.(error);
-          throw error;
+          chatState.onError?.(error);
         }),
       stop: mockChatStop,
       resumeStream: mockResumeStream,
@@ -152,6 +160,7 @@ describe("ChatProvider", () => {
     chatState.id = "new-chat-id";
     chatState.status = "ready";
     chatState.messages = [];
+    chatState.requestedIds = [];
     setVisibility("visible");
     mockChatStop.mockResolvedValue(undefined);
     mockResumeStream.mockResolvedValue(undefined);
@@ -182,6 +191,28 @@ describe("ChatProvider", () => {
     ]);
     mockClientLoggerFlush.mockResolvedValue(undefined);
     mockSendMessage.mockResolvedValue(undefined);
+  });
+
+  // useChat replaces its Chat whenever `id` changes and stops the old one,
+  // which aborted the first message of every chat started without ?chatId.
+  it("keeps the chat id stable through the first send of a new chat", async () => {
+    queryState.initialChatId = null;
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    renderWithProvider(<Consumer />);
+
+    await act(async () => {
+      await latestContext?.submitTextMessage("Create these email rules: x");
+    });
+
+    const sentUnderId = mockSetQueryState.mock.calls[0]?.[0];
+    expect(sentUnderId).toEqual(expect.any(String));
+    expect(new Set(chatState.requestedIds)).toEqual(new Set([sentUnderId]));
   });
 
   it("uses attached fix context only for the next message", async () => {
@@ -319,19 +350,25 @@ describe("ChatProvider", () => {
       (data: { messages: unknown[] }) => data.messages,
     );
 
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
     chatState.status = "streaming";
-    const { rerender } = renderWithProvider(<div />);
+    renderWithProvider(<Consumer />);
     mockSetMessages.mockClear();
 
     // Selecting another chat gives the SDK a fresh, idle chat instance.
-    chatState.id = "other-chat";
     chatState.status = "ready";
     savedData = { messages: otherChat };
-    rerender(
-      <ChatProvider>
-        <div />
-      </ChatProvider>,
-    );
+    act(() => {
+      latestContext?.setChatId("other-chat");
+    });
+
+    expect(chatState.requestedIds.at(-1)).toBe("other-chat");
     expect(mockSetMessages).toHaveBeenLastCalledWith(otherChat);
   });
 
@@ -407,6 +444,602 @@ describe("ChatProvider", () => {
       description: "We couldn't send your message. Please try again.",
     });
     expect(mockCaptureException).toHaveBeenCalledWith(error);
+    expect(latestContext?.sendError).toEqual({
+      message: "We couldn't send your message. Please try again.",
+      offerNewChat: true,
+    });
+  });
+
+  it("starts a new chat when the open chat belongs to another email account", async () => {
+    mockUseChatMessages.mockImplementation((chatId: string | null) =>
+      chatId === "chat-from-account-a"
+        ? {
+            data: undefined,
+            error: Object.assign(new Error("Forbidden"), {
+              info: { errorCode: CHAT_ACCOUNT_MISMATCH_ERROR_CODE },
+            }),
+          }
+        : { data: undefined },
+    );
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    renderWithProvider(<Consumer />);
+
+    await waitFor(() => {
+      expect(latestContext?.chatId).not.toBe("chat-from-account-a");
+    });
+    expect(latestContext?.chatId).toEqual(expect.any(String));
+    expect(latestContext?.sendError).toBeNull();
+  });
+
+  it("keeps the chat id while a send is in flight even if the chat belongs to another email account", () => {
+    chatState.status = "submitted";
+    mockUseChatMessages.mockImplementation((chatId: string | null) =>
+      chatId === "chat-from-account-a"
+        ? {
+            data: undefined,
+            error: Object.assign(new Error("Forbidden"), {
+              info: { errorCode: CHAT_ACCOUNT_MISMATCH_ERROR_CODE },
+            }),
+          }
+        : { data: undefined },
+    );
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    renderWithProvider(<Consumer />);
+
+    expect(latestContext?.chatId).toBe("chat-from-account-a");
+    expect(mockSetQueryState).not.toHaveBeenCalled();
+  });
+
+  it("keeps showing a send failure after moving off another account's chat", async () => {
+    let isMismatchLoaded = false;
+    mockUseChatMessages.mockImplementation((chatId: string | null) =>
+      chatId === "chat-from-account-a" && isMismatchLoaded
+        ? {
+            data: undefined,
+            error: Object.assign(new Error("Forbidden"), {
+              info: { errorCode: CHAT_ACCOUNT_MISMATCH_ERROR_CODE },
+            }),
+          }
+        : { data: undefined },
+    );
+    mockSendMessage.mockRejectedValueOnce(new Error("Network request failed"));
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+
+    act(() => {
+      latestContext?.setInput("Pay the SAFE");
+    });
+    act(() => {
+      latestContext?.handleSubmit();
+    });
+    await waitFor(() => {
+      expect(latestContext?.sendError).not.toBeNull();
+    });
+
+    chatState.status = "error";
+    isMismatchLoaded = true;
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+
+    await waitFor(() => {
+      expect(latestContext?.chatId).not.toBe("chat-from-account-a");
+    });
+    expect(latestContext?.sendError).toEqual({
+      message: "We couldn't send your message. Please try again.",
+      offerNewChat: true,
+    });
+  });
+
+  it("moves an unsent message to a new chat when the chat belongs to another email account", async () => {
+    const draft = "Find the SAFE I need to pay";
+    mockSendMessage.mockRejectedValueOnce(
+      Object.assign(new Error("Forbidden"), {
+        statusCode: 403,
+        responseBody: JSON.stringify({
+          error: "This chat belongs to a different email account.",
+          errorCode: CHAT_ACCOUNT_MISMATCH_ERROR_CODE,
+        }),
+      }),
+    );
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    renderWithProvider(<Consumer />);
+
+    act(() => {
+      latestContext?.setInput(draft);
+    });
+    await waitFor(() => {
+      expect(latestContext?.input).toBe(draft);
+    });
+
+    act(() => {
+      latestContext?.handleSubmit();
+    });
+
+    await waitFor(() => {
+      expect(latestContext?.input).toBe(draft);
+    });
+    expect(latestContext?.chatId).not.toBe("chat-from-account-a");
+    expect(latestContext?.sendError).toEqual({
+      message: expect.stringContaining("another email account"),
+      offerNewChat: false,
+    });
+    expect(mockResumeStream).not.toHaveBeenCalled();
+    expect(mockCaptureException).not.toHaveBeenCalled();
+  });
+
+  it("sends the current reader email on every turn and follows navigation", async () => {
+    let current: ReturnType<typeof useChat> | undefined;
+    function Consumer() {
+      current = useChat();
+      return null;
+    }
+    renderWithProvider(<Consumer />);
+    const email = {
+      type: "email",
+      message: {
+        id: "email-a",
+        threadId: "thread-a",
+        snippet: "",
+        headers: {
+          from: "sender@example.com",
+          to: "me@example.com",
+          subject: "Question",
+          date: "",
+        },
+      },
+    } satisfies MessageContext;
+    act(() => current?.setAmbientContext(email));
+    expect(current?.context).toEqual(email);
+    await act(async () => {
+      await current?.submitTextMessage("Summarize this");
+    });
+    await act(async () => {
+      await current?.submitTextMessage("Who sent it?");
+    });
+    expect(mockSendMessage.mock.calls.slice(-2).map((call) => call[1])).toEqual(
+      [{ body: { context: email } }, { body: { context: email } }],
+    );
+    const next = {
+      ...email,
+      message: { ...email.message, id: "email-b", threadId: "thread-b" },
+    };
+    act(() => current?.setAmbientContext(next));
+    await act(async () => {
+      await current?.submitTextMessage("And this?");
+    });
+    expect(mockSendMessage).toHaveBeenLastCalledWith(expect.anything(), {
+      body: { context: next },
+    });
+    act(() => current?.setContext(null));
+    expect(current?.context).toBeNull();
+    await act(async () => {
+      await current?.submitTextMessage("Search my inbox");
+    });
+    expect(mockSendMessage).toHaveBeenLastCalledWith(
+      expect.anything(),
+      undefined,
+    );
+  });
+
+  it("settles a message submitted mid-reply only once it is sent", async () => {
+    chatState.status = "streaming";
+    chatState.messages = [
+      { id: "message-from-account-a", role: "user" },
+      { id: "reply-1", role: "assistant" },
+    ];
+    let savedData: { activeStreamId: string | null; messages: unknown[] } = {
+      activeStreamId: "reply-1",
+      messages: [{ id: "message-from-account-a", role: "user", parts: [] }],
+    };
+    mockUseChatMessages.mockImplementation(() => ({ data: savedData }));
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    let settled = false;
+    act(() => {
+      latestContext?.submitTextMessage("Create this rule").then(() => {
+        settled = true;
+      });
+    });
+
+    chatState.status = "ready";
+    savedData = {
+      activeStreamId: null,
+      messages: [
+        { id: "message-from-account-a", role: "user", parts: [] },
+        { id: "reply-1", role: "assistant", parts: [] },
+      ],
+    };
+    expect(settled).toBe(false);
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+
+    await waitFor(() => expect(settled).toBe(true));
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a new message behind one still waiting for the reply to save", async () => {
+    chatState.status = "streaming";
+    chatState.messages = [
+      { id: "message-from-account-a", role: "user" },
+      { id: "reply-1", role: "assistant" },
+    ];
+    mockUseChatMessages.mockImplementation(() => ({
+      data: { activeStreamId: "reply-1", messages: [] },
+    }));
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    act(() => latestContext?.setInput("First follow-up"));
+    act(() => latestContext?.handleSubmit());
+
+    chatState.status = "ready";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+    act(() => latestContext?.setInput("Second follow-up"));
+    act(() => latestContext?.handleSubmit());
+
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(latestContext?.queuedMessage?.text).toBe(
+      "First follow-up\n\nSecond follow-up",
+    );
+  });
+
+  it("sends a queued message with the next one after an error", async () => {
+    chatState.status = "streaming";
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    act(() => latestContext?.setInput("First follow-up"));
+    act(() => latestContext?.handleSubmit());
+
+    chatState.status = "error";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+    expect(mockSendMessage).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await latestContext?.submitTextMessage("Second follow-up");
+    });
+
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      {
+        role: "user",
+        parts: [{ type: "text", text: "First follow-up\n\nSecond follow-up" }],
+      },
+      undefined,
+    );
+    expect(latestContext?.queuedMessage).toBeNull();
+  });
+
+  it("keeps both messages when the queued one and the next are too long together", async () => {
+    chatState.status = "streaming";
+    const half = "a".repeat(Math.ceil(ASSISTANT_CHAT_MAX_TEXT_LENGTH / 2) + 1);
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    act(() => latestContext?.setInput(half));
+    act(() => latestContext?.handleSubmit());
+
+    chatState.status = "error";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+    act(() => latestContext?.setInput(half));
+    act(() => latestContext?.handleSubmit());
+
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(latestContext?.queuedMessage).toBeNull();
+    expect(latestContext?.input).toBe(`${half}\n\n${half}`);
+  });
+
+  it("puts a message queued behind a failed send after it in the input", async () => {
+    let failSend: (error: Error) => void = () => {};
+    mockSendMessage.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          failSend = reject;
+        }),
+    );
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    act(() => latestContext?.setInput("First message"));
+    act(() => latestContext?.handleSubmit());
+
+    chatState.status = "submitted";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+    act(() => latestContext?.setInput("Follow-up"));
+    act(() => latestContext?.handleSubmit());
+    expect(latestContext?.queuedMessage?.text).toBe("Follow-up");
+
+    await act(async () => {
+      failSend(new Error("Network request failed"));
+    });
+
+    expect(latestContext?.queuedMessage).toBeNull();
+    expect(latestContext?.input).toBe("First message\n\nFollow-up");
+  });
+
+  it("returns a queued message to the input when the chat changes", async () => {
+    chatState.status = "streaming";
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    renderWithProvider(<Consumer />);
+    act(() => latestContext?.setInput("Also add a split inbox tab"));
+    act(() => latestContext?.handleSubmit());
+    expect(latestContext?.queuedMessage).not.toBeNull();
+
+    act(() => latestContext?.setChatId("another-chat"));
+
+    await waitFor(() => {
+      expect(latestContext?.queuedMessage).toBeNull();
+    });
+    expect(latestContext?.input).toBe("Also add a split inbox tab");
+    expect(mockSendMessage).not.toHaveBeenCalled();
+  });
+
+  it("treats a connection drop after the reply started streaming as sent", async () => {
+    let dropConnection: (error: Error) => void = () => {};
+    mockSendMessage.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          dropConnection = reject;
+        }),
+    );
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+
+    let sendPromise: Promise<void> | undefined;
+    act(() => {
+      sendPromise = latestContext?.submitTextMessage("Create these rules");
+    });
+    chatState.status = "streaming";
+    rerender(
+      <ChatProvider>
+        <Consumer />
+      </ChatProvider>,
+    );
+
+    await act(async () => {
+      dropConnection(new TypeError("Load failed"));
+      await expect(sendPromise).resolves.toBeUndefined();
+    });
+
+    expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it("queues a message sent mid-reply and sends it once the reply is saved", async () => {
+    chatState.status = "streaming";
+    chatState.messages = [
+      { id: "message-from-account-a", role: "user" },
+      { id: "reply-1", role: "assistant" },
+    ];
+    let savedData: { activeStreamId: string | null; messages: unknown[] } = {
+      activeStreamId: "reply-1",
+      messages: [{ id: "message-from-account-a", role: "user", parts: [] }],
+    };
+    mockUseChatMessages.mockImplementation(() => ({ data: savedData }));
+    let latestContext: ReturnType<typeof useChat> | undefined;
+
+    function Consumer() {
+      latestContext = useChat();
+      return null;
+    }
+
+    const { rerender } = renderWithProvider(<Consumer />);
+    const rerenderProvider = () =>
+      rerender(
+        <ChatProvider>
+          <Consumer />
+        </ChatProvider>,
+      );
+
+    act(() => latestContext?.setInput("Also add a split inbox tab"));
+    act(() => latestContext?.handleSubmit());
+
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(latestContext?.input).toBe("");
+    expect(latestContext?.queuedMessage?.text).toBe(
+      "Also add a split inbox tab",
+    );
+
+    // The stream ended but the server hasn't saved the reply yet.
+    chatState.status = "ready";
+    rerenderProvider();
+    expect(mockSendMessage).not.toHaveBeenCalled();
+
+    savedData = {
+      activeStreamId: null,
+      messages: [
+        { id: "message-from-account-a", role: "user", parts: [] },
+        { id: "reply-1", role: "assistant", parts: [] },
+      ],
+    };
+    rerenderProvider();
+
+    await waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        {
+          role: "user",
+          parts: [{ type: "text", text: "Also add a split inbox tab" }],
+        },
+        undefined,
+      );
+    });
+    expect(latestContext?.queuedMessage).toBeNull();
+  });
+
+  it("does not resend inline actions or report an unsent message once the server accepted it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
+    );
+    const sentInlineActions: unknown[] = [];
+    mockSendMessage.mockImplementation(async () => {
+      const transportOptions = mockChatTransport.mock.calls.at(-1)?.[0];
+      const request = transportOptions.prepareSendMessagesRequest({
+        id: "chat-from-account-a",
+        messages: [],
+        body: {},
+      });
+      sentInlineActions.push(request.body.inlineActions);
+      if (sentInlineActions.length > 1) return;
+      await transportOptions.fetch("/api/chat", { method: "POST" });
+      throw new Error("An error occurred.");
+    });
+    let latestContext: ReturnType<typeof useChat> | undefined;
+    let inlineActions: ReturnType<typeof useInlineEmailActionContext>;
+
+    function Consumer() {
+      latestContext = useChat();
+      inlineActions = useInlineEmailActionContext();
+      return null;
+    }
+
+    renderWithProvider(<Consumer />);
+    act(() => inlineActions?.queueAction("archive_threads", ["thread-1"]));
+
+    await act(async () => {
+      await expect(
+        latestContext?.submitTextMessage("Thanks"),
+      ).resolves.toBeUndefined();
+    });
+    await act(async () => {
+      await latestContext?.submitTextMessage("Anything else?");
+    });
+
+    expect(mockToastError).not.toHaveBeenCalled();
+    expect(sentInlineActions).toEqual([
+      [{ type: "archive_threads", threadIds: ["thread-1"] }],
+      undefined,
+    ]);
+  });
+
+  it("still reports a failed send when only a reconnect request succeeded", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
+    );
+    const sentInlineActions: unknown[] = [];
+    mockSendMessage.mockImplementation(async () => {
+      const transportOptions = mockChatTransport.mock.calls.at(-1)?.[0];
+      const request = transportOptions.prepareSendMessagesRequest({
+        id: "chat-from-account-a",
+        messages: [],
+        body: {},
+      });
+      sentInlineActions.push(request.body.inlineActions);
+      if (sentInlineActions.length > 1) return;
+      await transportOptions.fetch("/api/chat/chat-from-account-a/stream", {
+        method: "GET",
+      });
+      throw new Error("Failed to fetch");
+    });
+    let latestContext: ReturnType<typeof useChat> | undefined;
+    let inlineActions: ReturnType<typeof useInlineEmailActionContext>;
+
+    function Consumer() {
+      latestContext = useChat();
+      inlineActions = useInlineEmailActionContext();
+      return null;
+    }
+
+    renderWithProvider(<Consumer />);
+    act(() => inlineActions?.queueAction("archive_threads", ["thread-1"]));
+
+    await act(async () => {
+      await expect(
+        latestContext?.submitTextMessage("Thanks"),
+      ).rejects.toThrow();
+    });
+    await act(async () => {
+      await latestContext?.submitTextMessage("Thanks again");
+    });
+
+    expect(mockToastError).toHaveBeenCalled();
+    expect(sentInlineActions).toEqual([
+      [{ type: "archive_threads", threadIds: ["thread-1"] }],
+      [{ type: "archive_threads", threadIds: ["thread-1"] }],
+    ]);
   });
 
   it("rejects oversized drafts before sending and keeps their content", async () => {

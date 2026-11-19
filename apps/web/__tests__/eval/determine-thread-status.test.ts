@@ -12,6 +12,7 @@ import { aiDetermineThreadStatus } from "@/utils/ai/reply/determine-thread-statu
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 60_000;
+const STUDIO_ALIAS = "studio@brightline-photo.test";
 
 describe.runIf(shouldRunEval)("Eval: determine thread status", () => {
   const evalReporter = createEvalReporter({
@@ -132,6 +133,56 @@ describe.runIf(shouldRunEval)("Eval: determine thread status", () => {
       },
       TIMEOUT,
     );
+
+    test(
+      "treats a question the user sent from an alias as AWAITING_REPLY",
+      async () => {
+        const result = await aiDetermineThreadStatus({
+          emailAccount,
+          userSentLastEmail: true,
+          threadMessages: getAliasQuoteThread(),
+        });
+
+        const actual = result.status;
+        const pass = actual === SystemType.AWAITING_REPLY;
+
+        evalReporter.record({
+          testName: "alias reply asks client a question",
+          model: model.label,
+          pass,
+          actual,
+          expected: SystemType.AWAITING_REPLY,
+        });
+
+        expect(actual).toBe(SystemType.AWAITING_REPLY);
+      },
+      TIMEOUT,
+    );
+
+    test(
+      "treats a request the user fulfilled from an alias as ACTIONED",
+      async () => {
+        const result = await aiDetermineThreadStatus({
+          emailAccount,
+          userSentLastEmail: true,
+          threadMessages: getAliasInvoiceThread(),
+        });
+
+        const actual = result.status;
+        const pass = actual === SystemType.ACTIONED;
+
+        evalReporter.record({
+          testName: "alias reply fulfils request",
+          model: model.label,
+          pass,
+          actual,
+          expected: SystemType.ACTIONED,
+        });
+
+        expect(actual).toBe(SystemType.ACTIONED);
+      },
+      TIMEOUT,
+    );
   });
 
   afterAll(() => {
@@ -201,6 +252,43 @@ function getThirdPartyAnsweredQuestionThread(userEmail: string) {
       cc: userEmail,
       subject: "Re: Access request",
       content: "Thanks, that answers my question.",
+    }),
+  ];
+}
+
+function getAliasQuoteThread() {
+  return [
+    getEmail({
+      from: "client@example.com",
+      to: STUDIO_ALIAS,
+      subject: "Quote for the March shoot",
+      content:
+        "Hi, could you send a quote for a full-day product shoot in March?",
+    }),
+    getEmail({
+      from: `Brightline Studio <${STUDIO_ALIAS}>`,
+      to: "client@example.com",
+      subject: "Re: Quote for the March shoot",
+      content:
+        "Thanks for reaching out. A full day is $2,400 including editing. Would you like me to hold March 14 for you?",
+    }),
+  ];
+}
+
+function getAliasInvoiceThread() {
+  return [
+    getEmail({
+      from: "client@example.com",
+      to: STUDIO_ALIAS,
+      subject: "Last month's invoice",
+      content:
+        "Could you resend last month's invoice? Our finance team can't find it.",
+    }),
+    getEmail({
+      from: `Brightline Studio <${STUDIO_ALIAS}>`,
+      to: "client@example.com",
+      subject: "Re: Last month's invoice",
+      content: "Of course, I've attached last month's invoice again.",
     }),
   ];
 }

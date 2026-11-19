@@ -14,6 +14,8 @@ type ParticipantMessage = {
 export function getThreadParticipantNames(
   messages: ParticipantMessage[],
   userEmail: string,
+  /** Shown in place of the account owner's own name. */
+  meLabel: string,
 ) {
   const normalizedUserEmail = canonicalizeEmailAddress(userEmail);
   const senders = new Map<string, string>();
@@ -22,7 +24,7 @@ export function getThreadParticipantNames(
   );
 
   for (const message of nonDraftMessages) {
-    addParticipant(senders, message.headers.from, normalizedUserEmail);
+    addParticipant(senders, message.headers.from, normalizedUserEmail, meLabel);
   }
 
   const hasOnlyAccountOwnerAsSender =
@@ -35,7 +37,7 @@ export function getThreadParticipantNames(
   const recipientMessages = senders.size > 0 ? nonDraftMessages : messages;
   for (const message of recipientMessages) {
     for (const recipient of splitRecipientList(message.headers.to)) {
-      addParticipant(recipients, recipient, normalizedUserEmail);
+      addParticipant(recipients, recipient, normalizedUserEmail, meLabel);
     }
   }
   // An outgoing-only thread should name the other side, not "me".
@@ -48,6 +50,7 @@ function addParticipant(
   participants: Map<string, string>,
   header: string,
   normalizedUserEmail: string,
+  meLabel: string,
 ) {
   const email = canonicalizeEmailAddress(header);
   const key = email || header.trim().toLowerCase();
@@ -55,7 +58,7 @@ function addParticipant(
 
   const name =
     email && email === normalizedUserEmail
-      ? "me"
+      ? meLabel
       : extractNameFromEmail(header) || email;
   if (name) participants.set(key, name);
 }

@@ -29,7 +29,7 @@ screenshots_url="$(jq -r .screenshotsUrl <<<"$run")"
 run_sha="$(jq -r .sha <<<"$run")"
 head_sha="$(gh pr view "$pr" --json headRefOid -q .headRefOid)"
 if [[ "$run_sha" != "$head_sha" ]]; then
-  echo "pr-screenshots: latest published run is for ${run_sha:0:7}, PR head is ${head_sha:0:7}" >&2
+  die "latest published run is for ${run_sha:0:7}, PR head is ${head_sha:0:7}"
 fi
 
 curl -fsS "${screenshots_url%index.html}manifest.json" |

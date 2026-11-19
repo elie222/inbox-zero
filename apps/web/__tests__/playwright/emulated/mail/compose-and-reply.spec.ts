@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
@@ -8,6 +8,8 @@ import {
 } from "./account-test-helpers";
 import {
   conversationWithSubject,
+  countReplyThreadDrafts,
+  countReplyThreadSentCopies,
   expectSeamlessReplyHandoff,
   clearWorkflowMailboxDrafts,
   expectThreadReaderBody,
@@ -460,6 +462,7 @@ test("moves a sent reply from its composer into the thread without a gap", async
       .getByRole("region", { name: "Notifications alt+T" })
       .getByRole("button", { name: /^Undo/ }),
   ).toBeVisible();
+  await expectSelectionBarOn(page, sentRow);
   await expectThreadReaderBody(page, replyBody, 3000);
   await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-with-undo");
 
@@ -723,6 +726,82 @@ test("sends a reply after its tab closes during the undo window", async ({
     .toBe("SENT");
 });
 
+test("removes a reply's draft after its tab closed mid-save", async ({
+  page,
+  request,
+}) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+  await sourceMessage
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  const replyBody = `A reply whose draft was still saving. ${Date.now()}`;
+
+  // This reply's first draft save creates its mailbox draft. Let the server
+  // finish it but hold its answer, so the tab never learns that draft's id.
+  // Installed before typing, so no earlier save can slip past it.
+  let saveReachedServer = false;
+  let holding = false;
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    if (
+      holding ||
+      request.method() !== "POST" ||
+      !request.headers()["next-action"] ||
+      !request.postData()?.includes(replyBody)
+    ) {
+      await route.fallback();
+      return;
+    }
+    holding = true;
+    const response = await route.fetch();
+    saveReachedServer = true;
+    await new Promise((resolve) => setTimeout(resolve, 30_000));
+    await route.fulfill({ response }).catch(() => {});
+  });
+  await sourceMessage
+    .getByRole("textbox", { name: "Email message" })
+    .pressSequentially(replyBody);
+  await expect.poll(() => saveReachedServer, { timeout: 20_000 }).toBe(true);
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+  await expect
+    .poll(() => readHeldReply(emailAccountId, replyBody), { timeout: 20_000 })
+    .toMatchObject({ status: "PENDING" });
+  // The draft exists in the mailbox, and the device never heard its id.
+  await expect.poll(() => countReplyThreadDrafts(page, emailAccountId)).toBe(1);
+  // Leave with the save still unanswered, as a closing tab does. Removing the
+  // route first would let the held request through a second time.
+  await page.goto("about:blank");
+
+  const held = await readHeldReply(emailAccountId, replyBody);
+  const internalApiKey = process.env.INTERNAL_API_KEY;
+  if (!held || !internalApiKey) {
+    throw new Error("Expected a held reply and an internal API key");
+  }
+  await withClient((client) =>
+    client.query(
+      `UPDATE "ScheduledEmail" SET "sendAt" = now() - interval '1 second' WHERE id = $1`,
+      [held.id],
+    ),
+  );
+  const delivered = await request.post("/api/scheduled-emails/execute", {
+    data: { scheduledEmailId: held.id },
+    headers: { "x-api-key": internalApiKey },
+  });
+  expect(delivered.ok()).toBe(true);
+
+  await expect
+    .poll(() => countReplyThreadSentCopies(page, emailAccountId, replyBody))
+    .toBe(1);
+  await expect.poll(() => countReplyThreadDrafts(page, emailAccountId)).toBe(0);
+});
+
 test("focuses the To field when forwarding", async ({ page }) => {
   const { emailAccountId } = await openMail(page);
   // Open by thread id so this still works after an earlier reply-and-mark-done
@@ -803,7 +882,9 @@ test("shows the files a forward carries", async ({ page }, testInfo) => {
   ).click();
   const sourceMessage = page
     .locator("[data-thread-message-id]")
-    .filter({ hasText: "reader-preview.png" })
+    .filter({
+      has: page.getByRole("button", { name: "Preview reader-preview.png" }),
+    })
     .last();
   await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
 
@@ -887,5 +968,25 @@ async function expectReaderMatchesMailbox(page: Page, emailAccountId: string) {
       },
       { timeout: 60_000 },
     )
+    .toBe(true);
+}
+
+// Offline first: the bar marks the sent reply from the moment it shows, not
+// once the provider confirms it.
+async function expectSelectionBarOn(page: Page, row: Locator) {
+  const bar = page.getByTestId("thread-selection-bar");
+  await expect(bar).toBeVisible();
+  await expect
+    .poll(async () => {
+      const [barBox, rowBox] = await Promise.all([
+        bar.boundingBox(),
+        row.boundingBox(),
+      ]);
+      if (!barBox || !rowBox) return false;
+      return (
+        Math.abs(barBox.y - rowBox.y) < 1 &&
+        Math.abs(barBox.height - rowBox.height) < 1
+      );
+    })
     .toBe(true);
 }

@@ -5,6 +5,7 @@ import { recordRateLimitFromApiError } from "@/utils/email/rate-limit";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { createTestLogger } from "@/__tests__/helpers";
 import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
+import { SafeError } from "@/utils/error";
 
 vi.mock("@/utils/posthog", () => ({
   trackError: vi.fn(),
@@ -181,6 +182,20 @@ describe("handleWebhookError", () => {
         { ...baseOptions, url: "/api/outlook/webhook" },
       );
 
+      expect(trackError).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Disconnected accounts", () => {
+    it("does not log a missing refresh token as an error", async () => {
+      const error = vi.spyOn(logger, "error");
+
+      await handleWebhookError(new SafeError("No refresh token"), {
+        ...baseOptions,
+        url: "/api/outlook/webhook",
+      });
+
+      expect(error).not.toHaveBeenCalled();
       expect(trackError).not.toHaveBeenCalled();
     });
   });
