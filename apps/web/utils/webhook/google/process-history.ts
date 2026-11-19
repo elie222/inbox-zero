@@ -217,7 +217,10 @@ export async function processHistoryForUser(
             logger,
           );
           // Keep the wider catch-up window so the retry reaches the unprocessed mail.
-          if (!completed) return NextResponse.json({ ok: true });
+          if (!completed) {
+            await markGmailHistoryCatchUp(validatedEmailAccount.id, logger);
+            return NextResponse.json({ ok: true });
+          }
         } else {
           // When we truncate a large gap, Gmail can return an empty recent window.
           // We still need to advance to the webhook historyId so we don't stay

@@ -13,6 +13,7 @@ import {
 export const calendarConnectionProviderSelect = {
   id: true,
   provider: true,
+  email: true,
   accessToken: true,
   refreshToken: true,
   expiresAt: true,
@@ -109,6 +110,7 @@ export function createCalendarEventProvider({
   logger,
 }: {
   connection: {
+    email: string;
     accessToken: string | null;
     expiresAt: Date | null;
     id: string;
@@ -131,7 +133,10 @@ export function createCalendarEventProvider({
   }
 
   if (isMicrosoftProvider(connection.provider)) {
-    return new MicrosoftCalendarEventProvider(providerParams, logger);
+    return new MicrosoftCalendarEventProvider(
+      { ...providerParams, email: connection.email },
+      logger,
+    );
   }
 
   throw new SafeError("Unsupported calendar provider");

@@ -21,6 +21,7 @@ vi.mock("@/utils/outlook/calendar-client", () => ({
   getCalendarClientWithRefresh: vi.fn(async () => ({ api: mocks.api })),
 }));
 const params = {
+  email: "user@example.com",
   accessToken: "token",
   refreshToken: "refresh",
   expiresAt: null,

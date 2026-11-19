@@ -320,7 +320,11 @@ async function watchEmails({
 
     // The Outlook subscription manager already logged the underlying cause.
     const error = new Error("Provider returned no result for watch setup");
-    return { success: false, error, expected: true };
+    return {
+      success: false,
+      error,
+      expected: isMicrosoftProvider(provider.name),
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 

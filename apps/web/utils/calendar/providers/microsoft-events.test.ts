@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
+import { createCalendarEventProvider } from "@/utils/calendar/event-provider";
+import { partitionAttendeesForBriefing } from "@/utils/meeting-briefs/attendees";
+import { shouldAutoJoin } from "@/utils/meeting-recorder/join-rule";
 import { MicrosoftCalendarEventProvider } from "@/utils/calendar/providers/microsoft-events";
 
 const graphMocks = vi.hoisted(() => ({
@@ -35,6 +38,62 @@ describe("MicrosoftCalendarEventProvider", () => {
     graphMocks.query.mockReturnValue({ top: graphMocks.top });
     graphMocks.top.mockReturnValue({ orderby: graphMocks.orderby });
     graphMocks.orderby.mockReturnValue({ get: graphMocks.get });
+  });
+
+  it("excludes the stored connection email from external guests and external-only recording", async () => {
+    graphMocks.get.mockResolvedValue({
+      value: [
+        {
+          id: "internal-meeting",
+          subject: "Team sync",
+          isOrganizer: false,
+          organizer: { emailAddress: { address: "host@work.example.com" } },
+          start: { dateTime: "2026-05-04T09:00:00.000Z" },
+          end: { dateTime: "2026-05-04T09:30:00.000Z" },
+          onlineMeeting: {
+            joinUrl: "https://teams.microsoft.com/meet/example",
+          },
+          attendees: [
+            {
+              emailAddress: { address: "Alias@calendar.example.com" },
+              status: { response: "accepted" },
+            },
+            {
+              emailAddress: { address: "colleague@work.example.com" },
+              status: { response: "accepted" },
+            },
+          ],
+        },
+      ],
+    });
+    const provider = createCalendarEventProvider({
+      connection: {
+        id: "connection-1",
+        provider: "microsoft",
+        email: "alias@calendar.example.com",
+        accessToken: "token",
+        refreshToken: "refresh",
+        expiresAt: null,
+      },
+      emailAccountId: "account-1",
+      logger: createTestLogger(),
+    });
+    const [event] = await provider.fetchEvents({
+      timeMin: new Date("2026-05-04"),
+      timeMax: new Date("2026-05-05"),
+    });
+    expect(event.attendees[0]).toMatchObject({ self: true });
+    expect(event.attendees[1].self).not.toBe(true);
+    expect(
+      partitionAttendeesForBriefing(event, "user@work.example.com").external,
+    ).toEqual([]);
+    expect(
+      shouldAutoJoin({
+        event,
+        rule: "EXTERNAL_ONLY",
+        userEmail: "user@work.example.com",
+      }),
+    ).toBe(false);
   });
 
   it("parses the organizer and declined attendees when fetching events", async () => {
@@ -549,6 +608,7 @@ describe("MicrosoftCalendarEventProvider", () => {
 function createProvider() {
   return new MicrosoftCalendarEventProvider(
     {
+      email: "user@example.com",
       accessToken: "access-token",
       emailAccountId: "email-account-id",
       expiresAt: null,
