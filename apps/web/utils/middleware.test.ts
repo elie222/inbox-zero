@@ -630,6 +630,63 @@ describe("Middleware", () => {
     });
 
     it.each([
+      "invalid_grant",
+      "AADSTS50173",
+    ])("returns the reconnect response when provider initialization rejects a revoked grant (%s)", async (message) => {
+      mockReq = createMockRequest(
+        "POST",
+        "http://localhost/api/mail/v1/accounts/acc-456/changes",
+        {
+          [EMAIL_ACCOUNT_HEADER]: mockAccountId,
+        },
+      );
+      mockGetEmailAccount.mockResolvedValue(mockEmail);
+      mockPrismaEmailAccountFindUnique.mockResolvedValue({
+        id: mockAccountId,
+        account: { provider: "google" },
+      } as any);
+      mockCreateEmailProvider.mockRejectedValue(new Error(message));
+      const handler = vi.fn(async () => NextResponse.json({ ok: true }));
+
+      const response = await withEmailProvider("mail/v1/changes", handler)(
+        mockReq,
+        mockContext,
+      );
+
+      expect(response.status).toBe(401);
+      await expect(response.json()).resolves.toEqual({
+        error: "Authorization required. Please grant permissions.",
+        errorCode: "NO_REFRESH_TOKEN",
+        isKnownError: true,
+      });
+      expect(handler).not.toHaveBeenCalled();
+      expect(mockCaptureException).not.toHaveBeenCalled();
+    });
+
+    it("keeps unexpected provider initialization failures as server errors", async () => {
+      mockReq = createMockRequest("GET", "http://localhost/api/labels", {
+        [EMAIL_ACCOUNT_HEADER]: mockAccountId,
+      });
+      mockGetEmailAccount.mockResolvedValue(mockEmail);
+      mockPrismaEmailAccountFindUnique.mockResolvedValue({
+        id: mockAccountId,
+        account: { provider: "google" },
+      } as any);
+      mockCreateEmailProvider.mockRejectedValue(
+        new Error("provider unavailable"),
+      );
+      const handler = vi.fn(async () => NextResponse.json({ ok: true }));
+
+      const response = await withEmailProvider("labels", handler)(
+        mockReq,
+        mockContext,
+      );
+
+      expect(response.status).toBe(500);
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it.each([
       [
         "Gmail",
         "google",

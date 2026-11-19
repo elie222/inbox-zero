@@ -1,9 +1,13 @@
+import { setupI18n } from "@lingui/core";
 import { describe, expect, it } from "vitest";
 import { buildPrintDocument } from "@/app/(app)/[emailAccountId]/mail/print-messages";
+
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
 
 describe("buildPrintDocument", () => {
   it("escapes header values and plain text bodies", () => {
     const document = buildPrintDocument({
+      i18n,
       subject: "<img src=x onerror=alert(1)>",
       messages: [
         {
@@ -27,6 +31,7 @@ describe("buildPrintDocument", () => {
 
   it("prints every message with its attachments", () => {
     const document = buildPrintDocument({
+      i18n,
       subject: "Trip",
       messages: [
         {
@@ -59,6 +64,7 @@ describe("buildPrintDocument", () => {
 
   it("keeps sender images from loading when the proxy could not prepare them", () => {
     const document = buildPrintDocument({
+      i18n,
       subject: "Subject",
       messages: [],
       allowRemoteImages: false,

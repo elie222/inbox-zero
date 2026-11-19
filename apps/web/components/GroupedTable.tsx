@@ -1,5 +1,6 @@
 "use client";
 
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import Link from "next/link";
 import { Fragment, useMemo } from "react";
 import { useQueryState } from "nuqs";
@@ -72,6 +73,7 @@ export function GroupedTable({
   emailGroups: EmailGroup[];
   categories: CategoryWithRules[];
 }) {
+  const { t } = useLingui();
   const { emailAccountId, userEmail } = useAccount();
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
 
@@ -167,12 +169,12 @@ export function GroupedTable({
               if (result?.serverError) {
                 toastError({ description: result.serverError });
               } else {
-                toastSuccess({ description: "Category changed" });
+                toastSuccess({ description: t`Category changed` });
               }
             }}
           >
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select category" />
+              <SelectValue placeholder={t`Select category`} />
             </SelectTrigger>
             <SelectContent>
               {categories.map((category) => (
@@ -185,7 +187,7 @@ export function GroupedTable({
         ),
       },
     ],
-    [categories, userEmail, emailAccountId],
+    [categories, userEmail, emailAccountId, t],
   );
 
   const table = useReactTable({
@@ -218,7 +220,7 @@ export function GroupedTable({
 
             const onRemoveAllFromCategory = async () => {
               const yes = confirm(
-                "This will remove all emails from this category. You can re-categorize them later. Do you want to continue?",
+                t`This will remove all emails from this category. You can re-categorize them later. Do you want to continue?`,
               );
               if (!yes) return;
               const result = await removeAllFromCategoryAction(emailAccountId, {
@@ -229,7 +231,7 @@ export function GroupedTable({
                 toastError({ description: result.serverError });
               } else {
                 toastSuccess({
-                  description: "All emails removed from category",
+                  description: t`All emails removed from category`,
                 });
               }
             };
@@ -403,24 +405,26 @@ function GroupRow({
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="xs">
               <MoreVerticalIcon className="size-4" />
-              <span className="sr-only">More</span>
+              <span className="sr-only">
+                <Trans>More</Trans>
+              </span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onEditCategory}>
               <PencilIcon className="mr-2 size-4" />
-              Edit
+              <Trans>Edit</Trans>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onRemoveAllFromCategory}>
               <BookmarkXIcon className="mr-2 size-4" />
-              Remove All From Category
+              <Trans>Remove All From Category</Trans>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
         <Button variant="outline" size="xs" onClick={onArchiveAll}>
           <ArchiveIcon className="mr-2 size-4" />
-          Archive all
+          <Trans>Archive all</Trans>
         </Button>
       </TableCell>
     </TableRow>
@@ -440,7 +444,9 @@ function SenderRows({
     return (
       <TableRow>
         <TableCell colSpan={COLUMNS}>
-          <MessageText>This category is empty</MessageText>
+          <MessageText>
+            <Trans>This category is empty</Trans>
+          </MessageText>
         </TableCell>
       </TableRow>
     );
@@ -483,6 +489,7 @@ function ExpandedRows({
   sender: string;
   userEmail: string;
 }) {
+  const { i18n } = useLingui();
   const { provider } = useAccount();
 
   const { data, isLoading, error } = useThreads({
@@ -504,7 +511,9 @@ function ExpandedRows({
   if (error) {
     return (
       <TableRow>
-        <TableCell colSpan={COLUMNS}>Error loading emails</TableCell>
+        <TableCell colSpan={COLUMNS}>
+          <Trans>Error loading emails</Trans>
+        </TableCell>
       </TableRow>
     );
   }
@@ -512,7 +521,9 @@ function ExpandedRows({
   if (!data?.threads.length) {
     return (
       <TableRow>
-        <TableCell colSpan={COLUMNS}>No emails found</TableCell>
+        <TableCell colSpan={COLUMNS}>
+          <Trans>No emails found</Trans>
+        </TableCell>
       </TableRow>
     );
   }
@@ -542,7 +553,7 @@ function ExpandedRows({
               {decodeSnippet(thread.messages[0].snippet)}
             </TableCell>
             <TableCell className="text-nowrap py-3">
-              {formatShortDate(new Date(date))}
+              {formatShortDate(new Date(date), { locale: i18n.locale })}
             </TableCell>
           </TableRow>
         );
@@ -558,27 +569,44 @@ function ArchiveStatusCell({
   emailAccountId: string;
   sender: string;
 }) {
+  const { t } = useLingui();
   const status = useArchiveSenderStatus(emailAccountId, sender);
 
   switch (status?.status) {
     case "pending":
-      return <span className="text-muted-foreground">Queued</span>;
+      return (
+        <span className="text-muted-foreground">
+          <Trans>Queued</Trans>
+        </span>
+      );
     case "processing":
       return (
         <span className="text-blue-500">
           {status.threadsTotal
             ? `${status.threadsTotal - status.threadIds.length} / ${status.threadsTotal}`
-            : "Archiving..."}
+            : t`Archiving...`}
         </span>
       );
     case "completed":
       return (
         <span className="text-muted-foreground">
-          {status.threadsTotal ? `Archived ${status.threadsTotal}` : "Archived"}
+          {status.threadsTotal ? (
+            <Plural
+              value={status.threadsTotal}
+              one="Archived #"
+              other="Archived #"
+            />
+          ) : (
+            <Trans>Archived</Trans>
+          )}
         </span>
       );
     case "failed":
-      return <span className="text-red-500">Failed</span>;
+      return (
+        <span className="text-red-500">
+          <Trans>Failed</Trans>
+        </span>
+      );
     default:
       return null;
   }

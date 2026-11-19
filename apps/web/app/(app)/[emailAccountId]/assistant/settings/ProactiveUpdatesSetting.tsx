@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Settings2Icon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -36,7 +37,6 @@ import {
   AUTOMATION_CRON_PRESETS,
   DEFAULT_AUTOMATION_JOB_CRON,
 } from "@/utils/automation-jobs/defaults";
-import { describeCronSchedule } from "@/utils/automation-jobs/describe";
 import { getActionErrorMessage } from "@/utils/error";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
 import { cn } from "@/utils";
@@ -45,6 +45,7 @@ import {
   MessagingRoutePurpose,
 } from "@/generated/prisma/enums";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
+import { describeCronScheduleText } from "@/app/(app)/[emailAccountId]/assistant/settings/cron-schedule-messages";
 
 type Channel = GetMessagingChannelsResponse["channels"][number];
 
@@ -57,6 +58,7 @@ export function ProactiveUpdatesSetting({
   emailAccountId: string;
   onUpdate: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const [open, setOpen] = useState(false);
   const [cronExpression, setCronExpression] = useState(
     DEFAULT_AUTOMATION_JOB_CRON,
@@ -93,11 +95,11 @@ export function ProactiveUpdatesSetting({
       onSuccess: () => {
         mutate();
         onUpdate();
-        toastSuccess({ description: "Scheduled check-ins updated" });
+        toastSuccess({ description: t`Scheduled check-ins updated` });
       },
       onError: createSettingActionErrorHandler({
         mutate,
-        defaultMessage: "Failed to update setting",
+        defaultMessage: t`Failed to update setting`,
       }),
     },
   );
@@ -109,10 +111,10 @@ export function ProactiveUpdatesSetting({
         mutate();
         onUpdate();
         setOpen(false);
-        toastSuccess({ description: "Scheduled check-in settings saved" });
+        toastSuccess({ description: t`Scheduled check-in settings saved` });
       },
       onError: createSettingActionErrorHandler({
-        defaultMessage: "Failed to save settings",
+        defaultMessage: t`Failed to save settings`,
       }),
     },
   );
@@ -121,11 +123,11 @@ export function ProactiveUpdatesSetting({
     triggerTestCheckInAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Test check-in sent" });
+        toastSuccess({ description: t`Test check-in sent` });
       },
       onError: (error) => {
         const description =
-          getActionErrorMessage(error.error) ?? "Failed to send test check-in";
+          getActionErrorMessage(error.error) ?? t`Failed to send test check-in`;
         toastError({ description });
       },
     },
@@ -158,14 +160,15 @@ export function ProactiveUpdatesSetting({
   );
 
   const scheduleText = useMemo(
-    () => describeCronSchedule(cronExpression),
-    [cronExpression],
+    () => describeCronScheduleText(cronExpression, i18n),
+    [cronExpression, i18n],
   );
   const isSlack = channel.provider === MessagingProvider.SLACK;
-  let summaryText = "Get periodic summaries in chat.";
+  let summaryText = t`Get periodic summaries in chat.`;
   if (activeForChannel && job) {
-    summaryText = describeCronSchedule(
+    summaryText = describeCronScheduleText(
       job.cronExpression ?? DEFAULT_AUTOMATION_JOB_CRON,
+      i18n,
     );
   }
 
@@ -181,11 +184,13 @@ export function ProactiveUpdatesSetting({
     <>
       <Item size="sm">
         <ItemContent>
-          <ItemTitle>Scheduled check-ins</ItemTitle>
+          <ItemTitle>
+            <Trans>Scheduled check-ins</Trans>
+          </ItemTitle>
           <ItemDescription>{summaryText}</ItemDescription>
         </ItemContent>
         <ItemActions>
-          <Tooltip content="Configure">
+          <Tooltip content={t`Configure`}>
             <Button variant="ghost" size="iconSm" onClick={() => setOpen(true)}>
               <Settings2Icon className="h-4 w-4" />
             </Button>
@@ -216,16 +221,22 @@ export function ProactiveUpdatesSetting({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Scheduled check-ins</DialogTitle>
+            <DialogTitle>
+              <Trans>Scheduled check-ins</Trans>
+            </DialogTitle>
             <DialogDescription>
-              Configure when Inbox Zero sends scheduled summaries to{" "}
-              {getMessagingProviderName(channel.provider)}.
+              <Trans>
+                Configure when Inbox Zero sends scheduled summaries to{" "}
+                {getMessagingProviderName(channel.provider)}.
+              </Trans>
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6">
             <div className="space-y-3">
-              <Label>Schedule</Label>
+              <Label>
+                <Trans>Schedule</Trans>
+              </Label>
               <div className="grid grid-cols-3 gap-2">
                 {AUTOMATION_CRON_PRESETS.map((preset) => (
                   <Button
@@ -242,7 +253,7 @@ export function ProactiveUpdatesSetting({
                       setShowCronEditor(false);
                     }}
                   >
-                    {preset.label}
+                    {i18n._(preset.label)}
                   </Button>
                 ))}
               </div>
@@ -253,7 +264,7 @@ export function ProactiveUpdatesSetting({
                   size="xs"
                   onClick={() => setShowCronEditor((value) => !value)}
                 >
-                  {showCronEditor ? "done" : "edit"}
+                  {showCronEditor ? <Trans>done</Trans> : <Trans>edit</Trans>}
                 </Button>
               </div>
               {showCronEditor && (
@@ -261,11 +272,13 @@ export function ProactiveUpdatesSetting({
                   <Input
                     value={cronExpression}
                     onChange={(event) => setCronExpression(event.target.value)}
-                    placeholder="Cron expression in UTC"
+                    placeholder={t`Cron expression in UTC`}
                   />
                   <p className="text-xs text-muted-foreground">
-                    This is a cron expression (UTC). Ask ChatGPT or Claude to
-                    generate one for your preferred schedule.
+                    <Trans>
+                      This is a cron expression (UTC). Ask ChatGPT or Claude to
+                      generate one for your preferred schedule.
+                    </Trans>
                   </p>
                 </>
               )}
@@ -277,12 +290,12 @@ export function ProactiveUpdatesSetting({
                 size="sm"
                 onClick={() => setShowCustomPrompt((value) => !value)}
               >
-                + Add check-in instructions
+                <Trans>+ Add check-in instructions</Trans>
               </Button>
               {showCustomPrompt && (
                 <Textarea
                   id={`scheduled-checkins-prompt-${channel.id}`}
-                  placeholder="Example: Only include emails that need a reply today or have a deadline in the next 2 days. Skip newsletters, receipts, and FYI updates."
+                  placeholder={t`Example: Only include emails that need a reply today or have a deadline in the next 2 days. Skip newsletters, receipts, and FYI updates.`}
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
                 />
@@ -296,9 +309,11 @@ export function ProactiveUpdatesSetting({
                   disabled={testCheckInStatus === "executing"}
                   onClick={() => executeTestCheckIn({})}
                 >
-                  {testCheckInStatus === "executing"
-                    ? "Sending..."
-                    : "Send test check-in"}
+                  {testCheckInStatus === "executing" ? (
+                    <Trans>Sending...</Trans>
+                  ) : (
+                    <Trans>Send test check-in</Trans>
+                  )}
                 </Button>
               ) : (
                 <div />
@@ -309,13 +324,17 @@ export function ProactiveUpdatesSetting({
                   onClick={() => setOpen(false)}
                   disabled={saveStatus === "executing"}
                 >
-                  Cancel
+                  <Trans>Cancel</Trans>
                 </Button>
                 <Button
                   onClick={handleSave}
                   disabled={saveStatus === "executing"}
                 >
-                  {saveStatus === "executing" ? "Saving..." : "Save"}
+                  {saveStatus === "executing" ? (
+                    <Trans>Saving...</Trans>
+                  ) : (
+                    <Trans>Save</Trans>
+                  )}
                 </Button>
               </div>
             </div>

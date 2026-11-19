@@ -5,6 +5,7 @@ import { realpathSync } from "node:fs";
 import path from "node:path";
 import { env } from "./env";
 import { isIndexingAllowed } from "./utils/indexing";
+import { LANDING_LOCALES } from "./utils/i18n/landing";
 import type { NextConfig } from "next";
 
 const withMDX = nextMdx({
@@ -25,7 +26,11 @@ const zodV4CorePath = path.join(
   path.dirname(require.resolve("zod/package.json")),
   "v4/core/index.js",
 );
+const linguiSwcPlugins: [string, Record<string, unknown>][] = [
+  ["@lingui/swc-plugin", {}],
+];
 const indexingAllowed = isIndexingAllowed(env.NEXT_PUBLIC_BASE_URL);
+const LANDING_LOCALE_PATTERN = LANDING_LOCALES.join("|");
 // Outlook uploads large attachments from the browser straight to Graph, which
 // is a plain-http origin when the app runs against the local emulator.
 const microsoftEmulatorOrigin = env.MICROSOFT_BASE_URL
@@ -54,6 +59,7 @@ const nextConfig: NextConfig = {
           // API while on TypeScript 6 so next build keeps filtering test/
           // mock diagnostics instead of failing on known test-only debt.
           useTypeScriptCli: false,
+          swcPlugins: linguiSwcPlugins,
           serverActions: {
             bodySizeLimit: "26mb",
           },
@@ -89,6 +95,7 @@ const nextConfig: NextConfig = {
         }
       : {
           useTypeScriptCli: false,
+          swcPlugins: linguiSwcPlugins,
         },
   // Security headers: https://nextjs.org/docs/app/building-your-application/configuring/progressive-web-apps#8-securing-your-application
   async headers() {
@@ -401,10 +408,32 @@ const nextConfig: NextConfig = {
         permanent: true,
         source: "/soc2",
       },
+      // The internal route tree for translated landing pages is never the
+      // public URL.
+      {
+        destination: "/:locale",
+        permanent: true,
+        source: `/l/:locale(${LANDING_LOCALE_PATTERN})`,
+      },
+      {
+        destination: "/:locale/:path*",
+        permanent: true,
+        source: `/l/:locale(${LANDING_LOCALE_PATTERN})/:path*`,
+      },
     ];
   },
   async rewrites() {
     return [
+      // Translated landing pages: /es/pricing renders /l/es/pricing. These run
+      // after static pages but before dynamic routes like /[emailAccountId].
+      {
+        destination: "/l/:locale",
+        source: `/:locale(${LANDING_LOCALE_PATTERN})`,
+      },
+      {
+        destination: "/l/:locale/:path*",
+        source: `/:locale(${LANDING_LOCALE_PATTERN})/:path*`,
+      },
       {
         destination: "https://app.posthog.com/:path*",
         source: "/ingest/:path*",
@@ -437,6 +466,10 @@ const nextConfig: NextConfig = {
         as: "*.js",
         loaders: ["@svgr/webpack"],
       },
+      "*.po": {
+        as: "*.js",
+        loaders: ["@lingui/loader"],
+      },
     },
   },
   // Skip TypeScript checking during Docker/E2E CI builds to save memory.
@@ -450,6 +483,7 @@ const nextConfig: NextConfig = {
       ...config.resolve.alias,
       "zod/v4/core": zodV4CorePath,
     };
+    config.module.rules.push({ test: /\.po$/, use: "@lingui/loader" });
     return config;
   },
 };

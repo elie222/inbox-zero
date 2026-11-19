@@ -118,10 +118,12 @@ const CONTENT_FILTER_KINDS = new Set<MailSplitFilterKind>([
   MailSplitFilterKind.LABEL,
   MailSplitFilterKind.CATEGORY,
   MailSplitFilterKind.FROM,
+  MailSplitFilterKind.TO,
 ]);
 
 /**
- * Splits defined by what mail is (a label, category or sender) can bundle.
+ * Splits defined by what mail is (a label, category, sender or recipient) can
+ * bundle.
  * State-only splits like Unread or Starred would sweep up everything.
  */
 export function isBundleEligibleSplit(split: MailSplit) {

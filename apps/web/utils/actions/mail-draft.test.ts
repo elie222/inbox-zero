@@ -85,6 +85,28 @@ describe("updateDraftAction", () => {
     expect(result?.serverError).toBeTruthy();
   });
 
+  it("saves reply and forward draft edits without incomplete recipients", async () => {
+    mocks.getDraft.mockResolvedValue({ id: "new-message" });
+    const result = await updateDraftAction(EMAIL_ACCOUNT_ID, {
+      draftMessageId: "old-message",
+      draftId: "draft-1",
+      messageHtml: "<p>Edited</p>",
+      subject: "Reply",
+      to: '"Doe, Jane" <jane@example.com>, next@',
+      cc: "copied@example.com, good@example.com next@",
+      bcc: "hidden@example.com, Name <good@example.com",
+    });
+
+    expect(result?.data).toMatchObject({ status: "saved", draftId: "draft-1" });
+    expect(mocks.updateDraft).toHaveBeenCalledWith("draft-1", {
+      messageHtml: "<p>Edited</p>",
+      subject: "Reply",
+      to: '"Doe, Jane" <jane@example.com>',
+      cc: "copied@example.com",
+      bcc: "hidden@example.com",
+    });
+  });
+
   it("reports a missing draft when the provider no longer has it", async () => {
     mocks.updateDraft.mockRejectedValueOnce(
       new DraftNotFoundError("Could not find this draft to update."),

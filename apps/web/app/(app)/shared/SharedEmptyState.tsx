@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,14 +23,20 @@ export function SharedEmptyState() {
         <EmptyMedia>
           <SharedThreadIllustration />
         </EmptyMedia>
-        <EmptyTitle>No discussions yet</EmptyTitle>
+        <EmptyTitle>
+          <Trans>No discussions yet</Trans>
+        </EmptyTitle>
         <EmptyDescription>
-          Discuss an email privately by @mentioning a teammate in a comment.
+          <Trans>
+            Discuss an email privately by @mentioning a teammate in a comment.
+          </Trans>
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
         <Button asChild variant="outline" size="sm">
-          <Link href={prefixPath(emailAccountId, "/mail")}>Go to inbox</Link>
+          <Link href={prefixPath(emailAccountId, "/mail")}>
+            <Trans>Go to inbox</Trans>
+          </Link>
         </Button>
       </EmptyContent>
     </Empty>

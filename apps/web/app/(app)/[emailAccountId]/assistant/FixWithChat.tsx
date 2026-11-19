@@ -1,3 +1,4 @@
+import { Trans, useLingui } from "@lingui/react/macro";
 import { MessageCircleIcon } from "lucide-react";
 import type { ChangeEvent } from "react";
 import { useMemo, useState } from "react";
@@ -47,6 +48,7 @@ export function FixWithChat({
   message: ParsedMessage;
   results: FixWithChatResult[];
 }) {
+  const { t } = useLingui();
   const { data, isLoading, error } = useRules();
   const { isModalOpen, setIsModalOpen } = useModal();
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
@@ -151,13 +153,15 @@ export function FixWithChat({
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <MessageCircleIcon className="mr-2 size-4" />
-          Fix
+          <Trans>Fix</Trans>
         </Button>
       </DialogTrigger>
 
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Improve Rules</DialogTitle>
+          <DialogTitle>
+            <Trans>Improve Rules</Trans>
+          </DialogTitle>
         </DialogHeader>
 
         <LoadingContent loading={isLoading} error={error}>
@@ -170,21 +174,23 @@ export function FixWithChat({
           ) : data && showExplanation ? (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Selected rule:</span>
+                <span className="text-sm font-medium">
+                  <Trans>Selected rule:</Trans>
+                </span>
                 <Badge variant="secondary">
                   {selectedRuleId === NEW_RULE_ID
-                    ? "✨ New rule"
+                    ? t`✨ New rule`
                     : selectedRuleId === NONE_RULE_ID
-                      ? "❌ None"
+                      ? t`❌ None`
                       : data.find((r) => r.id === selectedRuleId)?.name ||
-                        "Unknown"}
+                        t`Unknown`}
                 </Badge>
               </div>
 
               <div>
                 <Label
                   name="explanation"
-                  label="Why should this rule have been applied? (optional)"
+                  label={t`Why should this rule have been applied? (optional)`}
                 />
                 <Textarea
                   id="explanation"
@@ -199,8 +205,10 @@ export function FixWithChat({
                   autoFocus
                 />
                 <p id="explanation-help" className="mt-1 text-xs text-gray-500">
-                  Providing an explanation helps the AI understand your intent
-                  better
+                  <Trans>
+                    Providing an explanation helps the AI understand your intent
+                    better
+                  </Trans>
                 </p>
               </div>
 
@@ -213,9 +221,11 @@ export function FixWithChat({
                     setExplanation("");
                   }}
                 >
-                  Back
+                  <Trans>Back</Trans>
                 </Button>
-                <Button onClick={handleSubmit}>Next</Button>
+                <Button onClick={handleSubmit}>
+                  <Trans>Next</Trans>
+                </Button>
               </div>
             </div>
           ) : null}
@@ -234,23 +244,27 @@ function RuleMismatch({
   rules: RulesResponse;
   onSelectExpectedRuleId: (ruleId: string | null) => void;
 }) {
+  const { t } = useLingui();
+
   return (
     <div>
-      <Label name="matchedRule" label="Matched:" />
+      <Label name="matchedRule" label={t`Matched:`} />
       <div className="mt-1">
         {results.length > 0 ? (
           <ResultsDisplay results={results} />
         ) : (
-          <p>No rule matched</p>
+          <p>
+            <Trans>No rule matched</Trans>
+          </p>
         )}
       </div>
       <div className="mt-4">
         <ButtonList
-          title="Which rule did you expect it to match?"
-          emptyMessage="You haven't created any rules yet!"
+          title={t`Which rule did you expect it to match?`}
+          emptyMessage={t`You haven't created any rules yet!`}
           items={[
-            { id: NONE_RULE_ID, name: "❌ None" },
-            { id: NEW_RULE_ID, name: "✨ New rule" },
+            { id: NONE_RULE_ID, name: t`❌ None` },
+            { id: NEW_RULE_ID, name: t`✨ New rule` },
             ...rules,
           ]}
           onSelect={onSelectExpectedRuleId}

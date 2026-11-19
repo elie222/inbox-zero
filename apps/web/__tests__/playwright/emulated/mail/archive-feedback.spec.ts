@@ -78,8 +78,9 @@ test("archives from the keyboard with immediate feedback and supports undo", asy
         const sample = () => {
           const ghost = document.querySelector("[data-archive-exit]");
           const nextRow = document.querySelector(nextSelector)!;
+          const elapsedMs = performance.now() - startedAt;
           samples.push({
-            ms: performance.now() - startedAt,
+            ms: elapsedMs,
             inList: Boolean(document.querySelector(rowSelector)),
             nextTop: nextRow.getBoundingClientRect().top,
             nextFocused: nextRow.getAttribute("tabindex") === "0",
@@ -87,8 +88,7 @@ test("archives from the keyboard with immediate feedback and supports undo", asy
               ? getComputedStyle(ghost.firstElementChild ?? ghost).opacity
               : null,
           });
-          if (performance.now() - startedAt < 600)
-            requestAnimationFrame(sample);
+          if (elapsedMs <= 600) requestAnimationFrame(sample);
         };
         requestAnimationFrame(sample);
         Object.assign(window, {

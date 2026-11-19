@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useAction } from "next-safe-action/hooks";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -15,18 +16,19 @@ import { updateDecisionModelSettingsAction } from "@/utils/actions/settings";
 import { getActionErrorMessage } from "@/utils/error";
 
 export function DecisionModelSection() {
+  const { t } = useLingui();
   const { data, mutate } = useUser();
 
   const { execute, isExecuting } = useAction(
     updateDecisionModelSettingsAction,
     {
       onSuccess: () => {
-        toastSuccess({ description: "Settings updated!" });
+        toastSuccess({ description: t`Settings updated!` });
       },
       onError: (error) => {
         toastError({
           description: getActionErrorMessage(error.error, {
-            prefix: "Failed to update settings",
+            prefix: t`Failed to update settings`,
           }),
         });
       },
@@ -41,15 +43,19 @@ export function DecisionModelSection() {
   return (
     <Item size="sm">
       <ItemContent>
-        <ItemTitle>Specialized decision model</ItemTitle>
+        <ItemTitle>
+          <Trans>Specialized decision model</Trans>
+        </ItemTitle>
         <ItemDescription>
-          Use an optional decision model for rule matching and other structured
-          decisions. Falls back to your AI model if unavailable.
+          <Trans>
+            Use an optional decision model for rule matching and other
+            structured decisions. Falls back to your AI model if unavailable.
+          </Trans>
         </ItemDescription>
       </ItemContent>
       <ItemActions>
         <Switch
-          aria-label="Specialized decision model"
+          aria-label={t`Specialized decision model`}
           checked={data.decisionModelEnabled}
           onCheckedChange={(decisionModelEnabled) => {
             mutate({ ...data, decisionModelEnabled }, false);

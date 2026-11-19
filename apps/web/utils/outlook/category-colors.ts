@@ -56,11 +56,11 @@ const DEFAULT_OUTLOOK_CATEGORY_COLORS: Record<
   purple: "preset8",
   pink: "preset9",
   red: "preset0",
-  coral: "preset1",
+  coral: "preset16",
   orange: "preset1",
   yellow: "preset3",
   green: "preset4",
-  rose: "preset9",
+  rose: "preset24",
   gray: "preset12",
 };
 

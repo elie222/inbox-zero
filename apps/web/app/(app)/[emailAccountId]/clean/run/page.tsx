@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { Suspense } from "react";
 import { getThreadsByJobId } from "@/utils/redis/clean";
 import prisma from "@/utils/prisma";
@@ -9,6 +10,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/clean/helpers";
 import { CleanRun } from "@/app/(app)/[emailAccountId]/clean/CleanRun";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
+import { initLingui } from "@/utils/i18n/server";
 
 export default async function CleanRunPage(props: {
   params: Promise<{ emailAccountId: string }>;
@@ -26,7 +28,10 @@ export default async function CleanRunPage(props: {
     select: { email: true },
   });
 
-  if (!emailAccount) return <CardTitle>Email account not found</CardTitle>;
+  if (!emailAccount) {
+    const i18n = await initLingui();
+    return <CardTitle>{t(i18n)`Email account not found`}</CardTitle>;
+  }
 
   const threads = await getThreadsByJobId({ emailAccountId, jobId });
 
@@ -34,7 +39,10 @@ export default async function CleanRunPage(props: {
     ? await getJobById({ emailAccountId, jobId })
     : await getLastJob({ emailAccountId });
 
-  if (!job) return <CardTitle>Job not found</CardTitle>;
+  if (!job) {
+    const i18n = await initLingui();
+    return <CardTitle>{t(i18n)`Job not found`}</CardTitle>;
+  }
 
   const [total, done] = await Promise.all([
     prisma.cleanupThread.count({

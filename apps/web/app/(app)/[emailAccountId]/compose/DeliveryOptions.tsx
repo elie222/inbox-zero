@@ -7,6 +7,8 @@ import {
   ChevronRightIcon,
   XIcon,
 } from "lucide-react";
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -40,6 +42,7 @@ export const DeliveryOptions = forwardRef<
   },
   ref,
 ) {
+  const { t } = useLingui();
   const [openOption, setOpenOption] = useState<"sendLater" | "remindMe" | null>(
     null,
   );
@@ -48,7 +51,7 @@ export const DeliveryOptions = forwardRef<
   return (
     <>
       <DeliveryTimePicker
-        label="Send later"
+        label={t`Send later`}
         value={sendAt}
         onChange={onSendAtChange}
         disabled={disabled}
@@ -58,7 +61,7 @@ export const DeliveryOptions = forwardRef<
         shortcutOwnerId={shortcutOwnerId}
       />
       <DeliveryTimePicker
-        label="Remind me"
+        label={t`Remind me`}
         value={remindAt}
         onChange={onRemindAtChange}
         disabled={disabled}
@@ -93,9 +96,13 @@ function DeliveryTimePicker({
   shortcut: "sendLater" | "remindMe";
   shortcutOwnerId: string;
 }) {
+  const { t, i18n } = useLingui();
   const [custom, setCustom] = useState("");
   const [showCustom, setShowCustom] = useState(false);
-  const isReminder = label === "Remind me";
+  const isReminder = shortcut === "remindMe";
+  const dateTimeLabel = isReminder
+    ? t`Remind me date and time`
+    : t`Send later date and time`;
   const earliest = Math.max(Date.now(), after ? new Date(after).getTime() : 0);
   useEffect(() => {
     if (!open) {
@@ -127,7 +134,7 @@ function DeliveryTimePicker({
             aria-label={label}
           >
             {value
-              ? new Date(value).toLocaleString(undefined, {
+              ? new Date(value).toLocaleString(i18n.locale, {
                   month: "short",
                   day: "numeric",
                   hour: "numeric",
@@ -154,12 +161,12 @@ function DeliveryTimePicker({
               onClick={() => setShowCustom(false)}
             >
               <ChevronLeftIcon className="size-3.5" />
-              Back
+              <Trans>Back</Trans>
             </Button>
             <label className="block text-xs text-muted-foreground">
-              Choose a date and time
+              <Trans>Choose a date and time</Trans>
               <input
-                aria-label={`${label} date and time`}
+                aria-label={dateTimeLabel}
                 type="datetime-local"
                 value={custom}
                 onChange={(event) => setCustom(event.target.value)}
@@ -173,14 +180,14 @@ function DeliveryTimePicker({
               disabled={!custom || new Date(custom).getTime() <= earliest}
               onClick={() => choose(new Date(custom))}
             >
-              Set time
+              <Trans>Set time</Trans>
             </Button>
           </div>
         ) : (
           <>
             {isReminder && (
               <p className="px-2 py-2 text-xs font-medium text-muted-foreground">
-                Remind me if no reply
+                <Trans>Remind me if no reply</Trans>
               </p>
             )}
             {[1, 2, 7].map((days) => {
@@ -197,13 +204,13 @@ function DeliveryTimePicker({
                 >
                   <span>
                     {after
-                      ? `${days} ${days === 1 ? "day" : "days"} after sending`
+                      ? t`${plural(days, { one: "# day after sending", other: "# days after sending" })}`
                       : days === 1
-                        ? "Tomorrow morning"
-                        : `In ${days} days`}
+                        ? t`Tomorrow morning`
+                        : t`${plural(days, { one: "In # day", other: "In # days" })}`}
                   </span>
                   <span className="shrink-0 text-muted-foreground">
-                    {date.toLocaleDateString(undefined, {
+                    {date.toLocaleDateString(i18n.locale, {
                       month: "short",
                       day: "numeric",
                     })}{" "}
@@ -220,7 +227,7 @@ function DeliveryTimePicker({
               onClick={() => setShowCustom(true)}
             >
               <CalendarDaysIcon className="size-3.5 text-muted-foreground" />
-              Choose date and time
+              <Trans>Choose date and time</Trans>
               <ChevronRightIcon className="ml-auto size-3.5 text-muted-foreground" />
             </Button>
             {value && (
@@ -234,7 +241,7 @@ function DeliveryTimePicker({
                 }}
               >
                 <XIcon className="size-3.5" />
-                Clear time
+                <Trans>Clear time</Trans>
               </Button>
             )}
           </>

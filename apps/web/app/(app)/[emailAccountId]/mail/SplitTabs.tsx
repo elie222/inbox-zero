@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { GripVerticalIcon, PlusIcon } from "lucide-react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import {
@@ -69,6 +70,7 @@ export function SplitTabs({
   leading,
   className,
 }: SplitTabsProps) {
+  const { t } = useLingui();
   const tabsRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -277,7 +279,7 @@ export function SplitTabs({
                       aria-label={split.name}
                       aria-current={active ? "true" : undefined}
                       aria-description={
-                        countLabel ? `${countLabel} in this view` : undefined
+                        countLabel ? t`${countLabel} in this view` : undefined
                       }
                       className={cn(
                         "relative flex shrink-0 select-none items-center gap-1.5 whitespace-nowrap py-2 text-sm focus-visible:outline-none",
@@ -316,7 +318,7 @@ export function SplitTabs({
                   <ContextMenuContent className="w-44">
                     {onEdit && (
                       <ContextMenuItem onSelect={() => onEdit(split.id)}>
-                        Edit filters and name
+                        <Trans>Edit filters and name</Trans>
                       </ContextMenuItem>
                     )}
                     {onToggleBundle && split.bundleEligible && (
@@ -326,14 +328,14 @@ export function SplitTabs({
                           onToggleBundle(split.id, checked)
                         }
                       >
-                        Bundle in Inbox
+                        <Trans>Bundle in Inbox</Trans>
                       </ContextMenuCheckboxItem>
                     )}
                     <ContextMenuItem
                       className="text-destructive focus:text-destructive"
                       onSelect={() => onDelete(split.id)}
                     >
-                      Turn off split
+                      <Trans>Turn off split</Trans>
                     </ContextMenuItem>
                   </ContextMenuContent>
                 </ContextMenu>
@@ -369,7 +371,7 @@ export function SplitTabs({
       {canCreateSplits && (
         <button
           type="button"
-          aria-label="New split"
+          aria-label={t`New split`}
           onClick={onNewSplit}
           className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >

@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeftIcon, CheckIcon, PlusIcon } from "lucide-react";
 import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-account-url";
@@ -26,6 +27,7 @@ export function AccountCommandList({
   onClose: () => void;
   onBack: () => void;
 }) {
+  const { t } = useLingui();
   const { data, isLoading, error } = useAccounts();
   const { emailAccountId } = useAccount();
   const pathname = usePathname();
@@ -41,8 +43,10 @@ export function AccountCommandList({
     <LoadingContent loading={isLoading} error={error}>
       {data && (
         <>
-          <CommandEmpty>No accounts found.</CommandEmpty>
-          <CommandGroup heading="Accounts">
+          <CommandEmpty>
+            <Trans>No accounts found.</Trans>
+          </CommandEmpty>
+          <CommandGroup heading={t`Accounts`}>
             {accounts?.map((account) => (
               <CommandItem
                 key={account.id}
@@ -85,7 +89,7 @@ export function AccountCommandList({
                   (!isMail || searchParams.get("accountScope") !== "all") && (
                     <CheckIcon
                       className="ml-2 size-4 shrink-0"
-                      aria-label="Current account"
+                      aria-label={t`Current account`}
                     />
                   )}
               </CommandItem>
@@ -103,11 +107,11 @@ export function AccountCommandList({
                   }}
                 >
                   <PlusIcon className="mr-2 size-4" />
-                  Add or manage accounts
+                  <Trans>Add or manage accounts</Trans>
                 </CommandItem>
                 <CommandItem value="accounts-back" onSelect={onBack}>
                   <ArrowLeftIcon className="mr-2 size-4" />
-                  Back to commands
+                  <Trans>Back to commands</Trans>
                 </CommandItem>
               </CommandGroup>
             </>

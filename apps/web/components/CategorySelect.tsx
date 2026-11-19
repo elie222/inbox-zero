@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { Category } from "@/generated/prisma/client";
 import {
   Select,
@@ -26,13 +27,16 @@ export function CategorySelect({
   categories: Pick<Category, "id" | "name">[];
   onSuccess?: (categoryId: string) => void;
 }) {
+  const { t } = useLingui();
   const item = useAiCategorizationQueueItem(sender);
 
   if (item?.status && item?.status !== "completed") {
     return (
       <span className="flex items-center text-muted-foreground">
         <LoadingMiniSpinner />
-        <span className="ml-2">Categorizing...</span>
+        <span className="ml-2">
+          <Trans>Categorizing...</Trans>
+        </span>
       </span>
     );
   }
@@ -49,13 +53,13 @@ export function CategorySelect({
         if (result?.serverError) {
           toastError({ description: result.serverError });
         } else {
-          toastSuccess({ description: "Category changed" });
+          toastSuccess({ description: t`Category changed` });
           onSuccess?.(value);
         }
       }}
     >
       <SelectTrigger className="w-[180px]">
-        <SelectValue placeholder="Select category" />
+        <SelectValue placeholder={t`Select category`} />
       </SelectTrigger>
       <SelectContent>
         {categories.map((category) => (

@@ -1,6 +1,7 @@
 "use client";
 
 import chunk from "lodash/chunk";
+import { useLingui } from "@lingui/react/macro";
 import { atom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { useCallback } from "react";
 import { toast } from "sonner";
@@ -40,6 +41,7 @@ export function useThreadTranslation(
  * translation and the original once every message has one.
  */
 export function useTranslateThread() {
+  const { t } = useLingui();
   const store = useStore();
   const setTranslations = useSetAtom(threadTranslationsAtom);
 
@@ -88,7 +90,7 @@ export function useTranslateThread() {
           const data = result?.data;
           if (!data) {
             toast.error(
-              getActionErrorMessage(result, "Couldn't translate this email"),
+              getActionErrorMessage(result, t`Couldn't translate this email`),
             );
             return;
           }
@@ -110,7 +112,7 @@ export function useTranslateThread() {
           }));
         }
       } catch {
-        toast.error("Couldn't translate this email");
+        toast.error(t`Couldn't translate this email`);
         return;
       } finally {
         update((current) => ({ ...current, loading: false }));
@@ -122,12 +124,15 @@ export function useTranslateThread() {
           isForeignLanguage(message.sourceLanguage, targetLanguage),
         )
       ) {
+        const languageName = getLanguageName(targetLanguage);
         toast.info(
-          `Already in ${getLanguageName(targetLanguage) ?? "your language"}`,
+          languageName
+            ? t`Already in ${languageName}`
+            : t`Already in your language`,
         );
       }
     },
-    [store, setTranslations],
+    [store, setTranslations, t],
   );
 }
 

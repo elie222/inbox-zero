@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ErrorPage } from "@/components/ErrorPage";
-import { BasicLayout } from "@/components/layouts/BasicLayout";
+import { ClientBasicLayout } from "@/components/layouts/ClientBasicLayout";
 import { Button } from "@/components/ui/button";
 import { createClientLogger } from "@/utils/logger-client";
 
@@ -18,7 +18,7 @@ export default function NotFound() {
   }, [pathname]);
 
   return (
-    <BasicLayout>
+    <ClientBasicLayout>
       <ErrorPage
         title="Page Not Found"
         description="The page you are looking for could not be found."
@@ -33,6 +33,6 @@ export default function NotFound() {
           </div>
         }
       />
-    </BasicLayout>
+    </ClientBasicLayout>
   );
 }

@@ -2,7 +2,12 @@ import { ZodError } from "zod";
 import { type NextRequest, NextResponse, after } from "next/server";
 import { randomUUID } from "node:crypto";
 import * as Sentry from "@sentry/nextjs";
-import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
+import {
+  captureException,
+  checkCommonErrors,
+  isInvalidGrantError,
+  SafeError,
+} from "@/utils/error";
 import {
   isPublicApiPath,
   publicApiErrorFromUnknown,
@@ -566,6 +571,10 @@ async function emailProviderMiddleware(
 
     return providerReq;
   } catch (error) {
+    if (isInvalidGrantError(error)) {
+      throw new SafeError("No refresh token");
+    }
+
     // Known errors (revoked access, rate-limit mode) are logged where they're
     // raised, and withMiddleware applies shared error handling.
     if (error instanceof SafeError || isProviderRateLimitModeError(error)) {

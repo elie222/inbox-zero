@@ -1,5 +1,8 @@
 import { internalDateToDate } from "@/utils/date";
-import { matchesSenderFilter } from "@/utils/split-inbox/sender-filter";
+import {
+  matchesRecipientFilter,
+  matchesSenderFilter,
+} from "@/utils/split-inbox/sender-filter";
 import type { ParsedMessage } from "@/utils/types";
 import {
   mailSplitToThreadsQuery,
@@ -72,6 +75,8 @@ function matchesMessage(
     query.fromEmail &&
     !matchesSenderFilter(message.headers.from, query.fromEmail)
   )
+    return false;
+  if (query.toEmail && !matchesRecipientFilter(message.headers, query.toEmail))
     return false;
   if (query.before) {
     const timestamp = internalDateToDate(message.internalDate, {

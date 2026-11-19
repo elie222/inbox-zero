@@ -1,9 +1,11 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import { Button } from "@/components/new-landing/common/Button";
 import { Chat } from "@/components/new-landing/icons/Chat";
+import { LandingLink } from "@/components/new-landing/LandingLink";
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
 import { cn } from "@/utils";
 
@@ -16,23 +18,24 @@ interface CallToActionProps {
 }
 
 export function CallToAction({
-  text = "Get started",
+  text,
   buttonSize = "xl",
   className,
   href = "/login",
   showSalesButton = true,
 }: CallToActionProps) {
   const posthog = usePostHog();
+  const { t } = useLingui();
 
   return (
     <div className={cn("flex justify-center items-center gap-4", className)}>
       <Button size={buttonSize} asChild>
-        <Link
+        <LandingLink
           href={href}
           onClick={() => landingPageAnalytics.getStartedClicked(posthog)}
         >
-          <span className="relative z-10">{text}</span>
-        </Link>
+          <span className="relative z-10">{text ?? t`Get started`}</span>
+        </LandingLink>
       </Button>
       {showSalesButton ? (
         <Button variant="secondary-two" size={buttonSize} asChild>
@@ -41,7 +44,7 @@ export function CallToAction({
             onClick={() => landingPageAnalytics.talkToSalesClicked(posthog)}
           >
             <Chat />
-            Talk to sales
+            <Trans>Talk to sales</Trans>
           </Link>
         </Button>
       ) : null}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { Tooltip } from "@/components/Tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/utils";
@@ -15,19 +16,20 @@ export function SelectAllCheckbox({
   onSelectAll: () => void;
   onClearSelection: () => void;
 }) {
+  const { t } = useLingui();
   const allSelected = threadCount > 0 && selectedCount === threadCount;
 
   return (
     <Tooltip
-      content={allSelected ? "Deselect all conversations" : undefined}
+      content={allSelected ? t`Deselect all conversations` : undefined}
       shortcuts={
         allSelected
           ? undefined
-          : [{ id: "selectAll", label: "Select all conversations" }]
+          : [{ id: "selectAll", label: t`Select all conversations` }]
       }
     >
       <Checkbox
-        aria-label="Select all conversations"
+        aria-label={t`Select all conversations`}
         checked={allSelected}
         className={cn(mailCheckboxClassName, "shrink-0")}
         disabled={threadCount === 0}

@@ -1181,6 +1181,35 @@ describe("OutlookProvider reply history", () => {
 });
 
 describe("OutlookProvider.getThreadsWithQuery", () => {
+  it("includes Bcc-only sent recipients only when requested", async () => {
+    const message = createMessage({
+      id: "sent-bcc",
+      conversationId: "bcc-thread",
+      parentFolderId: "sent-folder-id",
+    });
+    message.toRecipients = [
+      { emailAddress: { address: "other@elsewhere.example" } },
+    ];
+    message.bccRecipients = [
+      { emailAddress: { address: "CONTACT@OUTSIDE.EXAMPLE" } },
+    ];
+    const client = createMockOutlookClient([], {
+      folderIdCache: { sentitems: "sent-folder-id" },
+      responsesByApiPath: {
+        "/me/mailFolders/sentitems/messages": () => ({ value: [message] }),
+      },
+    });
+    const provider = new OutlookProvider(client);
+    const query = { type: "sent", toEmail: "contact@outside.example" };
+
+    expect((await provider.getThreadsWithQuery({ query })).threads).toEqual([]);
+    const result = await provider.getThreadsWithQuery({
+      query,
+      includeBccRecipients: true,
+    });
+    expect(result.threads.map(({ id }) => id)).toEqual(["bcc-thread"]);
+  });
+
   it("pages domain filters without dropping inbox, unread, or date constraints", async () => {
     const next =
       "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=domain";
@@ -1221,6 +1250,41 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     expect(client.getRequestLog()[0].filter).toContain("receivedDateTime lt");
     expect(client.getRequestLog()[0].filter).not.toContain("from/emailAddress");
     expect(client.getRequestLog()[1].apiPath).toBe(next);
+  });
+
+  it("keeps only mail addressed to the recipient filter in To or Cc", async () => {
+    const message = (id: string, to: string, cc?: string) => {
+      const result = createMessage({
+        id,
+        conversationId: id,
+        parentFolderId: "inbox-folder-id",
+      });
+      result.toRecipients = [{ emailAddress: { address: to } }];
+      result.ccRecipients = cc ? [{ emailAddress: { address: cc } }] : [];
+      return result;
+    };
+    const client = createMockOutlookClient([], {
+      responsesByApiPath: {
+        "/me/messages": {
+          value: [
+            message("to", "security@rakazo.com"),
+            message("cc", "me@example.com", "Hello@Rakazo.com"),
+            message("other", "me@example.com", "hello@notrakazo.com"),
+          ],
+        },
+      },
+    });
+    const provider = new OutlookProvider(client);
+    const ids = async (toEmail: string) =>
+      (
+        await provider.getThreadsWithQuery({
+          query: { type: "inbox", toEmail },
+        })
+      ).threads
+        .map((thread) => thread.id)
+        .sort();
+    expect(await ids("@rakazo.com")).toEqual(["cc", "to"]);
+    expect(await ids("hello@rakazo.com")).toEqual(["cc"]);
   });
 
   it.each([
@@ -1407,6 +1471,7 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
       getThreadParticipantNames(
         [...(thread?.participantMessages ?? []), ...(thread?.messages ?? [])],
         "owner@example.com",
+        "me",
       ),
     ).toEqual(["Dana Example", "me"]);
     expect(thread?.messages.map((message) => message.id)).toEqual([

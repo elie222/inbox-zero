@@ -5,6 +5,7 @@ import {
   endStripeTrial,
   getFirstPositivePaymentStatus,
   getPremiumBillingState,
+  grantDefaultPlan,
   payOnStripeCheckout,
   resetBillingState,
   waitForTrialingSubscription,
@@ -21,6 +22,7 @@ test.beforeEach(async () => {
 
 test.afterEach(async () => {
   await resetBillingState();
+  await grantDefaultPlan();
 });
 
 test("starts a trial from the post-onboarding upgrade page", async ({
@@ -56,16 +58,57 @@ test("starts a trial from the post-onboarding upgrade page", async ({
     page.locator(`button[aria-describedby="${STARTER_TIER}"]`),
   ).toHaveText("Current plan", { timeout: 60_000 });
 
-  await page.goto("/settings");
-  await page
-    .getByRole("button", { name: "Switch to monthly" })
-    .click({ timeout: 60_000 });
-  await expect(page.getByRole("alertdialog")).toContainText("per user");
+  // The same plan on the other billing interval is offered as a plan change.
+  await page.getByRole("radio", { name: "Monthly" }).click();
+  await expect(
+    page.locator(`button[aria-describedby="${STARTER_TIER}"]`),
+  ).toHaveText("Switch to this plan");
   await capturePlaywrightCheckpoint(
     page,
     test.info(),
     "billing-interval-switch",
   );
+});
+
+test("a desktop checkout finishes in the browser and the app moves on", async ({
+  context,
+  page,
+}) => {
+  // The desktop shell exposes this bridge; checkout from it opens in the
+  // system browser, which is a separate window from the app.
+  await context.addInitScript(() => {
+    Object.assign(window, { inboxZeroDesktop: { startAuth: async () => {} } });
+  });
+
+  await page.goto("/welcome-upgrade");
+  await expect(
+    page.getByRole("heading", { name: "Start your 7-day FREE trial" }),
+  ).toBeVisible({ timeout: 60_000 });
+
+  const browser = await context.newPage();
+  await browser.goto("/welcome-upgrade");
+  await expect(
+    browser.getByRole("heading", { name: "Start your 7-day FREE trial" }),
+  ).toBeVisible({ timeout: 60_000 });
+  await payOnStripeCheckout(browser, STARTER_TIER);
+
+  await expect(browser).toHaveURL(/\/checkout-complete(?:\?.*)?$/, {
+    timeout: 60_000,
+  });
+  await expect(
+    browser.getByRole("heading", { name: "You're all set" }),
+  ).toBeVisible({ timeout: 60_000 });
+  await capturePlaywrightCheckpoint(
+    browser,
+    test.info(),
+    "desktop-checkout-complete",
+  );
+
+  // The seeded user picked no signup intent, so the app opens the assistant.
+  await expect(page).toHaveURL(/\/automation(?:\?.*)?$/, { timeout: 60_000 });
+  expect(await getPremiumBillingState()).toMatchObject({
+    stripeSubscriptionStatus: "trialing",
+  });
 });
 
 test("records the paid conversion once the first invoice is paid", async ({

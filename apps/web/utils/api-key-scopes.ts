@@ -96,7 +96,3 @@ export const apiKeyExpirySchema = z.enum(
 );
 
 export type ApiKeyExpiryValue = z.infer<typeof apiKeyExpirySchema>;
-
-export function formatApiKeyScope(scope: ApiKeyScopeValue): string {
-  return API_KEY_SCOPE_METADATA[scope]?.label ?? scope;
-}

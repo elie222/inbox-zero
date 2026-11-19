@@ -122,6 +122,7 @@ RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
 # Legacy deploy reports the @sqlite.org/sqlite-wasm patch as unused. That patch
 # only touches browser worker code, which next build has already bundled.
 RUN cd /app/apps/web \
+ && pnpm exec lingui extract-template \
  && pnpm exec next build \
  && pnpm exec serwist build serwist.config.mjs \
  && cd /app \

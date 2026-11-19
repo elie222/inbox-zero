@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { XIcon } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
 import type { EmailLabel } from "@/providers/email-label-types";
 import { cn } from "@/utils";
 
@@ -30,6 +31,7 @@ export function MailLabelChip({
   onRemove,
   className,
 }: MailLabelChipProps) {
+  const { t } = useLingui();
   const providerStyle = providerColorStyle(color);
 
   return (
@@ -55,7 +57,7 @@ export function MailLabelChip({
       )}
       {onRemove ? (
         <button
-          aria-label={`Remove ${name} label`}
+          aria-label={t`Remove ${name} label`}
           className="pointer-events-none -mr-0.5 shrink-0 rounded-sm opacity-0 transition-opacity focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/chip:pointer-events-auto group-hover/chip:opacity-100"
           onClick={(event) => {
             event.preventDefault();

@@ -9,6 +9,8 @@ import {
   User,
 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
@@ -21,32 +23,33 @@ import { captureException, getActionErrorMessage } from "@/utils/error";
 const COMPANY_SIZES = [
   {
     value: 1,
-    label: "Only me",
+    label: msg`Only me`,
     icon: <User className="size-4" />,
   },
   {
     value: 5,
-    label: "2-10 people",
+    label: msg`2-10 people`,
     icon: <Users className="size-4" />,
   },
   {
     value: 50,
-    label: "11-100 people",
+    label: msg`11-100 people`,
     icon: <Building className="size-4" />,
   },
   {
     value: 500,
-    label: "101-1000 people",
+    label: msg`101-1000 people`,
     icon: <Factory className="size-4" />,
   },
   {
     value: 1000,
-    label: "1000+ people",
+    label: msg`1000+ people`,
     icon: <Landmark className="size-4" />,
   },
 ];
 
 export function StepCompanySize({ onNext }: { onNext: () => void }) {
+  const { t, i18n } = useLingui();
   const { executeAsync: saveCompanySize } = useAction(
     saveOnboardingAnswersAction,
   );
@@ -80,8 +83,7 @@ export function StepCompanySize({ onNext }: { onNext: () => void }) {
                   validationErrors: result?.validationErrors,
                 },
                 {
-                  prefix:
-                    "We couldn't save that answer, but you can keep going",
+                  prefix: t`We couldn't save that answer, but you can keep going`,
                 },
               ),
             });
@@ -95,12 +97,11 @@ export function StepCompanySize({ onNext }: { onNext: () => void }) {
             },
           });
           toastError({
-            description:
-              "We couldn't save that answer, but you can keep going.",
+            description: t`We couldn't save that answer, but you can keep going.`,
           });
         });
     },
-    [onNext, saveCompanySize],
+    [onNext, saveCompanySize, t],
   );
 
   return (
@@ -110,9 +111,13 @@ export function StepCompanySize({ onNext }: { onNext: () => void }) {
       </IconCircle>
 
       <div className="text-center mt-4">
-        <PageHeading>What's the size of your company?</PageHeading>
+        <PageHeading>
+          <Trans>What's the size of your company?</Trans>
+        </PageHeading>
         <TypographyP className="mt-2 max-w-lg mx-auto">
-          This helps us tailor the experience to your organization's needs.
+          <Trans>
+            This helps us tailor the experience to your organization's needs.
+          </Trans>
         </TypographyP>
       </div>
 
@@ -120,7 +125,7 @@ export function StepCompanySize({ onNext }: { onNext: () => void }) {
         {COMPANY_SIZES.map((size) => (
           <OnboardingButton
             key={size.value}
-            text={size.label}
+            text={i18n._(size.label)}
             icon={size.icon}
             onClick={() => onSelectCompanySize(size.value)}
           />

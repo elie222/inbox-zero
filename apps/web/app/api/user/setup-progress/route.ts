@@ -3,6 +3,7 @@ import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import { withEmailAccount } from "@/utils/middleware";
 import { env } from "@/env";
+import { MailSetupState } from "@/generated/prisma/enums";
 
 export type GetSetupProgressResponse = Awaited<
   ReturnType<typeof getSetupProgress>
@@ -39,6 +40,7 @@ async function getSetupProgress({
         take: 1,
       },
       calendarConnections: { select: { id: true }, take: 1 },
+      mailSetup: true,
       user: { select: { dismissedHints: true } },
       members: {
         take: 1,
@@ -82,6 +84,9 @@ async function getSetupProgress({
   const calendarConnectedDismissed = emailAccount.user.dismissedHints.includes(
     `setup:calendarConnected:${emailAccountId}`,
   );
+  const emailAppDismissed = emailAccount.user.dismissedHints.includes(
+    `setup:emailApp:${emailAccountId}`,
+  );
   const tabsExtensionCompleted = emailAccount.user.dismissedHints.includes(
     `setup:tabsExtension:${emailAccountId}`,
   );
@@ -89,6 +94,7 @@ async function getSetupProgress({
     env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED ||
       env.NEXT_PUBLIC_BOOKING_LINKS_ENABLED,
   );
+  const showEmailAppStep = env.NEXT_PUBLIC_EMAIL_SEND_ENABLED;
 
   const teamInviteCompleted =
     hasTeamMembers || hasPendingInvitations || teamInviteDismissed;
@@ -103,12 +109,17 @@ async function getSetupProgress({
       ? emailAccount.calendarConnections.length > 0 ||
         calendarConnectedDismissed
       : true,
+    // Mail leaves PENDING once its first-run setup panel has been closed.
+    emailApp: showEmailAppStep
+      ? emailAccount.mailSetup !== MailSetupState.PENDING || emailAppDismissed
+      : true,
   };
 
   const visibleSetupSteps = [
     steps.aiAssistant,
     steps.bulkUnsubscribe,
     ...(showCalendarStep ? [steps.calendarConnected] : []),
+    ...(showEmailAppStep ? [steps.emailApp] : []),
   ];
   const baseCompleted = visibleSetupSteps.filter(Boolean).length;
   const baseTotal = visibleSetupSteps.length;
@@ -124,6 +135,7 @@ async function getSetupProgress({
     total,
     isComplete: completed === total,
     showCalendarStep,
+    showEmailAppStep,
     tabsExtensionCompleted,
     teamInvite: showTeamInviteStep
       ? {

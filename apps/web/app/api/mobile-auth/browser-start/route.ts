@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { mobileAuthCodeChallengeSchema } from "@/utils/mobile-auth/pkce";
 import { withError } from "@/utils/middleware";
+import { MobileSocialAuthRateLimitError } from "@/utils/mobile-auth/rate-limit-error";
 import { startMobileSocialAuth } from "@/utils/mobile-auth/start-social";
 import { mobileAuthProviderSchema } from "@/utils/mobile-auth/providers";
 import { getMobileAuthBaseUrlOrigin } from "@/utils/mobile-auth/url";
@@ -29,7 +30,12 @@ export const GET = withError("mobile-auth/browser-start", async (request) => {
     provider,
     codeChallenge: codeChallenge.data,
     returnUrlMode: "desktop-scheme",
+  }).catch((error: unknown) => {
+    if (error instanceof MobileSocialAuthRateLimitError)
+      return error.toResponse();
+    throw error;
   });
+  if (started instanceof Response) return started;
 
   const response = NextResponse.redirect(started.authorizationURL, 302);
   for (const cookie of started.setCookies) {

@@ -1,3 +1,4 @@
+import { setupI18n } from "@lingui/core";
 import { describe, expect, it } from "vitest";
 import {
   getComposeTargetMessageId,
@@ -297,6 +298,8 @@ describe("scrollElementIntoContainer", () => {
   });
 });
 
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
+
 describe("groupThreadsByDate", () => {
   const now = new Date("2025-09-05T12:00:00");
 
@@ -310,6 +313,7 @@ describe("groupThreadsByDate", () => {
         createDatedThread("2025-08-30T18:00:00"),
         createDatedThread("2025-08-02T18:00:00"),
       ],
+      i18n,
       now,
     );
 
@@ -335,7 +339,7 @@ describe("groupThreadsByDate", () => {
       ],
     };
 
-    expect(groupThreadsByDate([thread], now)[0].label).toBe("Today");
+    expect(groupThreadsByDate([thread], i18n, now)[0].label).toBe("Today");
   });
 
   it("gives undated threads no heading instead of dating them now", () => {
@@ -345,6 +349,7 @@ describe("groupThreadsByDate", () => {
         { messages: [{ internalDate: undefined }] },
         { messages: [{ internalDate: "not-a-date" }] },
       ],
+      i18n,
       now,
     );
 
@@ -366,6 +371,7 @@ describe("groupThreadsByDate", () => {
         createDatedThread("2025-09-04T11:00:00"),
         createDatedThread("2025-09-05T09:00:00"),
       ],
+      i18n,
       now,
     );
 

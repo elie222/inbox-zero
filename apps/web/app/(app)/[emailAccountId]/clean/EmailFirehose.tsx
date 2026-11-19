@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { parseAsString, useQueryState } from "nuqs";
+import { Plural, Trans } from "@lingui/react/macro";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmailItem } from "./EmailFirehoseItem";
@@ -90,9 +91,15 @@ export function EmailFirehose({
       <Tabs defaultValue="done" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="done">
-            {action === CleanAction.ARCHIVE ? "Archived" : "Marked read"}
+            {action === CleanAction.ARCHIVE ? (
+              <Trans>Archived</Trans>
+            ) : (
+              <Trans>Marked read</Trans>
+            )}
           </TabsTrigger>
-          <TabsTrigger value="keep">Kept</TabsTrigger>
+          <TabsTrigger value="keep">
+            <Trans>Kept</Trans>
+          </TabsTrigger>
         </TabsList>
         <div
           ref={parentRef}
@@ -139,11 +146,29 @@ export function EmailFirehose({
             <div className="flex h-full flex-col items-center justify-center py-20 text-muted-foreground">
               {stats.total ? (
                 <span>
-                  {stats.total} emails processed. {stats.done}{" "}
-                  {action === CleanAction.ARCHIVE ? "archived" : "marked read"}.
+                  <Plural
+                    value={stats.total}
+                    one="# email processed."
+                    other="# emails processed."
+                  />{" "}
+                  {action === CleanAction.ARCHIVE ? (
+                    <Plural
+                      value={stats.done}
+                      one="# archived."
+                      other="# archived."
+                    />
+                  ) : (
+                    <Plural
+                      value={stats.done}
+                      one="# marked read."
+                      other="# marked read."
+                    />
+                  )}
                 </span>
               ) : (
-                <span>No emails yet</span>
+                <span>
+                  <Trans>No emails yet</Trans>
+                </span>
               )}
             </div>
           )}

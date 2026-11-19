@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useState } from "react";
 import { CopyInput } from "@/components/CopyInput";
 import { RegenerateSecretButton } from "@/app/(app)/[emailAccountId]/settings/WebhookGenerate";
@@ -29,6 +30,7 @@ export function WebhookSection() {
 }
 
 function WebhookSectionContent() {
+  const { t } = useLingui();
   const { data, isLoading, error, mutate } = useUser();
   const [generatedSecret, setGeneratedSecret] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -36,7 +38,9 @@ function WebhookSectionContent() {
   return (
     <Item size="sm">
       <ItemContent>
-        <ItemTitle>Webhook Secret</ItemTitle>
+        <ItemTitle>
+          <Trans>Webhook Secret</Trans>
+        </ItemTitle>
       </ItemContent>
       <ItemActions>
         <Dialog
@@ -48,16 +52,20 @@ function WebhookSectionContent() {
         >
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
-              {data?.hasWebhookSecret ? "Manage Secret" : "Generate Secret"}
+              {data?.hasWebhookSecret ? t`Manage Secret` : t`Generate Secret`}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Webhook Secret</DialogTitle>
+              <DialogTitle>
+                <Trans>Webhook Secret</Trans>
+              </DialogTitle>
               <DialogDescription>
-                Include this in the X-Webhook-Secret header when setting up
-                webhook endpoints. Existing secrets are not shown again. When
-                you generate a new secret, copy it before closing this dialog.
+                <Trans>
+                  Include this in the X-Webhook-Secret header when setting up
+                  webhook endpoints. Existing secrets are not shown again. When
+                  you generate a new secret, copy it before closing this dialog.
+                </Trans>
               </DialogDescription>
             </DialogHeader>
             <LoadingContent loading={isLoading} error={error}>
@@ -67,8 +75,10 @@ function WebhookSectionContent() {
                     <CopyInput value={generatedSecret} masked />
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Generate a new webhook secret to reveal it once for
-                      copying.
+                      <Trans>
+                        Generate a new webhook secret to reveal it once for
+                        copying.
+                      </Trans>
                     </p>
                   )}
                   <RegenerateSecretButton

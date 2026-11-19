@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useStableCallback } from "./use-stable-callback";
@@ -8,6 +9,7 @@ export function useOptimisticArchive(
   enabled: boolean,
   scope: string,
 ) {
+  const { t } = useLingui();
   const [pending, setPending] = useState(new Set<string>());
   const rowPositions = useRef<Map<string, number> | undefined>(undefined);
   const visibleThreads = useMemo(
@@ -65,7 +67,7 @@ export function useOptimisticArchive(
       try {
         return await submit(keys);
       } catch {
-        toast.error("Couldn't queue archiving");
+        toast.error(t`Couldn't queue archiving`);
         return [];
       } finally {
         setPending((current) => {

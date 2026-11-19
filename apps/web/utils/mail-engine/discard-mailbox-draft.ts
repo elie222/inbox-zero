@@ -46,10 +46,12 @@ export async function discardMailboxDraft({
       if (!draftId) throw error;
     }
   }
-  if (!draftId) throw new Error(rejection ?? "Failed to discard draft");
+  if (!draftId) throw new Error(rejection ?? DISCARD_DRAFT_FAILED_MESSAGE);
 
   const result = await discardComposeDraftAction(emailAccountId, { draftId });
   if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
   // A copy the local mailbox already holds goes once sync sees it deleted.
   await client?.requestSync([emailAccountId]).catch(() => undefined);
 }
+
+export const DISCARD_DRAFT_FAILED_MESSAGE = "Failed to discard draft";

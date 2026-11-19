@@ -1,5 +1,7 @@
 import type { OutlookCategory } from "@microsoft/microsoft-graph-types";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
+import type { EmailProvider } from "@/utils/email/types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
@@ -24,7 +26,53 @@ vi.mock("@/utils/outlook/message", () => ({
     mockGetFolderIds(...args),
 }));
 
+vi.mock("@/env", async (importActual) => {
+  const actual = await importActual<typeof import("@/env")>();
+  return {
+    ...actual,
+    env: {
+      ...actual.env,
+      AXIOM_TOKEN: undefined,
+      NEXT_PUBLIC_LOG_SCOPES: undefined,
+    },
+  };
+});
+
 describe("createLabel", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    "Category already exists",
+    "Unexpected provider failure",
+  ])("does not classify a category name as an account failure: %s", async (message) => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = createMockOutlookClient(
+      vi.fn().mockReturnValue({
+        post: vi.fn().mockRejectedValue(new Error(message)),
+        get: vi.fn().mockResolvedValue({ value: [] }),
+      }),
+    );
+
+    await expect(
+      resolveLabelNameAndId({
+        label: "invalid_grant",
+        emailProvider: {
+          getLabelByName: vi.fn().mockResolvedValue(null),
+          createLabel: (name: string) =>
+            createLabel({ client, name, logger: createTestLogger() }),
+        } as unknown as EmailProvider,
+      }),
+    ).resolves.toEqual({ label: "invalid_grant", labelId: null });
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Error resolving label"),
+    );
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("Error resolving label"),
+    );
+  });
+
   it("sanitizes comma-containing category names before Graph API call", async () => {
     const post = vi.fn().mockResolvedValue({
       id: "cat-1",

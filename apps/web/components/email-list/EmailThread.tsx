@@ -335,6 +335,9 @@ export function EmailThread({
       release();
     };
   }, [sentReplyHandoff]);
+  const isConcealed = (sendOperationId?: string) =>
+    Boolean(sendOperationId) &&
+    sentReplyHandoff?.operationId === sendOperationId;
   const [selectedMessageId, setSelectedMessageId] = useState<string>();
   const selectedId = organizedMessages.some(
     ({ message }) => message.id === selectedMessageId,
@@ -431,7 +434,19 @@ export function EmailThread({
         )}
 
         <ul className="relative flex flex-col gap-2 pt-1">
-          {enableMessageNavigation && <SelectionBar selectedId={selectedId} />}
+          {enableMessageNavigation && (
+            <SelectionBar
+              animateSelection={selectedMessageId === selectedId}
+              selectedId={selectedId}
+              selectedConcealed={organizedMessages.some(
+                ({ message, outgoing }) =>
+                  message.id === selectedId &&
+                  isConcealed(
+                    outgoing?.operationId ?? sendOperationIds?.get(message.id),
+                  ),
+              )}
+            />
+          )}
           {organizedMessages.map(({ message, draftMessages, outgoing }) => {
             const sendOperationId =
               outgoing?.operationId ?? sendOperationIds?.get(message.id);
@@ -491,10 +506,7 @@ export function EmailThread({
                   sendOperationId ? `outgoing:${sendOperationId}` : undefined
                 }
                 sendOperationId={sendOperationId}
-                concealed={
-                  Boolean(sendOperationId) &&
-                  sentReplyHandoff?.operationId === sendOperationId
-                }
+                concealed={isConcealed(sendOperationId)}
                 concealSentReply={concealSentReply}
                 awaitSentReply={awaitSentReply}
                 onReplySent={() => {
@@ -694,9 +706,17 @@ function draftRecency(draft: ThreadMessage) {
 }
 
 // One bar for the whole thread so it can slide between messages. It only
-// animates when the selection moves; layout changes (expanding, bodies
-// loading) reposition it instantly so it never trails the card.
-function SelectionBar({ selectedId }: { selectedId?: string }) {
+// animates for deliberate selection changes; automatic selection and layout
+// changes reposition it instantly so it never trails the card.
+function SelectionBar({
+  animateSelection,
+  selectedId,
+  selectedConcealed,
+}: {
+  animateSelection: boolean;
+  selectedId?: string;
+  selectedConcealed: boolean;
+}) {
   const barRef = useRef<HTMLLIElement>(null);
   const [position, setPosition] = useState<{
     top: number;
@@ -715,28 +735,40 @@ function SelectionBar({ selectedId }: { selectedId?: string }) {
       const item = Array.from(
         list.querySelectorAll<HTMLElement>(":scope > [data-thread-message-id]"),
       ).find((element) => element.dataset.threadMessageId === selectedId);
-      // A sent reply stays hidden until its body loads; it shows the bar once
-      // it joins the layout and resizes the list.
-      if (!item || item.ariaHidden === "true") return setPosition(undefined);
-      setPosition({ top: item.offsetTop, height: item.offsetHeight, animate });
+      // A sent reply stays hidden until its body loads. It takes its
+      // composer's place, so the list may not resize when it is revealed.
+      if (!item || selectedConcealed) return setPosition(undefined);
+      const top = item.offsetTop;
+      const height = item.offsetHeight;
+      setPosition((previous) =>
+        previous?.top === top && previous.height === height
+          ? previous
+          : { top, height, animate },
+      );
     };
     measure(
-      previousId.current !== undefined && previousId.current !== selectedId,
+      animateSelection &&
+        previousId.current !== undefined &&
+        previousId.current !== selectedId,
     );
     previousId.current = selectedId;
-    // The observer reports once on start; skipping it keeps the slide running.
-    let started = false;
-    const observer = new ResizeObserver(() => {
-      if (started) measure(false);
-      started = true;
-    });
+    // The composer can close after the initial measurement. Even the first
+    // observer delivery must correct that layout before the browser paints.
+    // Unchanged measurements keep the selection's slide animation running.
+    const observer = new ResizeObserver(() => measure(false));
     observer.observe(list);
+    for (const item of list.querySelectorAll<HTMLElement>(
+      ":scope > [data-thread-message-id]",
+    )) {
+      observer.observe(item);
+    }
     return () => observer.disconnect();
-  }, [selectedId]);
+  });
 
   return (
     <li
       aria-hidden
+      data-testid="thread-selection-bar"
       ref={barRef}
       role="presentation"
       className={cn(

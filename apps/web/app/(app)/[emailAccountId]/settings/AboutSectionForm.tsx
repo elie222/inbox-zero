@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useForm } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ const AboutSectionForm = ({
   mutate: () => void;
   onSuccess: () => void;
 }) => {
+  const { t } = useLingui();
   const {
     register,
     formState: { errors },
@@ -59,7 +61,7 @@ const AboutSectionForm = ({
     saveAboutAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Your profile has been updated!" });
+        toastSuccess({ description: t`Your profile has been updated!` });
         onSuccess();
       },
       onError: (error) => {
@@ -83,13 +85,13 @@ const AboutSectionForm = ({
         label=""
         registerProps={register("about")}
         error={errors.about}
-        placeholder={`My name is Alex Smith. I'm the founder of Acme.
+        placeholder={t`My name is Alex Smith. I'm the founder of Acme.
 
 - If I'm CC'd, it's not To Reply
 - Emails from jane@accounting.com aren't Notifications`}
       />
       <Button type="submit" className="mt-8" loading={isExecuting}>
-        Save
+        <Trans>Save</Trans>
       </Button>
     </form>
   );

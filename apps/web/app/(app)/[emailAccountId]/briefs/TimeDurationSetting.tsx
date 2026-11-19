@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useDebounceCallback } from "usehooks-ts";
@@ -45,6 +46,7 @@ export function TimeDurationSetting({
   initialMinutes: number;
   onSaved: () => void;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
 
   const { handleSubmit, setValue: setFormValue } =
@@ -74,12 +76,12 @@ export function TimeDurationSetting({
       }
 
       toastSuccess({
-        description: "Settings saved!",
+        description: t`Settings saved!`,
         id: "time-duration-saved",
       });
       onSaved();
     },
-    [executeAsync, onSaved],
+    [executeAsync, onSaved, t],
   );
 
   const onError = useCallback(
@@ -126,8 +128,12 @@ export function TimeDurationSetting({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="minutes">minutes</SelectItem>
-          <SelectItem value="hours">hours</SelectItem>
+          <SelectItem value="minutes">
+            <Trans>minutes</Trans>
+          </SelectItem>
+          <SelectItem value="hours">
+            <Trans>hours</Trans>
+          </SelectItem>
         </SelectContent>
       </Select>
     </form>

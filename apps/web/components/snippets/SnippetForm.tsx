@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +22,11 @@ import type { GetSnippetsResponse } from "@/app/api/user/snippets/route";
 
 type SnippetFormItem = GetSnippetsResponse["snippets"][number];
 
+// Passed as values so the translation keeps the literal braces.
+const FIRST_NAME_VARIABLE = "{first_name}";
+const NAME_VARIABLE = "{name}";
+const EMAIL_VARIABLE = "{email}";
+
 export function SnippetForm({
   closeDialog,
   editingItem,
@@ -34,6 +40,7 @@ export function SnippetForm({
   onCreated?: (snippet: SnippetFormItem) => void;
   refetch: () => void;
 }) {
+  const { t } = useLingui();
   const { emailAccountId } = useAccount();
   const {
     register,
@@ -76,14 +83,16 @@ export function SnippetForm({
 
     if (result?.serverError) {
       toastError({
-        title: `Error ${editingItem ? "updating" : "creating"} snippet`,
+        title: editingItem
+          ? t`Error updating snippet`
+          : t`Error creating snippet`,
         description: result.serverError,
       });
       return;
     }
 
     toastSuccess({
-      description: `Snippet ${editingItem ? "updated" : "created"}`,
+      description: editingItem ? t`Snippet updated` : t`Snippet created`,
     });
     if (!editingItem && result?.data?.snippet) {
       onCreated?.(result.data.snippet);
@@ -96,7 +105,7 @@ export function SnippetForm({
     <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
       <Input
         error={errors.shortcut}
-        label="Shortcut"
+        label={t`Shortcut`}
         leftText="/"
         name="shortcut"
         registerProps={register("shortcut")}
@@ -105,15 +114,15 @@ export function SnippetForm({
       <Input
         autosizeTextarea
         error={errors.content}
-        explainText="Use {first_name}, {name}, or {email} for the first recipient."
-        label="Content"
+        explainText={t`Use ${FIRST_NAME_VARIABLE}, ${NAME_VARIABLE}, or ${EMAIL_VARIABLE} for the first recipient.`}
+        label={t`Content`}
         name="content"
         registerProps={register("content")}
         rows={6}
         type="text"
       />
       <Button loading={isSubmitting} type="submit">
-        {editingItem ? "Update" : "Save snippet"}
+        {editingItem ? t`Update` : t`Save snippet`}
       </Button>
     </form>
   );

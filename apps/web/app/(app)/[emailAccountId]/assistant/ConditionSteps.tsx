@@ -5,6 +5,9 @@ import type {
 } from "react-hook-form";
 import type { FieldError, FieldErrors } from "react-hook-form";
 import { useEffect } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { Input, Label, ErrorMessage } from "@/components/Input";
 import { toastError } from "@/components/Toast";
 import { LogicalOperator } from "@/generated/prisma/enums";
@@ -31,11 +34,14 @@ import { TooltipExplanation } from "@/components/TooltipExplanation";
 // UI-level condition types
 type UIConditionType = "from" | "to" | "subject" | "prompt";
 
-const CONDITION_TYPE_OPTIONS: { label: string; value: UIConditionType }[] = [
-  { label: "AI Prompt", value: "prompt" },
-  { label: "From", value: "from" },
-  { label: "To", value: "to" },
-  { label: "Subject", value: "subject" },
+const CONDITION_TYPE_OPTIONS: {
+  label: MessageDescriptor;
+  value: UIConditionType;
+}[] = [
+  { label: msg`AI Prompt`, value: "prompt" },
+  { label: msg`From`, value: "from" },
+  { label: msg`To`, value: "to" },
+  { label: msg`Subject`, value: "subject" },
 ];
 const MAX_CONDITIONS = CONDITION_TYPE_OPTIONS.length;
 
@@ -147,6 +153,7 @@ export function ConditionSteps({
   ruleSystemType: SystemType | null | undefined;
   appendCondition: (condition: ZodCondition) => void;
 }) {
+  const { t, i18n } = useLingui();
   // Check if we can add more conditions
   // Max 4 conditions possible (prompt, from, to, subject)
   const maxConditionsReached = conditions.length >= MAX_CONDITIONS;
@@ -178,13 +185,13 @@ export function ConditionSteps({
         const newCondition = getConditionFromUIType(undefined);
         appendCondition(newCondition);
       }}
-      addButtonLabel="Add Condition"
+      addButtonLabel={t`Add Condition`}
       addButtonDisabled={!canAddMoreConditions}
       addButtonTooltip={
         maxConditionsReached
-          ? "Maximum number of conditions reached."
+          ? t`Maximum number of conditions reached.`
           : !canAddMoreConditions
-            ? "You can only set one condition for this rule."
+            ? t`You can only set one condition for this rule.`
             : undefined
       }
     >
@@ -193,7 +200,7 @@ export function ConditionSteps({
         const uiType = getUIConditionType(currentCondition);
         const isFirstCondition = index === 0;
         const isFirstConditionPrompt = isFirstCondition && uiType === "prompt";
-        const conditionTypeLabel = getConditionTypeLabel(uiType);
+        const conditionTypeLabel = i18n._(getConditionTypeLabel(uiType));
         const usedUITypes = new Set(
           conditions
             .map((c, idx) =>
@@ -229,8 +236,7 @@ export function ConditionSteps({
 
                 if (uniqueUITypes.size !== configuredTypes.length) {
                   toastError({
-                    description:
-                      "You can only have one condition of each type.",
+                    description: t`You can only have one condition of each type.`,
                   });
                   return;
                 }
@@ -283,17 +289,21 @@ export function ConditionSteps({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="and">and</SelectItem>
-                      <SelectItem value="or">or</SelectItem>
+                      <SelectItem value="and">
+                        <Trans>and</Trans>
+                      </SelectItem>
+                      <SelectItem value="or">
+                        <Trans>or</Trans>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 ) : (
                   <p className="text-muted-foreground">
                     {isStaticFollowingStatic
-                      ? "and"
+                      ? t`and`
                       : conditionalOperator === LogicalOperator.OR
-                        ? "or"
-                        : "and"}
+                        ? t`or`
+                        : t`and`}
                   </p>
                 )}
                 <FormControl>
@@ -301,7 +311,7 @@ export function ConditionSteps({
                     {uiType ? (
                       conditionTypeLabel
                     ) : (
-                      <SelectValue placeholder="Choose" />
+                      <SelectValue placeholder={t`Choose`} />
                     )}
                   </SelectTrigger>
                 </FormControl>
@@ -312,7 +322,7 @@ export function ConditionSteps({
                     !usedUITypes.has(option.value) || option.value === uiType,
                 ).map((option) => (
                   <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                    {i18n._(option.label)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -337,7 +347,7 @@ export function ConditionSteps({
           >
             <RuleStep
               onRemove={() => removeCondition(index)}
-              removeAriaLabel="Remove condition"
+              removeAriaLabel={t`Remove condition`}
               leftContent={leftContent}
               rightContent={(() => {
                 const currentCondition = watch(`conditions.${index}`);
@@ -350,7 +360,7 @@ export function ConditionSteps({
                         <div className="mb-2">
                           <Label
                             name={`conditions.${index}.instructions`}
-                            label="That matches:"
+                            label={t`That matches:`}
                           />
                         </div>
                       )}
@@ -359,7 +369,7 @@ export function ConditionSteps({
                           minRows={3}
                           rows={3}
                           {...register(`conditions.${index}.instructions`)}
-                          placeholder="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
+                          placeholder={t`e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to`}
                         />
                       </div>
                       {(
@@ -374,7 +384,7 @@ export function ConditionSteps({
                                 errors.conditions?.[index] as {
                                   instructions?: FieldError;
                                 }
-                              )?.instructions?.message || "Invalid value"
+                              )?.instructions?.message || t`Invalid value`
                             }
                           />
                         </div>
@@ -402,7 +412,7 @@ export function ConditionSteps({
                       />
                       <div className="absolute right-2 top-1/2 -translate-y-1/2">
                         <TooltipExplanation
-                          text={getFilterTooltipText("from")}
+                          text={t`Only apply this rule from emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. "@company.com", "hello@example.com OR support@test.com"`}
                           side="right"
                           size="sm"
                           className="text-gray-400"
@@ -431,7 +441,7 @@ export function ConditionSteps({
                       />
                       <div className="absolute right-2 top-1/2 -translate-y-1/2">
                         <TooltipExplanation
-                          text={getFilterTooltipText("to")}
+                          text={t`Only apply this rule to emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. "@company.com", "hello@example.com OR support@test.com"`}
                           side="right"
                           size="sm"
                           className="text-gray-400"
@@ -448,7 +458,7 @@ export function ConditionSteps({
                         type="text"
                         name={`conditions.${index}.subject`}
                         registerProps={register(`conditions.${index}.subject`)}
-                        placeholder="Receipt for your purchase"
+                        placeholder={t`Receipt for your purchase`}
                         className="pr-8"
                         error={
                           (
@@ -460,7 +470,7 @@ export function ConditionSteps({
                       />
                       <div className="absolute right-2 top-1/2 -translate-y-1/2">
                         <TooltipExplanation
-                          text="Only apply this rule to emails with this subject. e.g. Receipt for your purchase"
+                          text={t`Only apply this rule to emails with this subject. e.g. Receipt for your purchase`}
                           side="right"
                           size="sm"
                           className="text-gray-400"
@@ -480,20 +490,19 @@ export function ConditionSteps({
   );
 }
 
-const getFilterTooltipText = (filterType: "from" | "to") =>
-  `Only apply this rule ${filterType} emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. "@company.com", "hello@example.com OR support@test.com"`;
-
-function getConditionTypeLabel(uiType: UIConditionType | undefined): string {
+function getConditionTypeLabel(
+  uiType: UIConditionType | undefined,
+): MessageDescriptor {
   switch (uiType) {
     case "prompt":
-      return "AI Prompt";
+      return msg`AI Prompt`;
     case "from":
-      return "From";
+      return msg`From`;
     case "to":
-      return "To";
+      return msg`To`;
     case "subject":
-      return "Subject";
+      return msg`Subject`;
     default:
-      return "Select";
+      return msg`Select`;
   }
 }

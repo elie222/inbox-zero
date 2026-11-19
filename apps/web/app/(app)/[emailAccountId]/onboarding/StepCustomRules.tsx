@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { NotepadTextIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
@@ -22,15 +23,25 @@ export function StepCustomRules({
           </IconCircle>
 
           <div className="text-center mt-4 max-w-lg mx-auto">
-            <PageHeading>Custom rules</PageHeading>
+            <PageHeading>
+              <Trans>Custom rules</Trans>
+            </PageHeading>
             <TypographyP className="mt-2 text-left">
-              We've set up the basics, but that's just the beginning. Your AI
-              assistant can handle any email workflow you'd give to a human.
+              <Trans>
+                We've set up the basics, but that's just the beginning. Your AI
+                assistant can handle any email workflow you'd give to a human.
+              </Trans>
             </TypographyP>
-            <TypographyP className="mt-2 text-left">For example:</TypographyP>
+            <TypographyP className="mt-2 text-left">
+              <Trans>For example:</Trans>
+            </TypographyP>
             <ul className="list-disc list-inside space-y-1 text-left leading-7 text-muted-foreground ">
-              <li>Forward receipts to your accountant</li>
-              <li>Label newsletters and archive them after a week</li>
+              <li>
+                <Trans>Forward receipts to your accountant</Trans>
+              </li>
+              <li>
+                <Trans>Label newsletters and archive them after a week</Trans>
+              </li>
             </ul>
           </div>
 

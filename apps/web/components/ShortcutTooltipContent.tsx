@@ -1,3 +1,5 @@
+import type { I18n } from "@lingui/core";
+import { useLingui } from "@lingui/react/macro";
 import { Kbd } from "@/components/Kbd";
 import {
   getShortcut,
@@ -16,6 +18,8 @@ export function ShortcutTooltipContent({
   shortcuts: readonly ShortcutTooltipItem[];
   showLabels?: boolean;
 }) {
+  const { i18n } = useLingui();
+
   return (
     <div className="space-y-1.5 py-0.5">
       {shortcuts.map((shortcut) => {
@@ -24,7 +28,7 @@ export function ShortcutTooltipContent({
           <div className="flex items-center justify-between gap-6" key={id}>
             {showLabels && (
               <span className="font-medium text-white">
-                {shortcutLabel(shortcut)}
+                {shortcutLabel(shortcut, i18n)}
               </span>
             )}
             <div className="flex items-center gap-1">
@@ -49,8 +53,8 @@ function shortcutId(shortcut: ShortcutTooltipItem): ShortcutId {
   return typeof shortcut === "string" ? shortcut : shortcut.id;
 }
 
-function shortcutLabel(shortcut: ShortcutTooltipItem) {
+function shortcutLabel(shortcut: ShortcutTooltipItem, i18n: I18n) {
   return typeof shortcut === "string"
-    ? getShortcut(shortcut).label
+    ? i18n._(getShortcut(shortcut).label)
     : shortcut.label;
 }

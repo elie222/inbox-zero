@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { toastError } from "@/components/Toast";
 import {
   addFilingFolderAction,
@@ -31,6 +32,7 @@ export function useFolderSelection({
   onFoldersAdded?: (savedFolderCount: number) => void;
   onFoldersRemoved?: (savedFolderCount: number) => void;
 }) {
+  const { t } = useLingui();
   const [optimisticFolderIds, setOptimisticFolderIds] = useState<Set<string>>(
     () => new Set(savedFolders.map((f) => f.folderId)),
   );
@@ -104,7 +106,9 @@ export function useFolderSelection({
             }),
           );
           toastError({
-            title: isChecked ? "Error adding folder" : "Error removing folder",
+            title: isChecked
+              ? t`Error adding folder`
+              : t`Error removing folder`,
             description: serverError,
           });
         }
@@ -118,13 +122,13 @@ export function useFolderSelection({
           }),
         );
         toastError({
-          title: isChecked ? "Error adding folder" : "Error removing folder",
-          description: "Please try again.",
+          title: isChecked ? t`Error adding folder` : t`Error removing folder`,
+          description: t`Please try again.`,
         });
         mutateFolders();
       }
     },
-    [emailAccountId, mutateFolders],
+    [emailAccountId, mutateFolders, t],
   );
 
   const handleFolderToggle = useCallback(

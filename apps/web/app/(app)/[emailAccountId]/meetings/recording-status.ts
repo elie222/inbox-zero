@@ -1,3 +1,5 @@
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { MeetingRecordingStatus } from "@/generated/prisma/enums";
 import {
   CAPTURED_MEETING_STATUSES,
@@ -5,7 +7,7 @@ import {
 } from "@/utils/meeting-recorder/recording-lifecycle";
 
 type StatusBadge = {
-  label: string;
+  label: MessageDescriptor;
   variant: "default" | "secondary" | "green" | "red";
 };
 
@@ -13,35 +15,41 @@ type StatusBadge = {
 // are called out rather than folded into a generic "recording" state.
 const STATUS_BADGES: Record<MeetingRecordingStatus, StatusBadge> = {
   [MeetingRecordingStatus.PENDING]: {
-    label: "Scheduling",
+    label: msg`Scheduling`,
     variant: "secondary",
   },
   [MeetingRecordingStatus.SCHEDULED]: {
-    label: "Scheduled",
+    label: msg`Scheduled`,
     variant: "secondary",
   },
   [MeetingRecordingStatus.CANCELLING]: {
-    label: "Cancelling",
+    label: msg`Cancelling`,
     variant: "secondary",
   },
-  [MeetingRecordingStatus.JOINING]: { label: "Joining", variant: "secondary" },
+  [MeetingRecordingStatus.JOINING]: {
+    label: msg`Joining`,
+    variant: "secondary",
+  },
   [MeetingRecordingStatus.IN_WAITING_ROOM]: {
-    label: "Waiting to be let in",
+    label: msg`Waiting to be let in`,
     variant: "default",
   },
   [MeetingRecordingStatus.IN_CALL]: {
-    label: "Notetaker joined",
+    label: msg`Notetaker joined`,
     variant: "default",
   },
-  [MeetingRecordingStatus.RECORDING]: { label: "Recording", variant: "green" },
+  [MeetingRecordingStatus.RECORDING]: {
+    label: msg`Recording`,
+    variant: "green",
+  },
   [MeetingRecordingStatus.CALL_ENDED]: {
-    label: "Processing",
+    label: msg`Processing`,
     variant: "secondary",
   },
-  [MeetingRecordingStatus.DONE]: { label: "Recorded", variant: "green" },
-  [MeetingRecordingStatus.FAILED]: { label: "Failed", variant: "red" },
+  [MeetingRecordingStatus.DONE]: { label: msg`Recorded`, variant: "green" },
+  [MeetingRecordingStatus.FAILED]: { label: msg`Failed`, variant: "red" },
   [MeetingRecordingStatus.CANCELLED]: {
-    label: "Cancelled",
+    label: msg`Cancelled`,
     variant: "secondary",
   },
 };
@@ -62,16 +70,16 @@ export function getRecordingStatusBadge({
 
   if (start <= now && now < end) {
     if (!status) {
-      return { label: "Call in progress", variant: "secondary" };
+      return { label: msg`Call in progress`, variant: "secondary" };
     }
     if (status === MeetingRecordingStatus.SCHEDULED) {
-      return { label: "Waiting to join", variant: "secondary" };
+      return { label: msg`Waiting to join`, variant: "secondary" };
     }
   }
 
   if (end <= now && status && !CAPTURED_MEETING_STATUSES.includes(status)) {
     return NO_RECORDING_STATUSES.includes(status)
-      ? { label: "Not recorded", variant: "red" }
+      ? { label: msg`Not recorded`, variant: "red" }
       : null;
   }
 

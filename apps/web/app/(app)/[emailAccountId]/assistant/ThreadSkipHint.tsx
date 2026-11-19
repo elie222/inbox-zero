@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { HoverCard } from "@/components/HoverCard";
 import { cn } from "@/utils";
 
@@ -14,16 +15,18 @@ export function ThreadSkipHint({
 
   return (
     <div className={cn("text-sm text-muted-foreground", className)}>
-      Some rules were skipped because this email is part of a thread.{" "}
+      <Trans>
+        Some rules were skipped because this email is part of a thread.
+      </Trans>{" "}
       <HoverCard
         content={
           <div className="max-w-xs text-sm">
-            Skipped: {skippedThreadRuleNames.join(", ")}
+            <Trans>Skipped: {skippedThreadRuleNames.join(", ")}</Trans>
           </div>
         }
       >
         <button className="underline underline-offset-2" type="button">
-          View skipped rules
+          <Trans>View skipped rules</Trans>
         </button>
       </HoverCard>
     </div>

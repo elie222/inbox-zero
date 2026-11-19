@@ -180,6 +180,7 @@ describe("chat route rule freshness persistence", () => {
       emailAccountId: "email-account-id",
       lastSeenRulesRevision: 2,
       messages: [],
+      actionTotals: [],
       compactions: [],
     });
     prisma.chat.create.mockResolvedValue(null);
@@ -268,6 +269,7 @@ describe("chat route rule freshness persistence", () => {
       id: "chat-1",
       emailAccountId: "other-email-account-id",
       messages: [],
+      actionTotals: [],
       compactions: [],
     } as any);
 
@@ -301,6 +303,7 @@ describe("chat route rule freshness persistence", () => {
       emailAccountId: "email-account-id",
       lastSeenRulesRevision: null,
       messages: [],
+      actionTotals: [],
       compactions: [],
     });
     mockAiProcessAssistantChat.mockImplementationOnce(async (args) => {
@@ -504,6 +507,7 @@ describe("chat route rule freshness persistence", () => {
           createdAt: new Date("2026-03-27T10:00:00.000Z"),
         },
       ],
+      actionTotals: [],
       compactions: [],
     });
 
@@ -535,6 +539,7 @@ describe("chat route rule freshness persistence", () => {
           createdAt: new Date("2026-03-27T10:00:00.000Z"),
         },
       ],
+      actionTotals: [],
       compactions: [],
     });
 
@@ -566,6 +571,7 @@ describe("chat route rule freshness persistence", () => {
           createdAt: new Date("2026-03-27T10:00:00.000Z"),
         },
       ],
+      actionTotals: [],
       compactions: [],
     });
 
@@ -584,6 +590,7 @@ describe("chat route rule freshness persistence", () => {
       emailAccountId: "email-account-id",
       lastSeenRulesRevision: null,
       messages: [],
+      actionTotals: [],
       compactions: [
         {
           id: "compaction-0",
@@ -656,6 +663,7 @@ describe("chat route rule freshness persistence", () => {
       emailAccountId: "email-account-id",
       lastSeenRulesRevision: null,
       messages: storedMessages,
+      actionTotals: [],
       compactions: [],
     });
     prisma.chatMessage.create.mockResolvedValueOnce({
@@ -707,6 +715,7 @@ describe("chat route rule freshness persistence", () => {
           createdAt: recentMessageCreatedAt,
         },
       ],
+      actionTotals: [],
       compactions: [
         {
           id: "compaction-0",

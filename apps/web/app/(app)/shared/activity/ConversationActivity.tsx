@@ -1,5 +1,8 @@
 "use client";
 
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import Link from "next/link";
 import useSWRInfinite from "swr/infinite";
 import { Button } from "@/components/ui/button";
@@ -11,14 +14,15 @@ import { useTeamMembership } from "@/components/team-comments/use-team-nav";
 
 const ACTIVITY_LABELS: Record<
   TeamActivityResponse["items"][number]["kind"],
-  string
+  MessageDescriptor
 > = {
-  INVITED: "Conversation shared",
-  MENTION: "You were mentioned",
-  COMMENT: "New comment",
+  INVITED: msg`Conversation shared`,
+  MENTION: msg`You were mentioned`,
+  COMMENT: msg`New comment`,
 };
 
 export function ConversationActivity() {
+  const { i18n } = useLingui();
   const { memberId, memberships } = useTeamMembership();
   const activity = useSWRInfinite<TeamActivityResponse>(
     (index, previousPage) => {
@@ -46,7 +50,9 @@ export function ConversationActivity() {
         >
           <div className="space-y-2">
             {!items.length && (
-              <p className="text-muted-foreground text-sm">No activity yet.</p>
+              <p className="text-muted-foreground text-sm">
+                <Trans>No activity yet.</Trans>
+              </p>
             )}
             {items.map((item) => (
               <Link
@@ -56,8 +62,12 @@ export function ConversationActivity() {
               >
                 <div className="flex items-center justify-between gap-3">
                   <span className="flex items-center gap-2 font-medium text-sm">
-                    {ACTIVITY_LABELS[item.kind]}
-                    {item.unread && <Badge>Unread</Badge>}
+                    {i18n._(ACTIVITY_LABELS[item.kind])}
+                    {item.unread && (
+                      <Badge>
+                        <Trans>Unread</Trans>
+                      </Badge>
+                    )}
                   </span>
                   <time className="shrink-0 text-muted-foreground text-xs">
                     {new Date(item.createdAt).toLocaleString()}
@@ -73,14 +83,14 @@ export function ConversationActivity() {
             {activity.error ? (
               <div className="flex items-center gap-2" role="alert">
                 <p className="text-destructive text-sm">
-                  Could not load activity.
+                  <Trans>Could not load activity.</Trans>
                 </p>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => activity.mutate()}
                 >
-                  Retry
+                  <Trans>Retry</Trans>
                 </Button>
               </div>
             ) : (
@@ -89,7 +99,7 @@ export function ConversationActivity() {
                   variant="outline"
                   onClick={() => activity.setSize(activity.size + 1)}
                 >
-                  Load older activity
+                  <Trans>Load older activity</Trans>
                 </Button>
               )
             )}

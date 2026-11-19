@@ -62,14 +62,9 @@ vi.mock("@/utils/oauth/callback-validation", () => ({
   validateOAuthCallback: mockValidateOAuthCallback,
 }));
 
-vi.mock("@/utils/oauth/account-linking", async (importActual) => {
-  const actual =
-    await importActual<typeof import("@/utils/oauth/account-linking")>();
-  return {
-    getMailboxLinkingBlockedRedirect: actual.getMailboxLinkingBlockedRedirect,
-    handleAccountLinking: mockHandleAccountLinking,
-  };
-});
+vi.mock("@/utils/oauth/account-linking", () => ({
+  handleAccountLinking: mockHandleAccountLinking,
+}));
 
 vi.mock("@/utils/user/merge-account", () => ({
   mergeAccount: vi.fn(),
@@ -220,26 +215,6 @@ describe("google linking callback route", () => {
       userIds: ["user-123"],
       logger: expect.anything(),
     });
-  });
-
-  it("does not let an email code session link a mailbox", async () => {
-    mockAuth.mockResolvedValue({
-      user: { id: "user-123" },
-      session: { emailOtp: true },
-    });
-    mockHandleAccountLinking.mockResolvedValue({ type: "continue_create" });
-
-    const response = await GET(
-      createRequest("http://localhost:3000/api/google/linking/callback"),
-    );
-
-    expect(response.headers.get("location")).toContain(
-      "error=provider_sign_in_required",
-    );
-    expect(mockGetToken).not.toHaveBeenCalled();
-    expect(mockHandleAccountLinking).not.toHaveBeenCalled();
-    expect(prisma.account.create).not.toHaveBeenCalled();
-    expect(prisma.account.update).not.toHaveBeenCalled();
   });
 
   it("rejects signed linking state after the session is revoked", async () => {

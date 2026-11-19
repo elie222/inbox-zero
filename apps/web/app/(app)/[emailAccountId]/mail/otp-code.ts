@@ -1,4 +1,3 @@
-import { getEmailThreadLabels } from "@/components/EmailMessageCellLabels";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { SystemType } from "@/generated/prisma/enums";
 import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
@@ -44,9 +43,12 @@ function getLatestOtpMessage(thread: OtpThread, userLabels: EmailLabels) {
   });
   if (!message) return null;
 
-  const labels = getEmailThreadLabels({ messages: [message], userLabels });
+  // Read labels directly: display helpers drop ones hidden from the list,
+  // and the OTP label still marks a sign-in email when hidden.
   const isOtp =
-    labels.some((label) => label.name.toLowerCase() === OTP_LABEL) ||
-    isOtpSubject(message.subject);
+    message.labelIds?.some((idOrName) => {
+      const name = userLabels[idOrName]?.name ?? idOrName;
+      return name.toLowerCase() === OTP_LABEL;
+    }) || isOtpSubject(message.subject);
   return isOtp ? message : null;
 }

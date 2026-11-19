@@ -67,7 +67,6 @@ export function createMockEmailProvider(
     getThreadsWithLabel: vi.fn().mockResolvedValue([]),
     getThreadsWithParticipant: vi.fn().mockResolvedValue([]),
     getThreadsFromSenderWithSubject: vi.fn().mockResolvedValue([]),
-    getPreviousConversationMessages: vi.fn().mockResolvedValue([]),
     getLatestMessageFromThreadSnapshot: vi
       .fn()
       .mockResolvedValue(defaultMessage),

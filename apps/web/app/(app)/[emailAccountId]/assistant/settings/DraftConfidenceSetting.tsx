@@ -1,5 +1,8 @@
 "use client";
 
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { useEffect, useRef, useState } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SettingCard } from "@/components/SettingCard";
@@ -23,7 +26,26 @@ import {
 import { showSettingActionError } from "@/utils/actions/error-handling";
 import { useAction } from "next-safe-action/hooks";
 
+const CONFIDENCE_DISPLAY: Record<
+  DraftReplyConfidence,
+  { label: MessageDescriptor; description: MessageDescriptor }
+> = {
+  ALL_EMAILS: {
+    label: msg`All emails`,
+    description: msg`Draft a reply for every email, even when uncertain.`,
+  },
+  STANDARD: {
+    label: msg`Standard`,
+    description: msg`Skip drafting when the AI is clearly unsure. Most emails still get a draft.`,
+  },
+  HIGH_CONFIDENCE: {
+    label: msg`High confidence`,
+    description: msg`Only draft when the AI is very sure of the right reply. Many emails will get no draft.`,
+  },
+};
+
 export function DraftConfidenceSetting() {
+  const { t, i18n } = useLingui();
   const { data, isLoading, error, mutate } = useEmailAccountFull();
   const persistedConfidence =
     data?.draftReplyConfidence ?? DEFAULT_DRAFT_REPLY_CONFIDENCE;
@@ -70,13 +92,13 @@ export function DraftConfidenceSetting() {
               validationErrors: result.validationErrors,
             },
             mutate,
-            prefix: "Failed to update draft confidence",
+            prefix: t`Failed to update draft confidence`,
           });
           return;
         }
 
         toastSuccess({
-          description: "Draft confidence updated",
+          description: t`Draft confidence updated`,
         });
         mutate();
       })
@@ -87,7 +109,7 @@ export function DraftConfidenceSetting() {
         showSettingActionError({
           error: {},
           mutate,
-          defaultMessage: "Failed to update draft confidence",
+          defaultMessage: t`Failed to update draft confidence`,
         });
       });
   };
@@ -100,8 +122,8 @@ export function DraftConfidenceSetting() {
 
   return (
     <SettingCard
-      title="Draft confidence"
-      description="How sure should the AI be before drafting a reply?"
+      title={t`Draft confidence`}
+      description={t`How sure should the AI be before drafting a reply?`}
       right={
         <LoadingContent
           loading={isLoading}
@@ -114,8 +136,10 @@ export function DraftConfidenceSetting() {
               onValueChange={onValueChange}
               disabled={!data}
             >
-              <SelectTrigger aria-label="Draft confidence">
-                <SelectValue>{selectedOption.label}</SelectValue>
+              <SelectTrigger aria-label={t`Draft confidence`}>
+                <SelectValue>
+                  {i18n._(CONFIDENCE_DISPLAY[selectedOption.value].label)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent align="end" className="w-[22rem]">
                 {DRAFT_REPLY_CONFIDENCE_OPTIONS.map((option) => (
@@ -125,9 +149,11 @@ export function DraftConfidenceSetting() {
                     className="items-start py-2"
                   >
                     <div className="flex flex-col text-left">
-                      <span className="font-medium">{option.label}</span>
+                      <span className="font-medium">
+                        {i18n._(CONFIDENCE_DISPLAY[option.value].label)}
+                      </span>
                       <span className="text-xs text-muted-foreground">
-                        {option.description}
+                        {i18n._(CONFIDENCE_DISPLAY[option.value].description)}
                       </span>
                     </div>
                   </SelectItem>

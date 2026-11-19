@@ -6,6 +6,7 @@ import {
   useMemo,
   type ReactNode,
 } from "react";
+import { AttachmentPreviewProvider } from "./AttachmentPreview";
 import { createOpenedConversationAttachments } from "@/utils/attachments/opened-conversation";
 const Context = createContext<
   ReturnType<typeof createOpenedConversationAttachments> | undefined
@@ -55,7 +56,13 @@ export function OpenedConversationAttachments({
       session.close();
     };
   }, [session]);
-  return <Context.Provider value={session}>{children}</Context.Provider>;
+  return (
+    <Context.Provider value={session}>
+      <AttachmentPreviewProvider key={`${emailAccountId}:${threadId}`}>
+        {children}
+      </AttachmentPreviewProvider>
+    </Context.Provider>
+  );
 }
 export function useOpenedConversationAttachments() {
   return useContext(Context);

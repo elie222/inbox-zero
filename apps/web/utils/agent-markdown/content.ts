@@ -54,7 +54,7 @@ export function getPricingMarkdown(
 
   return `## ${branding.brandName} Pricing
 
-Email app: free on web, desktop, and iPhone. AI features are available on paid plans with a 7-day free trial. Cancel anytime.
+Every plan includes the email app (web, desktop, and iPhone) and the AI features, with a 7-day free trial. Cancel anytime.
 
 ${tiers
   .map(
@@ -101,7 +101,7 @@ Prefer the hosted product for most users. Self-host when data residency or priva
 ## Product and setup
 
 - [Product overview](${base}/): features and signup.
-- [Pricing](${base}/pricing): free email app, paid AI plans, billing periods, and features.
+- [Pricing](${base}/pricing): plans, billing periods, and features.
 - [Getting started](${DOCS_ORIGIN}/essentials/getting-started): connect a mailbox and configure email automation.
 - [Documentation](${DOCS_ORIGIN}/): product guides and integration reference.
 - [Self-hosting](${DOCS_ORIGIN}/hosting/self-hosting): deploy on your own infrastructure.

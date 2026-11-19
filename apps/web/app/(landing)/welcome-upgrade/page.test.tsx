@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("@/utils/auth", () => ({ auth: mocks.auth }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
+vi.mock("@/utils/i18n/server", () => ({ initLingui: vi.fn() }));
 vi.mock("@/app/(landing)/home/Footer", () => ({ Footer: () => null }));
 vi.mock("@/app/(landing)/welcome-upgrade/WelcomeUpgradeNav", () => ({
   WelcomeUpgradeNav: () => null,
@@ -18,8 +19,8 @@ vi.mock("@/app/(landing)/welcome-upgrade/WelcomeUpgradeNav", () => ({
 vi.mock("@/app/(landing)/welcome-upgrade/Testimonial", () => ({
   Testimonial: () => null,
 }));
-vi.mock("@/app/(landing)/welcome-upgrade/ContinueWithEmailClient", () => ({
-  ContinueWithEmailClient: () => null,
+vi.mock("@/components/ContinueWhenSubscribed", () => ({
+  ContinueWhenSubscribed: () => null,
 }));
 vi.mock("@/app/(landing)/welcome-upgrade/WelcomeUpgradePricing", () => ({
   WelcomeUpgradePricing: mocks.pricing,

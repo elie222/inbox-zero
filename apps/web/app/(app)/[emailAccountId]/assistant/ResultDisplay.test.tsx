@@ -3,6 +3,7 @@
 import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setupI18n } from "@lingui/core";
 import { ExecutedRuleStatus } from "@/generated/prisma/enums";
 
 const mockUseAccount = vi.fn();
@@ -28,6 +29,8 @@ import {
   ResultDisplayContent,
   getRuleResultReasonDisplay,
 } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
+
+const i18n = setupI18n({ locale: "en", messages: { en: {} } });
 
 afterEach(() => {
   cleanup();
@@ -202,6 +205,7 @@ describe("getRuleResultReasonDisplay", () => {
     expect(
       getRuleResultReasonDisplay(
         "The sender asked about the user&#x27;s maps and said &quot;thanks&quot;.\nAction failures: DRAFT_MESSAGING_CHANNEL:MESSAGING_DELIVERY_FAILED",
+        i18n,
       ),
     ).toEqual({
       reason: 'The sender asked about the user\'s maps and said "thanks".',
@@ -212,7 +216,9 @@ describe("getRuleResultReasonDisplay", () => {
   });
 
   it("passes plain text through unchanged", () => {
-    expect(getRuleResultReasonDisplay("The email is a newsletter.")).toEqual({
+    expect(
+      getRuleResultReasonDisplay("The email is a newsletter.", i18n),
+    ).toEqual({
       reason: "The email is a newsletter.",
       actionFailureMessages: [],
     });
@@ -222,14 +228,17 @@ describe("getRuleResultReasonDisplay", () => {
     expect(
       getRuleResultReasonDisplay(
         "<div><p>The email is a <strong>newsletter</strong>.</p></div>",
+        i18n,
       ).reason,
     ).toBe("The email is a newsletter.");
   });
 
   it("separates adjacent block elements with a space", () => {
     expect(
-      getRuleResultReasonDisplay("<p>Sender is known.</p><p>Rule applies.</p>")
-        .reason,
+      getRuleResultReasonDisplay(
+        "<p>Sender is known.</p><p>Rule applies.</p>",
+        i18n,
+      ).reason,
     ).toBe("Sender is known. Rule applies.");
   });
 
@@ -237,19 +246,20 @@ describe("getRuleResultReasonDisplay", () => {
     expect(
       getRuleResultReasonDisplay(
         "&lt;p&gt;The sender confirmed the user&#x27;s   order.&lt;/p&gt;",
+        i18n,
       ).reason,
     ).toBe("The sender confirmed the user's order.");
   });
 
   it("keeps malformed encoded tag-like text", () => {
-    expect(getRuleResultReasonDisplay("&lt;script text").reason).toBe(
+    expect(getRuleResultReasonDisplay("&lt;script text", i18n).reason).toBe(
       "<script text",
     );
   });
 
   it("keeps comparison text that only looks like angle brackets", () => {
     expect(
-      getRuleResultReasonDisplay("Priority is < 3 and score > 5.").reason,
+      getRuleResultReasonDisplay("Priority is < 3 and score > 5.", i18n).reason,
     ).toBe("Priority is < 3 and score > 5.");
   });
 
@@ -257,6 +267,7 @@ describe("getRuleResultReasonDisplay", () => {
     expect(
       getRuleResultReasonDisplay(
         "<p>Rule matched.</p>\nAction failures: NOTIFY_SENDER:SEND_FAILED",
+        i18n,
       ),
     ).toEqual({
       reason: "Rule matched.",
@@ -266,18 +277,21 @@ describe("getRuleResultReasonDisplay", () => {
 
   it("falls back for action failure parts that match built-in object keys", () => {
     expect(
-      getRuleResultReasonDisplay("Action failures: constructor:toString")
+      getRuleResultReasonDisplay("Action failures: constructor:toString", i18n)
         .actionFailureMessages,
     ).toEqual(["An action could not be completed."]);
     expect(
-      getRuleResultReasonDisplay("Action failures: NOTIFY_SENDER:toString")
-        .actionFailureMessages,
+      getRuleResultReasonDisplay(
+        "Action failures: NOTIFY_SENDER:toString",
+        i18n,
+      ).actionFailureMessages,
     ).toEqual(["The sender notification could not be completed."]);
   });
 
   it("does not expose unknown internal action failure codes", () => {
     const display = getRuleResultReasonDisplay(
       "Rule matched\nAction failures: DRAFT_MESSAGING_CHANNEL:SOME_INTERNAL_CODE",
+      i18n,
     );
 
     expect(display.reason).toBe("Rule matched");

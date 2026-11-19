@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { usePostHog } from "posthog-js/react";
 import { LazyMuxVideo } from "@/components/LazyMuxVideo";
 import { LiquidGlassButton } from "@/components/new-landing/LiquidGlassButton";
@@ -18,13 +19,15 @@ const HERO_VIDEO_ID = "YeTrweHxCIM5tcBMXlvRbmDuPqL028lJrmJ3F6ZgwnDY";
 export function HeroVideoDialog({
   playbackId = HERO_VIDEO_ID,
   thumbnailTime,
-  title = "Inbox Zero product video",
+  title: titleProp,
 }: {
   playbackId?: string;
   thumbnailTime?: number;
   title?: string;
 }) {
   const posthog = usePostHog();
+  const { t } = useLingui();
+  const title = titleProp ?? t`Inbox Zero product video`;
 
   return (
     <Dialog
@@ -37,7 +40,7 @@ export function HeroVideoDialog({
         onClick={() => landingPageAnalytics.videoClicked(posthog, playbackId)}
       >
         <LiquidGlassButton
-          aria-label="Play product demo video"
+          aria-label={t`Play product demo video`}
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
         >
           <div>

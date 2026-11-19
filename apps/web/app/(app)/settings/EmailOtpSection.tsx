@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans, useLingui } from "@lingui/react/macro";
 import useSWR from "swr";
 import { useAction } from "next-safe-action/hooks";
 import type { EmailOtpSettingsResponse } from "@/app/api/user/email-otp/route";
@@ -21,6 +22,7 @@ export function EmailOtpSection({
 }: {
   hasMultipleAccounts: boolean;
 }) {
+  const { t } = useLingui();
   const { data, isLoading, error, mutate } = useSWR<EmailOtpSettingsResponse>(
     "/api/user/email-otp",
   );
@@ -37,21 +39,23 @@ export function EmailOtpSection({
       {data && (
         <Item size="sm">
           <ItemContent>
-            <ItemTitle>Allow sign-in with a one-time email code</ItemTitle>
+            <ItemTitle>
+              <Trans>Allow sign-in with a one-time email code</Trans>
+            </ItemTitle>
             {data.emailOtpEnabled && hasMultipleAccounts && (
               <ItemDescription className="line-clamp-none break-all">
-                Sign in with {data.email}.
+                <Trans>Sign in with {data.email}.</Trans>
               </ItemDescription>
             )}
             {!data.emailDeliveryConfigured && (
               <ItemDescription className="line-clamp-none">
-                Email delivery unavailable.
+                <Trans>Email delivery unavailable.</Trans>
               </ItemDescription>
             )}
           </ItemContent>
           <ItemActions>
             <Switch
-              aria-label="Allow sign-in with a one-time email code"
+              aria-label={t`Allow sign-in with a one-time email code`}
               checked={data.emailOtpEnabled}
               disabled={
                 isExecuting ||

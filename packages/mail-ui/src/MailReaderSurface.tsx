@@ -39,6 +39,12 @@ export type MailReaderToolbarProps = {
     button: MailReaderToolbarButton,
     children: ReactElement,
   ) => ReactNode;
+  strings?: Partial<typeof DEFAULT_TOOLBAR_STRINGS>;
+};
+
+const DEFAULT_TOOLBAR_STRINGS = {
+  starredConversation: "Starred conversation",
+  threadActions: "Thread actions",
 };
 
 export function MailReaderToolbar({
@@ -56,7 +62,9 @@ export function MailReaderToolbar({
   icons,
   renderButton = defaultToolbarButton,
   renderActionTooltip = (_button, children) => children,
+  strings,
 }: MailReaderToolbarProps) {
+  const text = { ...DEFAULT_TOOLBAR_STRINGS, ...strings };
   const expansionAction = messageExpansion?.allExpanded
     ? "collapse_all"
     : "expand_all";
@@ -86,10 +94,10 @@ export function MailReaderToolbar({
           <div className="flex min-w-0 items-center gap-2">
             {isStarred && (
               <span
-                aria-label="Starred conversation"
+                aria-label={text.starredConversation}
                 className="size-1.5 shrink-0 rounded-full bg-yellow-400"
                 role="img"
-                title="Starred conversation"
+                title={text.starredConversation}
               />
             )}
             <h1 className="font-title font-medium text-2xl text-foreground leading-tight tracking-tight">
@@ -101,7 +109,7 @@ export function MailReaderToolbar({
       </div>
 
       <div
-        aria-label="Thread actions"
+        aria-label={text.threadActions}
         className="ml-auto flex flex-wrap items-center gap-1.5"
         role="group"
       >

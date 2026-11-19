@@ -1,3 +1,5 @@
+import type { I18n } from "@lingui/core";
+import { t } from "@lingui/core/macro";
 import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import {
   getProviderVideoLocationType,
@@ -74,9 +76,14 @@ export function getDefaultDestinationCalendarId(
   );
 }
 
-export function getCalendarOptions(data: BookingLinkCalendarData | undefined) {
+export function getCalendarOptions(
+  data: BookingLinkCalendarData | undefined,
+  i18n: I18n,
+) {
   return getCalendars(data).map((calendar) => ({
-    label: `${calendar.name}${calendar.primary ? " (Primary)" : ""}`,
+    label: calendar.primary
+      ? t(i18n)`${calendar.name} (Primary)`
+      : calendar.name,
     value: calendar.id,
   }));
 }

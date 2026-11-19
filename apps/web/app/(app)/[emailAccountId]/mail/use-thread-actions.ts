@@ -1,7 +1,9 @@
 "use client";
 
+import type { I18n } from "@lingui/core";
+import { plural, t } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useRef } from "react";
-import { format } from "date-fns";
 import groupBy from "lodash/groupBy";
 import { toast } from "sonner";
 import { releaseLatestToastUndo, toastUndo } from "@/components/Toast";
@@ -17,6 +19,7 @@ import { useOptionalMailClient } from "@inboxzero/mail-react/MailEngineProvider"
 import type { MetadataChange } from "@inboxzero/mail-core/commands";
 import { submitConversationChanges } from "@/utils/mail-engine/submit-conversations";
 import { admissionRejectionCopy } from "@/utils/mail-engine/admission-notice";
+import { formatDayAtTime } from "@/utils/date";
 
 /** Engine changes queued in order; an action is undoable when every step has a compensation. */
 type UndoableAction = {
@@ -26,8 +29,9 @@ type UndoableAction = {
     /** Leaves out threads the change didn't alter, such as a label they already had. */
     compensates?: (target: ThreadActionTarget) => boolean;
   }>;
-  done: (count: number) => string;
-  noun: string;
+  done: (i18n: I18n, count: number) => string;
+  /** Called with `failedCount === total` when nothing could be queued. */
+  queueFailed: (i18n: I18n, failedCount: number, total: number) => string;
   /** Undo brings the threads back into view, so the reader can return to them. */
   removesFromView: boolean;
 };
@@ -70,6 +74,7 @@ export function useThreadActions({
   const listTargetsByKey = useRef(new Map<string, ThreadActionTarget>());
   const activeReaderTarget = useRef<ThreadActionTarget | undefined>(undefined);
   const client = useOptionalMailClient();
+  const { i18n } = useLingui();
   useEffect(() => {
     if (retainedEmailAccountId.current !== emailAccountId) {
       retainedEmailAccountId.current = emailAccountId;
@@ -210,17 +215,26 @@ export function useThreadActions({
       const restored = batch.targets.filter(
         (target) => !failedKeys.has(target.key),
       );
-      const failedCount = batch.targets.length - restored.length;
+      const total = batch.targets.length;
+      const failedCount = total - restored.length;
 
       if (restored.length) {
-        toast.success(summarise("Restored", restored.length));
+        toast.success(
+          t(i18n)`${plural(restored.length, {
+            one: "Restored",
+            other: "Restored # conversations",
+          })}`,
+        );
         if (batch.removesFromView) onRestore?.(restored);
       }
       if (failedCount) {
         toast.error(
           failedCount === batch.targets.length
-            ? "Couldn't restore"
-            : `Couldn't restore ${failedCount} of ${batch.targets.length}`,
+            ? t(i18n)`Couldn't restore`
+            : t(i18n)`${plural(failedCount, {
+                one: `Couldn't restore # of ${total}`,
+                other: `Couldn't restore # of ${total}`,
+              })}`,
         );
       }
       if (!restored.length) {
@@ -229,7 +243,7 @@ export function useThreadActions({
       }
       return restored.map((target) => target.key);
     },
-    [client, onRestore, revertSteps],
+    [client, i18n, onRestore, revertSteps],
   );
 
   const undo = useCallback(async () => {
@@ -273,7 +287,10 @@ export function useThreadActions({
         const unreverted = await revertSteps(partial, { cancelPending: false });
         if (unreverted.size) {
           toast.error(
-            `Couldn't fully reverse ${unreverted.size} conversation${unreverted.size === 1 ? "" : "s"} that only partly changed. Check them and try again.`,
+            t(i18n)`Couldn't fully reverse ${plural(unreverted.size, {
+              one: "# conversation",
+              other: "# conversations",
+            })} that only partly changed. Check them and try again.`,
           );
         }
       }
@@ -281,7 +298,10 @@ export function useThreadActions({
       if (!queued.length) {
         if (threadKeys.length) {
           toast.error(
-            enqueueFailureCopy(`Couldn't queue ${action.noun}`, rejectionCodes),
+            enqueueFailureCopy(
+              action.queueFailed(i18n, threadKeys.length, threadKeys.length),
+              rejectionCodes,
+            ),
           );
         }
         return [];
@@ -299,7 +319,7 @@ export function useThreadActions({
         };
         lastAction.current = batch;
         toastUndo({
-          message: action.done(queued.length),
+          message: action.done(i18n, queued.length),
           shortcut: getShortcutHint("undo"),
           onUndo: () => {
             undoBatch(batch);
@@ -309,20 +329,20 @@ export function useThreadActions({
         // Undo must not reach past this action to the one before it.
         lastAction.current = null;
         releaseLatestToastUndo();
-        toast.success(action.done(queued.length));
+        toast.success(action.done(i18n, queued.length));
       }
       const failedCount = threadKeys.length - queued.length;
       if (failedCount) {
         toast.error(
           enqueueFailureCopy(
-            `Couldn't queue ${failedCount} of ${threadKeys.length} for ${action.noun}`,
+            action.queueFailed(i18n, failedCount, threadKeys.length),
             rejectionCodes,
           ),
         );
       }
       return queued.map((target) => target.key);
     },
-    [enqueueTargets, resolveTargets, revertSteps, undoBatch],
+    [enqueueTargets, i18n, resolveTargets, revertSteps, undoBatch],
   );
 
   const runUndoable = useCallback(
@@ -353,24 +373,32 @@ export function useThreadActions({
       const failedCount = threadKeys.length - snapshots.length;
       if (snapshots.length && notifySuccess) {
         toast.success(
-          snapshots.length === 1
-            ? `Marked as ${read ? "read" : "unread"}`
-            : `Marked ${snapshots.length} conversations as ${read ? "read" : "unread"}`,
+          read
+            ? t(i18n)`${plural(snapshots.length, {
+                one: "Marked as read",
+                other: "Marked # conversations as read",
+              })}`
+            : t(i18n)`${plural(snapshots.length, {
+                one: "Marked as unread",
+                other: "Marked # conversations as unread",
+              })}`,
         );
       }
       if (failedCount) {
         toast.error(
           enqueueFailureCopy(
-            failedCount === threadKeys.length
-              ? `Couldn't queue marking as ${read ? "read" : "unread"}`
-              : `Couldn't queue ${failedCount} of ${threadKeys.length} as ${read ? "read" : "unread"}`,
+            getReadQueueFailedCopy(i18n, {
+              read,
+              failedCount,
+              total: threadKeys.length,
+            }),
             rejectionCodes,
           ),
         );
       }
       return snapshots.map((snapshot) => snapshot.key);
     },
-    [enqueueTargets, resolveTargets],
+    [enqueueTargets, i18n, resolveTargets],
   );
 
   const setStarredState = useCallback(
@@ -382,14 +410,14 @@ export function useThreadActions({
       if (snapshots.length < threadKeys.length) {
         toast.error(
           enqueueFailureCopy(
-            "Couldn’t update stars for all conversations",
+            t(i18n)`Couldn’t update stars for all conversations`,
             rejectionCodes,
           ),
         );
       }
       return snapshots.map((snapshot) => snapshot.key);
     },
-    [enqueueTargets, resolveTargets],
+    [enqueueTargets, i18n, resolveTargets],
   );
 
   const snooze = useCallback(
@@ -399,29 +427,36 @@ export function useThreadActions({
         kind: "snooze",
         untilMs: snoozedUntil.getTime(),
       });
-      const failedCount = threadKeys.length - snapshots.length;
+      const total = threadKeys.length;
+      const failedCount = total - snapshots.length;
       if (snapshots.length) {
+        const snoozedUntilLabel = formatDayAtTime(snoozedUntil, i18n);
         toast.success(
-          snapshots.length === 1
-            ? `Snoozed until ${format(snoozedUntil, "EEE, MMM d 'at' p")}`
-            : `Snoozed ${snapshots.length} conversations`,
+          t(i18n)`${plural(snapshots.length, {
+            one: `Snoozed until ${snoozedUntilLabel}`,
+            other: "Snoozed # conversations",
+          })}`,
         );
       }
       if (failedCount) {
         toast.error(
           enqueueFailureCopy(
             failedCount === threadKeys.length
-              ? threadKeys.length === 1
-                ? "Couldn't queue snoozing"
-                : "Couldn't queue snoozing conversations"
-              : `Couldn't queue ${failedCount} of ${threadKeys.length} for snoozing`,
+              ? t(i18n)`${plural(threadKeys.length, {
+                  one: "Couldn't queue snoozing",
+                  other: "Couldn't queue snoozing conversations",
+                })}`
+              : t(i18n)`${plural(failedCount, {
+                  one: `Couldn't queue # of ${total} for snoozing`,
+                  other: `Couldn't queue # of ${total} for snoozing`,
+                })}`,
             rejectionCodes,
           ),
         );
       }
       return snapshots.map((snapshot) => snapshot.key);
     },
-    [enqueueTargets, resolveTargets],
+    [enqueueTargets, i18n, resolveTargets],
   );
 
   const markSpam = useCallback(
@@ -431,27 +466,32 @@ export function useThreadActions({
         kind: "set_spam",
         spam: true,
       });
-      const failedCount = threadKeys.length - snapshots.length;
+      const total = threadKeys.length;
+      const failedCount = total - snapshots.length;
       if (snapshots.length) {
         toast.success(
-          snapshots.length === 1
-            ? "Marked as spam"
-            : `Marked ${snapshots.length} conversations as spam`,
+          t(i18n)`${plural(snapshots.length, {
+            one: "Marked as spam",
+            other: "Marked # conversations as spam",
+          })}`,
         );
       }
       if (failedCount) {
         toast.error(
           enqueueFailureCopy(
             failedCount === threadKeys.length
-              ? "Couldn't queue marking as spam"
-              : `Couldn't queue ${failedCount} of ${threadKeys.length} as spam`,
+              ? t(i18n)`Couldn't queue marking as spam`
+              : t(i18n)`${plural(failedCount, {
+                  one: `Couldn't queue # of ${total} as spam`,
+                  other: `Couldn't queue # of ${total} as spam`,
+                })}`,
             rejectionCodes,
           ),
         );
       }
       return snapshots.map((snapshot) => snapshot.key);
     },
-    [enqueueTargets, resolveTargets],
+    [enqueueTargets, i18n, resolveTargets],
   );
 
   return {
@@ -482,8 +522,8 @@ export function useThreadActions({
             // Undo would need each message's previous folder, which the
             // list doesn't carry.
             steps: [{ change: { kind: "move", folderId } }],
-            done: (count) => summarise("Moved", count),
-            noun: "moving",
+            done: movedCopy,
+            queueFailed: movingQueueFailedCopy,
             removesFromView: true,
           },
           threadKeys,
@@ -505,16 +545,35 @@ export function useThreadActions({
 
 const ARCHIVE: UndoableAction = {
   steps: [{ change: { kind: "archive" }, compensation: { kind: "unarchive" } }],
-  done: (count) => summarise("Archived", count),
-  noun: "archiving",
+  done: (i18n, count) =>
+    t(i18n)`${plural(count, {
+      one: "Archived",
+      other: "Archived # conversations",
+    })}`,
+  queueFailed: (i18n, failedCount, total) =>
+    failedCount === total
+      ? t(i18n)`Couldn't queue archiving`
+      : t(i18n)`${plural(failedCount, {
+          one: `Couldn't queue # of ${total} for archiving`,
+          other: `Couldn't queue # of ${total} for archiving`,
+        })}`,
   removesFromView: true,
 };
 
 const MOVE_TO_INBOX: UndoableAction = {
   steps: [{ change: { kind: "unarchive" }, compensation: { kind: "archive" } }],
-  done: (count) =>
-    count === 1 ? "Moved to inbox" : `Moved ${count} conversations to inbox`,
-  noun: "moving to inbox",
+  done: (i18n, count) =>
+    t(i18n)`${plural(count, {
+      one: "Moved to inbox",
+      other: "Moved # conversations to inbox",
+    })}`,
+  queueFailed: (i18n, failedCount, total) =>
+    failedCount === total
+      ? t(i18n)`Couldn't queue moving to inbox`
+      : t(i18n)`${plural(failedCount, {
+          one: `Couldn't queue # of ${total} for moving to inbox`,
+          other: `Couldn't queue # of ${total} for moving to inbox`,
+        })}`,
   removesFromView: true,
 };
 
@@ -525,8 +584,18 @@ const TRASH: UndoableAction = {
       compensation: { kind: "restore_from_trash" },
     },
   ],
-  done: (count) => summarise("Deleted", count),
-  noun: "deletion",
+  done: (i18n, count) =>
+    t(i18n)`${plural(count, {
+      one: "Deleted",
+      other: "Deleted # conversations",
+    })}`,
+  queueFailed: (i18n, failedCount, total) =>
+    failedCount === total
+      ? t(i18n)`Couldn't queue deletion`
+      : t(i18n)`${plural(failedCount, {
+          one: `Couldn't queue # of ${total} for deletion`,
+          other: `Couldn't queue # of ${total} for deletion`,
+        })}`,
   removesFromView: true,
 };
 
@@ -547,11 +616,18 @@ function labelAction(labelId: string, archive: boolean): UndoableAction {
   if (!archive) {
     return {
       steps,
-      done: (count) =>
-        count === 1
-          ? "Label applied"
-          : `Label applied to ${count} conversations`,
-      noun: "labeling",
+      done: (i18n, count) =>
+        t(i18n)`${plural(count, {
+          one: "Label applied",
+          other: "Label applied to # conversations",
+        })}`,
+      queueFailed: (i18n, failedCount, total) =>
+        failedCount === total
+          ? t(i18n)`Couldn't queue labeling`
+          : t(i18n)`${plural(failedCount, {
+              one: `Couldn't queue # of ${total} for labeling`,
+              other: `Couldn't queue # of ${total} for labeling`,
+            })}`,
       removesFromView: false,
     };
   }
@@ -560,14 +636,50 @@ function labelAction(labelId: string, archive: boolean): UndoableAction {
       ...steps,
       { change: { kind: "archive" }, compensation: { kind: "unarchive" } },
     ],
-    done: (count) => summarise("Moved", count),
-    noun: "moving",
+    done: movedCopy,
+    queueFailed: movingQueueFailedCopy,
     removesFromView: true,
   };
 }
 
-function summarise(verb: string, count: number) {
-  return count === 1 ? verb : `${verb} ${count} conversations`;
+function movedCopy(i18n: I18n, count: number) {
+  return t(i18n)`${plural(count, {
+    one: "Moved",
+    other: "Moved # conversations",
+  })}`;
+}
+
+function movingQueueFailedCopy(i18n: I18n, failedCount: number, total: number) {
+  return failedCount === total
+    ? t(i18n)`Couldn't queue moving`
+    : t(i18n)`${plural(failedCount, {
+        one: `Couldn't queue # of ${total} for moving`,
+        other: `Couldn't queue # of ${total} for moving`,
+      })}`;
+}
+
+function getReadQueueFailedCopy(
+  i18n: I18n,
+  {
+    read,
+    failedCount,
+    total,
+  }: { read: boolean; failedCount: number; total: number },
+) {
+  if (failedCount === total) {
+    return read
+      ? t(i18n)`Couldn't queue marking as read`
+      : t(i18n)`Couldn't queue marking as unread`;
+  }
+  return read
+    ? t(i18n)`${plural(failedCount, {
+        one: `Couldn't queue # of ${total} as read`,
+        other: `Couldn't queue # of ${total} as read`,
+      })}`
+    : t(i18n)`${plural(failedCount, {
+        one: `Couldn't queue # of ${total} as unread`,
+        other: `Couldn't queue # of ${total} as unread`,
+      })}`;
 }
 
 function enqueueFailureCopy(generic: string, rejectionCodes: string[]) {

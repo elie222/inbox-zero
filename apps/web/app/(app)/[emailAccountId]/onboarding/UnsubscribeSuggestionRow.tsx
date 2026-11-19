@@ -1,5 +1,6 @@
 "use client";
 
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import { ButtonCheckbox } from "@/components/ButtonCheckbox";
 import { SenderIcon } from "@/components/SenderIcon";
 import { Progress } from "@/components/ui/progress";
@@ -27,10 +28,13 @@ export function UnsubscribeSuggestionRow({
   progressClassName?: string;
   labelClassName?: string;
 }) {
+  const { t } = useLingui();
+  const senderName = sender.fromName || sender.name;
+
   const content = (
     <>
       <ButtonCheckbox
-        label={`Select ${sender.fromName || sender.name}`}
+        label={t`Select ${senderName}`}
         checked={checked}
         onChange={onToggle}
       />
@@ -39,10 +43,10 @@ export function UnsubscribeSuggestionRow({
 
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium text-foreground">
-          {sender.fromName || sender.name}
+          {senderName}
         </div>
         <div className="truncate text-xs text-muted-foreground">
-          {sender.value} {sender.value === 1 ? "email" : "emails"}
+          <Plural value={sender.value} one="# email" other="# emails" />
         </div>
       </div>
 
@@ -99,7 +103,7 @@ function ReadPercentage({
           labelClassName,
         )}
       >
-        {readPercentage}% read
+        <Trans>{readPercentage}% read</Trans>
       </span>
     </div>
   );

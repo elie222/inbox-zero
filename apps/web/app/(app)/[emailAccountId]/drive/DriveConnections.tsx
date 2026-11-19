@@ -1,5 +1,6 @@
 "use client";
 
+import { Trans } from "@lingui/react/macro";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useDriveConnections } from "@/hooks/useDriveConnections";
 import { DriveConnectionCard } from "./DriveConnectionCard";
@@ -25,9 +26,13 @@ export function DriveConnections() {
       ) : (
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>No drive connections found</EmptyTitle>
+            <EmptyTitle>
+              <Trans>No drive connections found</Trans>
+            </EmptyTitle>
             <EmptyDescription>
-              Connect your drive to start organizing your documents.
+              <Trans>
+                Connect your drive to start organizing your documents.
+              </Trans>
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

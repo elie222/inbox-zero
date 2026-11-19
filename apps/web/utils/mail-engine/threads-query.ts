@@ -4,6 +4,7 @@ import {
   type MailPredicate,
 } from "@inboxzero/mail-core/queries";
 import { isOutlookInboxSection } from "@/utils/outlook/inbox-sections";
+import { olderThanCutoff } from "@/utils/split-inbox/split-query";
 import { parseBooleanSearchValue } from "@/utils/tokenize-search-query";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 
@@ -57,7 +58,10 @@ export function userLabelViewPredicate(labelId: string): MailPredicate {
   };
 }
 
-export function threadsQueryToPredicate(query: ThreadsQuery): MailPredicate {
+export function threadsQueryToPredicate(
+  query: ThreadsQuery,
+  now: Date = new Date(),
+): MailPredicate {
   const clauses: MailPredicate[] = [];
   if (query.q) {
     clauses.push(...textQueryPredicates(query.q));
@@ -106,13 +110,17 @@ export function threadsQueryToPredicate(query: ThreadsQuery): MailPredicate {
       match: "address",
     });
   }
+  if (query.toEmail) clauses.push(recipientPredicate(query.toEmail));
   if (query.labelId) {
     const label = gmailTokenToPredicate(query.labelId);
-    clauses.push(
-      label.kind === "membership" && label.membership === "label"
-        ? userLabelViewPredicate(query.labelId)
-        : label,
-    );
+    if (label.kind === "membership" && label.membership === "label") {
+      // Flattened so the label membership stays a top-level clause, which is
+      // what lets the local store start from the label's membership index.
+      const view = userLabelViewPredicate(query.labelId);
+      clauses.push(...(view.kind === "all" ? view.predicates : [view]));
+    } else {
+      clauses.push(label);
+    }
   }
   for (const labelId of query.labelIds ?? []) {
     clauses.push(gmailTokenToPredicate(labelId));
@@ -150,7 +158,9 @@ export function threadsQueryToPredicate(query: ThreadsQuery): MailPredicate {
         kind: "any",
         predicates: query.excludeSplits.map((split) => ({
           kind: split.matchAll ? "all" : "any",
-          predicates: split.filters.map(splitFilterToPredicate),
+          predicates: split.filters.map((filter) =>
+            splitFilterToPredicate(filter, now),
+          ),
         })),
       },
     });
@@ -163,6 +173,7 @@ export function threadsQueryToPredicate(query: ThreadsQuery): MailPredicate {
 function leafToPredicate(leaf: {
   labelId?: string | null;
   fromEmail?: string | null;
+  toEmail?: string | null;
   isUnread?: true | null;
   inboxSection?: "focused" | "other" | null;
 }): MailPredicate {
@@ -178,7 +189,20 @@ function leafToPredicate(leaf: {
       match: "address",
     };
   }
+  if (leaf.toEmail) return recipientPredicate(leaf.toEmail);
   return { kind: "read", value: false };
+}
+
+function recipientPredicate(value: string): MailPredicate {
+  return {
+    kind: "any",
+    predicates: (["to", "cc"] as const).map((field) => ({
+      kind: "address",
+      field,
+      value,
+      match: "address",
+    })),
+  };
 }
 
 function textQueryPredicates(query: string): MailPredicate[] {
@@ -331,11 +355,16 @@ function stripGroupingParens(input: string) {
   return output.trim();
 }
 
-function splitFilterToPredicate(filter: {
-  kind: string;
-  value?: string | null;
-}): MailPredicate {
+function splitFilterToPredicate(
+  filter: { kind: string; value?: string | null },
+  now: Date,
+): MailPredicate {
   if (filter.kind === "UNREAD") return { kind: "read", value: false };
+  if (filter.kind === "OLDER_THAN" && filter.value) {
+    const before = olderThanCutoff(filter.value, now);
+    if (before)
+      return { kind: "received", afterMs: null, beforeMs: before.getTime() };
+  }
   if (filter.kind === "STARRED") return { kind: "starred", value: true };
   if (filter.kind === "FROM" && filter.value) {
     return {
@@ -344,6 +373,9 @@ function splitFilterToPredicate(filter: {
       value: filter.value,
       match: "address",
     };
+  }
+  if (filter.kind === "TO" && filter.value) {
+    return recipientPredicate(filter.value);
   }
   if (
     filter.kind === "CATEGORY" &&

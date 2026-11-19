@@ -1,5 +1,6 @@
 "use client";
 
+import { useLingui } from "@lingui/react/macro";
 import { SearchIcon } from "lucide-react";
 import { useCallback } from "react";
 import throttle from "lodash/throttle";
@@ -13,6 +14,7 @@ export function SearchBar({
   onSearch: (search: string) => void;
   className?: string;
 }) {
+  const { t } = useLingui();
   const throttledSearch = useCallback(
     throttle((value: string) => {
       onSearch(value.trim());
@@ -25,7 +27,7 @@ export function SearchBar({
       <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         type="text"
-        placeholder="Search..."
+        placeholder={t`Search...`}
         className="pl-9"
         onChange={(e) => throttledSearch(e.target.value)}
       />

@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useForm } from "react-hook-form";
 import { ArrowRightIcon, SendIcon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,7 +12,7 @@ import { Form } from "@/components/ui/form";
 import { Input } from "@/components/Input";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
-import { USER_ROLES } from "@/utils/constants/user-roles";
+import { USER_ROLES, type UserRoleValue } from "@/utils/constants/user-roles";
 import { cn } from "@/utils";
 import { ScrollableFadeContainer } from "@/components/ScrollableFadeContainer";
 import {
@@ -23,6 +26,25 @@ import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import { captureException, getActionErrorMessage } from "@/utils/error";
 
+const roleLabels: Record<UserRoleValue, MessageDescriptor> = {
+  Founder: msg`Founder`,
+  Executive: msg`Executive`,
+  "Small Business Owner": msg`Small Business Owner`,
+  "Software Engineer": msg`Software Engineer`,
+  Assistant: msg`Assistant`,
+  Realtor: msg`Realtor`,
+  "Content Creator": msg`Content Creator`,
+  Consultant: msg`Consultant`,
+  "E-commerce": msg`E-commerce`,
+  "Customer Support": msg`Customer Support`,
+  Sales: msg`Sales`,
+  Marketing: msg`Marketing`,
+  Investor: msg`Investor`,
+  Student: msg`Student`,
+  Individual: msg`Individual`,
+  Other: msg`Other`,
+};
+
 export function StepWho({
   initialRole,
   emailAccountId,
@@ -32,6 +54,7 @@ export function StepWho({
   emailAccountId: string;
   onNext: () => void;
 }) {
+  const { t, i18n } = useLingui();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [customRole, setCustomRole] = useState("");
 
@@ -102,9 +125,13 @@ export function StepWho({
       </div>
 
       <div className="text-center">
-        <PageHeading className="mt-4">What do you do?</PageHeading>
+        <PageHeading className="mt-4">
+          <Trans>What do you do?</Trans>
+        </PageHeading>
         <TypographyP className="mt-2">
-          This helps us set up your inbox the way you actually need it.
+          <Trans>
+            This helps us set up your inbox the way you actually need it.
+          </Trans>
         </TypographyP>
       </div>
 
@@ -139,8 +166,7 @@ export function StepWho({
                         validationErrors: result?.validationErrors,
                       },
                       {
-                        prefix:
-                          "We couldn't save that answer, but you can keep going",
+                        prefix: t`We couldn't save that answer, but you can keep going`,
                       },
                     ),
                   });
@@ -165,8 +191,7 @@ export function StepWho({
                     : {};
                 toastError({
                   description: getActionErrorMessage(actionError, {
-                    prefix:
-                      "We couldn't save that answer, but you can keep going",
+                    prefix: t`We couldn't save that answer, but you can keep going`,
                   }),
                 });
               });
@@ -204,7 +229,9 @@ export function StepWho({
                     </IconCircle>
 
                     <div>
-                      <div className="font-medium">{roleName}</div>
+                      <div className="font-medium">
+                        {i18n._(roleLabels[roleName])}
+                      </div>
                     </div>
                   </button>
                 );
@@ -217,7 +244,7 @@ export function StepWho({
               <Input
                 name="customRole"
                 type="text"
-                placeholder="Enter your role..."
+                placeholder={t`Enter your role...`}
                 registerProps={{
                   value: customRole,
                   onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -238,7 +265,7 @@ export function StepWho({
                 !watchedRole || (watchedRole === "Other" && !customRole.trim())
               }
             >
-              Continue
+              <Trans>Continue</Trans>
               <ArrowRightIcon className="size-4 ml-2" />
             </Button>
           </div>

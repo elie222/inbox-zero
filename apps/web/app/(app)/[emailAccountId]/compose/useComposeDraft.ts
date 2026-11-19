@@ -1,5 +1,8 @@
 import type { EmailEditorHandle } from "@inboxzero/email-editor/web";
 import type { MailClient } from "@inboxzero/mail-core/engine";
+import type { I18n } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
 import {
   type RefObject,
   useCallback,
@@ -88,6 +91,7 @@ export function useComposeDraft({
   sendAt: string;
   remindAt: string;
 }) {
+  const { t, i18n } = useLingui();
   const [requestId] = useState(
     () => storedDraft?.content?.requestId ?? randomUuid(),
   );
@@ -212,7 +216,7 @@ export function useComposeDraft({
       });
       if (!draftId)
         throw new Error(
-          "Could not find this draft in your mailbox. Reopen it and try again.",
+          t`Could not find this draft in your mailbox. Reopen it and try again.`,
         );
       providerDraftId.current = draftId;
       return draftId;
@@ -231,7 +235,7 @@ export function useComposeDraft({
     let createdMessageId: string | null = null;
     if (!draftId) {
       const content = getProviderDraftContent();
-      if (!content) throw new Error("This draft is not ready to save yet.");
+      if (!content) throw new Error(t`This draft is not ready to save yet.`);
       const created = await saveComposeDraftAction(emailAccountId, {
         content: {
           ...content,
@@ -241,9 +245,9 @@ export function useComposeDraft({
       });
       if (!created?.data)
         throw new Error(
-          "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
+          t`Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.`,
         );
-      if (created.data.sessionSent) throw sessionAlreadySent();
+      if (created.data.sessionSent) throw sessionAlreadySent(i18n);
       draftId = created.data.draftId;
       createdMessageId = created.data.messageId;
     }
@@ -278,8 +282,9 @@ export function useComposeDraft({
         content,
         composeSessionId: requestId,
       });
-      if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
-      if (result.data.sessionSent) throw sessionAlreadySent();
+      if (!result?.data)
+        throw new Error(getDraftSyncErrorMessage(result, i18n));
+      if (result.data.sessionSent) throw sessionAlreadySent(i18n);
       await followDraftMessage(result.data.messageId);
       return;
     }
@@ -288,10 +293,10 @@ export function useComposeDraft({
       draftMessageId: providerDraftMessageId,
       draftId: providerDraftId.current,
     });
-    if (!result?.data) throw new Error(getDraftSyncErrorMessage(result));
+    if (!result?.data) throw new Error(getDraftSyncErrorMessage(result, i18n));
     if (result.data.status === "missing")
       throw new DraftAutosaveHaltedError(
-        "This draft was sent, deleted, or changed elsewhere, so edits here are no longer saved to your mailbox.",
+        t`This draft was sent, deleted, or changed elsewhere, so edits here are no longer saved to your mailbox.`,
       );
     providerDraftId.current = result.data.draftId;
     captureLocalDraft();
@@ -364,8 +369,7 @@ export function useComposeDraft({
             local?.content?.providerDraftCreationUnconfirmed
           )
             toastError({
-              description:
-                "The local draft will be discarded. A mailbox draft may still exist; check Drafts in Gmail or Outlook.",
+              description: t`The local draft will be discarded. A mailbox draft may still exist; check Drafts in Gmail or Outlook.`,
             });
         }
         if ((await onDiscard(providerDraftId.current)) === false) {
@@ -380,7 +384,7 @@ export function useComposeDraft({
           description:
             error instanceof Error
               ? error.message
-              : "Could not discard this draft.",
+              : t`Could not discard this draft.`,
         });
       } finally {
         discarding.current = false;
@@ -397,6 +401,7 @@ export function useComposeDraft({
       localDraftIdentity,
       stopProviderAutosave,
       resumeProviderAutosave,
+      t,
     ],
   );
 
@@ -425,29 +430,29 @@ export function useComposeDraft({
 
 // A save that landed after its reply was sent; the server removed the draft
 // it wrote, so there is nothing left to save to.
-function sessionAlreadySent() {
+function sessionAlreadySent(i18n: I18n) {
   return new DraftAutosaveHaltedError(
-    "This reply was already sent, so edits here are no longer saved to your mailbox.",
+    i18n._(
+      msg`This reply was already sent, so edits here are no longer saved to your mailbox.`,
+    ),
   );
 }
 
 // Gmail rebuilds the whole message on each save, files included.
 const GMAIL_ATTACHMENT_DRAFT_SAVE_INTERVAL_MS = 15_000;
 
-const DRAFT_SYNC_FAILED_MESSAGE =
-  "Couldn't sync this draft to your mailbox. It's saved on this device and we'll keep trying.";
+const DRAFT_SYNC_FAILED_MESSAGE = msg`Couldn't sync this draft to your mailbox. It's saved on this device and we'll keep trying.`;
 
 // Unexpected server failures are usually transient and the autosave retries
 // them, so they get reassuring copy. Specific rejections (a draft that was
 // sent or deleted elsewhere, an expired session) are shown as-is.
 function getDraftSyncErrorMessage(
   result: { serverError?: string } | undefined,
+  i18n: I18n,
 ) {
-  const message = getActionErrorMessage(
-    result ?? {},
-    DRAFT_SYNC_FAILED_MESSAGE,
-  );
+  const syncFailedMessage = i18n._(DRAFT_SYNC_FAILED_MESSAGE);
+  const message = getActionErrorMessage(result ?? {}, syncFailedMessage);
   return message === UNEXPECTED_ACTION_ERROR_MESSAGE
-    ? DRAFT_SYNC_FAILED_MESSAGE
+    ? syncFailedMessage
     : message;
 }

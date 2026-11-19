@@ -298,13 +298,13 @@ export async function createLabel({
       });
       if (conflictLabel) return conflictLabel;
 
-      throw new Error(`Label conflict but not found: ${name}`);
+      throw new Error("Label conflict but not found");
     }
 
     if (errorMessage?.includes("Invalid label name"))
-      throw new Error(`Invalid Gmail label name: "${name}"`);
+      throw new Error("Invalid Gmail label name");
 
-    throw new Error(`Failed to create Gmail label "${name}": ${errorMessage}`);
+    throw new Error(`Failed to create Gmail label: ${errorMessage}`);
   }
 }
 

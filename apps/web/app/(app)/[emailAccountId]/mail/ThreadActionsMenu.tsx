@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ArchiveIcon,
   ArrowBigUpIcon,
@@ -78,6 +79,7 @@ export function ThreadActionsMenu({
   open,
   onOpenChange,
 }: ThreadActionsMenuProps) {
+  const { t } = useLingui();
   const { provider, userEmail } = useAccount();
   const [isRuleDialogOpen, setIsRuleDialogOpen] = useState(false);
   const senderFrom = receivedMessage?.headers.from ?? "";
@@ -115,19 +117,17 @@ export function ThreadActionsMenu({
             variant="outline"
           >
             <MailXIcon className="mr-1.5 size-3.5" />
-            Unsubscribe
+            <Trans>Unsubscribe</Trans>
           </Button>
         </Tooltip>
       ) : null}
 
       <DropdownMenu onOpenChange={onOpenChange} open={open}>
-        <Tooltip shortcuts={["moreActions"]}>
-          <DropdownMenuTrigger asChild>
-            <Button aria-label="More actions" size="iconXs" variant="ghost">
-              <MoreHorizontalIcon className="size-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-        </Tooltip>
+        <DropdownMenuTrigger asChild>
+          <Button aria-label={t`More actions`} size="iconXs" variant="ghost">
+            <MoreHorizontalIcon className="size-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
 
         <DropdownMenuContent
           align="end"
@@ -137,7 +137,7 @@ export function ThreadActionsMenu({
           {onLabel && (
             <DropdownMenuItem onSelect={onLabel}>
               <TagIcon className="mr-2 size-4" />
-              Label
+              <Trans>Label</Trans>
               <MenuShortcut id="label" />
             </DropdownMenuItem>
           )}
@@ -145,7 +145,7 @@ export function ThreadActionsMenu({
           {onMove && (
             <DropdownMenuItem onSelect={onMove}>
               <FolderInputIcon className="mr-2 size-4" />
-              Move
+              <Trans>Move</Trans>
               <MenuShortcut id="move" />
             </DropdownMenuItem>
           )}
@@ -156,7 +156,7 @@ export function ThreadActionsMenu({
             ) : (
               <StarIcon className="mr-2 size-4" />
             )}
-            {isStarred ? "Unstar" : "Star"}
+            {isStarred ? <Trans>Unstar</Trans> : <Trans>Star</Trans>}
             <MenuShortcut id="star" />
           </DropdownMenuItem>
 
@@ -164,13 +164,13 @@ export function ThreadActionsMenu({
 
           <DropdownMenuItem onSelect={onDelete}>
             <Trash2Icon aria-hidden className="mr-2 size-4" />
-            Delete
+            <Trans>Delete</Trans>
             <MenuShortcut id="delete" />
           </DropdownMenuItem>
 
           <DropdownMenuItem onSelect={onMarkSpam}>
             <ShieldAlertIcon className="mr-2 size-4" />
-            Mark as spam
+            <Trans>Mark as spam</Trans>
             <MenuShortcut id="markSpam" />
           </DropdownMenuItem>
 
@@ -194,7 +194,7 @@ export function ThreadActionsMenu({
           {onComment && (
             <DropdownMenuItem onSelect={onComment}>
               <MessageSquareIcon className="mr-2 size-4" />
-              Comment
+              <Trans>Comment</Trans>
               <MenuShortcut id="openTeamComments" />
             </DropdownMenuItem>
           )}
@@ -209,9 +209,11 @@ export function ThreadActionsMenu({
               ) : (
                 <ArchiveIcon className="mr-2 size-4" />
               )}
-              {isAutoArchived
-                ? "Disable auto archive"
-                : "Auto archive future emails"}
+              {isAutoArchived ? (
+                <Trans>Disable auto archive</Trans>
+              ) : (
+                <Trans>Auto archive future emails</Trans>
+              )}
               <MenuShortcut id="toggleAutoArchive" />
             </DropdownMenuItem>
           ) : null}
@@ -219,14 +221,14 @@ export function ThreadActionsMenu({
           {senderEmail ? (
             <DropdownMenuItem onSelect={() => setIsRuleDialogOpen(true)}>
               <WandSparklesIcon className="mr-2 size-4" />
-              Create rule for sender
+              <Trans>Create rule for sender</Trans>
             </DropdownMenuItem>
           ) : null}
 
           {onTranslate && (
             <DropdownMenuItem onSelect={onTranslate}>
               <LanguagesIcon className="mr-2 size-4" />
-              Translate
+              <Trans>Translate</Trans>
               <MenuShortcut id="translate" />
             </DropdownMenuItem>
           )}
@@ -234,7 +236,7 @@ export function ThreadActionsMenu({
           {onPrint && (
             <DropdownMenuItem onSelect={onPrint}>
               <PrinterIcon className="mr-2 size-4" />
-              Print
+              <Trans>Print</Trans>
             </DropdownMenuItem>
           )}
 
@@ -244,7 +246,7 @@ export function ThreadActionsMenu({
             <DropdownMenuItem asChild>
               <a href={openUrl} rel="noopener noreferrer" target="_blank">
                 <ExternalLinkIcon className="mr-2 size-4" />
-                {getOpenInMailboxLabel(provider) ?? "Open in email provider"}
+                {getOpenInMailboxLabel(provider) ?? t`Open in email provider`}
                 <MenuShortcut id="openExternal" />
               </a>
             </DropdownMenuItem>

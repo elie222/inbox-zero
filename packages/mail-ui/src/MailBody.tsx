@@ -29,6 +29,11 @@ export type MailHtmlFrameCallbacks = {
   onFocusMessage?: () => void;
 };
 
+type MailHtmlFrameStrings = Partial<{
+  preview: string;
+  preparingPreview: string;
+}>;
+
 type MailHtmlDocument = {
   srcDoc: string;
   documentKey: string;
@@ -45,6 +50,7 @@ export function MailMessageBody({
   imageProxyBaseUrl = null,
   imageProxyOrigin = null,
   allowRemoteImages = false,
+  strings,
 }: {
   html?: string | null;
   text?: string | null;
@@ -56,6 +62,7 @@ export function MailMessageBody({
   imageProxyBaseUrl?: string | null;
   imageProxyOrigin?: string | null;
   allowRemoteImages?: boolean;
+  strings?: MailHtmlFrameStrings;
 }) {
   const sanitizedHtml = useMemo(
     () => (html ? sanitizeMailHtml(html) : ""),
@@ -144,6 +151,7 @@ export function MailMessageBody({
           documentKey={document.documentKey}
           isDarkMode={document.isDarkMode}
           srcDoc={document.srcDoc}
+          strings={strings}
         />
       </div>
     );
@@ -193,9 +201,11 @@ export function BufferedMailHtmlFrame({
   documentKey,
   isDarkMode,
   callbacks,
+  strings,
 }: MailHtmlDocument & {
   isDarkMode: boolean;
   callbacks: MailHtmlFrameCallbacks;
+  strings?: MailHtmlFrameStrings;
 }) {
   const [visibleDocument, setVisibleDocument] = useState<MailHtmlDocument>(
     () => ({
@@ -222,6 +232,7 @@ export function BufferedMailHtmlFrame({
           isDarkMode={isDarkMode}
           onReady={setVisibleDocument}
           callbacks={callbacks}
+          strings={strings}
         />
       ))}
     </div>
@@ -427,12 +438,14 @@ function MailHtmlFrame({
   isDarkMode,
   onReady,
   callbacks,
+  strings,
 }: {
   document: MailHtmlDocument;
   pending: boolean;
   isDarkMode: boolean;
   onReady: (document: MailHtmlDocument) => void;
   callbacks: MailHtmlFrameCallbacks;
+  strings?: MailHtmlFrameStrings;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const height = useMailHtmlFrame(
@@ -463,7 +476,9 @@ function MailHtmlFrame({
       }}
       aria-hidden={pending || undefined}
       title={
-        pending ? "Preparing email content preview" : "Email content preview"
+        pending
+          ? (strings?.preparingPreview ?? "Preparing email content preview")
+          : (strings?.preview ?? "Email content preview")
       }
       sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
       referrerPolicy="no-referrer"

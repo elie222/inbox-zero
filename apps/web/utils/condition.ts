@@ -1,4 +1,3 @@
-import { LogicalOperator } from "@/generated/prisma/enums";
 import type { Rule } from "@/generated/prisma/client";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
 import type {
@@ -168,49 +167,3 @@ export const flattenConditions = (
     return acc;
   }, {} as FlattenedConditions);
 };
-
-//========================================
-// toString utils
-//========================================
-
-export function conditionTypesToString(rule: RuleConditions) {
-  return getConditions(rule)
-    .map((condition) => conditionTypeToString(condition.type))
-    .join(", ");
-}
-
-function conditionTypeToString(conditionType: ConditionType): string {
-  switch (conditionType) {
-    case ConditionType.AI:
-      return "AI";
-    case ConditionType.STATIC:
-      return "Static";
-    case ConditionType.LEARNED_PATTERN:
-      return "Group";
-    case ConditionType.PRESET:
-      return "Preset";
-    default:
-      // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
-      const exhaustiveCheck: never = conditionType;
-      return exhaustiveCheck;
-  }
-}
-
-export function conditionsToString(rule: RuleConditions) {
-  const conditions: string[] = [];
-  const connector =
-    rule.conditionalOperator === LogicalOperator.AND ? " AND " : " OR ";
-
-  // Static conditions - grouped with commas
-  const staticConditions: string[] = [];
-  if (rule.from) staticConditions.push(`From: ${rule.from}`);
-  if (rule.subject) staticConditions.push(`Subject: "${rule.subject}"`);
-  if (rule.to) staticConditions.push(`To: ${rule.to}`);
-  if (rule.body) staticConditions.push(`Body: "${rule.body}"`);
-  if (staticConditions.length) conditions.push(staticConditions.join(", "));
-
-  // AI condition
-  if (rule.instructions) conditions.push(rule.instructions);
-
-  return conditions.join(connector);
-}

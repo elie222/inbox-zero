@@ -1,3 +1,5 @@
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import { z } from "zod";
 
 const deliveryTimeSchema = z.string().datetime({ offset: true });
@@ -20,7 +22,7 @@ export function parseDeliveryTimes(
   sendAt: string,
   remindAt: string,
 ):
-  | { valid: false; error: string }
+  | { valid: false; error: MessageDescriptor }
   | { valid: true; sendAt: string | null; remindAt: string | null } {
   const sendDate =
     typeof sendAt === "string" && sendAt ? new Date(sendAt) : null;
@@ -32,7 +34,7 @@ export function parseDeliveryTimes(
   ) {
     return {
       valid: false,
-      error: "Choose a valid send time, or clear Send later to send now.",
+      error: msg`Choose a valid send time, or clear Send later to send now.`,
     };
   }
   if (
@@ -41,7 +43,7 @@ export function parseDeliveryTimes(
   ) {
     return {
       valid: false,
-      error: "Choose a valid reminder time, or clear the reminder.",
+      error: msg`Choose a valid reminder time, or clear the reminder.`,
     };
   }
   return {

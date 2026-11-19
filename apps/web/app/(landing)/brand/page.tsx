@@ -15,6 +15,8 @@ import {
 import { env } from "@/env";
 import { cn } from "@/utils";
 import { getBrandTitle, HAS_BRAND_KIT } from "@/utils/branding";
+import { LinguiClientProvider } from "@/providers/LinguiClientProvider";
+import { getLandingMessages, initLandingLingui } from "@/utils/i18n/server";
 
 export const metadata: Metadata = {
   title: getBrandTitle("Brand Kit"),
@@ -75,9 +77,11 @@ const colors = [
 
 export default function BrandPage() {
   if (!HAS_BRAND_KIT) notFound();
+  // The shared landing sections (CTA, footer) are translated components.
+  initLandingLingui("en");
 
   return (
-    <>
+    <LinguiClientProvider locale="en" messages={getLandingMessages("en")}>
       <BlogHeader />
 
       <div className="mx-auto max-w-4xl px-6 pb-24">
@@ -229,7 +233,7 @@ export default function BrandPage() {
 
       <FinalCTA />
       <Footer />
-    </>
+    </LinguiClientProvider>
   );
 }
 

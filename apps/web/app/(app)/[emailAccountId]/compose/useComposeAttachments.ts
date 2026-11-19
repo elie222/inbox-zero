@@ -4,6 +4,7 @@ import {
   validateEmailAttachmentMetadata,
 } from "@inboxzero/email-editor/core";
 import type { EmailEditorHandle } from "@inboxzero/email-editor/web";
+import { useLingui } from "@lingui/react/macro";
 import {
   type ChangeEvent,
   type RefObject,
@@ -15,6 +16,7 @@ import { toastError } from "@/components/Toast";
 import type { DraftAttachment } from "@/utils/email/types";
 import { randomUuid } from "@/utils/uuid";
 import type { ReplyingToEmail } from "./ComposeEmailForm";
+import { getComposeErrorMessage } from "./compose-error-messages";
 import {
   type ComposeAttachment,
   mergeDraftAttachments,
@@ -41,6 +43,7 @@ export function useComposeAttachments({
   isSubmitting: boolean;
   replyingToEmail?: ReplyingToEmail;
 }) {
+  const { t, i18n } = useLingui();
   const {
     attachmentsRef,
     draftQueueKey,
@@ -106,10 +109,11 @@ export function useComposeAttachments({
         );
       },
       (error: unknown) => {
-        const description =
-          error instanceof Error
-            ? error.message
-            : `Could not attach ${attachment.filename}.`;
+        const description = getComposeErrorMessage(
+          error,
+          i18n,
+          t`Could not attach ${attachment.filename}.`,
+        );
         toastError({ description });
         updateAttachments(
           attachmentsRef.current.map((item) =>
@@ -147,10 +151,11 @@ export function useComposeAttachments({
       },
       (error: unknown) => {
         toastError({
-          description:
-            error instanceof Error
-              ? error.message
-              : `Could not remove ${attachment.filename}.`,
+          description: getComposeErrorMessage(
+            error,
+            i18n,
+            t`Could not remove ${attachment.filename}.`,
+          ),
         });
         updateAttachments([
           ...attachmentsRef.current,
@@ -197,7 +202,7 @@ export function useComposeAttachments({
       for (const { file } of created) {
         if (!(await isInlineImageContent(file))) {
           toastError({
-            description: "Inline image content does not match its file type.",
+            description: t`Inline image content does not match its file type.`,
           });
           return;
         }
@@ -220,7 +225,7 @@ export function useComposeAttachments({
     });
     if (accepted.length !== created.length) {
       toastError({
-        description: "One of the inline images could not be inserted.",
+        description: t`One of the inline images could not be inserted.`,
       });
     }
     if (!accepted.length) return;
@@ -250,7 +255,7 @@ export function useComposeAttachments({
       event.target.value = "";
       if (files.length) {
         addFiles(files, disposition).catch(() =>
-          toastError({ description: "One of the files could not be read." }),
+          toastError({ description: t`One of the files could not be read.` }),
         );
       }
     };
