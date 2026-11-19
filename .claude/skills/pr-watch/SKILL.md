@@ -34,7 +34,7 @@ PRD="$(git rev-parse --show-toplevel)/.claude/skills/pr-watch/pr-digest"
 
    | verdict | do |
    |---|---|
-   | `green` | Check the completion gate below. Wait again if review signals are still due. |
+   | `green` | Check the completion gate below, including check registration and review signals. |
    | `failures` | Triage below. |
    | `open-comments` | Answer them below. |
    | `pending` | Wait for another observation. |
@@ -50,8 +50,9 @@ PRD="$(git rev-parse --show-toplevel)/.claude/skills/pr-watch/pr-digest"
 ### Wait for GitHub events
 
 Use [`gh event listen`](https://cli.github.com/manual/gh_event_listen) on
-GitHub.com with GitHub CLI 2.105.0 or later and Event Streams preview access
-for the authenticated account. Get the target PR URL with
+GitHub.com with GitHub CLI 2.105.0 or later, Event Streams preview access,
+and a background runner that lets you read output while the command is
+running. Get the target PR URL with
 `gh pr view [PR] --json url --jq .url`, omitting `[PR]` for the current branch.
 Run the listener as one background command.
 
@@ -71,9 +72,10 @@ event or timeout (exit 8). A completed suite may leave other suites pending.
 Standalone PR comments and legacy commit statuses can change without an event,
 so the timeout snapshot matters even when the listener prints no events.
 
-If the listener fails or preview access is unavailable, use
-`"$PRD" --watch [PR]` in the background for pending CI. Use it also to
-catch individual job failures before their suites finish. It reports failures
+If the runner only reports command exits, the listener fails, or preview
+access is unavailable, use `"$PRD" --watch [PR]` in the background for pending
+CI. Use it also to catch individual job failures before their suites finish.
+It reports failures
 as soon as it observes them, otherwise it waits for checks to settle or prints
 `WAIT_LIMIT` with the pending checks. When CI has settled and only review
 feedback is expected, use the runtime's PR watcher or a bounded delayed
@@ -156,7 +158,11 @@ gh api graphql -f query='mutation($id:ID!){
 Finish only when one observation of a single SHA proves all of:
 
 1. `VERDICT green` — local, upstream, and PR head agree; no failing check or
-   status.
+   status. If the digest says `checks none`, allow checks time to register.
+   Confirm that the PR head stayed on that SHA across a `--watch` run that
+   returned green without `WAIT_LIMIT`, or take a second green snapshot on
+   the same SHA at least two minutes after the first. A review signal or
+   early listener exit can arrive during that registration window.
 2. Every review bot has produced a signal on that SHA. If none has ever
    appeared, require two observations on the same SHA separated by a full
    review wait window before concluding none is configured. For shell-based
