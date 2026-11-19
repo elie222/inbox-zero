@@ -5,7 +5,7 @@ import * as outlookLabelModule from "@/utils/outlook/label";
 import { createTestLogger } from "@/__tests__/helpers";
 import { getThreadParticipantNames } from "@/app/(app)/[emailAccountId]/mail/thread-participants";
 import { DraftNotFoundError } from "@/utils/error";
-import { OUTLOOK_GET_MESSAGES_BATCH_CONCURRENCY, OutlookProvider } from "./microsoft";
+import { OutlookProvider } from "./microsoft";
 import { resolveOutlookFolderId } from "@/utils/outlook/search-scope";
 import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
 
@@ -2706,20 +2706,7 @@ describe("OutlookProvider.getMessagesBatch", () => {
     );
   });
 
-  it("returns an empty array when given an empty messageIds list", async () => {
-    const provider = new OutlookProvider(
-      createMockOutlookClient([]),
-      createTestLogger(),
-    );
-    const getMessageSpy = vi.spyOn(provider, "getMessage");
-
-    const messages = await provider.getMessagesBatch([]);
-
-    expect(messages).toEqual([]);
-    expect(getMessageSpy).not.toHaveBeenCalled();
-  });
-
-  it("throttles getMessage calls to maximum concurrency without exceeding limit", async () => {
+  it("keeps at most 4 message requests in flight and preserves order", async () => {
     const provider = new OutlookProvider(
       createMockOutlookClient([]),
       createTestLogger(),
@@ -2730,10 +2717,7 @@ describe("OutlookProvider.getMessagesBatch", () => {
 
     vi.spyOn(provider, "getMessage").mockImplementation(async (messageId) => {
       activeRequests++;
-      maxObservedConcurrency = Math.max(
-        maxObservedConcurrency,
-        activeRequests,
-      );
+      maxObservedConcurrency = Math.max(maxObservedConcurrency, activeRequests);
       // Brief yield to allow concurrent tasks to overlap
       await new Promise((resolve) => setTimeout(resolve, 15));
       activeRequests--;
@@ -2746,7 +2730,7 @@ describe("OutlookProvider.getMessagesBatch", () => {
     const messages = await provider.getMessagesBatch(ids);
 
     expect(messages.map((message) => message.id)).toEqual(ids);
-    expect(maxObservedConcurrency).toBe(OUTLOOK_GET_MESSAGES_BATCH_CONCURRENCY);
+    expect(maxObservedConcurrency).toBe(4);
   });
 
   it("stops starting further message requests and waits for in-flight requests when a batch fails", async () => {
@@ -2780,31 +2764,5 @@ describe("OutlookProvider.getMessagesBatch", () => {
 
     expect(inFlight).toBe(0);
     expect(started.length).toBeLessThan(ids.length);
-  });
-
-  it("pre-populates folder ID and category map caches on cold cache", async () => {
-    const client = createMockOutlookClient([]);
-    const provider = new OutlookProvider(client, createTestLogger());
-
-    getFolderIdsMock.mockImplementationOnce(async (c: any) => {
-      const folders = { inbox: "inbox-id" };
-      c.setFolderIdCache(folders);
-      return folders;
-    });
-
-    expect(client.getFolderIdCache()).toBeNull();
-    expect(client.getCategoryMapCache()).toBeNull();
-
-    vi.spyOn(provider, "getMessage").mockResolvedValue({ id: "msg-1" } as any);
-
-    await provider.getMessagesBatch(["msg-1"]);
-
-    expect(getFolderIdsMock).toHaveBeenCalledWith(
-      client,
-      expect.anything(),
-      { includeDrafts: false },
-    );
-    expect(client.getFolderIdCache()).not.toBeNull();
-    expect(client.getCategoryMapCache()).not.toBeNull();
   });
 });

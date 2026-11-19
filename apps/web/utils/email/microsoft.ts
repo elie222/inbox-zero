@@ -158,7 +158,6 @@ import { searchContacts } from "@/utils/outlook/contact";
 import { mapWithConcurrency } from "@/utils/async";
 
 const REPLY_SEARCH_MAX_PAGES = 3;
-export const OUTLOOK_GET_MESSAGES_BATCH_CONCURRENCY = 4;
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
@@ -1724,46 +1723,37 @@ export class OutlookProvider implements EmailProvider {
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
     if (messageIds.length === 0) return [];
 
-    // Preload well-known folder IDs and category map sequentially so
-    // cold-cache resolution stays within Graph's concurrency budget (4),
-    // and concurrent getMessage workers hit the in-memory cache.
+    // Warm the folder and category caches once so the parallel getMessage
+    // calls below don't each fetch them on a cold cache.
     await getFolderIds(this.client, this.logger, { includeDrafts: false });
     await getCategoryMap(this.client, this.logger);
 
-    // Throttle concurrent message requests to stay within Microsoft Graph's
-    // per-mailbox concurrency limit (4) to prevent ErrorAccessDenied and burst throttling.
-    // Like Gmail's batch, skip messages that no longer exist instead of
-    // failing the whole batch on one stale ID.
-    let firstError: unknown = null;
+    // Graph allows 4 concurrent requests per mailbox; an unbounded fan-out
+    // just turns into 429 retries. Like Gmail's batch, skip messages that no
+    // longer exist instead of failing the whole batch on one stale ID.
+    const errors: unknown[] = [];
     const messages = await mapWithConcurrency(
       messageIds,
-      OUTLOOK_GET_MESSAGES_BATCH_CONCURRENCY,
+      4,
       async (messageId) => {
-        if (firstError) return null;
+        if (errors.length > 0) return null;
         try {
           return await this.getMessage(messageId);
         } catch (error) {
-          if (!isOutlookItemNotFoundError(error)) {
-            if (!firstError) {
-              firstError = error;
-            }
-            return null;
+          if (isOutlookItemNotFoundError(error)) {
+            this.logger.warn("Skipping message missing from Outlook", {
+              messageId,
+            });
+          } else {
+            errors.push(error);
           }
-          this.logger.warn("Skipping message missing from Outlook", {
-            messageId,
-          });
           return null;
         }
       },
     );
 
-    if (firstError) {
-      throw firstError;
-    }
-
-    return messages.filter(
-      (message): message is ParsedMessage => message !== null,
-    );
+    if (errors.length > 0) throw errors[0];
+    return messages.filter((message) => message !== null);
   }
 
   async syncLocalMail(
