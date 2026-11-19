@@ -8,11 +8,9 @@ description: Take an open pull request to green — wait for CI, triage failing 
 Take the PR on the current branch (or the number you were given) to a clean
 state: every check terminal and passing, every review comment answered.
 
-`pr-digest`, shipped next to this file, does the observing. Use it instead of
-hand-rolling `gh api` calls — it collapses check runs, statuses, and review
-threads into a few lines, and re-deriving that each cycle is where this loop
-leaks most of its tokens. The Bash tool's directory is not always the repo root,
-so resolve it once:
+`pr-digest`, shipped next to this file, summarizes check runs, commit statuses,
+and review feedback for the current PR head. Use it for snapshots and verdicts.
+Resolve its path from the repo root.
 
 ```bash
 PRD="$(git rev-parse --show-toplevel)/.claude/skills/pr-watch/pr-digest"
@@ -30,28 +28,56 @@ PRD="$(git rev-parse --show-toplevel)/.claude/skills/pr-watch/pr-digest"
 
 ## The cycle
 
-1. Run `"$PRD" --watch` with **`run_in_background: true`**. It reports a failed,
-   cancelled or timed-out check on the exact head SHA
-   immediately, even while other checks are pending. Otherwise it waits for
-   checks to settle. At its wait deadline it prints `WAIT_LIMIT` and names
-   the pending checks; that deadline is not itself a CI failure. You are re-invoked when it exits.
-
-   Never wait in the foreground. `sleep` is blocked and an `until` loop is
-   killed at the execution tool's timeout, costing an error round-trip plus a
-   retry without producing any signal. One backgrounded call replaces the poll.
+1. Start with `"$PRD" [PR]`, omitting `[PR]` for the current branch.
 
 2. Read the `VERDICT` line and act:
 
    | verdict | do |
    |---|---|
-   | `green` | Check the completion gate below, then report. |
+   | `green` | Check the completion gate below. Wait again if review signals are still due. |
    | `failures` | Triage below. |
    | `open-comments` | Answer them below. |
-   | `pending` | A check registered late. Back to 1. |
+   | `pending` | Wait for another observation. |
    | `out-of-sync` | Push or reconcile, then back to 1. |
+   | `CLOSED` or `MERGED` | Report the PR's final state. |
 
-3. After any push or reply, go back to 1 once. A verdict is only good for the
-   SHA it was taken on; never mix observations from two commits.
+3. When a wait is needed, use the runtime's PR watcher where required
+   (for example, `watch_pull_request` in T3 Code). For shell-based waits, run
+   one bounded event listener or fallback command in the background.
+   After a push, reply, or wait, refresh the digest for the current head.
+   The verdict applies to the SHA observed by that digest.
+
+### Wait for GitHub events
+
+Use [`gh event listen`](https://cli.github.com/manual/gh_event_listen) on
+GitHub.com with GitHub CLI 2.105.0 or later and Event Streams preview access
+for the authenticated account. Get the target PR URL with
+`gh pr view [PR] --json url --jq .url`, omitting `[PR]` for the current branch.
+Run the listener as one background command.
+
+```bash
+gh event listen --resource "$PR_URL" --timeout 2m \
+  --event com.github.pull_request.review.submitted.v1 \
+  --event com.github.pull_request.check_suite.status.changed.v1 \
+  --event com.github.pull_request.head.changed.v1 \
+  --event com.github.pull_request.state.changed.v1
+```
+
+Run `"$PRD" [PR]` when the listener prints `Listening for events.`, including
+after a reconnect, because GitHub only delivers events while the stream is
+attached. Stop the listener if that snapshot shows work you can act on or the
+PR meets the completion gate. Otherwise, run the digest again after the first
+event or timeout (exit 8). A completed suite may leave other suites pending.
+Standalone PR comments and legacy commit statuses can change without an event,
+so the timeout snapshot matters even when the listener prints no events.
+
+If the listener fails or preview access is unavailable, use
+`"$PRD" --watch [PR]` in the background for pending CI. Use it also to
+catch individual job failures before their suites finish. It reports failures
+as soon as it observes them, otherwise it waits for checks to settle or prints
+`WAIT_LIMIT` with the pending checks. When CI has settled and only review
+feedback is expected, use the runtime's PR watcher or a bounded delayed
+`"$PRD" [PR]` in the background. `--watch` can return immediately once CI settles.
 
 ## Failures
 
@@ -132,10 +158,11 @@ Finish only when one observation of a single SHA proves all of:
 1. `VERDICT green` — local, upstream, and PR head agree; no failing check or
    status.
 2. Every review bot has produced a signal on that SHA. If none has ever
-   appeared, require two consecutive observations separated by a full wait
-   before concluding none is configured.
+   appeared, require two observations on the same SHA separated by a full
+   review wait window before concluding none is configured. For shell-based
+   waits, use the listener's two-minute timeout or a two-minute delayed digest.
 3. Every root comment is answered and no new one appeared.
-4. At least one full wait happened after your last push or reply.
+4. At least one wait finished after your last push or reply.
 
 For a UI change, once the screenshot gallery for that SHA is published, put the
 screenshot that shows the change in the PR description.

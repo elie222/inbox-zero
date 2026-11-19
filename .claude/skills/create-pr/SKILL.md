@@ -93,18 +93,6 @@ risk when relevant.
 
 If the user requested `skip review` or `#skipreview`, post that marker and stop.
 
-Otherwise start the watch in the same turn you created the PR — do not stop to
-report first. Opening a PR is not completing it, and a report delivered while
-checks are still running is a report of nothing:
-
-```bash
-# run_in_background: true
-"$(git rev-parse --show-toplevel)/.claude/skills/pr-watch/pr-digest" --watch
-```
-
-That call reports a failure or timeout immediately, or waits for the checks
-on this commit to settle, then prints a digest ending in a `VERDICT` line. Read `.claude/skills/pr-watch/SKILL.md` for
-how to act on each verdict, triage a failing job, and answer review comments.
-
-Starting the command matters more than remembering the skill: once it is
-running, its output tells you what to do next even if nothing reminded you.
+Otherwise start the [PR-watch workflow](../pr-watch/SKILL.md) in the same turn
+you created the PR. Follow its guidance for choosing a watcher, triaging
+failures, and addressing review feedback.
