@@ -773,8 +773,8 @@ importers:
         specifier: 0.4.6
         version: 0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       nodemailer:
-        specifier: 10.4.0
-        version: 10.4.0
+        specifier: 10.4.1
+        version: 10.4.1
       nuqs:
         specifier: 2.10.2
         version: 2.10.2(next@16.4.5(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.62.1)(@types/node@24.10.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
@@ -11349,8 +11349,8 @@ packages:
   node-rsa@1.1.1:
     resolution: {integrity: sha512-Jd4cvbJMryN21r5HgxQOpMEqv+ooke/korixNNK3mGqfGJmy0M77WDDzo/05969+OkMy3XW1UuZsSmW9KQm7Fw==}
 
-  nodemailer@10.4.0:
-    resolution: {integrity: sha512-fyy6r4Q5euRJ9Qr3Cts9K7SZrfe9zmz9oLOYiAR02MEJRDRci+99y0OoYBYBgpLffOqkkjXrB/d26VfiMje/kA==}
+  nodemailer@10.4.1:
+    resolution: {integrity: sha512-CyGM/J+n6W72v2B44BOkIrrQ/cvhm2fOa7fkQDHYOqtjM8stumU5ey3uv9oJ2ryShNit79NaEW/vXznvt/35vA==}
     engines: {node: '>=20.0.0'}
 
   non-error@0.1.0:
@@ -25534,7 +25534,7 @@ snapshots:
     dependencies:
       asn1: 0.2.6
 
-  nodemailer@10.4.0: {}
+  nodemailer@10.4.1: {}
 
   non-error@0.1.0: {}
 
