@@ -37,6 +37,37 @@ describe("MicrosoftCalendarEventProvider", () => {
     graphMocks.orderby.mockReturnValue({ get: graphMocks.get });
   });
 
+  it("marks events Outlook flags as all-day", async () => {
+    graphMocks.get.mockResolvedValue({
+      value: [
+        {
+          id: "offsite",
+          subject: "Offsite",
+          isAllDay: true,
+          start: { dateTime: "2026-05-04T00:00:00.0000000" },
+          end: { dateTime: "2026-05-05T00:00:00.0000000" },
+        },
+        {
+          id: "sync",
+          subject: "Sync",
+          isAllDay: false,
+          start: { dateTime: "2026-05-04T09:00:00.000Z" },
+          end: { dateTime: "2026-05-04T09:30:00.000Z" },
+        },
+      ],
+    });
+
+    const events = await createProvider().fetchEvents({
+      timeMin: new Date("2026-05-04T00:00:00.000Z"),
+      timeMax: new Date("2026-05-05T00:00:00.000Z"),
+    });
+
+    expect(events.map((event) => [event.id, event.isAllDay])).toEqual([
+      ["offsite", true],
+      ["sync", undefined],
+    ]);
+  });
+
   it("parses the organizer and declined attendees when fetching events", async () => {
     graphMocks.get.mockResolvedValue({
       value: [

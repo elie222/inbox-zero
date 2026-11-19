@@ -43,6 +43,7 @@ export function filterEventsWithExternalGuests(
 ): CalendarEvent[] {
   return events.filter(
     (event) =>
+      !event.isAllDay &&
       !hasUserDeclined(event, userEmail) &&
       partitionAttendeesForBriefing(event, userEmail).external.length > 0,
   );
