@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld("inboxZeroDesktop", {
     ipcRenderer.invoke("desktop-auth:start", provider, options),
   readAttachment: (payload: unknown) =>
     ipcRenderer.invoke("desktop:read-attachment", payload),
+  supportsNoMatchingMessage: true,
   mailEngine: (payload: unknown) => ipcRenderer.invoke("mail-engine", payload),
   mailEngineSubscribe: (input: unknown) =>
     ipcRenderer.invoke("mail-engine-subscribe", input),

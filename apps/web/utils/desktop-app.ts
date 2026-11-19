@@ -11,6 +11,7 @@ export type InboxZeroDesktopApi = {
     provider: DesktopAuthProvider,
     options?: { callbackPath?: string },
   ) => Promise<void>;
+  supportsNoMatchingMessage?: boolean;
   mailEngine?: (payload: unknown) => Promise<unknown>;
   mailEngineSubscribe?: (input: unknown) => Promise<unknown>;
   mailEngineUnsubscribe?: (subscriptionId: string) => Promise<unknown>;
