@@ -89,7 +89,11 @@ export function threadsQueryToPredicate(
   } else if (query.type === "all") {
     clauses.push({ kind: "mailbox", mailbox: "all" });
   } else if (query.type?.startsWith("CATEGORY_")) {
-    clauses.push(gmailTokenToPredicate(query.type));
+    // Like a label, Gmail leaves Trash and Spam out of a category's view.
+    clauses.push(gmailTokenToPredicate(query.type), {
+      kind: "mailbox",
+      mailbox: "all",
+    });
   } else if (
     !query.q &&
     !query.labelId &&

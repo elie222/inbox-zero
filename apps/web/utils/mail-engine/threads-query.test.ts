@@ -87,12 +87,35 @@ describe("threadsQueryToPredicate", () => {
     });
   });
 
-  it("maps Gmail category types onto category membership", () => {
-    expect(threadsQueryToPredicate({ type: "CATEGORY_PROMOTIONS" })).toEqual({
-      kind: "membership",
-      membership: "category",
-      id: "CATEGORY_PROMOTIONS",
+  it("maps Gmail category types onto category membership, without Trash or Spam", () => {
+    const predicate = threadsQueryToPredicate({ type: "CATEGORY_PROMOTIONS" });
+    expect(predicate).toEqual({
+      kind: "all",
+      predicates: [
+        {
+          kind: "membership",
+          membership: "category",
+          id: "CATEGORY_PROMOTIONS",
+        },
+        { kind: "mailbox", mailbox: "all" },
+      ],
     });
+    const promotion = { categoryIds: ["CATEGORY_PROMOTIONS"] };
+    expect(messageMatchesPredicate(inboxMessage(promotion), predicate)).toBe(
+      true,
+    );
+    for (const role of ["trash", "spam"] as const) {
+      expect(
+        messageMatchesPredicate(
+          inboxMessage({
+            ...promotion,
+            roles: [role],
+            labelIds: [role.toUpperCase()],
+          }),
+          predicate,
+        ),
+      ).toBe(false);
+    }
   });
 
   it("maps split labelIds onto the same-message inbox and category predicates", () => {
