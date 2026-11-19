@@ -8,6 +8,18 @@ const gmailCursorSchema = z.object({
   historyId: z.string().regex(/^\d+$/),
   after: z.string().datetime(),
   pageToken: z.string().min(1).optional(),
+  // Set while one history page names more messages than fit in a sync page.
+  // The page is re-read and sliced from `offset`, ignoring records after
+  // `untilHistoryId`, then the cursor advances to the position frozen when
+  // the page was first read.
+  pagePosition: z
+    .object({
+      offset: z.number().int().positive(),
+      untilHistoryId: z.string().regex(/^\d+$/),
+      nextHistoryId: z.string().regex(/^\d+$/),
+      nextPageToken: z.string().min(1).optional(),
+    })
+    .optional(),
 });
 
 const microsoftCursorSchema = z.object({

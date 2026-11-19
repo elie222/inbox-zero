@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger, getMockMessage } from "@/__tests__/helpers";
-import { encodeMailboxSyncCursor } from "@/utils/email/mailbox-sync";
+import {
+  decodeMailboxSyncCursor,
+  encodeMailboxSyncCursor,
+} from "@/utils/email/mailbox-sync";
 import { getHistory } from "@/utils/gmail/history";
 import {
   getGmailMailboxChangeIds,
@@ -213,6 +216,72 @@ describe("getGmailMailboxSyncPage", () => {
       "old-message",
       "missing-message",
     ]);
+  });
+
+  it("splits a history page that names more messages than one sync page across several pages", async () => {
+    const bulkIds = ["m0", "m1", "m2", "m3", "m4"];
+    const bulkRecord = {
+      id: "101",
+      labelsRemoved: bulkIds.map((id) => ({
+        message: { id, threadId: `thread-${id}` },
+      })),
+    };
+    // History that arrives while the page is being split must wait for the
+    // next page, otherwise a later delete would shift the remaining slice.
+    const laterRecord = {
+      id: "201",
+      messagesDeleted: [{ message: { id: "m0" } }],
+      messagesAdded: [{ message: { id: "later-message" } }],
+    };
+    vi.mocked(getHistory)
+      .mockResolvedValueOnce({ history: [bulkRecord], historyId: "200" })
+      .mockResolvedValue({
+        history: [bulkRecord, laterRecord],
+        historyId: "300",
+      });
+    vi.mocked(getMessagesBatch).mockImplementation(async ({ messageIds }) =>
+      messageIds.map((id) => ({
+        ...getMockMessage({ id }),
+        internalDate: new Date("2026-07-02T00:00:00.000Z").getTime().toString(),
+      })),
+    );
+
+    let cursor = encodeMailboxSyncCursor({
+      version: 1,
+      provider: "google",
+      phase: "delta",
+      historyId: "100",
+      after: "2026-07-01T00:00:00.000Z",
+    });
+    const syncedIds: string[] = [];
+    const pages = [];
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const page = await getGmailMailboxSyncPage({
+        gmail: {} as never,
+        accessToken: "access-token",
+        logger,
+        cursor,
+        limit: 2,
+      });
+      pages.push(page);
+      syncedIds.push(...page.upsertedMessages.map((message) => message.id));
+      cursor = page.cursor;
+      if (!page.hasMore) break;
+    }
+
+    expect(pages).toHaveLength(3);
+    expect(syncedIds).toEqual(bulkIds);
+    expect(pages.flatMap((page) => page.deletedMessageIds)).toEqual([]);
+    for (const call of vi.mocked(getMessagesBatch).mock.calls) {
+      expect(call[0].messageIds.length).toBeLessThanOrEqual(2);
+    }
+    expect(decodeMailboxSyncCursor(cursor, "google")).toEqual({
+      version: 1,
+      provider: "google",
+      phase: "delta",
+      historyId: "200",
+      after: "2026-07-01T00:00:00.000Z",
+    });
   });
 
   it("rebuilds from snapshot when Gmail history returns 404", async () => {

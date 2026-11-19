@@ -71,8 +71,30 @@ export async function getGmailMailboxSyncPage({
       },
       logger,
     );
-    const { upsertIds, deletedIds, changedThreadIds } =
-      getGmailMailboxChangeIds(response.history ?? []);
+    const position = decoded.pagePosition;
+    const history = (response.history ?? []).filter(
+      (record) =>
+        !position ||
+        (record.id != null &&
+          BigInt(record.id) <= BigInt(position.untilHistoryId)),
+    );
+    const changes = getGmailMailboxChangeIds(history);
+    // maxResults bounds history records, not messages, so one bulk change can
+    // name far more messages than a sync page should fetch. Slice the page and
+    // re-read it until every message has been sent.
+    const pageChanges = [
+      ...changes.upsertIds.map((id) => ({ id, deleted: false })),
+      ...[...changes.deletedIds].map((id) => ({ id, deleted: true })),
+    ];
+    const offset = position?.offset ?? 0;
+    const chunk = pageChanges.slice(offset, offset + limit);
+    const nextOffset = offset + chunk.length;
+    const upsertIds = chunk.flatMap((change) =>
+      change.deleted ? [] : [change.id],
+    );
+    const deletedIds = new Set(
+      chunk.flatMap((change) => (change.deleted ? [change.id] : [])),
+    );
     const fetched = await getGmailSyncMessages({
       gmail,
       messageIds: upsertIds,
@@ -91,21 +113,34 @@ export async function getGmailMailboxSyncPage({
       if (!fetchedIds.has(messageId)) deletedIds.add(messageId);
     }
 
-    const nextHistoryId = response.nextPageToken
-      ? decoded.historyId
-      : (response.historyId ?? decoded.historyId);
+    const pageEnd = position ?? {
+      untilHistoryId: history.at(-1)?.id ?? decoded.historyId,
+      nextHistoryId: response.nextPageToken
+        ? decoded.historyId
+        : (response.historyId ?? decoded.historyId),
+      nextPageToken: response.nextPageToken ?? undefined,
+    };
+    const pageFinished = nextOffset >= pageChanges.length;
     return {
       cursor: encodeMailboxSyncCursor({
         version: 1,
         provider: "google",
         phase: "delta",
-        historyId: nextHistoryId,
         after: decoded.after,
-        pageToken: response.nextPageToken ?? undefined,
+        ...(pageFinished
+          ? {
+              historyId: pageEnd.nextHistoryId,
+              pageToken: pageEnd.nextPageToken,
+            }
+          : {
+              historyId: decoded.historyId,
+              pageToken: decoded.pageToken,
+              pagePosition: { ...pageEnd, offset: nextOffset },
+            }),
       }),
-      changedThreadIds: [...changedThreadIds],
+      changedThreadIds: offset === 0 ? [...changes.changedThreadIds] : [],
       deletedMessageIds: [...deletedIds],
-      hasMore: Boolean(response.nextPageToken),
+      hasMore: !pageFinished || Boolean(pageEnd.nextPageToken),
       reset: false,
       upsertedMessages,
     };
