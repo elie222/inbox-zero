@@ -14880,10 +14880,19 @@ msgstr "E-posta analizleriniz şu anda gizli. Kuruluş yöneticilerinin gelen ku
 msgid "Your email analytics are currently private. Enable access to let other organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively."
 msgstr "E-posta analizleriniz şu anda gizli. Diğer kuruluş yöneticilerinin gelen kutusu istatistiklerinizi ve kullanım verilerinizi görüntülemesine izin vermek için erişimi etkinleştirin. Bu, ekibinizin verimliliği anlamasına ve daha etkili iş birliği yapmasına yardımcı olur."
 
+#. placeholder {0}: rateLimitResumeAt.toLocaleTimeString(i18n.locale)
+#: components/StatsRateLimitNotice.tsx
+msgid "Your email provider is limiting requests, so loading your emails is paused. It will continue automatically around {0}."
+msgstr "E-posta sağlayıcınız istekleri sınırladığı için e-postalarınızın yüklenmesi duraklatıldı. Yaklaşık {0} civarında otomatik olarak devam edecek."
+
 #. placeholder {0}: state.rateLimitResumeAt.toLocaleTimeString(i18n.locale)
 #: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
 msgid "Your email provider is limiting requests, so processing is paused. It will continue automatically around {0}."
 msgstr "E-posta sağlayıcınız istekleri sınırladığı için işleme duraklatıldı. Yaklaşık {0} civarında otomatik olarak devam edecek."
+
+#: providers/StatLoaderProvider.tsx
+msgid "Your email provider kept limiting requests, so loading stopped. Try again in a few minutes."
+msgstr "E-posta sağlayıcınız istekleri sınırlamaya devam ettiği için yükleme durdu. Birkaç dakika sonra tekrar deneyin."
 
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 msgid "Your feedback helps us learn"

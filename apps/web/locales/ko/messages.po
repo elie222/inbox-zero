@@ -14880,10 +14880,19 @@ msgstr "이메일 분석은 현재 비공개예요. 액세스를 허용하면 �
 msgid "Your email analytics are currently private. Enable access to let other organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively."
 msgstr "이메일 분석은 현재 비공개예요. 액세스를 허용하면 다른 조직 관리자가 받은편지함 통계와 사용 데이터를 볼 수 있어요. 팀이 생산성을 이해하고 더 효과적으로 협업하는 데 도움이 돼요."
 
+#. placeholder {0}: rateLimitResumeAt.toLocaleTimeString(i18n.locale)
+#: components/StatsRateLimitNotice.tsx
+msgid "Your email provider is limiting requests, so loading your emails is paused. It will continue automatically around {0}."
+msgstr "이메일 제공업체가 요청을 제한하고 있어 이메일 불러오기가 일시 중지되었어요. {0}경에 자동으로 다시 시작돼요."
+
 #. placeholder {0}: state.rateLimitResumeAt.toLocaleTimeString(i18n.locale)
 #: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
 msgid "Your email provider is limiting requests, so processing is paused. It will continue automatically around {0}."
 msgstr "이메일 제공업체가 요청을 제한하고 있어 처리가 일시 중지되었어요. {0}경에 자동으로 다시 시작돼요."
+
+#: providers/StatLoaderProvider.tsx
+msgid "Your email provider kept limiting requests, so loading stopped. Try again in a few minutes."
+msgstr "이메일 제공업체가 요청을 계속 제한해서 불러오기가 중단되었어요. 몇 분 후에 다시 시도해 주세요."
 
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 msgid "Your feedback helps us learn"

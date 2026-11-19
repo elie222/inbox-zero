@@ -14880,10 +14880,19 @@ msgstr "你的邮件分析数据目前为私密状态。启用访问后，组织
 msgid "Your email analytics are currently private. Enable access to let other organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively."
 msgstr "你的邮件分析数据目前为私密状态。启用访问后，其他组织管理员即可查看你的收件箱统计和使用数据。这有助于你的团队了解工作效率并更高效地协作。"
 
+#. placeholder {0}: rateLimitResumeAt.toLocaleTimeString(i18n.locale)
+#: components/StatsRateLimitNotice.tsx
+msgid "Your email provider is limiting requests, so loading your emails is paused. It will continue automatically around {0}."
+msgstr "你的邮件服务商正在限制请求，因此邮件加载已暂停。将在 {0} 左右自动继续。"
+
 #. placeholder {0}: state.rateLimitResumeAt.toLocaleTimeString(i18n.locale)
 #: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
 msgid "Your email provider is limiting requests, so processing is paused. It will continue automatically around {0}."
 msgstr "你的邮件服务商正在限制请求，因此处理已暂停。将在 {0} 左右自动继续。"
+
+#: providers/StatLoaderProvider.tsx
+msgid "Your email provider kept limiting requests, so loading stopped. Try again in a few minutes."
+msgstr "你的邮件服务商持续限制请求，因此加载已停止。请几分钟后重试。"
 
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 msgid "Your feedback helps us learn"
