@@ -1086,7 +1086,7 @@ export function createMessageRequest(
  * Converts Outlook message recipients array to comma-separated string
  * Format: "Name1 <email1@example.com>, Name2 <email2@example.com>"
  */
-function formatRecipientsList(
+export function formatRecipientsList(
   recipients:
     | Array<{
         emailAddress?: { name?: string | null; address?: string | null } | null;
