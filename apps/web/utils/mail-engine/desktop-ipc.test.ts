@@ -64,6 +64,8 @@ describe("desktop split exclusions", () => {
         },
       ],
     };
+    if (!client.observeMailboxWindow)
+      throw new Error("Expected mailbox window observer");
     client.observeMailboxWindow(query);
     client.observeMailboxCounts({
       accountIds: query.accountIds,
