@@ -225,18 +225,11 @@ export function calculateRetryDelay(
   retryAfterHeader?: string,
   errorMessage?: string,
 ): number {
-  // Try to parse retry time from error message
-  const retryTime = parseRetryTime(errorMessage || "");
-  if (retryTime) {
-    const delayMs = Math.max(0, retryTime.getTime() - Date.now());
-    if (delayMs > 0) {
-      return delayMs;
-    }
-    // If stale, fall through to fallback logic
-  }
-
-  const retryAfterDelayMs = getRetryAfterDelayMs(retryAfterHeader);
-  if (retryAfterDelayMs !== undefined) return retryAfterDelayMs;
+  const explicitDelayMs = getExplicitRetryDelayMs(
+    retryAfterHeader,
+    errorMessage,
+  );
+  if (explicitDelayMs !== undefined) return explicitDelayMs;
 
   // Use different fallback delays based on error type
   if (isServerError) {
@@ -256,6 +249,21 @@ export function calculateRetryDelay(
 
   // Default exponential backoff for other retryable errors: 1s, 2s, 4s, 8s, 16s
   return Math.min(1000 * 2 ** (attemptNumber - 1), 16_000);
+}
+
+/** The retry delay Gmail stated, in its error message or a Retry-After header. */
+export function getExplicitRetryDelayMs(
+  retryAfterHeader?: string,
+  errorMessage?: string,
+): number | undefined {
+  const retryTime = parseRetryTime(errorMessage || "");
+  if (retryTime) {
+    const delayMs = retryTime.getTime() - Date.now();
+    // A stale retry time falls through to the header.
+    if (delayMs > 0) return delayMs;
+  }
+
+  return getRetryAfterDelayMs(retryAfterHeader);
 }
 
 /**

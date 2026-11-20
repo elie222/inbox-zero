@@ -391,6 +391,32 @@ describe("getProviderRateLimitRetryAfterSeconds", () => {
     expect(seconds).toBe(37);
   });
 
+  it("waits out Gmail's per-minute quota when Gmail gives no retry time", () => {
+    const seconds = getProviderRateLimitRetryAfterSeconds({
+      error: Object.assign(
+        new Error("Quota exceeded for quota metric 'Queries' per minute"),
+        { status: 429 },
+      ),
+      provider: "google",
+    });
+
+    expect(seconds).toBe(60);
+  });
+
+  it("uses the retry time Gmail states in its error message", () => {
+    const retryAt = new Date(Date.now() + 20_000).toISOString();
+    const seconds = getProviderRateLimitRetryAfterSeconds({
+      error: Object.assign(
+        new Error(`User-rate limit exceeded. Retry after ${retryAt}`),
+        { status: 429 },
+      ),
+      provider: "google",
+    });
+
+    expect(seconds).toBeGreaterThanOrEqual(19);
+    expect(seconds).toBeLessThanOrEqual(20);
+  });
+
   it("returns nothing for errors that are not rate limits", () => {
     expect(
       getProviderRateLimitRetryAfterSeconds({
