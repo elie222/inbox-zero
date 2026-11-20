@@ -183,6 +183,7 @@ function startDesktopApp() {
     return readDesktopAttachment({
       payload,
       origin: appOrigin,
+      client: desktopMailClient(),
       fetch: (url, init) => event.sender.session.fetch(url, init),
     });
   });
@@ -925,6 +926,10 @@ function getDesktopMailOwner() {
   return desktopMailOwner;
 }
 
+function desktopMailClient() {
+  return `desktop/${app.getVersion()}`;
+}
+
 function desktopMailboxPath() {
   return path.join(app.getPath("userData"), "mailbox.sqlite");
 }
@@ -934,6 +939,7 @@ function createDesktopMailProcess() {
   return createDesktopMailProcessOwner({
     databasePath: desktopMailboxPath(),
     origin: appOrigin,
+    client: desktopMailClient(),
     fork: () =>
       utilityProcess.fork(
         path.join(import.meta.dirname, "mail-engine-child.js"),

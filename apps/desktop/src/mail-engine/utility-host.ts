@@ -41,6 +41,8 @@ export type DesktopMailProcessOwner = DesktopMailOwner & {
 export function createDesktopMailProcessOwner(input: {
   databasePath: string;
   origin: string;
+  /** `<client>/<version>` the engine sends on mail API requests. */
+  client?: string;
   fork: () => MailChildProcess;
   cookieHeader: (url: string) => Promise<string>;
   onEngineError: (error: Error) => void;
@@ -80,6 +82,7 @@ export function createDesktopMailProcessOwner(input: {
       id,
       databasePath: input.databasePath,
       origin: input.origin,
+      client: input.client,
     })).then(() => {
       running.isReady = true;
       if (running === current) setOpening(false);

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MAIL_CLIENT_HEADER } from "@inboxzero/mail-core/protocol/mail-http";
 import {
   EMAIL_ACCOUNT_HEADER,
   createOriginMailRequest,
@@ -40,13 +41,14 @@ describe("createOriginMailRequest", () => {
     vi.unstubAllGlobals();
   });
 
-  it("sends a PUT JSON body and session cookies", async () => {
+  it("sends a PUT JSON body, client version and session cookies", async () => {
     const fetchMock = vi.fn<typeof fetch>(
       async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
     );
     vi.stubGlobal("fetch", fetchMock);
     const request = createOriginMailRequest({
       origin: "http://localhost:3000",
+      client: "desktop/0.1.29",
       cookieHeader: () => "better-auth.session=abc",
     });
     const result = await request({
@@ -69,6 +71,7 @@ describe("createOriginMailRequest", () => {
       accept: "application/json",
       [EMAIL_ACCOUNT_HEADER]: "acc-1",
       "content-type": "application/json",
+      [MAIL_CLIENT_HEADER]: "desktop/0.1.29",
       cookie: "better-auth.session=abc",
     });
   });

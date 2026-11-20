@@ -16,6 +16,8 @@ import {
 import { env } from "@/env";
 import { logErrorToPosthog } from "@/utils/error.server";
 import { createScopedLogger, type Logger } from "@/utils/logger";
+import { parseClientVersionHeader } from "@/utils/client-version";
+import { MAIL_CLIENT_HEADER } from "@inboxzero/mail-core/protocol/mail-http";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
@@ -93,9 +95,13 @@ function withMiddleware<T extends NextRequest>(
 ): NextHandler {
   return async (req, context) => {
     const requestId = getRequestId(req.headers.get("x-request-id"));
+    const clientVersion = parseClientVersionHeader(
+      req.headers.get(MAIL_CLIENT_HEADER),
+    );
     const baseLogger = createScopedLogger(scope || "api").with({
       requestId,
       url: getRequestPath(req),
+      ...(clientVersion ? { clientVersion } : {}),
     });
     const requestTimer =
       options?.requestTiming !== undefined
