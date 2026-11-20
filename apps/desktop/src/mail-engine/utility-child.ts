@@ -12,7 +12,13 @@ import { createDesktopMailOwner, type DesktopMailOwner } from "./owner";
 import { createOriginMailRequest } from "./request";
 
 export type MainToChildMessage =
-  | { type: "start"; id: string; databasePath: string; origin: string }
+  | {
+      type: "start";
+      id: string;
+      databasePath: string;
+      origin: string;
+      client?: string;
+    }
   | { type: "ipc"; id: string; payload: unknown }
   | { type: "subscribe"; subscriptionId: string; payload: unknown }
   | { type: "unsubscribe"; subscriptionId: string }
@@ -97,6 +103,7 @@ export function createUtilityChildRuntime(
           ...createRoutedBackendPorts(
             createOriginMailRequest({
               origin: message.origin,
+              client: message.client,
               cookieHeader: requestCookieHeader,
             }),
           ),

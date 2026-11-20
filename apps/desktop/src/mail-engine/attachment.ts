@@ -2,7 +2,10 @@ import {
   accountIdSchema,
   MAIL_PROTOCOL_VERSION,
 } from "@inboxzero/mail-core/identities";
-import { attachmentContentQuerySchema } from "@inboxzero/mail-core/protocol/mail-http";
+import {
+  attachmentContentQuerySchema,
+  MAIL_CLIENT_HEADER,
+} from "@inboxzero/mail-core/protocol/mail-http";
 
 const attachmentRequestSchema = attachmentContentQuerySchema.extend({
   accountId: accountIdSchema,
@@ -12,6 +15,7 @@ const MAX_INLINE_IMAGE_BYTES = 25 * 1024 * 1024;
 export async function readDesktopAttachment(input: {
   payload: unknown;
   origin: string;
+  client?: string;
   fetch: (url: string, init: RequestInit) => Promise<Response>;
 }) {
   const { accountId, messageId, attachmentId } = attachmentRequestSchema.parse(
@@ -27,7 +31,10 @@ export async function readDesktopAttachment(input: {
     input.origin,
   );
   const response = await input.fetch(url.toString(), {
-    headers: { "X-Email-Account-ID": accountId },
+    headers: {
+      "X-Email-Account-ID": accountId,
+      ...(input.client ? { [MAIL_CLIENT_HEADER]: input.client } : {}),
+    },
     credentials: "include",
     signal: AbortSignal.timeout(30_000),
   });
