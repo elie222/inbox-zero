@@ -1761,6 +1761,10 @@ msgstr "按年"
 msgid "any"
 msgstr "任意"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Anyone in your Slack workspace can read #{pendingChannelName}, including the email content in these notifications."
+msgstr "你的 Slack 工作区中的任何人都可以查看 #{pendingChannelName}，包括这些通知中的邮件内容。"
+
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "anything awaiting my reply"
 msgstr "任何等待我回复的邮件"
@@ -2603,6 +2607,7 @@ msgstr "我们能把周四的电话改期吗？"
 #: components/email-list/ThreadDeliveryStatus.tsx
 #: components/FeedbackDialog.tsx
 #: components/InviteMemberModal.tsx
+#: components/SlackNotificationTargetSelect.tsx
 #: components/team-comments/ShareConversationDialog.tsx
 msgid "Cancel"
 msgstr "取消"
@@ -7517,8 +7522,8 @@ msgid "Invite teammates"
 msgstr "邀请队友"
 
 #: components/SlackNotificationTargetSelect.tsx
-msgid "Invite the bot to a private channel with <0>/invite @{botName}</0>"
-msgstr "使用 <0>/invite @{botName}</0> 邀请机器人加入私有频道"
+msgid "Invite the bot with <0>/invite @{botName}</0>"
+msgstr "使用 <0>/invite @{botName}</0> 邀请机器人"
 
 #: app/(app)/organization/[organizationId]/Members.tsx
 msgid "Invited by {inviterName}"
@@ -9192,6 +9197,10 @@ msgstr "无变化"
 msgid "No channels available."
 msgstr "没有可用的频道。"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "No channels found."
+msgstr "未找到频道。"
+
 #: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
 msgid "No cold emails!"
 msgstr "没有冷邮件！"
@@ -9433,10 +9442,6 @@ msgstr "无套餐"
 #: components/assistant-chat/chat.tsx
 msgid "No previous chats found"
 msgstr "未找到以往的聊天"
-
-#: components/SlackNotificationTargetSelect.tsx
-msgid "No private channels found."
-msgstr "未找到私有频道。"
 
 #: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
 msgid "No public context"
@@ -11839,6 +11844,10 @@ msgstr "发送至"
 msgid "Send to <0>{destinationLabel}</0>"
 msgstr "发送至 <0>{destinationLabel}</0>"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Send to a public channel?"
+msgstr "发送到公开频道？"
+
 #: components/voice/VoiceOverlay.tsx
 msgid "Send to chat"
 msgstr "发送到聊天"
@@ -14053,6 +14062,10 @@ msgstr "使用我的推荐链接，开始使用 Inbox Zero！"
 #: app/(app)/[emailAccountId]/assistant/RuleStep.tsx
 msgid "Use prompt"
 msgstr "使用提示词"
+
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Use public channel"
+msgstr "使用公开频道"
 
 #: app/(app)/[emailAccountId]/drive/ConnectDrive.tsx
 msgid "Use your existing folders"

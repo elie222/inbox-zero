@@ -1761,6 +1761,10 @@ msgstr "Annually"
 msgid "any"
 msgstr "any"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Anyone in your Slack workspace can read #{pendingChannelName}, including the email content in these notifications."
+msgstr "Anyone in your Slack workspace can read #{pendingChannelName}, including the email content in these notifications."
+
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "anything awaiting my reply"
 msgstr "anything awaiting my reply"
@@ -2603,6 +2607,7 @@ msgstr "Can we move Thursday's call?"
 #: components/email-list/ThreadDeliveryStatus.tsx
 #: components/FeedbackDialog.tsx
 #: components/InviteMemberModal.tsx
+#: components/SlackNotificationTargetSelect.tsx
 #: components/team-comments/ShareConversationDialog.tsx
 msgid "Cancel"
 msgstr "Cancel"
@@ -7517,8 +7522,8 @@ msgid "Invite teammates"
 msgstr "Invite teammates"
 
 #: components/SlackNotificationTargetSelect.tsx
-msgid "Invite the bot to a private channel with <0>/invite @{botName}</0>"
-msgstr "Invite the bot to a private channel with <0>/invite @{botName}</0>"
+msgid "Invite the bot with <0>/invite @{botName}</0>"
+msgstr "Invite the bot with <0>/invite @{botName}</0>"
 
 #: app/(app)/organization/[organizationId]/Members.tsx
 msgid "Invited by {inviterName}"
@@ -9192,6 +9197,10 @@ msgstr "No change"
 msgid "No channels available."
 msgstr "No channels available."
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "No channels found."
+msgstr "No channels found."
+
 #: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
 msgid "No cold emails!"
 msgstr "No cold emails!"
@@ -9433,10 +9442,6 @@ msgstr "No plan"
 #: components/assistant-chat/chat.tsx
 msgid "No previous chats found"
 msgstr "No previous chats found"
-
-#: components/SlackNotificationTargetSelect.tsx
-msgid "No private channels found."
-msgstr "No private channels found."
 
 #: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
 msgid "No public context"
@@ -11839,6 +11844,10 @@ msgstr "Send to"
 msgid "Send to <0>{destinationLabel}</0>"
 msgstr "Send to <0>{destinationLabel}</0>"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Send to a public channel?"
+msgstr "Send to a public channel?"
+
 #: components/voice/VoiceOverlay.tsx
 msgid "Send to chat"
 msgstr "Send to chat"
@@ -14053,6 +14062,10 @@ msgstr "Use my referral link to get started with Inbox Zero!"
 #: app/(app)/[emailAccountId]/assistant/RuleStep.tsx
 msgid "Use prompt"
 msgstr "Use prompt"
+
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Use public channel"
+msgstr "Use public channel"
 
 #: app/(app)/[emailAccountId]/drive/ConnectDrive.tsx
 msgid "Use your existing folders"

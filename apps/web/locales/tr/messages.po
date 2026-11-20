@@ -1761,6 +1761,10 @@ msgstr "Yıllık"
 msgid "any"
 msgstr "herhangi"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Anyone in your Slack workspace can read #{pendingChannelName}, including the email content in these notifications."
+msgstr "Slack çalışma alanınızdaki herkes #{pendingChannelName} kanalını okuyabilir; bu bildirimlerdeki e-posta içeriği de buna dahildir."
+
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "anything awaiting my reply"
 msgstr "yanıt beklediğim her şey"
@@ -2603,6 +2607,7 @@ msgstr "Perşembe günkü görüşmeyi kaydırabilir miyiz?"
 #: components/email-list/ThreadDeliveryStatus.tsx
 #: components/FeedbackDialog.tsx
 #: components/InviteMemberModal.tsx
+#: components/SlackNotificationTargetSelect.tsx
 #: components/team-comments/ShareConversationDialog.tsx
 msgid "Cancel"
 msgstr "İptal"
@@ -7517,8 +7522,8 @@ msgid "Invite teammates"
 msgstr "Ekip arkadaşlarını davet et"
 
 #: components/SlackNotificationTargetSelect.tsx
-msgid "Invite the bot to a private channel with <0>/invite @{botName}</0>"
-msgstr "Botu <0>/invite @{botName}</0> ile özel bir kanala davet edin"
+msgid "Invite the bot with <0>/invite @{botName}</0>"
+msgstr "Botu <0>/invite @{botName}</0> ile davet edin"
 
 #: app/(app)/organization/[organizationId]/Members.tsx
 msgid "Invited by {inviterName}"
@@ -9192,6 +9197,10 @@ msgstr "Değişiklik yok"
 msgid "No channels available."
 msgstr "Kullanılabilir kanal yok."
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "No channels found."
+msgstr "Kanal bulunamadı."
+
 #: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
 msgid "No cold emails!"
 msgstr "Soğuk e-posta yok!"
@@ -9433,10 +9442,6 @@ msgstr "Plan yok"
 #: components/assistant-chat/chat.tsx
 msgid "No previous chats found"
 msgstr "Önceki sohbet bulunamadı"
-
-#: components/SlackNotificationTargetSelect.tsx
-msgid "No private channels found."
-msgstr "Özel kanal bulunamadı."
 
 #: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
 msgid "No public context"
@@ -11839,6 +11844,10 @@ msgstr "Gönderilecek kişi"
 msgid "Send to <0>{destinationLabel}</0>"
 msgstr "Gönder: <0>{destinationLabel}</0>"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Send to a public channel?"
+msgstr "Herkese açık bir kanala gönderilsin mi?"
+
 #: components/voice/VoiceOverlay.tsx
 msgid "Send to chat"
 msgstr "Sohbete gönder"
@@ -14053,6 +14062,10 @@ msgstr "Inbox Zero'ya başlamak için yönlendirme bağlantımı kullanın!"
 #: app/(app)/[emailAccountId]/assistant/RuleStep.tsx
 msgid "Use prompt"
 msgstr "İstemi kullan"
+
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Use public channel"
+msgstr "Herkese açık kanalı kullan"
 
 #: app/(app)/[emailAccountId]/drive/ConnectDrive.tsx
 msgid "Use your existing folders"
