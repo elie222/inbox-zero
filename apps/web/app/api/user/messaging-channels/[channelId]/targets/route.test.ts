@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { listPrivateChannelsForUser } from "@/utils/messaging/providers/slack/channels";
+import { listChannelsForUser } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 
 vi.mock("@/utils/prisma");
@@ -13,7 +13,7 @@ vi.mock("@/utils/middleware", async () => {
   return createWithEmailAccountTestMiddleware();
 });
 vi.mock("@/utils/messaging/providers/slack/channels", () => ({
-  listPrivateChannelsForUser: vi.fn(),
+  listChannelsForUser: vi.fn(),
 }));
 vi.mock("@/utils/messaging/providers/slack/client", () => ({
   createSlackClient: vi.fn(),
@@ -26,14 +26,14 @@ describe("GET /api/user/messaging-channels/[channelId]/targets", () => {
     vi.clearAllMocks();
   });
 
-  it("lists only private Slack channels shared with the current user", async () => {
+  it("lists Slack channels the current user is a member of", async () => {
     prisma.messagingChannel.findFirst.mockResolvedValue({
       provider: "SLACK",
       accessToken: "xoxb-token",
       providerUserId: "U123",
     } as any);
     vi.mocked(createSlackClient).mockReturnValue({} as never);
-    vi.mocked(listPrivateChannelsForUser).mockResolvedValue([
+    vi.mocked(listChannelsForUser).mockResolvedValue([
       {
         id: "C234",
         name: "finance-alerts",
@@ -46,10 +46,7 @@ describe("GET /api/user/messaging-channels/[channelId]/targets", () => {
     });
     const body = await response.json();
 
-    expect(listPrivateChannelsForUser).toHaveBeenCalledWith(
-      expect.anything(),
-      "U123",
-    );
+    expect(listChannelsForUser).toHaveBeenCalledWith(expect.anything(), "U123");
     expect(body).toEqual({
       targets: [
         {
@@ -73,7 +70,7 @@ describe("GET /api/user/messaging-channels/[channelId]/targets", () => {
     });
     const body = await response.json();
 
-    expect(listPrivateChannelsForUser).not.toHaveBeenCalled();
+    expect(listChannelsForUser).not.toHaveBeenCalled();
     expect(body).toEqual({
       targets: [],
       error: "Please reconnect Slack before configuring notifications.",
