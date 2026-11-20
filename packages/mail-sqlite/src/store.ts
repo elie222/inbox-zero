@@ -1453,6 +1453,30 @@ export async function createSqliteMailStore(
         );
       });
     },
+    async readInboxFreshness() {
+      return driver.read(async (tx) => {
+        const accounts = await tx.query(
+          "SELECT account_id, provider, connection FROM accounts ORDER BY account_id",
+        );
+        const result = [];
+        for (const account of accounts) {
+          // One seek on effective_inbox_order per account.
+          const newest = await tx.query(
+            `SELECT MAX(received_at_ms) AS newest FROM effective_messages
+             WHERE account_id = ? AND in_inbox = 1`,
+            [account.account_id],
+          );
+          result.push({
+            accountId: String(account.account_id),
+            provider: String(account.provider) as "google" | "microsoft",
+            connection: connectionStatus(account.connection),
+            newestInboxMessageAtMs:
+              newest[0]?.newest == null ? null : Number(newest[0].newest),
+          });
+        }
+        return result;
+      });
+    },
     async readAccountSyncStates() {
       return driver.read(async (tx) => {
         const accounts = await tx.query(

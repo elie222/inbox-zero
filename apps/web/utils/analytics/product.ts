@@ -70,6 +70,23 @@ export const PRODUCT_ANALYTICS_EVENTS = {
  * - `engine_running`, `engine_restarts` (engine crashes recovered from since
  *   the app started), `mailbox_bytes` (local database size) and
  *   `desktop_version`.
+ *
+ * Mail sync freshness, read when the summary is sent and left out by desktop
+ * builds that don't report it or while the mail engine isn't running. Counts
+ * sum over every local account; ages are in ms at send time:
+ * - `mail_accounts`, plus `mail_accounts_offline` and
+ *   `mail_accounts_blocked_auth` (needs reconnecting) by connection state.
+ * - `mail_inbox_newest_age_min_ms` / `_max_ms`: time since the newest stored
+ *   inbox message was received, freshest and stalest account. The best lag
+ *   signal for an active mailbox; quiet mailboxes are naturally high. Left
+ *   out when no inbox mail is stored.
+ * - `mail_stream_caught_up_age_max_ms`: longest any regularly checked
+ *   provider change stream (low-priority folders are skipped) has gone
+ *   without finishing a round with nothing left to read,
+ *   counted from engine start if it hasn't yet. Normally under a few minutes.
+ *   Left out before the engine has synced any account since it started.
+ * - `mail_streams`, `mail_streams_behind` (paging through a change backlog)
+ *   and `mail_streams_paused` (waiting out a provider rate limit).
  */
 export const MAIL_ANALYTICS_EVENTS = {
   action: "mail_action",

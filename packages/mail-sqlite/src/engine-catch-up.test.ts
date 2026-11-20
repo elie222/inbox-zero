@@ -100,6 +100,61 @@ describe("engine catch-up after a long gap", () => {
     await engine.close();
   });
 
+  it("reports how far the local mailbox lags the provider while catching up", async () => {
+    let nowMs = 100_000;
+    const store = await storeWithCheckpoint("h-0", [
+      inboxMessage("seeded", 5000),
+    ]);
+    const engine = createMailEngine({
+      store,
+      source: historySource({ historyPages: 3 }).port,
+      executor: idleExecutor(),
+      runtime: createHostRuntime({ nowMs: () => nowMs }),
+    });
+    const freshness = {
+      provider: "google",
+      connection: "ready",
+      streams: 1,
+      streamsPaused: 0,
+    };
+
+    expect(await engine.getSyncFreshness()).toEqual([
+      {
+        ...freshness,
+        newestInboxMessageAgeMs: 95_000,
+        streamsBehind: 0,
+        oldestStreamCaughtUpAgeMs: null,
+      },
+    ]);
+
+    await engine.runUntil(Date.now() + 2000);
+    nowMs += 30_000;
+
+    expect(await engine.getSyncFreshness()).toEqual([
+      {
+        ...freshness,
+        newestInboxMessageAgeMs: 125_000,
+        streamsBehind: 1,
+        oldestStreamCaughtUpAgeMs: 30_000,
+      },
+    ]);
+
+    for (let run = 0; run < 4; run += 1) {
+      await engine.runUntil(Date.now() + 2000);
+    }
+    nowMs += 1000;
+
+    expect(await engine.getSyncFreshness()).toEqual([
+      {
+        ...freshness,
+        newestInboxMessageAgeMs: 121_000,
+        streamsBehind: 0,
+        oldestStreamCaughtUpAgeMs: 1000,
+      },
+    ]);
+    await engine.close();
+  });
+
   it("removes mail deleted during catch-up from the inbox and conversation views", async () => {
     const store = await storeWithCheckpoint("h-0", [
       inboxMessage("deleted-during-catch-up", 1000),

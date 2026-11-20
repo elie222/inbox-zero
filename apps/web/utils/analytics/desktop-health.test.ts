@@ -45,6 +45,96 @@ describe("buildDesktopHealthProperties", () => {
     });
   });
 
+  it("reports the stalest mail sync across accounts without per-account fields", () => {
+    const account = {
+      provider: "google" as const,
+      connection: "ready" as const,
+      newestInboxMessageAgeMs: 60_000,
+      streams: 1,
+      streamsBehind: 0,
+      streamsPaused: 0,
+      oldestStreamCaughtUpAgeMs: 30_000,
+    };
+    expect(
+      buildDesktopHealthProperties({
+        version: "1.2.3",
+        intervalMs: 3_600_000,
+        mainEventLoopDelayMs: null,
+        engine: {
+          running: true,
+          restarts: 0,
+          child: {
+            eventLoopDelayMs: null,
+            sqliteReadMs: null,
+            sqliteWriteMs: null,
+            mailSync: [
+              account,
+              {
+                ...account,
+                provider: "microsoft",
+                connection: "offline",
+                newestInboxMessageAgeMs: 7_200_000,
+                streams: 4,
+                streamsBehind: 2,
+                streamsPaused: 1,
+                oldestStreamCaughtUpAgeMs: 5_400_000,
+              },
+              {
+                ...account,
+                connection: "blocked_auth",
+                newestInboxMessageAgeMs: null,
+                oldestStreamCaughtUpAgeMs: null,
+              },
+            ],
+          },
+        },
+        mailboxBytes: 1024,
+      }),
+    ).toMatchObject({
+      mail_accounts: 3,
+      mail_accounts_offline: 1,
+      mail_accounts_blocked_auth: 1,
+      mail_streams: 6,
+      mail_streams_behind: 2,
+      mail_streams_paused: 1,
+      mail_inbox_newest_age_min_ms: 60_000,
+      mail_inbox_newest_age_max_ms: 7_200_000,
+      mail_stream_caught_up_age_max_ms: 5_400_000,
+    });
+  });
+
+  it("leaves out ages no account has yet", () => {
+    const properties = buildDesktopHealthProperties({
+      version: "1.2.3",
+      intervalMs: 120_000,
+      mainEventLoopDelayMs: null,
+      engine: {
+        running: true,
+        restarts: 0,
+        child: {
+          eventLoopDelayMs: null,
+          sqliteReadMs: null,
+          sqliteWriteMs: null,
+          mailSync: [
+            {
+              provider: "google",
+              connection: "ready",
+              newestInboxMessageAgeMs: null,
+              streams: 0,
+              streamsBehind: 0,
+              streamsPaused: 0,
+              oldestStreamCaughtUpAgeMs: null,
+            },
+          ],
+        },
+      },
+      mailboxBytes: 0,
+    });
+    expect(properties).toMatchObject({ mail_accounts: 1, mail_streams: 0 });
+    expect(properties).not.toHaveProperty("mail_inbox_newest_age_max_ms");
+    expect(properties).not.toHaveProperty("mail_stream_caught_up_age_max_ms");
+  });
+
   it("reports a stopped engine without engine metrics", () => {
     expect(
       buildDesktopHealthProperties({
