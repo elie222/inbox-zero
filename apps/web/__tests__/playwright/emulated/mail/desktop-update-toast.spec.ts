@@ -15,6 +15,7 @@ test("shows desktop update download progress and restarts when ready", async ({
         startAuth: async () => {},
         onUpdateStatus: (next: (status: unknown) => void) => {
           listener = next;
+          Object.assign(window, { hasUpdateListener: true });
           next(null);
           return () => {
             listener = undefined;
@@ -72,7 +73,38 @@ test("shows desktop update download progress and restarts when ready", async ({
     exact: true,
   });
   await expect(restart).toBeVisible();
+  const readyToast = page
+    .locator("[data-sonner-toast]")
+    .filter({ hasText: "Inbox Zero 0.2.0 is ready" });
+  await expect(readyToast).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "desktop-update-ready");
+
+  await page.reload();
+  await page.waitForFunction(
+    () =>
+      (window as unknown as { hasUpdateListener?: boolean }).hasUpdateListener,
+  );
+  await pushUpdateStatus({ state: "ready", version: "0.2.0" });
+  await expect(restart).toBeVisible();
+  await expect(readyToast).toHaveCount(0);
+
+  await pushUpdateStatus({ state: "ready", version: "0.2.1" });
+  const nextReadyToast = page
+    .locator("[data-sonner-toast]")
+    .filter({ hasText: "Inbox Zero 0.2.1 is ready" });
+  await expect(nextReadyToast).toBeVisible();
+  await nextReadyToast
+    .getByRole("button", { name: "Restart", exact: true })
+    .click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as unknown as { installUpdateCalls: number })
+            .installUpdateCalls,
+      ),
+    )
+    .toBe(1);
 
   await restart.click();
   await expect
@@ -83,5 +115,5 @@ test("shows desktop update download progress and restarts when ready", async ({
             .installUpdateCalls,
       ),
     )
-    .toBe(1);
+    .toBe(2);
 });

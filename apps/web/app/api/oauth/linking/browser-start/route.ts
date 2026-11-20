@@ -6,6 +6,7 @@ import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
 import { withError } from "@/utils/middleware";
 import { hasActiveAccountLinkingUser } from "@/utils/oauth/account-linking";
 import { createAccountLinkingRedirect } from "@/utils/oauth/account-linking-redirect";
+import { createOAuthLinkingAuditLogger } from "@/utils/oauth/linking-audit";
 import { getAccountLinkingAuthorizationUrl } from "@/utils/oauth/linking-auth-url";
 import { findReconnectTarget } from "@/utils/oauth/reconnect-target";
 import {
@@ -61,6 +62,14 @@ export const GET = withError("oauth/linking/browser-start", async (request) => {
   if (payload.reconnectEmailAccountId && !reconnectTarget)
     return invalidState();
 
+  createOAuthLinkingAuditLogger({
+    actorUserId: session.user.id,
+    logger: request.logger,
+    provider,
+    stateNonce: payload.nonce,
+    targetUserId: payload.userId,
+  }).info("OAuth linking handed off to system browser");
+
   const authorizationUrl = getAccountLinkingAuthorizationUrl({
     provider,
     state,
@@ -84,5 +93,6 @@ const linkingStateSchema = z.object({
   type: z.literal("account-linking"),
   provider: z.enum(["google", "microsoft"]),
   userId: z.string().min(1),
+  nonce: z.string(),
   reconnectEmailAccountId: z.string().min(1).optional(),
 });

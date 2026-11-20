@@ -7320,6 +7320,11 @@ msgstr "비활성"
 msgid "Inbox"
 msgstr "받은편지함"
 
+#. placeholder {0}: status.version
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Inbox Zero {0} is ready"
+msgstr "Inbox Zero {0} 준비 완료"
+
 #: app/(app)/ProviderRateLimitBanner.tsx
 msgid "Inbox Zero actions are temporarily paused until around <0>{retryAtLabel}</0>. This limit is enforced by {providerLabel}, and other apps connected to this mailbox can contribute to the same shared limit."
 msgstr "Inbox Zero 작업이 <0>{retryAtLabel}</0>경까지 일시 중지돼요. 이 제한은 {providerLabel}에서 적용하며, 이 메일함에 연결된 다른 앱도 같은 공유 한도에 영향을 줄 수 있어요."
@@ -11096,6 +11101,14 @@ msgstr "최근 이메일 {0, plural, other {#개}}를 기준으로 한 응답 �
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "Response Time Distribution"
 msgstr "응답 시간 분포"
+
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Restart"
+msgstr "다시 시작"
+
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Restart the app to finish updating."
+msgstr "업데이트를 완료하려면 앱을 다시 시작하세요."
 
 #: components/DesktopUpdateMenuItem.tsx
 msgid "Restart to update"
