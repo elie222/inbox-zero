@@ -525,6 +525,16 @@ describe("installing a downloaded update while idle", () => {
     }
   });
 
+  it("tries again when the updater reports a failed install without throwing", async () => {
+    powerMonitor.getSystemIdleState.mockReturnValue("idle");
+
+    await startDesktopAutoUpdate(true, { prepareToQuit: vi.fn() });
+    notifyDownloaded?.({ version: "0.2.0" });
+    await vi.advanceTimersByTimeAsync(DESKTOP_IDLE_INSTALL_CHECK_MS * 2);
+
+    expect(autoUpdater.quitAndInstall).toHaveBeenCalledTimes(2);
+  });
+
   it("does not restart before an update has downloaded", async () => {
     powerMonitor.getSystemIdleState.mockReturnValue("idle");
 

@@ -201,12 +201,10 @@ function installWhenIdle() {
       DESKTOP_IDLE_INSTALL_THRESHOLD_SECONDS,
     );
     if (state !== "idle" && state !== "locked") return;
-    clearInterval(idleInstallTimer);
-    idleInstallTimer = undefined;
-    installDownloadedDesktopUpdate(prepareToQuit).catch((error: unknown) => {
-      logDesktopUpdateError(error);
-      installWhenIdle();
-    });
+    // Keep polling: a successful install exits the app, while electron-updater
+    // reports most install failures on its `error` event and returns normally,
+    // so the next idle check is the retry.
+    installDownloadedDesktopUpdate(prepareToQuit).catch(logDesktopUpdateError);
   }, DESKTOP_IDLE_INSTALL_CHECK_MS);
   idleInstallTimer.unref();
 }
