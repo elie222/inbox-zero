@@ -15,6 +15,7 @@ test("shows desktop update download progress and restarts when ready", async ({
         startAuth: async () => {},
         onUpdateStatus: (next: (status: unknown) => void) => {
           listener = next;
+          Object.assign(window, { hasUpdateListener: true });
           next(null);
           return () => {
             listener = undefined;
@@ -79,6 +80,10 @@ test("shows desktop update download progress and restarts when ready", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "desktop-update-ready");
 
   await page.reload();
+  await page.waitForFunction(
+    () =>
+      (window as unknown as { hasUpdateListener?: boolean }).hasUpdateListener,
+  );
   await pushUpdateStatus({ state: "ready", version: "0.2.0" });
   await expect(restart).toBeVisible();
   await expect(readyToast).toHaveCount(0);

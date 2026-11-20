@@ -20,6 +20,7 @@ export function DesktopUpdateToast() {
   );
   const current = useRef(status);
   const dismissedVersion = useRef<string | null>(null);
+  const shownReadyVersion = useRef<string | null>(null);
 
   useEffect(() => {
     current.current = status;
@@ -31,11 +32,13 @@ export function DesktopUpdateToast() {
       // stays as the persistent way to restart. Desktop tabs share storage, so
       // only a visible renderer may claim the announcement.
       if (!isVisible) return;
+      if (shownReadyVersion.current === status.version) return;
       if (getAnnouncedVersion() === status.version) {
         toast.dismiss(DESKTOP_UPDATE_TOAST_ID);
         return;
       }
       setAnnouncedVersion(status.version);
+      shownReadyVersion.current = status.version;
       toast(t`Inbox Zero ${status.version} is ready`, {
         id: DESKTOP_UPDATE_TOAST_ID,
         description: t`Restart the app to finish updating.`,
