@@ -57,3 +57,25 @@ export const microsoftGraphPageTokenSchema = z
   .string()
   .nullish()
   .refine(isAllowedMicrosoftGraphPageToken, { message: "Invalid page token" });
+
+export function isAdvancingGraphNextLink(
+  currentLink: string,
+  nextLink: string,
+): boolean {
+  const current = new URL(currentLink, "https://graph.microsoft.com");
+  const next = new URL(nextLink, "https://graph.microsoft.com");
+  if (current.href === next.href) return false;
+
+  const currentSkip = getGraphSkip(current.href);
+  const nextSkip = getGraphSkip(next.href);
+  return currentSkip === null || nextSkip === null || nextSkip > currentSkip;
+}
+
+export function getGraphSkip(link: string): number | null {
+  const skip = new URL(link, "https://graph.microsoft.com").searchParams.get(
+    "$skip",
+  );
+  if (skip === null) return null;
+  const value = Number(skip);
+  return Number.isFinite(value) ? value : null;
+}

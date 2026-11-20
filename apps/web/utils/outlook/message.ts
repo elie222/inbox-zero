@@ -21,7 +21,11 @@ import { formatEmailWithName } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
 import { isOutlookThrottlingError } from "@/utils/error";
 import { isMicrosoftEmulationEnabled } from "@/utils/outlook/oauth";
-import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
+import {
+  getGraphSkip,
+  isAdvancingGraphNextLink,
+  resolveMicrosoftGraphNextLink,
+} from "@/utils/outlook/page-token";
 
 // Standard fields to select when fetching messages from Microsoft Graph API
 // internetMessageId is the RFC 5322 Message-ID header, needed for cross-provider email threading
@@ -608,7 +612,20 @@ export async function queryBatchMessages(
         : filteredMessages,
     );
 
-    return { messages, nextPageToken: response["@odata.nextLink"] };
+    const candidateNextLink = response["@odata.nextLink"];
+    if (
+      candidateNextLink &&
+      !isAdvancingGraphNextLink(nextLink, candidateNextLink)
+    ) {
+      // Following a link that repeats the current page would page forever.
+      logger.warn("Stopping Outlook pagination on a non-advancing next link", {
+        skip: getGraphSkip(nextLink),
+        nextSkip: getGraphSkip(candidateNextLink),
+      });
+      return { messages, nextPageToken: undefined };
+    }
+
+    return { messages, nextPageToken: candidateNextLink };
   }
 
   const rawSearchQuery = options.mailboxSearch
