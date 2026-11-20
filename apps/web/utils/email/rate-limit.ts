@@ -340,12 +340,13 @@ function getGoogleRetryAfterMs(error: unknown) {
   const errorInfo = extractErrorInfo(error);
   if (!isRetryableError(errorInfo).isRateLimit) return null;
 
-  return (
-    getExplicitRetryDelayMs(
-      getRetryAfterHeaderFromError(error),
-      errorInfo.errorMessage,
-    ) ?? GMAIL_QUOTA_WINDOW_MS
+  const explicitDelayMs = getExplicitRetryDelayMs(
+    getRetryAfterHeaderFromError(error),
+    errorInfo.errorMessage,
   );
+  return explicitDelayMs && explicitDelayMs > 0
+    ? explicitDelayMs
+    : GMAIL_QUOTA_WINDOW_MS;
 }
 
 function getGoogleRateLimitDelayMs(error: unknown, attemptNumber: number) {
