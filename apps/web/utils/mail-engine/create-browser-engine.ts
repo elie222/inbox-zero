@@ -246,6 +246,7 @@ async function startBrowserMailEngine(
     retainAccounts: (accountIds) =>
       callWorker<void>(worker, pending, "retainAccounts", [accountIds]),
     inspect: () => callWorker(worker, pending, "inspect", []),
+    getSyncFreshness: () => callWorker(worker, pending, "getSyncFreshness", []),
     runUntil: (deadlineMs) =>
       callWorker(worker, pending, "runUntil", [deadlineMs]),
     async close() {

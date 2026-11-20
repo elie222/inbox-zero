@@ -41,6 +41,16 @@ type DesktopDurationSummary = {
   maxMs: number;
 };
 
+type DesktopMailSyncFreshness = {
+  provider: "google" | "microsoft";
+  connection: "ready" | "offline" | "blocked_auth";
+  newestInboxMessageAgeMs: number | null;
+  streams: number;
+  streamsBehind: number;
+  streamsPaused: number;
+  oldestStreamCaughtUpAgeMs: number | null;
+};
+
 /** Aggregated since the previous call from any window. */
 export type DesktopHealth = {
   version: string;
@@ -54,6 +64,8 @@ export type DesktopHealth = {
       sqliteReadMs: DesktopDurationSummary | null;
       sqliteWriteMs: DesktopDurationSummary | null;
       mailCommandMs?: DesktopDurationSummary | null;
+      /** Missing from older desktop builds; one entry per local account. */
+      mailSync?: DesktopMailSyncFreshness[] | null;
     } | null;
   } | null;
   mailboxBytes: number;

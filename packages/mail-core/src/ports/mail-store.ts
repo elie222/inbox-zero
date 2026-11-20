@@ -376,6 +376,15 @@ export interface MailStore {
    * only the server can still stop.
    */
   readHeldSend(key: OperationKey): Promise<PreparedOperation | null>;
+  /** Cheap enough for periodic health reports. */
+  readInboxFreshness(): Promise<
+    Array<{
+      accountId: string;
+      provider: "google" | "microsoft";
+      connection: "ready" | "offline" | "blocked_auth";
+      newestInboxMessageAtMs: number | null;
+    }>
+  >;
   readMailboxCounts(query: MailboxCountsQuery): Promise<{
     revision: LocalRevision;
     view: MailboxCountsView;

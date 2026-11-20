@@ -26,7 +26,11 @@ export type MailChildProcess = {
   kill(): boolean;
 };
 
-export type DesktopMailProcessOwner = DesktopMailOwner & {
+// Sync freshness reaches the main process through `health`.
+export type DesktopMailProcessOwner = Omit<
+  DesktopMailOwner,
+  "syncFreshness"
+> & {
   health(): Promise<{
     running: boolean;
     restarts: number;

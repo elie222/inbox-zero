@@ -102,6 +102,25 @@ export type MailDiagnostics = {
   }>;
 };
 
+/** How far one account's local mailbox may lag its provider. */
+export type MailSyncFreshness = {
+  provider: "google" | "microsoft";
+  connection: "ready" | "offline" | "blocked_auth";
+  /** Null when no inbox mail is stored. */
+  newestInboxMessageAgeMs: number | null;
+  streams: number;
+  /** Paging through a change backlog instead of caught up. */
+  streamsBehind: number;
+  /** Waiting out a provider's retry-after. */
+  streamsPaused: number;
+  /**
+   * Longest a regularly checked stream has gone without finishing a caught-up
+   * round, counted from when this engine started syncing the account if it
+   * hasn't finished one yet. Null before this engine has synced the account.
+   */
+  oldestStreamCaughtUpAgeMs: number | null;
+};
+
 export type MailboxWindowHandle = QueryHandle<MailboxView> & {
   loadMore(): Promise<void>;
 };
@@ -151,6 +170,7 @@ export type MailClient = {
 export type MailEngine = MailClient & {
   runUntil(deadlineMs: number, signal?: AbortSignal): Promise<void>;
   inspect(): Promise<import("./ports/mail-store").MailStoreInspection>;
+  getSyncFreshness(): Promise<MailSyncFreshness[]>;
   close(): Promise<void>;
 };
 
@@ -362,6 +382,54 @@ export function createMailEngine(input: {
     },
     inspect() {
       return store.inspect();
+    },
+    async getSyncFreshness() {
+      const [inboxes, accounts] = await Promise.all([
+        store.readInboxFreshness(),
+        store.readAccountSyncStates(),
+      ]);
+      const nowMs = runtime.nowMs();
+      return inboxes.map((inbox) => {
+        const account = accounts.find(
+          (item) => item.accountId === inbox.accountId,
+        );
+        const streams = account?.streams ?? [];
+        const gate = idleCatchUpGates.get(inbox.accountId);
+        const syncing = gate && gate.generation === account?.generation;
+        let oldestCaughtUpAtMs: number | null = null;
+        if (syncing) {
+          for (const stream of streams) {
+            if (gate.lowPriorityStreams.has(stream.streamId)) continue;
+            const caughtUpAtMs =
+              gate.streamCaughtUpAtMs.get(stream.streamId) ?? gate.createdAtMs;
+            oldestCaughtUpAtMs = Math.min(
+              oldestCaughtUpAtMs ?? caughtUpAtMs,
+              caughtUpAtMs,
+            );
+          }
+        }
+        return {
+          provider: inbox.provider,
+          connection: inbox.connection,
+          newestInboxMessageAgeMs:
+            inbox.newestInboxMessageAtMs === null
+              ? null
+              : Math.max(0, nowMs - inbox.newestInboxMessageAtMs),
+          streams: streams.length,
+          streamsBehind: syncing
+            ? streams.filter((stream) =>
+                gate.streamBacklogPages.has(stream.streamId),
+              ).length
+            : 0,
+          streamsPaused: streams.filter(
+            (stream) => (stream.retryAtMs ?? 0) > nowMs,
+          ).length,
+          oldestStreamCaughtUpAgeMs:
+            oldestCaughtUpAtMs === null
+              ? null
+              : Math.max(0, nowMs - oldestCaughtUpAtMs),
+        };
+      });
     },
     async runUntil(deadlineMs, signal) {
       if (signal?.aborted || runtime.nowMs() >= deadlineMs) return;
@@ -1372,6 +1440,7 @@ export function createMailEngine(input: {
       if (applied.status === "committed") {
         let backlogPages = 0;
         if (page.roundComplete) {
+          idleGate.streamCaughtUpAtMs.set(stream.streamId, runtime.nowMs());
           idleGate.nextStreamCatchUpAtMs.set(
             stream.streamId,
             runtime.nowMs() + streamCatchUpInterval(idleGate, stream.streamId),
@@ -1576,6 +1645,7 @@ export function createMailEngine(input: {
     if (existing?.generation === generation) return existing;
     const created: IdleCatchUpGate = {
       activeBootstrapScopes: new Map(),
+      createdAtMs: runtime.nowMs(),
       generation,
       lowPriorityStreams: new Set(),
       nextAssistantCatchUpAtMs: 0,
@@ -1586,6 +1656,7 @@ export function createMailEngine(input: {
       requestCount: 0,
       scopesDiscoveredAt: null,
       streamBacklogPages: new Map(),
+      streamCaughtUpAtMs: new Map(),
       streamCheckedAt: new Map(),
       newestPageIngested: new Set(),
     };
@@ -1799,6 +1870,7 @@ type SyncLane = {
 
 type IdleCatchUpGate = {
   activeBootstrapScopes: Map<string, ScopeDescriptor>;
+  createdAtMs: number;
   generation: string;
   lowPriorityStreams: Set<string>;
   nextAssistantCatchUpAtMs: number;
@@ -1809,6 +1881,8 @@ type IdleCatchUpGate = {
   requestCount: number;
   scopesDiscoveredAt: CheckStamp | null;
   streamBacklogPages: Map<string, number>;
+  /** When each stream last finished a round with nothing left to read. */
+  streamCaughtUpAtMs: Map<string, number>;
   streamCheckedAt: Map<string, CheckStamp>;
   /** Streams whose current backlog already has its newest page in. */
   newestPageIngested: Set<string>;

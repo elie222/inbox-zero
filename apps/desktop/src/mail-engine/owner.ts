@@ -2,6 +2,7 @@ import {
   createMailEngine,
   createHostRuntime,
   type MailEngine,
+  type MailSyncFreshness,
 } from "@inboxzero/mail-core/engine";
 import type { AssistantStateSource } from "@inboxzero/mail-core/ports/assistant-source";
 import type { MailboxSource } from "@inboxzero/mail-core/ports/mailbox-source";
@@ -27,6 +28,7 @@ export type DesktopMailOwner = {
     payload: unknown,
     onSnapshot: (snapshot: unknown) => void,
   ): (() => void) | null;
+  syncFreshness(): Promise<MailSyncFreshness[]>;
   recover(): Promise<void>;
   close(): Promise<void>;
 };
@@ -73,6 +75,9 @@ export async function createDesktopMailOwner(
         subscription.close();
         subscriptions.delete(subscription);
       };
+    },
+    syncFreshness() {
+      return owned.engine.getSyncFreshness();
     },
     async recover() {
       for (const subscription of subscriptions) subscription.close();
