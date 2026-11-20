@@ -309,12 +309,9 @@ function startDesktopApp() {
             installUpdate();
             return;
           }
-          checkForDesktopUpdatesManually(
-            () => {
-              isQuitting = true;
-            },
-            { showsProgressInApp: hasVisibleUpdateStatusSubscriber },
-          ).catch(logDesktopUpdateError);
+          checkForDesktopUpdatesManually(prepareToQuitForUpdate, {
+            showsProgressInApp: hasVisibleUpdateStatusSubscriber,
+          }).catch(logDesktopUpdateError);
         },
         createWindow: () => createAppWindow(),
         getActiveContents: (window) =>
@@ -370,6 +367,7 @@ function startDesktopApp() {
           setDownloadProgress(null);
         },
         onDownloadProgress: setDownloadProgress,
+        prepareToQuit: prepareToQuitForUpdate,
       }).catch(logDesktopUpdateError);
     }
   });
@@ -386,9 +384,16 @@ function startDesktopApp() {
 }
 
 function installUpdate() {
-  installDownloadedDesktopUpdate(() => {
-    isQuitting = true;
-  }).catch(logDesktopUpdateError);
+  installDownloadedDesktopUpdate(prepareToQuitForUpdate).catch(
+    logDesktopUpdateError,
+  );
+}
+
+function prepareToQuitForUpdate() {
+  // On macOS the updater closes every window before `before-quit`, which then
+  // has no windows left to snapshot for the relaunch.
+  if (appWindows.length > 0) persistWindowsNow();
+  isQuitting = true;
 }
 
 function setDownloadProgress(progress: DesktopDownloadProgress | null) {
