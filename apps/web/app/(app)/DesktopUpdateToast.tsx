@@ -1,7 +1,7 @@
 "use client";
 
 import { useLingui } from "@lingui/react/macro";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { useDesktopUpdateStatus } from "@/hooks/useDesktopUpdateStatus";
@@ -13,6 +13,11 @@ const ANNOUNCED_VERSION_KEY = "desktop-update-announced-version";
 export function DesktopUpdateToast() {
   const { t } = useLingui();
   const status = useDesktopUpdateStatus();
+  const isVisible = useSyncExternalStore(
+    subscribeToVisibility,
+    () => document.visibilityState === "visible",
+    () => false,
+  );
   const current = useRef(status);
   const dismissedVersion = useRef<string | null>(null);
 
@@ -23,7 +28,9 @@ export function DesktopUpdateToast() {
       dismissedVersion.current = null;
       // Ready status replays on every page load and window, so announcing it
       // each time nagged people. Announce each release once; the sidebar item
-      // stays as the persistent way to restart.
+      // stays as the persistent way to restart. Desktop tabs share storage, so
+      // only a visible renderer may claim the announcement.
+      if (!isVisible) return;
       if (getAnnouncedVersion() === status.version) {
         toast.dismiss(DESKTOP_UPDATE_TOAST_ID);
         return;
@@ -69,7 +76,7 @@ export function DesktopUpdateToast() {
         }
       },
     });
-  }, [status, t]);
+  }, [status, isVisible, t]);
 
   useEffect(
     () => () => {
@@ -78,6 +85,11 @@ export function DesktopUpdateToast() {
     [],
   );
   return null;
+}
+
+function subscribeToVisibility(onChange: () => void) {
+  document.addEventListener("visibilitychange", onChange);
+  return () => document.removeEventListener("visibilitychange", onChange);
 }
 
 function getAnnouncedVersion() {

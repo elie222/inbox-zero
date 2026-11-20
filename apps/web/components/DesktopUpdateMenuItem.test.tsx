@@ -35,6 +35,8 @@ vi.mock("sonner", () => ({
 
 afterEach(() => {
   cleanup();
+  localStorage.clear();
+  setVisibility("visible");
   window.inboxZeroDesktop = undefined;
   vi.clearAllMocks();
 });
@@ -83,13 +85,40 @@ describe("desktop update footer", () => {
     expect(toast).toHaveBeenCalled();
     vi.mocked(toast).mockClear();
     act(() => push({ state: "ready", version: "1.2" }));
+    expect(toast).toHaveBeenCalledWith(
+      "Inbox Zero 1.2 is ready",
+      expect.objectContaining({ id: "desktop-app-update" }),
+    );
+    vi.mocked(toast).mockClear();
+    act(() => push({ state: "ready", version: "1.2" }));
     expect(toast).not.toHaveBeenCalled();
-    expect(toast.dismiss).toHaveBeenCalledWith("desktop-app-update");
     fireEvent.click(screen.getByRole("button", { name: "Restart to update" }));
     expect(installUpdate).toHaveBeenCalledTimes(1);
     expect(onUpdateStatus).toHaveBeenCalledTimes(1);
     view.unmount();
     expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it("announces a ready update only once a window is visible", () => {
+    let push: (status: DesktopUpdateStatus) => void = () => {};
+    window.inboxZeroDesktop = {
+      startAuth: async () => {},
+      onUpdateStatus: (listener) => {
+        push = listener;
+        return () => {};
+      },
+      installUpdate: vi.fn(),
+    };
+    setVisibility("hidden");
+    render(<DesktopUpdateToast />);
+    act(() => push({ state: "ready", version: "1.3" }));
+    expect(toast).not.toHaveBeenCalled();
+
+    act(() => setVisibility("visible"));
+    expect(toast).toHaveBeenCalledWith(
+      "Inbox Zero 1.3 is ready",
+      expect.objectContaining({ id: "desktop-app-update" }),
+    );
   });
 
   it("shows ready returned to a late subscriber", () => {
@@ -107,3 +136,11 @@ describe("desktop update footer", () => {
     ).toBeDefined();
   });
 });
+
+function setVisibility(state: DocumentVisibilityState) {
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    value: state,
+  });
+  document.dispatchEvent(new Event("visibilitychange"));
+}
