@@ -135,12 +135,12 @@ export function SlackNotificationTargetSelect({
           <div className="border-t px-2 py-1.5 text-xs text-muted-foreground">
             <div>
               {privateTargets.length === 0
-                ? t`No channels found.`
+                ? t`No private channels found.`
                 : t`Don't see your channel?`}
             </div>
             <div>
               <Trans>
-                Invite the bot with{" "}
+                Invite the bot to a private channel with{" "}
                 <code className="rounded bg-muted px-1">
                   /invite @{botName}
                 </code>

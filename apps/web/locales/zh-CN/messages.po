@@ -7517,8 +7517,8 @@ msgid "Invite teammates"
 msgstr "邀请队友"
 
 #: components/SlackNotificationTargetSelect.tsx
-msgid "Invite the bot with <0>/invite @{botName}</0>"
-msgstr "使用 <0>/invite @{botName}</0> 邀请机器人"
+msgid "Invite the bot to a private channel with <0>/invite @{botName}</0>"
+msgstr "使用 <0>/invite @{botName}</0> 邀请机器人加入私有频道"
 
 #: app/(app)/organization/[organizationId]/Members.tsx
 msgid "Invited by {inviterName}"
@@ -9192,10 +9192,6 @@ msgstr "无变化"
 msgid "No channels available."
 msgstr "没有可用的频道。"
 
-#: components/SlackNotificationTargetSelect.tsx
-msgid "No channels found."
-msgstr "未找到频道。"
-
 #: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
 msgid "No cold emails!"
 msgstr "没有冷邮件！"
@@ -9437,6 +9433,10 @@ msgstr "无套餐"
 #: components/assistant-chat/chat.tsx
 msgid "No previous chats found"
 msgstr "未找到以往的聊天"
+
+#: components/SlackNotificationTargetSelect.tsx
+msgid "No private channels found."
+msgstr "未找到私有频道。"
 
 #: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
 msgid "No public context"

@@ -7517,8 +7517,8 @@ msgid "Invite teammates"
 msgstr "Ekip arkadaşlarını davet et"
 
 #: components/SlackNotificationTargetSelect.tsx
-msgid "Invite the bot with <0>/invite @{botName}</0>"
-msgstr "Botu <0>/invite @{botName}</0> ile davet edin"
+msgid "Invite the bot to a private channel with <0>/invite @{botName}</0>"
+msgstr "Botu <0>/invite @{botName}</0> ile özel bir kanala davet edin"
 
 #: app/(app)/organization/[organizationId]/Members.tsx
 msgid "Invited by {inviterName}"
@@ -9192,10 +9192,6 @@ msgstr "Değişiklik yok"
 msgid "No channels available."
 msgstr "Kullanılabilir kanal yok."
 
-#: components/SlackNotificationTargetSelect.tsx
-msgid "No channels found."
-msgstr "Kanal bulunamadı."
-
 #: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
 msgid "No cold emails!"
 msgstr "Soğuk e-posta yok!"
@@ -9437,6 +9433,10 @@ msgstr "Plan yok"
 #: components/assistant-chat/chat.tsx
 msgid "No previous chats found"
 msgstr "Önceki sohbet bulunamadı"
+
+#: components/SlackNotificationTargetSelect.tsx
+msgid "No private channels found."
+msgstr "Özel kanal bulunamadı."
 
 #: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
 msgid "No public context"

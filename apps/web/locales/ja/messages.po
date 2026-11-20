@@ -7517,8 +7517,8 @@ msgid "Invite teammates"
 msgstr "チームメイトを招待"
 
 #: components/SlackNotificationTargetSelect.tsx
-msgid "Invite the bot with <0>/invite @{botName}</0>"
-msgstr "<0>/invite @{botName}</0>でボットを招待してください"
+msgid "Invite the bot to a private channel with <0>/invite @{botName}</0>"
+msgstr "<0>/invite @{botName}</0>でボットをプライベートチャンネルに招待してください"
 
 #: app/(app)/organization/[organizationId]/Members.tsx
 msgid "Invited by {inviterName}"
@@ -9192,10 +9192,6 @@ msgstr "変更なし"
 msgid "No channels available."
 msgstr "利用可能なチャンネルがありません。"
 
-#: components/SlackNotificationTargetSelect.tsx
-msgid "No channels found."
-msgstr "チャンネルが見つかりません。"
-
 #: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
 msgid "No cold emails!"
 msgstr "コールドメールはありません!"
@@ -9437,6 +9433,10 @@ msgstr "プランなし"
 #: components/assistant-chat/chat.tsx
 msgid "No previous chats found"
 msgstr "以前のチャットは見つかりません"
+
+#: components/SlackNotificationTargetSelect.tsx
+msgid "No private channels found."
+msgstr "プライベートチャンネルが見つかりません。"
 
 #: app/(app)/[emailAccountId]/mail/SenderContextPanel.tsx
 msgid "No public context"

@@ -2694,7 +2694,7 @@ async function sendUnlinkedChannelMessage({
     thread,
     logger,
     message:
-      "This channel isn't linked to an email account. Set one up in your Inbox Zero settings.",
+      "This channel isn't linked to an email account. Inbox Zero can only post to private channels. Pick one in your Inbox Zero settings.",
     errorLogMessage: "Failed to send unlinked channel message",
   });
 }
