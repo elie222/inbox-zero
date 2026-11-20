@@ -56,6 +56,14 @@ msgstr "（无主题）"
 msgid "(No subject)"
 msgstr "（无主题）"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "(private channel)"
+msgstr "（私有频道）"
+
+#: components/SlackNotificationTargetSelect.tsx
+msgid "(public channel)"
+msgstr "（公开频道）"
+
 #: components/team-comments/ConversationParticipants.tsx
 msgid "(you)"
 msgstr "（你）"

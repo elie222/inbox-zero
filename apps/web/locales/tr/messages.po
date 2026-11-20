@@ -56,6 +56,14 @@ msgstr "(konu yok)"
 msgid "(No subject)"
 msgstr "(Konu yok)"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "(private channel)"
+msgstr "(özel kanal)"
+
+#: components/SlackNotificationTargetSelect.tsx
+msgid "(public channel)"
+msgstr "(herkese açık kanal)"
+
 #: components/team-comments/ConversationParticipants.tsx
 msgid "(you)"
 msgstr "(siz)"

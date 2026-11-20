@@ -157,11 +157,14 @@ export function SlackNotificationTargetSelect({
           {targets.map((target) => (
             <SelectItem key={target.id} value={target.id}>
               {target.isPrivate ? (
-                <LockIcon className="mr-1 inline h-3 w-3" />
+                <LockIcon aria-hidden className="mr-1 inline h-3 w-3" />
               ) : (
-                <HashIcon className="mr-1 inline h-3 w-3" />
+                <HashIcon aria-hidden className="mr-1 inline h-3 w-3" />
               )}
               {target.name}
+              <span className="sr-only">
+                {target.isPrivate ? t`(private channel)` : t`(public channel)`}
+              </span>
             </SelectItem>
           ))}
           {!isLoading && !hasError && (

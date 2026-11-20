@@ -56,6 +56,14 @@ msgstr "(no subject)"
 msgid "(No subject)"
 msgstr "(No subject)"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "(private channel)"
+msgstr "(private channel)"
+
+#: components/SlackNotificationTargetSelect.tsx
+msgid "(public channel)"
+msgstr "(public channel)"
+
 #: components/team-comments/ConversationParticipants.tsx
 msgid "(you)"
 msgstr "(you)"
