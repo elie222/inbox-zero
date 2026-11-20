@@ -7320,6 +7320,11 @@ msgstr "Inattivo"
 msgid "Inbox"
 msgstr "Posta in arrivo"
 
+#. placeholder {0}: status.version
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Inbox Zero {0} is ready"
+msgstr "Inbox Zero {0} è pronto"
+
 #: app/(app)/ProviderRateLimitBanner.tsx
 msgid "Inbox Zero actions are temporarily paused until around <0>{retryAtLabel}</0>. This limit is enforced by {providerLabel}, and other apps connected to this mailbox can contribute to the same shared limit."
 msgstr "Le azioni di Inbox Zero sono temporaneamente sospese fino a circa <0>{retryAtLabel}</0>. Questo limite è imposto da {providerLabel} e anche le altre app collegate a questa casella di posta contribuiscono allo stesso limite condiviso."
@@ -11096,6 +11101,14 @@ msgstr "Dati sul tempo di risposta basati {0, plural, one {sull'ultima # email} 
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "Response Time Distribution"
 msgstr "Distribuzione del tempo di risposta"
+
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Restart"
+msgstr "Riavvia"
+
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Restart the app to finish updating."
+msgstr "Riavvia l’app per completare l’aggiornamento."
 
 #: components/DesktopUpdateMenuItem.tsx
 msgid "Restart to update"

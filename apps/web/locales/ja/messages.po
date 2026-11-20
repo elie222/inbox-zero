@@ -7320,6 +7320,11 @@ msgstr "無効"
 msgid "Inbox"
 msgstr "受信トレイ"
 
+#. placeholder {0}: status.version
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Inbox Zero {0} is ready"
+msgstr "Inbox Zero {0} の準備ができました"
+
 #: app/(app)/ProviderRateLimitBanner.tsx
 msgid "Inbox Zero actions are temporarily paused until around <0>{retryAtLabel}</0>. This limit is enforced by {providerLabel}, and other apps connected to this mailbox can contribute to the same shared limit."
 msgstr "Inbox Zeroの操作は、<0>{retryAtLabel}</0>頃まで一時的に停止されています。この制限は{providerLabel}によって適用されており、このメールボックスに接続されている他のアプリも同じ共有制限の対象になります。"
@@ -11096,6 +11101,14 @@ msgstr "直近 {0, plural, other {# 件のメール}}に基づく応答時間デ
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "Response Time Distribution"
 msgstr "応答時間の分布"
+
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Restart"
+msgstr "再起動"
+
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Restart the app to finish updating."
+msgstr "アップデートを完了するにはアプリを再起動してください。"
 
 #: components/DesktopUpdateMenuItem.tsx
 msgid "Restart to update"

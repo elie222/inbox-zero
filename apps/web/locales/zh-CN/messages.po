@@ -7320,6 +7320,11 @@ msgstr "未启用"
 msgid "Inbox"
 msgstr "收件箱"
 
+#. placeholder {0}: status.version
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Inbox Zero {0} is ready"
+msgstr "Inbox Zero {0} 已就绪"
+
 #: app/(app)/ProviderRateLimitBanner.tsx
 msgid "Inbox Zero actions are temporarily paused until around <0>{retryAtLabel}</0>. This limit is enforced by {providerLabel}, and other apps connected to this mailbox can contribute to the same shared limit."
 msgstr "Inbox Zero 的操作已暂时暂停，预计到 <0>{retryAtLabel}</0> 左右恢复。此限制由 {providerLabel} 施加，连接到此邮箱的其他应用也会占用同一个共享额度。"
@@ -11096,6 +11101,14 @@ msgstr "响应时间数据基于最近 {0, plural, other {# 封邮件}}"
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "Response Time Distribution"
 msgstr "响应时间分布"
+
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Restart"
+msgstr "重新启动"
+
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Restart the app to finish updating."
+msgstr "重新启动应用以完成更新。"
 
 #: components/DesktopUpdateMenuItem.tsx
 msgid "Restart to update"

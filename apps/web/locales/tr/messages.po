@@ -7320,6 +7320,11 @@ msgstr "Pasif"
 msgid "Inbox"
 msgstr "Gelen kutusu"
 
+#. placeholder {0}: status.version
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Inbox Zero {0} is ready"
+msgstr "Inbox Zero {0} hazır"
+
 #: app/(app)/ProviderRateLimitBanner.tsx
 msgid "Inbox Zero actions are temporarily paused until around <0>{retryAtLabel}</0>. This limit is enforced by {providerLabel}, and other apps connected to this mailbox can contribute to the same shared limit."
 msgstr "Inbox Zero eylemleri geçici olarak duraklatıldı; yaklaşık şu zamana kadar: <0>{retryAtLabel}</0>. Bu sınır {providerLabel} tarafından uygulanır ve bu posta kutusuna bağlı diğer uygulamalar da aynı ortak sınıra katkıda bulunabilir."
@@ -11096,6 +11101,14 @@ msgstr "Yanıt süresi verileri, son {0, plural, one {# e-postaya} other {# e-po
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "Response Time Distribution"
 msgstr "Yanıt süresi dağılımı"
+
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Restart"
+msgstr "Yeniden başlat"
+
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Restart the app to finish updating."
+msgstr "Güncellemeyi tamamlamak için uygulamayı yeniden başlatın."
 
 #: components/DesktopUpdateMenuItem.tsx
 msgid "Restart to update"

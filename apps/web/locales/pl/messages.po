@@ -7320,6 +7320,11 @@ msgstr "Nieaktywne"
 msgid "Inbox"
 msgstr "Skrzynka odbiorcza"
 
+#. placeholder {0}: status.version
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Inbox Zero {0} is ready"
+msgstr "Inbox Zero {0} jest gotowy"
+
 #: app/(app)/ProviderRateLimitBanner.tsx
 msgid "Inbox Zero actions are temporarily paused until around <0>{retryAtLabel}</0>. This limit is enforced by {providerLabel}, and other apps connected to this mailbox can contribute to the same shared limit."
 msgstr "Działania Inbox Zero są tymczasowo wstrzymane mniej więcej do <0>{retryAtLabel}</0>. Ten limit narzuca {providerLabel}, a inne aplikacje połączone z tą skrzynką mogą wpływać na ten sam wspólny limit."
@@ -11096,6 +11101,14 @@ msgstr "Dane o czasie odpowiedzi na podstawie {0, plural, one {ostatniego # e-ma
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "Response Time Distribution"
 msgstr "Rozkład czasu odpowiedzi"
+
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Restart"
+msgstr "Uruchom ponownie"
+
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Restart the app to finish updating."
+msgstr "Uruchom aplikację ponownie, aby dokończyć aktualizację."
 
 #: components/DesktopUpdateMenuItem.tsx
 msgid "Restart to update"
