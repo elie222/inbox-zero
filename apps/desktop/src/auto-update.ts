@@ -197,15 +197,16 @@ function installWhenIdle() {
   const prepareToQuit = prepareToQuitWhenIdle;
   if (!prepareToQuit || idleInstallTimer) return;
   idleInstallTimer = setInterval(() => {
-    if (
-      powerMonitor.getSystemIdleState(
-        DESKTOP_IDLE_INSTALL_THRESHOLD_SECONDS,
-      ) === "active"
-    )
-      return;
+    const state = powerMonitor.getSystemIdleState(
+      DESKTOP_IDLE_INSTALL_THRESHOLD_SECONDS,
+    );
+    if (state !== "idle" && state !== "locked") return;
     clearInterval(idleInstallTimer);
     idleInstallTimer = undefined;
-    installDownloadedDesktopUpdate(prepareToQuit).catch(logDesktopUpdateError);
+    installDownloadedDesktopUpdate(prepareToQuit).catch((error: unknown) => {
+      logDesktopUpdateError(error);
+      installWhenIdle();
+    });
   }, DESKTOP_IDLE_INSTALL_CHECK_MS);
   idleInstallTimer.unref();
 }

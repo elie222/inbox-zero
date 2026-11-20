@@ -496,6 +496,35 @@ describe("installing a downloaded update while idle", () => {
     expect(autoUpdater.quitAndInstall).toHaveBeenCalledOnce();
   });
 
+  it("keeps waiting when the system cannot report whether it is idle", async () => {
+    powerMonitor.getSystemIdleState.mockReturnValue("unknown");
+
+    await startDesktopAutoUpdate(true, { prepareToQuit: vi.fn() });
+    notifyDownloaded?.({ version: "0.2.0" });
+    await vi.advanceTimersByTimeAsync(DESKTOP_IDLE_INSTALL_CHECK_MS * 30);
+
+    expect(autoUpdater.quitAndInstall).not.toHaveBeenCalled();
+  });
+
+  it("tries again at the next idle check when installing fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    powerMonitor.getSystemIdleState.mockReturnValue("idle");
+    autoUpdater.quitAndInstall.mockImplementationOnce(() => {
+      throw new Error("installer busy");
+    });
+
+    try {
+      await startDesktopAutoUpdate(true, { prepareToQuit: vi.fn() });
+      notifyDownloaded?.({ version: "0.2.0" });
+      await vi.advanceTimersByTimeAsync(DESKTOP_IDLE_INSTALL_CHECK_MS * 2);
+
+      expect(console.error).toHaveBeenCalledWith("installer busy");
+      expect(autoUpdater.quitAndInstall).toHaveBeenCalledTimes(2);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it("does not restart before an update has downloaded", async () => {
     powerMonitor.getSystemIdleState.mockReturnValue("idle");
 
