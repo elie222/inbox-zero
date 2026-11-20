@@ -393,9 +393,21 @@ export function createMailEngine(input: {
         const account = accounts.find(
           (item) => item.accountId === inbox.accountId,
         );
-        const streams = account?.streams ?? [];
         const gate = idleCatchUpGates.get(inbox.accountId);
         const syncing = gate && gate.generation === account?.generation;
+        const streams: Array<{
+          streamId: string;
+          checkpoint: string | null;
+          retryAtMs?: number;
+        }> = [...(account?.streams ?? [])];
+        // A new scope has no stored stream until its bootstrap finishes.
+        for (const scopeId of syncing
+          ? gate.activeBootstrapScopes.keys()
+          : []) {
+          if (!streams.some((stream) => stream.streamId === scopeId)) {
+            streams.push({ streamId: scopeId, checkpoint: null });
+          }
+        }
         let oldestCaughtUpAtMs: number | null = null;
         if (syncing) {
           for (const stream of streams) {
@@ -408,6 +420,17 @@ export function createMailEngine(input: {
             );
           }
         }
+        const paused = (stream: (typeof streams)[number]) => {
+          if ((stream.retryAtMs ?? 0) > nowMs) return true;
+          // Kept in memory when SQLite rejected the deferral write.
+          const pending = syncing
+            ? gate.pendingStreamDeferrals.get(stream.streamId)
+            : undefined;
+          return (
+            pending?.checkpoint === stream.checkpoint &&
+            pending.retryAtMs > nowMs
+          );
+        };
         return {
           provider: inbox.provider,
           connection: inbox.connection,
@@ -421,9 +444,7 @@ export function createMailEngine(input: {
                 gate.streamBacklogPages.has(stream.streamId),
               ).length
             : 0,
-          streamsPaused: streams.filter(
-            (stream) => (stream.retryAtMs ?? 0) > nowMs,
-          ).length,
+          streamsPaused: streams.filter(paused).length,
           oldestStreamCaughtUpAgeMs:
             oldestCaughtUpAtMs === null
               ? null
