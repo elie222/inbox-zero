@@ -82,6 +82,22 @@ describe("trashThread", () => {
     );
     await expect(trashThread(options)).resolves.toEqual({ status: 200 });
   });
+
+  it("moves to review folder when reviewLabel is provided", async () => {
+    const { options, get, post } = setup();
+    get.mockResolvedValueOnce({
+      value: [{ id: "folder-review-id", displayName: "Review/Delete" }],
+    });
+    get.mockResolvedValueOnce({ value: [{ id: "a" }] });
+
+    await expect(
+      trashThread({ ...options, reviewLabel: "Review/Delete" }),
+    ).resolves.toEqual({ status: 200 });
+
+    expect(post).toHaveBeenCalledWith("/me/messages/a/move", {
+      destinationId: "folder-review-id",
+    });
+  });
 });
 
 function setup() {

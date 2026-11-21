@@ -7,16 +7,30 @@ import {
   runThreadMessageMutation,
 } from "@/utils/outlook/thread-helpers";
 import type { Logger } from "@/utils/logger";
+import { getOrCreateOutlookFolderIdByName } from "@/utils/outlook/folders";
+import { getReviewBeforeDeleteLabel } from "@/utils/review-before-delete";
 
 export async function markSpam(
   client: OutlookClient,
   threadId: string,
   logger: Logger,
+  reviewLabel?: string,
 ) {
+  const labelToUse = reviewLabel ?? getReviewBeforeDeleteLabel();
+  let destinationId = "junkemail";
+
+  if (labelToUse) {
+    destinationId = await getOrCreateOutlookFolderIdByName(
+      client,
+      labelToUse,
+      logger,
+    );
+  }
+
   await moveThreadToSpamState({
     client,
     threadId,
-    destinationId: "junkemail",
+    destinationId,
     logger,
     failureMessage: "Failed to move message to spam",
     noMessagesMessage:
@@ -28,6 +42,7 @@ export async function markNotSpam(
   client: OutlookClient,
   threadId: string,
   logger: Logger,
+  _reviewLabel?: string,
 ) {
   await moveThreadToSpamState({
     client,
@@ -50,7 +65,7 @@ async function moveThreadToSpamState({
 }: {
   client: OutlookClient;
   threadId: string;
-  destinationId: "inbox" | "junkemail";
+  destinationId: string;
   logger: Logger;
   failureMessage: string;
   noMessagesMessage: string;
