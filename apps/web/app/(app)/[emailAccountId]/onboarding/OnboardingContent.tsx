@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { Trans } from "@lingui/react/macro";
+import { ArrowRightIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { StepWho } from "@/app/(app)/[emailAccountId]/onboarding/StepWho";
 import { StepWelcome } from "@/app/(app)/[emailAccountId]/onboarding/StepWelcome";
 import { StepChat } from "@/app/(app)/[emailAccountId]/onboarding/StepChat";
@@ -87,13 +90,15 @@ export function OnboardingContent({
     [STEP_KEYS.INBOX_PROCESSED]: () => <StepInboxProcessed onNext={onNext} />,
   };
 
+  const isSelfHosted = Boolean(env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS);
+
   const getVisibleStepKeys = (intent: SignupIntent | null) =>
     getVisibleOnboardingStepKeys({
       autoDraftDisabled:
         Boolean(env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED) ||
         isDraftRepliesDisabledByRuleState(rules),
       emailAppEnabled: env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
-      isSelfHosted: Boolean(env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS),
+      isSelfHosted,
       signupIntent: intent,
     }).filter((key) => isDefined(stepMap[key]));
   const visibleStepKeys = getVisibleStepKeys(signupIntent);
@@ -175,6 +180,23 @@ export function OnboardingContent({
     getOnboardingStepPath,
   ]);
 
+  const onSkipOnboarding = useCallback(async () => {
+    analytics.onComplete({
+      step: clampedStep,
+      stepKey: currentStepKey ?? "unknown",
+      totalSteps,
+      destination,
+    });
+    await completeAndRedirect();
+  }, [
+    analytics,
+    clampedStep,
+    currentStepKey,
+    totalSteps,
+    destination,
+    completeAndRedirect,
+  ]);
+
   // The chosen intent decides which branch follows, so the next step is
   // resolved against the new intent rather than the one this render used.
   const onIntentSaved = (intent: SignupIntent) => {
@@ -220,11 +242,24 @@ export function OnboardingContent({
   }
 
   return (
-    <>
-      {/* Start ingesting provider email stats into the database early so the
-          bulk-unsubscribe step's stats query has data by the time it runs */}
-      <EmailStatsPreloader />
+    <div className="relative">
+      {isSelfHosted && (
+        <div className="absolute top-4 right-4 z-50">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground hover:text-foreground"
+            onClick={onSkipOnboarding}
+          >
+            <Trans>Skip onboarding</Trans>
+            <ArrowRightIcon className="ml-1 size-3" />
+          </Button>
+        </div>
+      )}
+      {/* Start ingesting provider email stats into the database after a slight delay
+          so it doesn't race against initial persona analysis on Step 1 */}
+      <EmailStatsPreloader delayMs={2000} />
       {renderStep ? renderStep() : null}
-    </>
+    </div>
   );
 }
