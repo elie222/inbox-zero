@@ -5856,6 +5856,10 @@ msgstr "초대를 취소하지 못했어요"
 msgid "Failed to connect Slack"
 msgstr "Slack을 연결하지 못했어요"
 
+#: components/CopyInput.tsx
+msgid "Failed to copy"
+msgstr "복사하지 못했습니다"
+
 #: app/(app)/[emailAccountId]/calendars/BookingLinksSection.tsx
 msgid "Failed to copy booking link"
 msgstr "예약 링크를 복사하지 못했어요"
