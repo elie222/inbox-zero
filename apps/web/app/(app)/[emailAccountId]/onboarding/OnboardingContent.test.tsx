@@ -6,8 +6,16 @@ import { OnboardingContent } from "./OnboardingContent";
 const mocks = vi.hoisted(() => ({
   analyzePersona: vi.fn(),
   mutate: vi.fn(),
-  analytics: { onStart: vi.fn(), onStepViewed: vi.fn() },
+  analytics: {
+    onStart: vi.fn(),
+    onStepViewed: vi.fn(),
+    onComplete: vi.fn(),
+  },
+  completeAndRedirect: vi.fn(),
+  env: { NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: false },
 }));
+
+vi.mock("@/env", () => ({ env: mocks.env }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/hooks/usePersona", () => ({
@@ -25,7 +33,10 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
 }));
 vi.mock("@/hooks/useRules", () => ({ useRules: () => ({ data: [] }) }));
 vi.mock("./useCompleteOnboarding", () => ({
-  useCompleteOnboarding: () => ({ destination: "welcome-upgrade" }),
+  useCompleteOnboarding: () => ({
+    completeAndRedirect: mocks.completeAndRedirect,
+    destination: "welcome-upgrade",
+  }),
 }));
 vi.mock("@/components/EmailStatsPreloader", () => ({
   EmailStatsPreloader: () => null,
@@ -70,5 +81,26 @@ describe("onboarding persona analysis", () => {
     await act(async () => analysis.resolve());
 
     expect(mocks.mutate).toHaveBeenCalledOnce();
+  });
+
+  it("renders a skip onboarding button on self-hosted instances and completes onboarding when clicked", async () => {
+    mocks.env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = true;
+
+    const { getByText } = render(<OnboardingContent signupIntent={null} />);
+    const skipButton = getByText("Skip onboarding");
+    expect(skipButton).toBeDefined();
+
+    await act(async () => {
+      skipButton.click();
+    });
+
+    expect(mocks.completeAndRedirect).toHaveBeenCalledOnce();
+    expect(mocks.analytics.onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destination: "welcome-upgrade",
+      }),
+    );
+
+    mocks.env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = false;
   });
 });

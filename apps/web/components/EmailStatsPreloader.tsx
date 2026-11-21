@@ -6,8 +6,10 @@ import { useStatLoader } from "@/providers/StatLoaderProvider";
 
 export function EmailStatsPreloader({
   loadBefore = false,
+  delayMs = 0,
 }: {
   loadBefore?: boolean;
+  delayMs?: number;
 }) {
   const { emailAccountId } = useAccount();
   const { onLoad } = useStatLoader();
@@ -18,12 +20,23 @@ export function EmailStatsPreloader({
 
     lastPreloadedAccountId.current = emailAccountId;
 
-    async function preload() {
-      await onLoad({ loadBefore, showToast: false });
+    let cancelled = false;
+    const execute = () => {
+      onLoad({ loadBefore, showToast: false }).catch(() => undefined);
+    };
+
+    if (delayMs > 0) {
+      const timer = setTimeout(() => {
+        if (!cancelled) execute();
+      }, delayMs);
+      return () => {
+        cancelled = true;
+        clearTimeout(timer);
+      };
     }
 
-    preload().catch(() => undefined);
-  }, [emailAccountId, loadBefore, onLoad]);
+    execute();
+  }, [delayMs, emailAccountId, loadBefore, onLoad]);
 
   return null;
 }
