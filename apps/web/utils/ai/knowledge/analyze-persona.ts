@@ -1,4 +1,5 @@
 import "server-only";
+import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import { scheduleAccountAnalysis } from "@/utils/ai/knowledge/schedule-account-analysis";
 import { aiAnalyzePersona } from "@/utils/ai/knowledge/persona";
@@ -38,9 +39,7 @@ export async function schedulePersonaAnalysis({
         provider,
         logger,
       });
-      const { messages } = await emailProvider.getMessagesWithPagination({
-        maxResults: 200,
-      });
+      const messages = await emailProvider.getSentMessages(200);
       if (!messages?.length) return false;
 
       const emails = messages.map((message) =>
@@ -54,11 +53,14 @@ export async function schedulePersonaAnalysis({
 
       // An expired task must not overwrite a newer analysis or its lock.
       if (!(await ownsLock())) return false;
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
+      const updated = await prisma.emailAccount.updateMany({
+        where: {
+          id: emailAccountId,
+          personaAnalysis: { equals: Prisma.DbNull },
+        },
         data: { personaAnalysis },
       });
-      return true;
+      return updated.count === 1;
     },
   });
 }
