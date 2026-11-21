@@ -133,6 +133,7 @@ import { useLabels } from "@/hooks/useLabels";
 import { useFolders } from "@/hooks/useFolders";
 import { useMailSettings } from "@/hooks/useMailSettings";
 import { useAccounts } from "@/hooks/useAccounts";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useThread } from "@/hooks/useThread";
 import { cn } from "@/utils";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
@@ -185,6 +186,7 @@ export function MailShell() {
   const { userLabels: allLabels } = useLabels();
   const { folders } = useFolders(provider);
   const { data: settings, mutate: mutateSettings } = useMailSettings();
+  const isMobile = useIsMobile();
   const { toggleSidebar, state: sidebarState } = useSidebar();
   const isPaletteOpen = useAtomValue(commandPaletteOpenAtom);
   const isHelpOpen = useAtomValue(shortcutsDialogOpenAtom);
@@ -269,8 +271,10 @@ export function MailShell() {
         })),
     [accountsData?.emailAccounts],
   );
-  const layout: MailLayoutMode =
+  const preferredLayout: MailLayoutMode =
     settings?.layout === MailLayout.SPLIT ? "split" : "list";
+  // Mobile viewports lack space for side-by-side panes, so keep full-screen list/reader navigation.
+  const layout: MailLayoutMode = isMobile ? "list" : preferredLayout;
   const expandedPreview = settings?.expandedPreview ?? false;
   const bundleInbox = settings?.bundleInbox ?? false;
 
@@ -313,9 +317,10 @@ export function MailShell() {
   const toggleLayout = useCallback(
     () =>
       updatePreferences({
-        layout: layout === "split" ? MailLayout.LIST : MailLayout.SPLIT,
+        layout:
+          preferredLayout === "split" ? MailLayout.LIST : MailLayout.SPLIT,
       }),
-    [layout, updatePreferences],
+    [preferredLayout, updatePreferences],
   );
 
   const togglePreview = useCallback(
@@ -1604,7 +1609,7 @@ export function MailShell() {
         if (await undoLatestToast()) return;
         await undo();
       },
-      toggleLayout,
+      toggleLayout: isMobile ? undefined : toggleLayout,
       togglePreview,
       toggleAssistant: onToggleAssistant,
       help: () => setIsHelpOpen(true),
@@ -2014,7 +2019,7 @@ export function MailShell() {
               splits={splitTabs}
               allSplitId={allSplitId}
               editAllOnly={editAllOnly}
-              layout={layout}
+              layout={preferredLayout}
               bundleInbox={bundleInbox}
               defaultSplitId={settings.defaultSplitId}
               onUpdatePreferences={updatePreferences}
@@ -2066,7 +2071,7 @@ export function MailShell() {
                   isAllAccounts,
                   isOutlook,
                 })}
-                onToggleLayout={toggleLayout}
+                onToggleLayout={isMobile ? undefined : toggleLayout}
                 expandedPreview={expandedPreview}
                 onTogglePreview={togglePreview}
                 bundleInbox={bundleInbox}
