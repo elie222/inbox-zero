@@ -1,9 +1,8 @@
-import { Client } from "@upstash/qstash";
-import { env } from "@/env";
+import type { Client } from "@upstash/qstash";
 import { SnoozedThreadStatus } from "@/generated/prisma/enums";
 import { Prisma, type SnoozedThread } from "@/generated/prisma/client";
 import { getCronSecretHeader } from "@/utils/cron";
-import { getInternalApiUrl } from "@/utils/internal-api";
+import { getQstashCallbackBaseUrl, getQstashClient } from "@/utils/upstash";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
@@ -183,8 +182,8 @@ async function publishSnoozedThread({
   snoozedThread: SnoozedThread;
 }) {
   const { scheduledFor } = snoozedThread;
-
-  const client = getQstashClient();
+  const url = `${getQstashCallbackBaseUrl()}/api/snoozed-threads/execute`;
+  const client = getQstashClient(url);
   if (!client) {
     logger.info("QStash unavailable; snoozed thread will use cron fallback", {
       snoozedThreadId: snoozedThread.id,
@@ -201,7 +200,7 @@ async function publishSnoozedThread({
   const schedulerLabel = getSchedulerLabel(snoozedThread.id);
   try {
     await client.publishJSON({
-      url: `${getInternalApiUrl()}/api/snoozed-threads/execute`,
+      url,
       body: { snoozedThreadId: snoozedThread.id },
       notBefore: Math.ceil(scheduledFor.getTime() / 1000),
       deduplicationId: schedulerLabel,
@@ -357,11 +356,6 @@ export async function releaseSnoozedThreadForRetry(
       status: SnoozedThreadStatus.PENDING,
     },
   });
-}
-
-function getQstashClient() {
-  if (!env.QSTASH_TOKEN) return null;
-  return new Client({ token: env.QSTASH_TOKEN });
 }
 
 async function cancelQstashMessages(
