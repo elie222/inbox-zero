@@ -5856,6 +5856,10 @@ msgstr "Davet iptal edilemedi"
 msgid "Failed to connect Slack"
 msgstr "Slack'e bağlanılamadı"
 
+#: components/CopyInput.tsx
+msgid "Failed to copy"
+msgstr "Kopyalanamadı"
+
 #: app/(app)/[emailAccountId]/calendars/BookingLinksSection.tsx
 msgid "Failed to copy booking link"
 msgstr "Rezervasyon bağlantısı kopyalanamadı"

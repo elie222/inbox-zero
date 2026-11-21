@@ -5856,6 +5856,10 @@ msgstr "Failed to cancel invitation"
 msgid "Failed to connect Slack"
 msgstr "Failed to connect Slack"
 
+#: components/CopyInput.tsx
+msgid "Failed to copy"
+msgstr "Failed to copy"
+
 #: app/(app)/[emailAccountId]/calendars/BookingLinksSection.tsx
 msgid "Failed to copy booking link"
 msgstr "Failed to copy booking link"
