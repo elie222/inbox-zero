@@ -3021,3 +3021,28 @@ model LoopsEmailSource {
   @@index([loopId])
   @@index([campaignId])
 }
+
+// Instance-wide Sign in with ChatGPT connection used by the `chatgpt` LLM
+// provider. Single row; the host ID and issued client ID outlive sign-out so a
+// later sign-in reuses the same registration.
+model ChatGptConnection {
+  id        String   @id @default("default")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hostId   String
+  clientId String?
+  subject  String?
+  email    String?
+  scope    String?
+
+  // Encrypted credentials
+  idToken      String?
+  accessToken  String?
+  refreshToken String?
+  expiresAt    DateTime?
+
+  // SHA-256 of the CHATGPT_REFRESH_TOKEN last imported from the environment,
+  // so a new CLI sign-in is imported once and a disconnect isn't undone.
+  importedTokenHash String?
+}
