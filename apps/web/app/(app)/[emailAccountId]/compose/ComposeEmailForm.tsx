@@ -180,13 +180,17 @@ function ComposeEmailFormWithEngine(props: ComposeEmailFormProps) {
   // Compose waits only while there is neither data nor an error: SWR keeps
   // isLoading set for a request started before the reload snapshot filled the
   // cache, and a reconnect refetch must not swap the open form to a spinner.
+  // The form reads these only when it mounts, so after switching sender it
+  // must wait for the new account's values rather than show the previous ones.
   const { data: composeSignature, error: signatureError } =
     useSWR<GetSignatureResponse>(
       getAccountScopedKey("/api/user/signature", selectedEmailAccountId),
+      { keepPreviousData: false },
     );
   // A failed lookup sends from the default address, as before.
   const { data: sendAs, error: sendAsError } = useSWR<GetSendAsResponse>(
     getAccountScopedKey("/api/user/send-as", selectedEmailAccountId),
+    { keepPreviousData: false },
   );
 
   const localDraftIdentity = props.draftSessionId
