@@ -12284,6 +12284,10 @@ msgstr "Toon ze"
 msgid "Showing {0} of {1, plural, one {# filing} other {# filings}}"
 msgstr "{0} van {1, plural, one {# dossier} other {# dossiers}} getoond"
 
+#: components/email-list/AttachmentPreview.tsx
+msgid "Showing part of this file. Download it to see everything."
+msgstr "Een deel van dit bestand wordt getoond. Download het om alles te zien."
+
 #: components/assistant-chat/message-part.tsx
 msgid "Showing the split on screen"
 msgstr "Het tabblad op het scherm tonen"
@@ -13202,6 +13206,10 @@ msgstr "Deze functie wordt beperkt uitgerold. Doe mee aan de vroege toegang om i
 #: components/PremiumAlert.tsx
 msgid "This feature is not available during the free trial. Start your paid plan to use it."
 msgstr "Deze functie is niet beschikbaar tijdens de gratis proefperiode. Start je betaalde abonnement om hem te gebruiken."
+
+#: components/email-list/AttachmentPreview.tsx
+msgid "This file is empty."
+msgstr "Dit bestand is leeg."
 
 #: components/email-list/AttachmentPreview.tsx
 msgid "This file is too large to preview."

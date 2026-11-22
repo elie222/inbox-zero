@@ -12284,6 +12284,10 @@ msgstr "表示する"
 msgid "Showing {0} of {1, plural, one {# filing} other {# filings}}"
 msgstr "{1, plural, other {# 件の書類}}のうち {0} 件を表示中"
 
+#: components/email-list/AttachmentPreview.tsx
+msgid "Showing part of this file. Download it to see everything."
+msgstr "このファイルの一部のみを表示しています。すべて表示するにはダウンロードしてください。"
+
 #: components/assistant-chat/message-part.tsx
 msgid "Showing the split on screen"
 msgstr "画面上で分割を表示中"
@@ -13202,6 +13206,10 @@ msgstr "この機能は限定公開中です。アーリーアクセスに参加
 #: components/PremiumAlert.tsx
 msgid "This feature is not available during the free trial. Start your paid plan to use it."
 msgstr "この機能は無料トライアル中は利用できません。有料プランを開始してご利用ください。"
+
+#: components/email-list/AttachmentPreview.tsx
+msgid "This file is empty."
+msgstr "このファイルは空です。"
 
 #: components/email-list/AttachmentPreview.tsx
 msgid "This file is too large to preview."

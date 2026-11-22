@@ -12284,6 +12284,10 @@ msgstr "Mostrali"
 msgid "Showing {0} of {1, plural, one {# filing} other {# filings}}"
 msgstr "Visualizzati {0} di {1, plural, one {# documento archiviato} other {# documenti archiviati}}"
 
+#: components/email-list/AttachmentPreview.tsx
+msgid "Showing part of this file. Download it to see everything."
+msgstr "Viene mostrata solo una parte di questo file. Scaricalo per vederlo tutto."
+
 #: components/assistant-chat/message-part.tsx
 msgid "Showing the split on screen"
 msgstr "Visualizzazione della scheda sullo schermo"
@@ -13202,6 +13206,10 @@ msgstr "Questa funzione è in rilascio limitato. Unisciti all'accesso anticipato
 #: components/PremiumAlert.tsx
 msgid "This feature is not available during the free trial. Start your paid plan to use it."
 msgstr "Questa funzione non è disponibile durante la prova gratuita. Attiva il piano a pagamento per usarla."
+
+#: components/email-list/AttachmentPreview.tsx
+msgid "This file is empty."
+msgstr "Questo file è vuoto."
 
 #: components/email-list/AttachmentPreview.tsx
 msgid "This file is too large to preview."

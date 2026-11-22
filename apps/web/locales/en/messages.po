@@ -12284,6 +12284,10 @@ msgstr "Show them"
 msgid "Showing {0} of {1, plural, one {# filing} other {# filings}}"
 msgstr "Showing {0} of {1, plural, one {# filing} other {# filings}}"
 
+#: components/email-list/AttachmentPreview.tsx
+msgid "Showing part of this file. Download it to see everything."
+msgstr "Showing part of this file. Download it to see everything."
+
 #: components/assistant-chat/message-part.tsx
 msgid "Showing the split on screen"
 msgstr "Showing the split on screen"
@@ -13202,6 +13206,10 @@ msgstr "This feature is in limited rollout. Join early access to enable integrat
 #: components/PremiumAlert.tsx
 msgid "This feature is not available during the free trial. Start your paid plan to use it."
 msgstr "This feature is not available during the free trial. Start your paid plan to use it."
+
+#: components/email-list/AttachmentPreview.tsx
+msgid "This file is empty."
+msgstr "This file is empty."
 
 #: components/email-list/AttachmentPreview.tsx
 msgid "This file is too large to preview."
