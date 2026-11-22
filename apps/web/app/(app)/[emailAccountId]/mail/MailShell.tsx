@@ -133,7 +133,7 @@ import { useLabels } from "@/hooks/useLabels";
 import { useFolders } from "@/hooks/useFolders";
 import { useMailSettings } from "@/hooks/useMailSettings";
 import { useAccounts } from "@/hooks/useAccounts";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobileState } from "@/hooks/use-mobile";
 import { useThread } from "@/hooks/useThread";
 import { cn } from "@/utils";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
@@ -187,7 +187,7 @@ export function MailShell() {
   const { userLabels: allLabels } = useLabels();
   const { folders } = useFolders(provider);
   const { data: settings, mutate: mutateSettings } = useMailSettings();
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobileState();
   const { toggleSidebar, state: sidebarState } = useSidebar();
   const isPaletteOpen = useAtomValue(commandPaletteOpenAtom);
   const isHelpOpen = useAtomValue(shortcutsDialogOpenAtom);
@@ -239,6 +239,13 @@ export function MailShell() {
   } | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pendingSearchFocusRef = useRef(false);
+  const [pendingListFocusKey, setPendingListFocusKey] = useState<string | null>(
+    null,
+  );
+  const clearPendingListFocus = useCallback(
+    () => setPendingListFocusKey(null),
+    [],
+  );
 
   useEffect(() => {
     setIsDesktopApp(Boolean(getInboxZeroDesktopApp()));
@@ -254,6 +261,7 @@ export function MailShell() {
       { history = "push" }: { history?: "push" | "replace" } = {},
     ) => {
       setIsMenuOpen(false);
+      if (selection) setPendingListFocusKey(null);
       const threadId = selection?.threadId ?? null;
       const threadAccountId =
         isAllAccounts && selection ? selection.emailAccountId : null;
@@ -284,8 +292,10 @@ export function MailShell() {
   );
   const preferredLayout: MailLayoutMode =
     settings?.layout === MailLayout.SPLIT ? "split" : "list";
-  // Mobile viewports lack space for side-by-side panes, so keep full-screen list/reader navigation.
-  const layout: MailLayoutMode = isMobile ? "list" : preferredLayout;
+  // Wait for viewport detection before using split mode so mobile never flashes
+  // side-by-side panes and SSR/hydration markup stays identical.
+  const canUseSplitLayout = isMobile === false;
+  const layout: MailLayoutMode = canUseSplitLayout ? preferredLayout : "list";
   const expandedPreview = settings?.expandedPreview ?? false;
   const bundleInbox = settings?.bundleInbox ?? false;
 
@@ -1437,6 +1447,7 @@ export function MailShell() {
 
   const selectAllAccounts = useCallback(() => {
     setSearchDraft(undefined);
+    setPendingListFocusKey(null);
     selection.clear();
     setFocusedIndex(0);
     setOpenThread(null);
@@ -1482,11 +1493,17 @@ export function MailShell() {
     input.select();
   }, []);
 
-  const closeReader = useCallback(() => {
+  const closeReader = useStableCallback(() => {
+    if (layout === "list" && openThreadKey) {
+      const index = orderedIds.indexOf(openThreadKey);
+      if (index >= 0) setFocusedIndex(index);
+      setPendingListFocusKey(openThreadKey);
+    }
     setOpenThread(null);
-  }, [setOpenThread]);
+  });
 
   const goToInbox = useCallback(() => {
+    setPendingListFocusKey(null);
     selection.clear();
     setOpenThread(null);
     setScopeType("inbox");
@@ -1645,7 +1662,7 @@ export function MailShell() {
         if (await undoLatestToast()) return;
         await undo();
       },
-      toggleLayout: isMobile ? undefined : toggleLayout,
+      toggleLayout: canUseSplitLayout ? toggleLayout : undefined,
       togglePreview,
       toggleAssistant: onToggleAssistant,
       help: () => setIsHelpOpen(true),
@@ -1653,7 +1670,8 @@ export function MailShell() {
         ? undefined
         : () => {
             if (selection.hasSelection) selection.clear();
-            if (layout === "list" && openThreadId) closeReader();
+            setPendingListFocusKey(null);
+            if (layout === "list" && openThreadId) setOpenThread(null);
             pendingSearchFocusRef.current = true;
             focusPendingSearch();
           },
@@ -2110,7 +2128,7 @@ export function MailShell() {
                   isAllAccounts,
                   isOutlook,
                 })}
-                onToggleLayout={isMobile ? undefined : toggleLayout}
+                onToggleLayout={canUseSplitLayout ? toggleLayout : undefined}
                 expandedPreview={expandedPreview}
                 onTogglePreview={togglePreview}
                 bundleInbox={bundleInbox}
@@ -2288,6 +2306,15 @@ export function MailShell() {
                           onScrolledChange={setIsListScrolled}
                           rowBundles={rowBundles}
                           onToggleBundle={collapseBundle}
+                          restoreFocusKey={
+                            showList &&
+                            !openThreadSelection &&
+                            !readerPreparing &&
+                            !previewThreadId
+                              ? pendingListFocusKey
+                              : null
+                          }
+                          onFocusRestored={clearPendingListFocus}
                           listKey={
                             isAllAccounts
                               ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`

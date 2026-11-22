@@ -9,22 +9,39 @@ import {
 } from "@testing-library/react";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MailboxThreadList } from "@inboxzero/mail-ui/MailboxSurface";
 import { MailLayout, MailSetupState } from "@/generated/prisma/enums";
 import { MailShell } from "./MailShell";
 
 (globalThis as { React?: typeof React }).React = React;
 
 const mockState = vi.hoisted(() => ({
-  isMobile: false,
+  isMobile: false as boolean | undefined,
   settingsLayout: "SPLIT" as "LIST" | "SPLIT",
   setupParam: null as string | null,
   forceMenuOpen: false,
-  shortcutHandlers: {} as Record<string, unknown>,
+  threads: [] as Array<{
+    id: string;
+    messages: Array<{
+      id: string;
+      threadId: string;
+      labelIds: string[];
+      date: Date;
+      headers: {
+        subject: string;
+        from: string;
+        to: string;
+        date: string;
+      };
+    }>;
+  }>,
+  shortcutHandlers: {} as Record<string, (() => void) | undefined>,
   updatePreferences: vi.fn().mockResolvedValue({ data: {} }),
 }));
 
 vi.mock("@/hooks/use-mobile", () => ({
-  useIsMobile: () => mockState.isMobile,
+  useIsMobile: () => !!mockState.isMobile,
+  useIsMobileState: () => mockState.isMobile,
 }));
 
 vi.mock("@/hooks/useMailSettings", () => ({
@@ -176,25 +193,7 @@ vi.mock("nuqs", () => {
 
 vi.mock("@/app/(app)/[emailAccountId]/mail/use-mail-threads", () => ({
   useMailThreads: () => ({
-    threads: [
-      {
-        id: "thread-1",
-        messages: [
-          {
-            id: "msg-1",
-            threadId: "thread-1",
-            labelIds: ["INBOX"],
-            date: new Date("2026-01-01T00:00:00Z"),
-            headers: {
-              subject: "Mobile test subject",
-              from: "sender@example.com",
-              to: "me@example.com",
-              date: "2026-01-01T00:00:00Z",
-            },
-          },
-        ],
-      },
-    ],
+    threads: mockState.threads,
     isLoading: false,
     error: undefined,
     hasMore: false,
@@ -259,7 +258,7 @@ vi.mock("@/app/(app)/[emailAccountId]/mail/use-thread-translation", () => ({
 }));
 
 vi.mock("@/lib/shortcuts/useShortcuts", () => ({
-  useShortcuts: (handlers: Record<string, unknown>) => {
+  useShortcuts: (handlers: Record<string, (() => void) | undefined>) => {
     mockState.shortcutHandlers = handlers;
   },
 }));
@@ -345,22 +344,50 @@ vi.mock("@/app/(app)/[emailAccountId]/mail/ThreadList", () => ({
   ThreadList: ({
     threads,
     layout,
+    focusedIndex,
     onOpenThread,
+    restoreFocusKey,
+    onFocusRestored,
   }: {
     threads: Array<{ id: string }>;
     layout: string;
+    focusedIndex: number;
     onOpenThread: (index: number) => void;
+    restoreFocusKey?: string | null;
+    onFocusRestored?: () => void;
   }) => (
     <div data-testid="thread-list" data-layout={layout}>
-      {threads.map((thread, index) => (
-        <button
-          key={thread.id}
-          type="button"
-          onClick={() => onOpenThread(index)}
-        >
-          Open {thread.id}
-        </button>
-      ))}
+      <MailboxThreadList
+        focusedIndex={focusedIndex}
+        getKey={(thread) => thread.id}
+        isLoadingMore={false}
+        isSelected={() => false}
+        items={threads}
+        listKey="inbox"
+        onFocusRestored={onFocusRestored}
+        onLoadMore={() => {}}
+        onOpen={onOpenThread}
+        onSelectRangeTo={() => {}}
+        onToggleSelect={() => {}}
+        renderItem={(row) => (
+          <div
+            aria-selected={row.isSelected}
+            key={row.rowKey}
+            onClick={() => row.onOpen(row.index)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") row.onOpen(row.index);
+            }}
+            ref={row.rowRef}
+            role="option"
+            tabIndex={row.isFocused ? 0 : -1}
+          >
+            Open {row.item.id}
+          </div>
+        )}
+        restoreFocusKey={restoreFocusKey}
+        selectedCount={0}
+        showLoadMore={false}
+      />
     </div>
   ),
 }));
@@ -408,6 +435,10 @@ describe("MailShell mobile layout", () => {
     mockState.settingsLayout = "SPLIT";
     mockState.setupParam = null;
     mockState.forceMenuOpen = false;
+    mockState.threads = [
+      createMockThread("thread-1"),
+      createMockThread("thread-2"),
+    ];
     mockState.shortcutHandlers = {};
   });
 
@@ -429,6 +460,49 @@ describe("MailShell mobile layout", () => {
     ).toBeTruthy();
     expect(
       screen.getByRole("menuitemcheckbox", { name: /^Split view/ }),
+    ).toBeTruthy();
+    expect(mockState.shortcutHandlers.toggleLayout).toBeTypeOf("function");
+  });
+
+  it("avoids rendering split panes while viewport detection is unresolved even when split layout is preferred", () => {
+    mockState.isMobile = undefined;
+    mockState.setupParam = "1";
+    mockState.forceMenuOpen = true;
+    const { rerender } = render(<MailShell />);
+
+    expect(screen.getByTestId("thread-list").getAttribute("data-layout")).toBe(
+      "list",
+    );
+    expect(screen.queryByTestId("mail-reader")).toBeNull();
+    expect(screen.queryByText("Nothing selected")).toBeNull();
+    expect(
+      screen.queryByRole("separator", { name: "Resize email list" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("menuitemcheckbox", { name: /^Split view/ }),
+    ).toBeNull();
+    expect(mockState.shortcutHandlers.toggleLayout).toBeUndefined();
+    expect(screen.getByTestId("mail-setup").getAttribute("data-layout")).toBe(
+      "split",
+    );
+
+    mockState.isMobile = true;
+    rerender(<MailShell />);
+    expect(screen.getByTestId("thread-list").getAttribute("data-layout")).toBe(
+      "list",
+    );
+    expect(screen.queryByTestId("mail-reader")).toBeNull();
+
+    mockState.isMobile = false;
+    rerender(<MailShell />);
+    expect(screen.getByTestId("thread-list").getAttribute("data-layout")).toBe(
+      "split",
+    );
+    expect(screen.getByTestId("mail-reader").getAttribute("data-layout")).toBe(
+      "split",
+    );
+    expect(
+      screen.getByRole("separator", { name: "Resize email list" }),
     ).toBeTruthy();
     expect(mockState.shortcutHandlers.toggleLayout).toBeTypeOf("function");
   });
@@ -455,7 +529,7 @@ describe("MailShell mobile layout", () => {
     );
 
     act(() => {
-      fireEvent.click(screen.getByRole("button", { name: "Open thread-1" }));
+      fireEvent.click(screen.getByRole("option", { name: "Open thread-1" }));
     });
 
     expect(screen.queryByTestId("thread-list")).toBeNull();
@@ -473,4 +547,117 @@ describe("MailShell mobile layout", () => {
       "list",
     );
   });
+
+  it("restores focus to the previously opened row when closing the mobile reader via Back or Escape", () => {
+    mockState.isMobile = true;
+    render(<MailShell />);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("option", { name: "Open thread-2" }));
+    });
+
+    expect(screen.queryByTestId("thread-list")).toBeNull();
+    expect(screen.getByText("Reading thread-2")).toBeTruthy();
+
+    const backButton = screen.getByRole("button", { name: "Back" });
+    backButton.focus();
+    act(() => {
+      fireEvent.click(backButton);
+    });
+
+    expect(screen.queryByTestId("mail-reader")).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole("option", { name: "Open thread-2" }),
+    );
+
+    act(() => {
+      fireEvent.click(screen.getByRole("option", { name: "Open thread-2" }));
+    });
+    expect(screen.getByText("Reading thread-2")).toBeTruthy();
+
+    act(() => {
+      mockState.shortcutHandlers.backToList?.();
+    });
+
+    expect(screen.queryByTestId("mail-reader")).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole("option", { name: "Open thread-2" }),
+    );
+  });
+
+  it("falls back to list-level focus when the previously opened row is removed before closing the reader", () => {
+    mockState.isMobile = true;
+    const { rerender } = render(<MailShell />);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("option", { name: "Open thread-2" }));
+    });
+    expect(screen.getByText("Reading thread-2")).toBeTruthy();
+
+    mockState.threads = [createMockThread("thread-1")];
+    rerender(<MailShell />);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    });
+
+    expect(screen.queryByTestId("mail-reader")).toBeNull();
+    expect(screen.queryByRole("option", { name: "Open thread-2" })).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole("listbox", { name: "Conversations" }),
+    );
+
+    act(() => {
+      fireEvent.click(screen.getByRole("option", { name: "Open thread-1" }));
+    });
+    mockState.threads = [];
+    rerender(<MailShell />);
+
+    act(() => {
+      mockState.shortcutHandlers.backToList?.();
+    });
+
+    const listRoot = screen.getByTestId("thread-list");
+    expect(document.activeElement).not.toBe(document.body);
+    expect(listRoot.contains(document.activeElement)).toBe(true);
+  });
+
+  it("keeps focus on the search input when closing the mobile reader via the search shortcut", () => {
+    mockState.isMobile = true;
+    render(<MailShell />);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("option", { name: "Open thread-2" }));
+    });
+    expect(screen.getByText("Reading thread-2")).toBeTruthy();
+
+    act(() => {
+      mockState.shortcutHandlers.search?.();
+    });
+
+    expect(screen.queryByTestId("mail-reader")).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole("combobox", { name: "Search mail" }),
+    );
+  });
 });
+
+function createMockThread(id: string) {
+  return {
+    id,
+    messages: [
+      {
+        id: `msg-${id}`,
+        threadId: id,
+        labelIds: ["INBOX"],
+        date: new Date("2026-01-01T00:00:00Z"),
+        headers: {
+          subject: `Subject ${id}`,
+          from: "sender@example.com",
+          to: "me@example.com",
+          date: "2026-01-01T00:00:00Z",
+        },
+      },
+    ],
+  };
+}
