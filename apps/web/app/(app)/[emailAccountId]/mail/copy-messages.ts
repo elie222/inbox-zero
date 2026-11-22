@@ -17,6 +17,14 @@ export async function copyMessages(options: {
   subject: string;
   messages: CopyableMessage[];
 }) {
+  // Bodies stream in after the headers; copying now would drop them silently.
+  if (
+    options.messages.some(
+      (message) =>
+        message.textHtml === undefined && message.textPlain === undefined,
+    )
+  )
+    throw new Error("Message content is still loading");
   await navigator.clipboard.writeText(formatMessagesAsText(options));
 }
 
@@ -51,9 +59,9 @@ export function formatMessagesAsText({
   return [t(i18n)`Subject: ${subject}`, ...sections].join("\n\n---\n\n");
 }
 
+// HTML first, like the reader, so links shown in the email keep their URLs.
 function getBodyText(message: CopyableMessage) {
-  if (message.textPlain?.trim()) return message.textPlain.trim();
-  if (!message.textHtml) return "";
+  if (!message.textHtml?.trim()) return message.textPlain?.trim() ?? "";
   return convert(message.textHtml, {
     wordwrap: false,
     selectors: [

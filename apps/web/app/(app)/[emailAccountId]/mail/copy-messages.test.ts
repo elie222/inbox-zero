@@ -53,4 +53,20 @@ describe("formatMessagesAsText", () => {
     expect(text).toContain("We'll fix it [https://example.com/fix].");
     expect(text).not.toContain("Date: \n");
   });
+
+  it("uses the HTML body the reader shows, keeping link URLs", () => {
+    const text = formatMessagesAsText({
+      i18n,
+      subject: "Invite",
+      messages: [
+        {
+          headers: { from: "a@example.com", to: "", subject: "", date: "" },
+          textPlain: "Join here",
+          textHtml: '<p>Join <a href="https://example.com/join">here</a></p>',
+        },
+      ],
+    });
+
+    expect(text).toContain("Join here [https://example.com/join]");
+  });
 });

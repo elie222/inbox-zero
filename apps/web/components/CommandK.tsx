@@ -282,6 +282,7 @@ function CommandPaletteContent({
           trash: mailCommandContext.actions.trash,
           openExternal: mailCommandContext.actions.openExternal,
           translate: mailCommandContext.actions.translate,
+          copyEmail: mailCommandContext.actions.copyEmail,
           comment: mailCommandContext.actions.comment,
           toggleAutoArchive: senderCommandContext?.toggleAutoArchive,
           unsubscribe: senderCommandContext?.unsubscribe,

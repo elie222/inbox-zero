@@ -742,6 +742,8 @@ export function MailShell() {
       });
   }, [i18n, openMessages]);
   const copyOpenThread = useMemo(() => {
+    // The reader keeps showing the previous thread until the next one renders.
+    if (openReaderThreadKey !== visibleReaderThreadKey) return;
     const messages = openMessages.filter(
       (message) => !message.labelIds?.includes(GmailLabel.DRAFT),
     );
@@ -758,7 +760,7 @@ export function MailShell() {
         toastError({ description: t`Unable to copy this email` });
       }
     };
-  }, [i18n, openMessages, t]);
+  }, [i18n, openMessages, openReaderThreadKey, t, visibleReaderThreadKey]);
   const teamCommentsAvailable = useTeamCommentsAvailable(readerEmailAccountId);
   const openTeamComments = useMemo(
     () =>
@@ -1348,6 +1350,7 @@ export function MailShell() {
             : undefined,
         snooze: snoozeTargets,
         translate: isReaderTarget ? translateOpenThread : undefined,
+        copyEmail: isReaderTarget ? copyOpenThread : undefined,
         comment: isReaderTarget ? openTeamComments : undefined,
         trash: trashTargets,
       },

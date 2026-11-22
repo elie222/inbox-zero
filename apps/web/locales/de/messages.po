@@ -3807,6 +3807,7 @@ msgstr "Code {code} kopieren"
 msgid "Copy email"
 msgstr "E-Mail kopieren"
 
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
 #: lib/shortcuts/registry.ts
 msgid "Copy email with details"
 msgstr "E-Mail mit Details kopieren"
