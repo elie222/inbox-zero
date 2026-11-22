@@ -127,7 +127,7 @@ import {
 } from "@/utils/email/provider-types";
 import { getOpenInMailboxLabel } from "@/utils/url";
 import { useEmailLabels } from "@/providers/EmailLabelsProvider";
-import { undoLatestToast } from "@/components/Toast";
+import { toastError, toastSuccess, undoLatestToast } from "@/components/Toast";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useLabels } from "@/hooks/useLabels";
 import { useFolders } from "@/hooks/useFolders";
@@ -163,6 +163,7 @@ import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getConversationSubject } from "@/utils/email/subject";
 import { printMessages } from "@/app/(app)/[emailAccountId]/mail/print-messages";
+import { copyMessages } from "@/app/(app)/[emailAccountId]/mail/copy-messages";
 
 // Module-level so an "empty" reader doesn't hand children a new array each render.
 const NO_MESSAGES: ThreadMessage[] = [];
@@ -740,6 +741,24 @@ export function MailShell() {
         i18n,
       });
   }, [i18n, openMessages]);
+  const copyOpenThread = useMemo(() => {
+    const messages = openMessages.filter(
+      (message) => !message.labelIds?.includes(GmailLabel.DRAFT),
+    );
+    if (!messages.length) return;
+    return async () => {
+      try {
+        await copyMessages({
+          subject: getConversationSubject(messages) ?? "",
+          messages,
+          i18n,
+        });
+        toastSuccess({ description: t`Email copied` });
+      } catch {
+        toastError({ description: t`Unable to copy this email` });
+      }
+    };
+  }, [i18n, openMessages, t]);
   const teamCommentsAvailable = useTeamCommentsAvailable(readerEmailAccountId);
   const openTeamComments = useMemo(
     () =>
@@ -1599,6 +1618,7 @@ export function MailShell() {
           ? () => window.open(openExternalUrl, "_blank", "noopener,noreferrer")
           : undefined,
       translate: isMailOverlayOpen ? undefined : translateOpenThread,
+      copyEmail: isMailOverlayOpen ? undefined : copyOpenThread,
       undo: async () => {
         await waitForPendingUndoable();
         if (await undoLatestToast()) return;
@@ -2293,6 +2313,7 @@ export function MailShell() {
                 onTranslate={translateOpenThread}
                 onComment={openTeamComments}
                 onPrint={printOpenThread}
+                onCopy={copyOpenThread}
                 isMenuOpen={isMenuOpen}
                 onMenuOpenChange={setIsMenuOpen}
                 enableMessageNavigation={!sidePanelThreadId && !previewThreadId}

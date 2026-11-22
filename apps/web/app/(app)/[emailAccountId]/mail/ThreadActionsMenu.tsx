@@ -13,6 +13,7 @@ import {
   MessageSquareIcon,
   MoreHorizontalIcon,
   PrinterIcon,
+  CopyIcon,
   ShieldAlertIcon,
   StarIcon,
   StarOffIcon,
@@ -57,6 +58,7 @@ export type ThreadActionsMenuProps = {
   onTranslate?: () => void;
   onComment?: () => void;
   onPrint?: () => void;
+  onCopy?: () => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 };
@@ -76,6 +78,7 @@ export function ThreadActionsMenu({
   onTranslate,
   onComment,
   onPrint,
+  onCopy,
   open,
   onOpenChange,
 }: ThreadActionsMenuProps) {
@@ -188,6 +191,7 @@ export function ThreadActionsMenu({
           {(onTranslate ||
             onComment ||
             onPrint ||
+            onCopy ||
             canManageAutoArchive ||
             senderEmail) && <DropdownMenuSeparator />}
 
@@ -230,6 +234,14 @@ export function ThreadActionsMenu({
               <LanguagesIcon className="mr-2 size-4" />
               <Trans>Translate</Trans>
               <MenuShortcut id="translate" />
+            </DropdownMenuItem>
+          )}
+
+          {onCopy && (
+            <DropdownMenuItem onSelect={onCopy}>
+              <CopyIcon className="mr-2 size-4" />
+              <Trans>Copy email</Trans>
+              <MenuShortcut id="copyEmail" />
             </DropdownMenuItem>
           )}
 

@@ -2153,7 +2153,9 @@ msgstr "작업하는 동안 첨부 파일이 자동으로 정리돼요"
 msgid "Attachments get filed"
 msgstr "첨부 파일이 정리돼요"
 
+#. placeholder {0}: attachments.join(", ")
 #. placeholder {0}: attachments.map(escapeHtml).join(", ")
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: app/(app)/[emailAccountId]/mail/print-messages.ts
 msgid "Attachments: {0}"
 msgstr "첨부 파일: {0}"
@@ -3081,6 +3083,10 @@ msgstr "참조 (선택 사항)"
 msgid "Cc: {0}"
 msgstr "참조: {0}"
 
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
+msgid "Cc: {cc}"
+msgstr "참조: {cc}"
+
 #: components/assistant-chat/tools.tsx
 msgid "CC: {cc}"
 msgstr "참조: {cc}"
@@ -3797,6 +3803,14 @@ msgstr "예약 링크 복사"
 msgid "Copy code {code}"
 msgstr "코드 {code} 복사"
 
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Copy email"
+msgstr "이메일 복사"
+
+#: lib/shortcuts/registry.ts
+msgid "Copy email with details"
+msgstr "세부 정보와 함께 이메일 복사"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeCelebrationDialog.tsx
 msgid "Copy link"
 msgstr "링크 복사"
@@ -3804,6 +3818,10 @@ msgstr "링크 복사"
 #: components/ReferralDialog.tsx
 msgid "Copy Link"
 msgstr "링크 복사"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Copy message"
+msgstr "메시지 복사"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Copy Message"
@@ -4312,6 +4330,11 @@ msgstr "날짜 범위"
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
 msgid "Date within"
 msgstr "날짜 범위 이내"
+
+#. placeholder {0}: formatCopyDate(date, i18n)
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
+msgid "Date: {0}"
+msgstr "날짜: {0}"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 #: app/(app)/[emailAccountId]/stats/Stats.tsx
@@ -5212,6 +5235,10 @@ msgstr "이메일 내용을 사용할 수 없어요 ({0}). 내부 댓글은 계�
 #: components/email-list/EmailContents.tsx
 msgid "Email content preview"
 msgstr "이메일 내용 미리보기"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Email copied"
+msgstr "이메일을 복사했습니다"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Email copied to clipboard"
@@ -6545,6 +6572,7 @@ msgid "From: {0} • {1}"
 msgstr "보낸 사람: {0} • {1}"
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "From: {from}"
 msgstr "보낸 사람: {from}"
@@ -8741,6 +8769,10 @@ msgstr "팀원 멘션"
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Message"
 msgstr "메시지"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Message copied"
+msgstr "메시지를 복사했습니다"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Message copied to clipboard"
@@ -12682,6 +12714,7 @@ msgstr "제목: “{0}”"
 msgid "Subject: \"{subject}\""
 msgstr "제목: “{subject}”"
 
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "Subject: {subject}"
 msgstr "제목: {subject}"
@@ -13442,6 +13475,7 @@ msgid "To: {0}"
 msgstr "받는 사람: {0}"
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "To: {to}"
 msgstr "받는 사람: {to}"
@@ -13690,6 +13724,14 @@ msgstr "일반적인 길이: 2~3문장\n"
 "- 줄임말을 자주 사용함\n"
 "- 간결하고 직접적인 답변\n"
 "- 마무리 인사를 최소화함"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Unable to copy this email"
+msgstr "이 이메일을 복사할 수 없습니다"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Unable to copy this message"
+msgstr "이 메시지를 복사할 수 없습니다"
 
 #: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
 msgid "Unable to download this message"

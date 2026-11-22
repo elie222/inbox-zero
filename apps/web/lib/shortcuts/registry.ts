@@ -1,5 +1,6 @@
 import {
   ArchiveIcon,
+  CopyIcon,
   ForwardIcon,
   KeyboardIcon,
   PenLineIcon,
@@ -359,6 +360,18 @@ const SHORTCUT_DEFINITIONS = [
     scope: "mail",
     group: "View",
     label: msg`Translate / show original`,
+  },
+  {
+    id: "copyEmail",
+    keys: ["shift+c"],
+    scope: "mail",
+    group: "View",
+    label: msg`Copy email with details`,
+    palette: {
+      section: "actions",
+      keywords: ["copy", "clipboard", "sender", "details", "paste"],
+      icon: CopyIcon,
+    },
   },
   {
     id: "toggleLayout",

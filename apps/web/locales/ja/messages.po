@@ -2153,7 +2153,9 @@ msgstr "作業中に添付ファイルが自動で振り分けられます"
 msgid "Attachments get filed"
 msgstr "添付ファイルを自動で整理"
 
+#. placeholder {0}: attachments.join(", ")
 #. placeholder {0}: attachments.map(escapeHtml).join(", ")
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: app/(app)/[emailAccountId]/mail/print-messages.ts
 msgid "Attachments: {0}"
 msgstr "添付ファイル：{0}"
@@ -3081,6 +3083,10 @@ msgstr "CC（任意）"
 msgid "Cc: {0}"
 msgstr "Cc：{0}"
 
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
+msgid "Cc: {cc}"
+msgstr "CC: {cc}"
+
 #: components/assistant-chat/tools.tsx
 msgid "CC: {cc}"
 msgstr "CC：{cc}"
@@ -3797,6 +3803,14 @@ msgstr "予約リンクをコピー"
 msgid "Copy code {code}"
 msgstr "コード {code} をコピー"
 
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Copy email"
+msgstr "メールをコピー"
+
+#: lib/shortcuts/registry.ts
+msgid "Copy email with details"
+msgstr "詳細付きでメールをコピー"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeCelebrationDialog.tsx
 msgid "Copy link"
 msgstr "リンクをコピー"
@@ -3804,6 +3818,10 @@ msgstr "リンクをコピー"
 #: components/ReferralDialog.tsx
 msgid "Copy Link"
 msgstr "リンクをコピー"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Copy message"
+msgstr "メッセージをコピー"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Copy Message"
@@ -4312,6 +4330,11 @@ msgstr "期間"
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
 msgid "Date within"
 msgstr "日付の範囲"
+
+#. placeholder {0}: formatCopyDate(date, i18n)
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
+msgid "Date: {0}"
+msgstr "日付: {0}"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 #: app/(app)/[emailAccountId]/stats/Stats.tsx
@@ -5212,6 +5235,10 @@ msgstr "メールの内容を利用できません（{0}）。社内コメント
 #: components/email-list/EmailContents.tsx
 msgid "Email content preview"
 msgstr "メール内容のプレビュー"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Email copied"
+msgstr "メールをコピーしました"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Email copied to clipboard"
@@ -6545,6 +6572,7 @@ msgid "From: {0} • {1}"
 msgstr "差出人:{0} • {1}"
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "From: {from}"
 msgstr "差出人:{from}"
@@ -8741,6 +8769,10 @@ msgstr "チームメイトをメンション"
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Message"
 msgstr "メッセージ"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Message copied"
+msgstr "メッセージをコピーしました"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Message copied to clipboard"
@@ -12682,6 +12714,7 @@ msgstr "件名: 「{0}」"
 msgid "Subject: \"{subject}\""
 msgstr "件名: 「{subject}」"
 
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "Subject: {subject}"
 msgstr "件名: {subject}"
@@ -13442,6 +13475,7 @@ msgid "To: {0}"
 msgstr "宛先: {0}"
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "To: {to}"
 msgstr "宛先: {to}"
@@ -13690,6 +13724,14 @@ msgstr "標準的な長さ: 2〜3 文\n"
 "- 短縮形を頻繁に使う\n"
 "- 簡潔で率直な返答\n"
 "- 結びの言葉は最小限"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Unable to copy this email"
+msgstr "このメールをコピーできませんでした"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Unable to copy this message"
+msgstr "このメッセージをコピーできませんでした"
 
 #: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
 msgid "Unable to download this message"

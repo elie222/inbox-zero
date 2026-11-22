@@ -2153,7 +2153,9 @@ msgstr "Siz çalışırken ekler otomatik olarak dosyalanır"
 msgid "Attachments get filed"
 msgstr "Ekler dosyalanır"
 
+#. placeholder {0}: attachments.join(", ")
 #. placeholder {0}: attachments.map(escapeHtml).join(", ")
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: app/(app)/[emailAccountId]/mail/print-messages.ts
 msgid "Attachments: {0}"
 msgstr "Ekler: {0}"
@@ -3081,6 +3083,10 @@ msgstr "CC (isteğe bağlı)"
 msgid "Cc: {0}"
 msgstr "Cc: {0}"
 
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
+msgid "Cc: {cc}"
+msgstr "Cc: {cc}"
+
 #: components/assistant-chat/tools.tsx
 msgid "CC: {cc}"
 msgstr "CC: {cc}"
@@ -3797,6 +3803,14 @@ msgstr "Rezervasyon bağlantısını kopyala"
 msgid "Copy code {code}"
 msgstr "{code} kodunu kopyala"
 
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Copy email"
+msgstr "E-postayı kopyala"
+
+#: lib/shortcuts/registry.ts
+msgid "Copy email with details"
+msgstr "E-postayı ayrıntılarıyla kopyala"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeCelebrationDialog.tsx
 msgid "Copy link"
 msgstr "Bağlantıyı kopyala"
@@ -3804,6 +3818,10 @@ msgstr "Bağlantıyı kopyala"
 #: components/ReferralDialog.tsx
 msgid "Copy Link"
 msgstr "Bağlantıyı kopyala"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Copy message"
+msgstr "Mesajı kopyala"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Copy Message"
@@ -4312,6 +4330,11 @@ msgstr "Tarih aralığı"
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
 msgid "Date within"
 msgstr "Tarih aralığı içinde"
+
+#. placeholder {0}: formatCopyDate(date, i18n)
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
+msgid "Date: {0}"
+msgstr "Tarih: {0}"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 #: app/(app)/[emailAccountId]/stats/Stats.tsx
@@ -5212,6 +5235,10 @@ msgstr "E-posta içeriği kullanılamıyor ({0}). Dahili yorumlar kullanılabili
 #: components/email-list/EmailContents.tsx
 msgid "Email content preview"
 msgstr "E-posta içeriği önizlemesi"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Email copied"
+msgstr "E-posta kopyalandı"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Email copied to clipboard"
@@ -6545,6 +6572,7 @@ msgid "From: {0} • {1}"
 msgstr "Kimden: {0} • {1}"
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "From: {from}"
 msgstr "Kimden: {from}"
@@ -8741,6 +8769,10 @@ msgstr "Bir ekip arkadaşından bahset"
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Message"
 msgstr "Mesaj"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Message copied"
+msgstr "Mesaj kopyalandı"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Message copied to clipboard"
@@ -12682,6 +12714,7 @@ msgstr "Konu: “{0}”"
 msgid "Subject: \"{subject}\""
 msgstr "Konu: “{subject}”"
 
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "Subject: {subject}"
 msgstr "Konu: {subject}"
@@ -13442,6 +13475,7 @@ msgid "To: {0}"
 msgstr "Alıcı: {0}"
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "To: {to}"
 msgstr "Alıcı: {to}"
@@ -13690,6 +13724,14 @@ msgstr "Tipik uzunluk: 2-3 cümle\n"
 "- Kısaltmaları sık kullanır\n"
 "- Kısa ve doğrudan yanıtlar\n"
 "- Minimal kapanış cümleleri"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Unable to copy this email"
+msgstr "Bu e-posta kopyalanamadı"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Unable to copy this message"
+msgstr "Bu mesaj kopyalanamadı"
 
 #: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
 msgid "Unable to download this message"

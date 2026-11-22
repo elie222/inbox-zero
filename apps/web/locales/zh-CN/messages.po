@@ -2153,7 +2153,9 @@ msgstr "你工作时自动归档附件"
 msgid "Attachments get filed"
 msgstr "附件自动归档"
 
+#. placeholder {0}: attachments.join(", ")
 #. placeholder {0}: attachments.map(escapeHtml).join(", ")
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: app/(app)/[emailAccountId]/mail/print-messages.ts
 msgid "Attachments: {0}"
 msgstr "附件：{0}"
@@ -3081,6 +3083,10 @@ msgstr "抄送（可选）"
 msgid "Cc: {0}"
 msgstr "抄送：{0}"
 
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
+msgid "Cc: {cc}"
+msgstr "抄送：{cc}"
+
 #: components/assistant-chat/tools.tsx
 msgid "CC: {cc}"
 msgstr "抄送：{cc}"
@@ -3797,6 +3803,14 @@ msgstr "复制预约链接"
 msgid "Copy code {code}"
 msgstr "复制代码 {code}"
 
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Copy email"
+msgstr "复制邮件"
+
+#: lib/shortcuts/registry.ts
+msgid "Copy email with details"
+msgstr "复制邮件及详细信息"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeCelebrationDialog.tsx
 msgid "Copy link"
 msgstr "复制链接"
@@ -3804,6 +3818,10 @@ msgstr "复制链接"
 #: components/ReferralDialog.tsx
 msgid "Copy Link"
 msgstr "复制链接"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Copy message"
+msgstr "复制消息"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Copy Message"
@@ -4312,6 +4330,11 @@ msgstr "日期范围"
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
 msgid "Date within"
 msgstr "日期范围内"
+
+#. placeholder {0}: formatCopyDate(date, i18n)
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
+msgid "Date: {0}"
+msgstr "日期：{0}"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 #: app/(app)/[emailAccountId]/stats/Stats.tsx
@@ -5212,6 +5235,10 @@ msgstr "邮件内容不可用（{0}）。内部评论仍可使用。"
 #: components/email-list/EmailContents.tsx
 msgid "Email content preview"
 msgstr "邮件内容预览"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Email copied"
+msgstr "邮件已复制"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Email copied to clipboard"
@@ -6545,6 +6572,7 @@ msgid "From: {0} • {1}"
 msgstr "发件人：{0} • {1}"
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "From: {from}"
 msgstr "发件人：{from}"
@@ -8741,6 +8769,10 @@ msgstr "提及团队成员"
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Message"
 msgstr "消息"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Message copied"
+msgstr "消息已复制"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Message copied to clipboard"
@@ -12682,6 +12714,7 @@ msgstr "主题：“{0}”"
 msgid "Subject: \"{subject}\""
 msgstr "主题：“{subject}”"
 
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "Subject: {subject}"
 msgstr "主题：{subject}"
@@ -13442,6 +13475,7 @@ msgid "To: {0}"
 msgstr "收件人：{0}"
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "To: {to}"
 msgstr "收件人：{to}"
@@ -13690,6 +13724,14 @@ msgstr "典型长度：2-3 句话\n"
 "- 经常使用缩略语\n"
 "- 回复简洁直接\n"
 "- 结尾极简"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Unable to copy this email"
+msgstr "无法复制此邮件"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Unable to copy this message"
+msgstr "无法复制此消息"
 
 #: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
 msgid "Unable to download this message"
