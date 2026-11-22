@@ -17,14 +17,6 @@ export async function copyMessages(options: {
   subject: string;
   messages: CopyableMessage[];
 }) {
-  // Bodies stream in after the headers; copying now would drop them silently.
-  if (
-    options.messages.some(
-      (message) =>
-        message.textHtml === undefined && message.textPlain === undefined,
-    )
-  )
-    throw new Error("Message content is still loading");
   await navigator.clipboard.writeText(formatMessagesAsText(options));
 }
 
