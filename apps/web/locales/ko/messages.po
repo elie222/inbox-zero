@@ -56,6 +56,14 @@ msgstr "(제목 없음)"
 msgid "(No subject)"
 msgstr "(제목 없음)"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "(private channel)"
+msgstr "(비공개 채널)"
+
+#: components/SlackNotificationTargetSelect.tsx
+msgid "(public channel)"
+msgstr "(공개 채널)"
+
 #: components/team-comments/ConversationParticipants.tsx
 msgid "(you)"
 msgstr "(나)"
@@ -1761,6 +1769,10 @@ msgstr "연간"
 msgid "any"
 msgstr "모두"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Anyone in your Slack workspace can read #{pendingChannelName}, including the email content in these notifications."
+msgstr "Slack 워크스페이스의 모든 사람이 #{pendingChannelName}을(를) 읽을 수 있으며, 이 알림에 포함된 이메일 내용도 볼 수 있어요."
+
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "anything awaiting my reply"
 msgstr "내 답장을 기다리는 모든 이메일"
@@ -2603,6 +2615,7 @@ msgstr "목요일 통화 일정을 옮길 수 있을까요?"
 #: components/email-list/ThreadDeliveryStatus.tsx
 #: components/FeedbackDialog.tsx
 #: components/InviteMemberModal.tsx
+#: components/SlackNotificationTargetSelect.tsx
 #: components/team-comments/ShareConversationDialog.tsx
 msgid "Cancel"
 msgstr "취소"
@@ -11856,6 +11869,10 @@ msgstr "보낼 대상"
 msgid "Send to <0>{destinationLabel}</0>"
 msgstr "<0>{destinationLabel}</0>(으)로 보내기"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Send to a public channel?"
+msgstr "공개 채널로 보낼까요?"
+
 #: components/voice/VoiceOverlay.tsx
 msgid "Send to chat"
 msgstr "채팅으로 보내기"
@@ -14070,6 +14087,10 @@ msgstr "제 추천 링크로 Inbox Zero를 시작해 보세요!"
 #: app/(app)/[emailAccountId]/assistant/RuleStep.tsx
 msgid "Use prompt"
 msgstr "프롬프트 사용"
+
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Use public channel"
+msgstr "공개 채널 사용"
 
 #: app/(app)/[emailAccountId]/drive/ConnectDrive.tsx
 msgid "Use your existing folders"

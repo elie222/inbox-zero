@@ -13,7 +13,7 @@ import {
 import {
   getChannelInfo,
   listChannels,
-  listPrivateChannelsForUser,
+  listChannelsForUser,
 } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 import { sendChannelConfirmation } from "@/utils/messaging/providers/slack/send";
@@ -27,7 +27,7 @@ vi.mock("@/utils/auth", () => ({
 vi.mock("@/utils/messaging/providers/slack/channels", () => ({
   getChannelInfo: vi.fn(),
   listChannels: vi.fn(),
-  listPrivateChannelsForUser: vi.fn(),
+  listChannelsForUser: vi.fn(),
 }));
 vi.mock("@/utils/messaging/providers/slack/client", () => ({
   createSlackClient: vi.fn(),
@@ -281,7 +281,7 @@ describe("updateSlackRouteAction", () => {
     } as any);
   });
 
-  it("rejects private Slack channels the user is not a member of", async () => {
+  it("rejects Slack channels the user is not a member of", async () => {
     prisma.messagingChannel.findUnique.mockResolvedValue({
       provider: "SLACK",
       isConnected: true,
@@ -295,7 +295,7 @@ describe("updateSlackRouteAction", () => {
       name: "private-alerts",
       isPrivate: true,
     });
-    vi.mocked(listPrivateChannelsForUser).mockResolvedValue([
+    vi.mocked(listChannelsForUser).mockResolvedValue([
       {
         id: "C999",
         name: "other-private-channel",
@@ -310,7 +310,7 @@ describe("updateSlackRouteAction", () => {
     });
 
     expect(result?.serverError).toBe(
-      "Only private channels you are a member of are allowed. Please select one of your private channels.",
+      "You can only select channels you are a member of.",
     );
     expect(prisma.messagingRoute.upsert).not.toHaveBeenCalled();
     expect(sendChannelConfirmation).not.toHaveBeenCalled();
@@ -341,8 +341,44 @@ describe("updateSlackRouteAction", () => {
       "Please reconnect Slack before configuring notifications.",
     );
     expect(listChannels).not.toHaveBeenCalled();
-    expect(listPrivateChannelsForUser).not.toHaveBeenCalled();
+    expect(listChannelsForUser).not.toHaveBeenCalled();
     expect(prisma.messagingRoute.upsert).not.toHaveBeenCalled();
+  });
+
+  it("accepts public Slack channels the user is a member of", async () => {
+    prisma.messagingChannel.findUnique.mockResolvedValue({
+      id: "channel-1",
+      provider: "SLACK",
+      isConnected: true,
+      accessToken: "xoxb-token",
+      providerUserId: "U123",
+      botUserId: "B123",
+    } as any);
+    vi.mocked(createSlackClient).mockReturnValue({} as never);
+    vi.mocked(getChannelInfo).mockResolvedValue({
+      id: "C123",
+      name: "inbox-alerts",
+      isPrivate: false,
+    });
+    vi.mocked(listChannelsForUser).mockResolvedValue([
+      { id: "C123", name: "inbox-alerts", isPrivate: false },
+    ]);
+
+    const result = await updateSlackRouteAction("email-account-1" as any, {
+      channelId: "channel-1",
+      purpose: MessagingRoutePurpose.RULE_NOTIFICATIONS,
+      targetId: "C123",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.messagingRoute.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: {
+          targetType: MessagingRouteTargetType.CHANNEL,
+          targetId: "C123",
+        },
+      }),
+    );
   });
 
   it("upserts scheduled check-in Slack routes", async () => {
@@ -360,7 +396,7 @@ describe("updateSlackRouteAction", () => {
       name: "check-ins",
       isPrivate: true,
     });
-    vi.mocked(listPrivateChannelsForUser).mockResolvedValue([
+    vi.mocked(listChannelsForUser).mockResolvedValue([
       {
         id: "C123",
         name: "check-ins",

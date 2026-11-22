@@ -27,12 +27,10 @@ The connected workspace appears on the Channels page with a **Connected** badge.
 
 ## Choose a Destination
 
-Each Slack feature can use a direct message or an allowed private channel. Configured channel delivery has these restrictions:
+Each Slack feature can use a direct message or a channel you are a member of:
 
-- Public channels cannot be selected.
-- You must be a member of the private channel.
-- Inbox Zero does not automatically join the selected channel.
-- If a private channel is missing from the selector, use the `/invite @<bot-name>` command shown in the destination menu to invite the Inbox Zero bot, then refresh the list.
+- **Private channels** appear once the Inbox Zero bot is in them. If one is missing from the selector, run the `/invite @<bot-name>` command shown in the destination menu, then refresh the list.
+- **Public channels** appear automatically, and the bot joins the channel the first time it posts. Inbox Zero asks you to confirm first, because anyone in your Slack workspace can read a public channel, including the email content in your notifications.
 
 You can choose separate destinations for rule notifications, meeting briefs, follow-up reminders, digests, document-filing alerts, and scheduled check-ins.
 

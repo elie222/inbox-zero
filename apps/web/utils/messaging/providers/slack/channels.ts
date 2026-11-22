@@ -55,7 +55,7 @@ export async function listChannels(client: WebClient): Promise<SlackChannel[]> {
   return channels.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export async function listPrivateChannelsForUser(
+export async function listChannelsForUser(
   client: WebClient,
   userId: string,
 ): Promise<SlackChannel[]> {
@@ -65,7 +65,7 @@ export async function listPrivateChannelsForUser(
 
   do {
     const response = await client.users.conversations({
-      types: "private_channel",
+      types: "public_channel,private_channel",
       exclude_archived: true,
       limit: 200,
       cursor,

@@ -56,6 +56,14 @@ msgstr "(geen onderwerp)"
 msgid "(No subject)"
 msgstr "(Geen onderwerp)"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "(private channel)"
+msgstr "(privékanaal)"
+
+#: components/SlackNotificationTargetSelect.tsx
+msgid "(public channel)"
+msgstr "(openbaar kanaal)"
+
 #: components/team-comments/ConversationParticipants.tsx
 msgid "(you)"
 msgstr "(jij)"
@@ -1761,6 +1769,10 @@ msgstr "Jaarlijks"
 msgid "any"
 msgstr "elke"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Anyone in your Slack workspace can read #{pendingChannelName}, including the email content in these notifications."
+msgstr "Iedereen in je Slack-workspace kan #{pendingChannelName} lezen, inclusief de e-mailinhoud in deze meldingen."
+
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "anything awaiting my reply"
 msgstr "alles wat op mijn antwoord wacht"
@@ -2603,6 +2615,7 @@ msgstr "Kunnen we het gesprek van donderdag verplaatsen?"
 #: components/email-list/ThreadDeliveryStatus.tsx
 #: components/FeedbackDialog.tsx
 #: components/InviteMemberModal.tsx
+#: components/SlackNotificationTargetSelect.tsx
 #: components/team-comments/ShareConversationDialog.tsx
 msgid "Cancel"
 msgstr "Annuleren"
@@ -11856,6 +11869,10 @@ msgstr "Verzenden naar"
 msgid "Send to <0>{destinationLabel}</0>"
 msgstr "Verzenden naar <0>{destinationLabel}</0>"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Send to a public channel?"
+msgstr "Naar een openbaar kanaal sturen?"
+
 #: components/voice/VoiceOverlay.tsx
 msgid "Send to chat"
 msgstr "Naar chat sturen"
@@ -14070,6 +14087,10 @@ msgstr "Gebruik mijn verwijzingslink om met Inbox Zero aan de slag te gaan!"
 #: app/(app)/[emailAccountId]/assistant/RuleStep.tsx
 msgid "Use prompt"
 msgstr "Prompt gebruiken"
+
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Use public channel"
+msgstr "Openbaar kanaal gebruiken"
 
 #: app/(app)/[emailAccountId]/drive/ConnectDrive.tsx
 msgid "Use your existing folders"
