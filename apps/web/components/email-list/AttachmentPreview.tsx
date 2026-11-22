@@ -24,6 +24,14 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { cn } from "@/utils";
 import {
   getAttachmentPreview,
@@ -336,39 +344,47 @@ function CsvTable({ rows, truncated }: CsvPreview) {
   if (!header)
     return (
       <p>
-        <Trans>This file is empty.</Trans>
+        {truncated ? (
+          <Trans>This file is too large to preview.</Trans>
+        ) : (
+          <Trans>This file is empty.</Trans>
+        )}
       </p>
     );
   return (
     <div className="flex size-full flex-col self-stretch bg-background">
-      <div className="min-h-0 flex-1 overflow-auto">
-        <table className="border-separate border-spacing-0 text-left text-foreground text-xs">
-          <thead className="sticky top-0 bg-muted">
-            <tr>
-              {header.map((cell, index) => (
-                <th
-                  key={index}
-                  title={cell}
-                  className={cn(CELL_CLASS, "font-semibold")}
-                >
-                  {cell}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {body.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                {row.map((cell, index) => (
-                  <td key={index} title={cell} className={CELL_CLASS}>
-                    {cell}
-                  </td>
-                ))}
-              </tr>
+      <Table
+        containerClassName="min-h-0 flex-1"
+        className="w-auto text-foreground text-xs"
+      >
+        <TableHeader sticky>
+          <TableRow>
+            {header.map((cell, index) => (
+              <TableHead
+                key={index}
+                title={cell}
+                className={cn(
+                  CELL_CLASS,
+                  "h-auto font-semibold text-foreground",
+                )}
+              >
+                {cell}
+              </TableHead>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {body.map((row, rowIndex) => (
+            <TableRow key={rowIndex}>
+              {row.map((cell, index) => (
+                <TableCell key={index} title={cell} className={CELL_CLASS}>
+                  {cell}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
       {truncated ? (
         <p className="border-t px-4 py-2 text-muted-foreground">
           <Trans>
@@ -435,5 +451,4 @@ function useAttachmentPreviewFile({
   return { file, preview, error };
 }
 
-const CELL_CLASS =
-  "max-w-xs truncate whitespace-nowrap border-r border-b px-3 py-1.5";
+const CELL_CLASS = "max-w-xs truncate whitespace-nowrap border-r px-3 py-1.5";

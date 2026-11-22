@@ -13,11 +13,11 @@ export async function getCsvPreview(
     await blob.slice(0, MAX_TEXT_BYTES).arrayBuffer(),
   );
   // Text files never contain NUL; binary files renamed to .csv usually do.
-  if (bytes.subarray(0, 1024).includes(0)) return;
+  if (bytes.includes(0)) return;
 
   // CSV parsing is rare, so the parser stays out of the mail-view bundle.
   const { parse } = await import("papaparse");
-  const result = parse<string[]>(decodeText(bytes), {
+  const result = parse<string[]>(decodeText(bytes, sliced), {
     preview: MAX_ROWS + 1,
     skipEmptyLines: true,
   });
@@ -27,6 +27,7 @@ export async function getCsvPreview(
 
   const truncated =
     sliced ||
+    result.meta.truncated ||
     rows.length > MAX_ROWS ||
     rows.some((row) => row.length > MAX_COLUMNS);
   return {
@@ -36,10 +37,12 @@ export async function getCsvPreview(
 }
 
 // Excel on Windows still exports CSV as Windows-1252 unless told otherwise.
-function decodeText(bytes: Uint8Array) {
+function decodeText(bytes: Uint8Array, sliced: boolean) {
   try {
+    // Streaming leaves a character split at the slice boundary undecoded
+    // instead of failing; a complete file must flush its final bytes.
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes, {
-      stream: true,
+      stream: sliced,
     });
   } catch {
     return new TextDecoder("windows-1252").decode(bytes);

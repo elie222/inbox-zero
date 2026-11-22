@@ -39,6 +39,27 @@ describe("getCsvPreview", () => {
     expect(latin?.rows).toEqual([["café", "x"]]);
   });
 
+  it("falls back to Windows-1252 when the last byte is not UTF-8", async () => {
+    const preview = await getCsvPreview(
+      new Blob([new Uint8Array([0x78, 0x2c, 0x63, 0x61, 0x66, 0xe9])]),
+    );
+    expect(preview?.rows).toEqual([["x", "café"]]);
+  });
+
+  it("reports truncation when the row limit is reached before blank lines end", async () => {
+    const preview = await getCsvPreview(
+      new Blob([`a,b\n${"\n".repeat(600)}1,2\n`]),
+    );
+    expect(preview?.truncated).toBe(true);
+  });
+
+  it("reports truncation instead of emptiness when no full row fits", async () => {
+    const preview = await getCsvPreview(
+      new Blob(["x".repeat(3 * 1024 * 1024)]),
+    );
+    expect(preview).toEqual({ rows: [], truncated: true });
+  });
+
   it("limits rows and columns and reports truncation", async () => {
     const wide = Array.from({ length: 80 }, (_, index) => `c${index}`).join(
       ",",
@@ -48,6 +69,13 @@ describe("getCsvPreview", () => {
     expect(preview?.rows).toHaveLength(500);
     expect(preview?.rows[0]).toHaveLength(50);
     expect(preview?.truncated).toBe(true);
+  });
+
+  it("rejects binary data that starts with printable text", async () => {
+    const preview = await getCsvPreview(
+      new Blob(["a,b\n".repeat(500), new Uint8Array([0, 1, 2])]),
+    );
+    expect(preview).toBeUndefined();
   });
 
   it("rejects binary files mislabelled as CSV", async () => {
