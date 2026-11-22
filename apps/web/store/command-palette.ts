@@ -34,6 +34,7 @@ export type MailCommandContext = {
     openExternal?: () => void;
     snooze?: (until: Date) => void;
     translate?: () => void;
+    copyEmail?: () => void;
     comment?: () => void;
     trash?: () => void;
   };

@@ -2153,7 +2153,9 @@ msgstr "Attachments filed automatically while you work"
 msgid "Attachments get filed"
 msgstr "Attachments get filed"
 
+#. placeholder {0}: attachments.join(", ")
 #. placeholder {0}: attachments.map(escapeHtml).join(", ")
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: app/(app)/[emailAccountId]/mail/print-messages.ts
 msgid "Attachments: {0}"
 msgstr "Attachments: {0}"
@@ -3081,6 +3083,10 @@ msgstr "CC (optional)"
 msgid "Cc: {0}"
 msgstr "Cc: {0}"
 
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
+msgid "Cc: {cc}"
+msgstr "Cc: {cc}"
+
 #: components/assistant-chat/tools.tsx
 msgid "CC: {cc}"
 msgstr "CC: {cc}"
@@ -3797,6 +3803,15 @@ msgstr "Copy booking link"
 msgid "Copy code {code}"
 msgstr "Copy code {code}"
 
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Copy email"
+msgstr "Copy email"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: lib/shortcuts/registry.ts
+msgid "Copy email with details"
+msgstr "Copy email with details"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeCelebrationDialog.tsx
 msgid "Copy link"
 msgstr "Copy link"
@@ -3804,6 +3819,10 @@ msgstr "Copy link"
 #: components/ReferralDialog.tsx
 msgid "Copy Link"
 msgstr "Copy Link"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Copy message"
+msgstr "Copy message"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Copy Message"
@@ -4312,6 +4331,11 @@ msgstr "Date range"
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
 msgid "Date within"
 msgstr "Date within"
+
+#. placeholder {0}: formatCopyDate(date, i18n)
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
+msgid "Date: {0}"
+msgstr "Date: {0}"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 #: app/(app)/[emailAccountId]/stats/Stats.tsx
@@ -5212,6 +5236,10 @@ msgstr "Email content is unavailable ({0}). Internal comments remain available."
 #: components/email-list/EmailContents.tsx
 msgid "Email content preview"
 msgstr "Email content preview"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Email copied"
+msgstr "Email copied"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Email copied to clipboard"
@@ -6545,6 +6573,7 @@ msgid "From: {0} • {1}"
 msgstr "From: {0} • {1}"
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "From: {from}"
 msgstr "From: {from}"
@@ -8741,6 +8770,10 @@ msgstr "Mention a teammate"
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Message"
 msgstr "Message"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Message copied"
+msgstr "Message copied"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Message copied to clipboard"
@@ -12682,6 +12715,7 @@ msgstr "Subject: \"{0}\""
 msgid "Subject: \"{subject}\""
 msgstr "Subject: \"{subject}\""
 
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "Subject: {subject}"
 msgstr "Subject: {subject}"
@@ -13442,6 +13476,7 @@ msgid "To: {0}"
 msgstr "To: {0}"
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "To: {to}"
 msgstr "To: {to}"
@@ -13690,6 +13725,14 @@ msgstr "Typical Length: 2-3 sentences\n"
 "- Uses contractions frequently\n"
 "- Concise and direct responses\n"
 "- Minimal closings"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Unable to copy this email"
+msgstr "Unable to copy this email"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Unable to copy this message"
+msgstr "Unable to copy this message"
 
 #: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
 msgid "Unable to download this message"

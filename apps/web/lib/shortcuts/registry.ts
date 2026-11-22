@@ -361,6 +361,13 @@ const SHORTCUT_DEFINITIONS = [
     label: msg`Translate / show original`,
   },
   {
+    id: "copyEmail",
+    keys: ["shift+c"],
+    scope: "mail",
+    group: "View",
+    label: msg`Copy email with details`,
+  },
+  {
     id: "toggleLayout",
     keys: ["shift+v"],
     scope: "mail",
