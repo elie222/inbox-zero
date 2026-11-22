@@ -12284,6 +12284,10 @@ msgstr "Göster"
 msgid "Showing {0} of {1, plural, one {# filing} other {# filings}}"
 msgstr "{1, plural, one {# dosyalamanın} other {# dosyalamanın}} {0} tanesi gösteriliyor"
 
+#: components/email-list/AttachmentPreview.tsx
+msgid "Showing part of this file. Download it to see everything."
+msgstr "Bu dosyanın bir kısmı gösteriliyor. Tamamını görmek için indirin."
+
 #: components/assistant-chat/message-part.tsx
 msgid "Showing the split on screen"
 msgstr "Sekme ekranda gösteriliyor"
@@ -13202,6 +13206,10 @@ msgstr "Bu özellik sınırlı kullanıma sunuldu. Hesabınız için entegrasyon
 #: components/PremiumAlert.tsx
 msgid "This feature is not available during the free trial. Start your paid plan to use it."
 msgstr "Bu özellik ücretsiz deneme sırasında kullanılamaz. Kullanmak için ücretli planınızı başlatın."
+
+#: components/email-list/AttachmentPreview.tsx
+msgid "This file is empty."
+msgstr "Bu dosya boş."
 
 #: components/email-list/AttachmentPreview.tsx
 msgid "This file is too large to preview."

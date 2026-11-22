@@ -12284,6 +12284,10 @@ msgstr "표시하기"
 msgid "Showing {0} of {1, plural, one {# filing} other {# filings}}"
 msgstr "{1, plural, other {#개}} 중 {0}개 표시"
 
+#: components/email-list/AttachmentPreview.tsx
+msgid "Showing part of this file. Download it to see everything."
+msgstr "이 파일의 일부만 표시됩니다. 전체를 보려면 다운로드하세요."
+
 #: components/assistant-chat/message-part.tsx
 msgid "Showing the split on screen"
 msgstr "화면에 분할 표시 중"
@@ -13202,6 +13206,10 @@ msgstr "이 기능은 제한적으로 제공되고 있어요. 얼리 액세스�
 #: components/PremiumAlert.tsx
 msgid "This feature is not available during the free trial. Start your paid plan to use it."
 msgstr "이 기능은 무료 체험 중에는 사용할 수 없어요. 유료 요금제를 시작하여 사용하세요."
+
+#: components/email-list/AttachmentPreview.tsx
+msgid "This file is empty."
+msgstr "이 파일은 비어 있습니다."
 
 #: components/email-list/AttachmentPreview.tsx
 msgid "This file is too large to preview."

@@ -12284,6 +12284,10 @@ msgstr "显示这些邮件"
 msgid "Showing {0} of {1, plural, one {# filing} other {# filings}}"
 msgstr "显示 {0} 条，共 {1, plural, other {# 份归档}}"
 
+#: components/email-list/AttachmentPreview.tsx
+msgid "Showing part of this file. Download it to see everything."
+msgstr "仅显示此文件的一部分。下载后可查看全部内容。"
+
 #: components/assistant-chat/message-part.tsx
 msgid "Showing the split on screen"
 msgstr "正在屏幕上显示该分栏"
@@ -13202,6 +13206,10 @@ msgstr "此功能处于有限发布阶段。加入抢先体验，即可为你的
 #: components/PremiumAlert.tsx
 msgid "This feature is not available during the free trial. Start your paid plan to use it."
 msgstr "免费试用期间无法使用此功能。开始付费套餐即可使用。"
+
+#: components/email-list/AttachmentPreview.tsx
+msgid "This file is empty."
+msgstr "此文件为空。"
 
 #: components/email-list/AttachmentPreview.tsx
 msgid "This file is too large to preview."

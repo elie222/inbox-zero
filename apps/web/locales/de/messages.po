@@ -12284,6 +12284,10 @@ msgstr "Anzeigen"
 msgid "Showing {0} of {1, plural, one {# filing} other {# filings}}"
 msgstr "{0} von {1, plural, one {# Ablage} other {# Ablagen}} werden angezeigt"
 
+#: components/email-list/AttachmentPreview.tsx
+msgid "Showing part of this file. Download it to see everything."
+msgstr "Ein Teil dieser Datei wird angezeigt. Lade sie herunter, um alles zu sehen."
+
 #: components/assistant-chat/message-part.tsx
 msgid "Showing the split on screen"
 msgstr "Tab wird auf dem Bildschirm angezeigt"
@@ -13202,6 +13206,10 @@ msgstr "Diese Funktion wird schrittweise eingeführt. Melde dich für den Early 
 #: components/PremiumAlert.tsx
 msgid "This feature is not available during the free trial. Start your paid plan to use it."
 msgstr "Diese Funktion ist während der kostenlosen Testphase nicht verfügbar. Starte deinen bezahlten Tarif, um sie zu nutzen."
+
+#: components/email-list/AttachmentPreview.tsx
+msgid "This file is empty."
+msgstr "Diese Datei ist leer."
 
 #: components/email-list/AttachmentPreview.tsx
 msgid "This file is too large to preview."

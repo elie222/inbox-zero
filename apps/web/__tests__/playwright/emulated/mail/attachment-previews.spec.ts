@@ -77,6 +77,26 @@ test("opens an attachment preview from its card", async ({
   await expect(dialog).toBeHidden();
 });
 
+test("previews a CSV attachment as a table", async ({ page }, testInfo) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Reader Visual Message",
+  ).click();
+  await page.getByRole("button", { name: "Preview invoices.csv" }).click();
+  const dialog = page.getByRole("dialog", { name: "invoices.csv" });
+  const table = dialog.getByRole("table");
+  await expect(
+    table.getByRole("columnheader", { name: "Customer" }),
+  ).toBeVisible();
+  await expect(table.getByRole("cell", { name: "Acme, Inc." })).toBeVisible();
+  await expect(table.getByRole("row")).toHaveCount(3);
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-csv-preview-dialog");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+});
+
 test("keeps the preview open when its source message unmounts", async ({
   page,
 }, testInfo) => {
