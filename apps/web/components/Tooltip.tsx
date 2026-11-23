@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ShortcutTooltipContent,
   type ShortcutTooltipItem,
@@ -8,7 +8,6 @@ import {
 import {
   Tooltip as ShadcnTooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
@@ -32,29 +31,42 @@ export const Tooltip = ({
   hide,
   side,
 }: TooltipProps) => {
-  // Make tooltip work on mobile with a click
   const [isOpen, setIsOpen] = useState(false);
+  // Touch has no hover, so tapping something that only carries information
+  // (a badge, a date) toggles its tooltip. Tapping a control runs the control
+  // instead, and a mouse click never opens one.
+  const isTouch = useRef(false);
 
   if (hide) return children;
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <ShadcnTooltip open={isOpen} onOpenChange={setIsOpen}>
-        <TooltipTrigger asChild onClick={() => setIsOpen(!isOpen)}>
-          {children}
-        </TooltipTrigger>
-        <TooltipContent side={side}>
-          {contentComponent ||
-            (shortcuts ? (
-              <ShortcutTooltipContent
-                shortcuts={shortcuts}
-                showLabels={showShortcutLabels}
-              />
-            ) : (
-              <p className="max-w-xs">{content}</p>
-            ))}
-        </TooltipContent>
-      </ShadcnTooltip>
-    </TooltipProvider>
+    <ShadcnTooltip open={isOpen} onOpenChange={setIsOpen}>
+      <TooltipTrigger
+        asChild
+        onPointerDown={(event) => {
+          isTouch.current = event.pointerType === "touch";
+        }}
+        onClick={(event) => {
+          if (isTouch.current && !event.currentTarget.matches(CONTROLS))
+            setIsOpen((open) => !open);
+        }}
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent side={side}>
+        {contentComponent ||
+          (shortcuts ? (
+            <ShortcutTooltipContent
+              shortcuts={shortcuts}
+              showLabels={showShortcutLabels}
+            />
+          ) : (
+            <p className="max-w-xs">{content}</p>
+          ))}
+      </TooltipContent>
+    </ShadcnTooltip>
   );
 };
+
+const CONTROLS =
+  'button, a[href], input, select, textarea, [role="button"], [role="checkbox"], [role="switch"], [role="menuitem"], [role="tab"]';

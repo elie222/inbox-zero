@@ -334,6 +334,8 @@ export const DESKTOP_MAC_HIDE_ATTRIBUTE = "data-hide-on-desktop-mac";
 /** Lifts the sidebar toggle into the titlebar, just right of the traffic lights. */
 export const DESKTOP_MAC_TITLEBAR_TOGGLE_ATTRIBUTE =
   "data-desktop-mac-titlebar-toggle";
+/** Lifts back/forward into the titlebar, just right of the sidebar toggle. */
+export const DESKTOP_MAC_HISTORY_ATTRIBUTE = "data-desktop-mac-history";
 export const DESKTOP_MAC_END_ATTRIBUTE = "data-desktop-mac-end";
 
 export function getDesktopWindowChrome(platform = process.platform): {
@@ -390,6 +392,7 @@ html::after {
 :root {
   --desktop-traffic-lights-width: ${DESKTOP_MAC_TRAFFIC_LIGHTS_WIDTH}px;
   --desktop-traffic-lights-height: ${DESKTOP_MAC_TITLEBAR_HEIGHT}px;
+  --desktop-titlebar-controls-width: 100px;
 }
 
 [${DESKTOP_MAC_HIDE_ATTRIBUTE}] {
@@ -400,6 +403,14 @@ html::after {
   position: fixed;
   top: 12px;
   left: ${DESKTOP_MAC_TRAFFIC_LIGHTS_WIDTH}px;
+  z-index: 30;
+}
+
+[${DESKTOP_MAC_HISTORY_ATTRIBUTE}] {
+  display: flex !important;
+  position: fixed;
+  top: 12px;
+  left: ${DESKTOP_MAC_TRAFFIC_LIGHTS_WIDTH + 32}px;
   z-index: 30;
 }
 

@@ -4,6 +4,10 @@
     "app/(app)/[emailAccountId]/mail/InboxBundleRow.tsx",
     "app/(app)/[emailAccountId]/mail/ListToolbar.tsx"
   ],
+  "desktop-history.spec.ts": [
+    "components/DesktopHistoryNav.tsx",
+    "components/AppSidebarHeader.tsx"
+  ],
   "mail-setup.spec.ts": [
     "app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx",
     "app/(app)/[emailAccountId]/mail/SplitTabs.tsx",

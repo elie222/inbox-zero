@@ -4,6 +4,7 @@ import Link from "next/link";
 import { MailIcon, SparklesIcon } from "lucide-react";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
+import { DesktopHistoryNav } from "@/components/DesktopHistoryNav";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   Tooltip,
@@ -42,7 +43,7 @@ export function AppSidebarHeader({
   /** For sheets, which close on their own rather than collapsing. */
   hideToggle?: boolean;
 }) {
-  // On mac desktop the toggle is lifted beside the traffic lights in both
+  // On mac desktop the toggle and back/forward are lifted beside the traffic lights in both
   // states, so the header only needs to clear the lights' drag region, which
   // swallows clicks. The sidebars sit 0.5rem below the window top.
   if (collapsed) {
@@ -53,6 +54,7 @@ export function AppSidebarHeader({
           className="mb-2"
           data-desktop-mac-titlebar-toggle
         />
+        <DesktopHistoryNav />
         <AppSectionSwitcher
           active={active}
           emailAccountId={emailAccountId}
@@ -70,7 +72,13 @@ export function AppSidebarHeader({
         collapsed={false}
       />
       {hideToggle ? null : (
-        <SidebarTrigger name="left-sidebar" data-desktop-mac-titlebar-toggle />
+        <>
+          <SidebarTrigger
+            name="left-sidebar"
+            data-desktop-mac-titlebar-toggle
+          />
+          <DesktopHistoryNav />
+        </>
       )}
     </div>
   );

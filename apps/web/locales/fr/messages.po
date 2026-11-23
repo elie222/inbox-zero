@@ -6701,8 +6701,15 @@ msgid "Gmail Other Contacts"
 msgstr "Autres contacts Gmail"
 
 #: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
+#: components/DesktopHistoryNav.tsx
+#: lib/shortcuts/registry.ts
 msgid "Go back"
 msgstr "Retour"
+
+#: components/DesktopHistoryNav.tsx
+#: lib/shortcuts/registry.ts
+msgid "Go forward"
+msgstr "Avancer"
 
 #: hooks/useCommandPaletteCommands.ts
 msgid "Go to {mailbox}"

@@ -6701,8 +6701,15 @@ msgid "Gmail Other Contacts"
 msgstr "Gmail 其他联系人"
 
 #: app/(app)/[emailAccountId]/compose/SendWarningsDialog.tsx
+#: components/DesktopHistoryNav.tsx
+#: lib/shortcuts/registry.ts
 msgid "Go back"
 msgstr "返回"
+
+#: components/DesktopHistoryNav.tsx
+#: lib/shortcuts/registry.ts
+msgid "Go forward"
+msgstr "前进"
 
 #: hooks/useCommandPaletteCommands.ts
 msgid "Go to {mailbox}"
