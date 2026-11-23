@@ -35,6 +35,8 @@ test("returns to previously opened emails with the desktop back and forward butt
   await back.click();
   await expect(page).toHaveURL(threadUrl(firstThreadId));
   await expect(forward).toBeEnabled();
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await page.mouse.move(640, 400);
   await back.hover();
   await expect(page.getByRole("tooltip")).toContainText("Go back");
   await capturePlaywrightCheckpoint(page, testInfo, "desktop-history-back");

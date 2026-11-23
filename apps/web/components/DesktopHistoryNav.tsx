@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { type ReactNode, useSyncExternalStore } from "react";
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { Tooltip } from "@/components/Tooltip";
@@ -26,31 +26,52 @@ export function DesktopHistoryNav() {
 
   return (
     <div className="hidden items-center gap-1" data-desktop-mac-history>
-      <Tooltip shortcuts={["goBack"]} side="bottom">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          aria-label={t`Go back`}
-          disabled={!canGoBack}
-          onClick={() => window.history.back()}
-        >
-          <ArrowLeftIcon />
-        </Button>
-      </Tooltip>
-      <Tooltip shortcuts={["goForward"]} side="bottom">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          aria-label={t`Go forward`}
-          disabled={!canGoForward}
-          onClick={() => window.history.forward()}
-        >
-          <ArrowRightIcon />
-        </Button>
-      </Tooltip>
+      <HistoryButton
+        label={t`Go back`}
+        shortcut="goBack"
+        disabled={!canGoBack}
+        onClick={() => window.history.back()}
+      >
+        <ArrowLeftIcon />
+      </HistoryButton>
+      <HistoryButton
+        label={t`Go forward`}
+        shortcut="goForward"
+        disabled={!canGoForward}
+        onClick={() => window.history.forward()}
+      >
+        <ArrowRightIcon />
+      </HistoryButton>
     </div>
+  );
+}
+
+function HistoryButton({
+  label,
+  shortcut,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  shortcut: "goBack" | "goForward";
+  disabled: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip shortcuts={[shortcut]} side="bottom">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7"
+        aria-label={label}
+        disabled={disabled}
+        onClick={onClick}
+      >
+        {children}
+      </Button>
+    </Tooltip>
   );
 }
 

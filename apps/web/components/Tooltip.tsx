@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ShortcutTooltipContent,
   type ShortcutTooltipItem,
@@ -8,7 +8,6 @@ import {
 import {
   Tooltip as ShadcnTooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
@@ -32,29 +31,37 @@ export const Tooltip = ({
   hide,
   side,
 }: TooltipProps) => {
-  // Make tooltip work on mobile with a click
   const [isOpen, setIsOpen] = useState(false);
+  // Touch has no hover, so a tap toggles the tooltip. A mouse click never
+  // opens one: it would flash over the button on every press.
+  const isTouch = useRef(false);
 
   if (hide) return children;
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <ShadcnTooltip open={isOpen} onOpenChange={setIsOpen}>
-        <TooltipTrigger asChild onClick={() => setIsOpen(!isOpen)}>
-          {children}
-        </TooltipTrigger>
-        <TooltipContent side={side}>
-          {contentComponent ||
-            (shortcuts ? (
-              <ShortcutTooltipContent
-                shortcuts={shortcuts}
-                showLabels={showShortcutLabels}
-              />
-            ) : (
-              <p className="max-w-xs">{content}</p>
-            ))}
-        </TooltipContent>
-      </ShadcnTooltip>
-    </TooltipProvider>
+    <ShadcnTooltip open={isOpen} onOpenChange={setIsOpen}>
+      <TooltipTrigger
+        asChild
+        onPointerDown={(event) => {
+          isTouch.current = event.pointerType === "touch";
+        }}
+        onClick={() => {
+          if (isTouch.current) setIsOpen((open) => !open);
+        }}
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent side={side}>
+        {contentComponent ||
+          (shortcuts ? (
+            <ShortcutTooltipContent
+              shortcuts={shortcuts}
+              showLabels={showShortcutLabels}
+            />
+          ) : (
+            <p className="max-w-xs">{content}</p>
+          ))}
+      </TooltipContent>
+    </ShadcnTooltip>
   );
 };
