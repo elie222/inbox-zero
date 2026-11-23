@@ -4,6 +4,7 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  pruneMessages,
   type UIMessage,
 } from "ai";
 import { withEmailAccount } from "@/utils/middleware";
@@ -229,12 +230,12 @@ export const POST = withEmailAccount("chat", async (request) => {
       ...(hiddenInlineActionMessage ? [hiddenInlineActionMessage] : []),
     ];
 
-    const conversationModelMessages = await convertToModelMessages(
+    const conversationModelMessages = await convertChatHistoryToModelMessages(
       conversationUiMessages,
     );
 
     let modelMessages = hiddenInlineActionMessage
-      ? await convertToModelMessages(uiMessages)
+      ? await convertChatHistoryToModelMessages(uiMessages)
       : conversationModelMessages;
 
     if (latestCompaction) {
@@ -741,4 +742,12 @@ function removeIncompleteToolParts(message: UIMessage): UIMessage {
         ),
     ),
   };
+}
+
+async function convertChatHistoryToModelMessages(messages: UIMessage[]) {
+  // Rebuilt context can invalidate the signatures on previous turns' reasoning.
+  return pruneMessages({
+    messages: await convertToModelMessages(messages),
+    reasoning: "all",
+  });
 }

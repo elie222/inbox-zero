@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import { test } from "../playwright-test";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import {
   chooseSignupIntent,
   getPersistedOnboardingState,
@@ -21,6 +22,24 @@ test("completes account setup and persists onboarding choices", async ({
 }, testInfo) => {
   const emailAccountId = await openControlOnboarding(page);
 
+  await capturePlaywrightCheckpoint(page, testInfo, "welcome-step");
+  await page.getByRole("button", { name: "See how it works" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your inbox, automatically sorted" }),
+  ).toBeVisible({ timeout: 60_000 });
+
+  // The feature tour depends on mailbox stats; jump to its last step.
+  await page.goto(`/${emailAccountId}/onboarding?step=emailApp`);
+  await expect(
+    page.getByRole("heading", { name: "Want a faster inbox too?" }),
+  ).toBeVisible({ timeout: 60_000 });
+  await capturePlaywrightCheckpoint(page, testInfo, "email-app-step");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+
+  await chooseSignupIntent(page, "AI assistant");
+  await expect(
+    page.getByRole("heading", { name: "What do you do?" }),
+  ).toBeVisible({ timeout: 60_000 });
   await page.getByRole("button", { name: "Founder", exact: true }).click();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(
@@ -37,13 +56,6 @@ test("completes account setup and persists onboarding choices", async ({
   ).toBeVisible({ timeout: 60_000 });
 
   await page.getByRole("button", { name: "GitHub", exact: true }).click();
-  await chooseSignupIntent(page, "AI assistant");
-  await expect(
-    page.getByRole("heading", { name: "Your inbox, automatically sorted" }),
-  ).toBeVisible({ timeout: 60_000 });
-
-  // The feature tour depends on mailbox stats; jump to the setup steps.
-  await page.goto(`/${emailAccountId}/onboarding?step=labels`);
   await expect(
     page.getByRole("heading", {
       name: "How do you want your inbox organized?",
@@ -63,11 +75,6 @@ test("completes account setup and persists onboarding choices", async ({
   ).toBeVisible({ timeout: 60_000 });
 
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Invite your team", exact: true }),
-  ).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Skip", exact: true }).click();
-
   await expect(
     page.getByRole("heading", { name: "Labels are ready", exact: true }),
   ).toBeVisible({ timeout: 60_000 });

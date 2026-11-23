@@ -11,6 +11,7 @@ export type InboxZeroDesktopApi = {
     provider: DesktopAuthProvider,
     options?: { callbackPath?: string },
   ) => Promise<void>;
+  supportsNoMatchingMessage?: boolean;
   mailEngine?: (payload: unknown) => Promise<unknown>;
   mailEngineSubscribe?: (input: unknown) => Promise<unknown>;
   mailEngineUnsubscribe?: (subscriptionId: string) => Promise<unknown>;
@@ -40,6 +41,16 @@ type DesktopDurationSummary = {
   maxMs: number;
 };
 
+type DesktopMailSyncFreshness = {
+  provider: "google" | "microsoft";
+  connection: "ready" | "offline" | "blocked_auth";
+  newestInboxMessageAgeMs: number | null;
+  streams: number;
+  streamsBehind: number;
+  streamsPaused: number;
+  oldestStreamCaughtUpAgeMs: number | null;
+};
+
 /** Aggregated since the previous call from any window. */
 export type DesktopHealth = {
   version: string;
@@ -53,6 +64,8 @@ export type DesktopHealth = {
       sqliteReadMs: DesktopDurationSummary | null;
       sqliteWriteMs: DesktopDurationSummary | null;
       mailCommandMs?: DesktopDurationSummary | null;
+      /** Missing from older desktop builds; one entry per local account. */
+      mailSync?: DesktopMailSyncFreshness[] | null;
     } | null;
   } | null;
   mailboxBytes: number;

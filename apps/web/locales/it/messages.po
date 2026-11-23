@@ -56,6 +56,14 @@ msgstr "(nessun oggetto)"
 msgid "(No subject)"
 msgstr "(Nessun oggetto)"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "(private channel)"
+msgstr "(canale privato)"
+
+#: components/SlackNotificationTargetSelect.tsx
+msgid "(public channel)"
+msgstr "(canale pubblico)"
+
 #: components/team-comments/ConversationParticipants.tsx
 msgid "(you)"
 msgstr "(tu)"
@@ -348,6 +356,10 @@ msgstr "{archivedEmailCount, plural, one {# email} other {# email}}"
 msgid "{archivedMessagesCount, plural, one {# message} other {# messages}}"
 msgstr "{archivedMessagesCount, plural, one {# messaggio} other {# messaggi}}"
 
+#: components/assistant-chat/chat.tsx
+msgid "{attachmentCount, plural, one {# image} other {# images}}"
+msgstr "{attachmentCount, plural, one {# immagine} other {# immagini}}"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/hooks.ts
 msgid "{completed} of {total} completed"
 msgstr "{completed} di {total} completati"
@@ -472,7 +484,6 @@ msgstr "{enabled, plural, one {# attivata} other {# attivate}}"
 msgid "{error} Your draft is saved here; retry when ready."
 msgstr "{error} La tua bozza è salvata qui; riprova quando vuoi."
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "{errorCount, plural, one {Failed to send # invitation} other {Failed to send # invitations}}"
 msgstr "{errorCount, plural, one {Impossibile inviare # invito} other {Impossibile inviare # inviti}}"
@@ -703,6 +714,10 @@ msgstr "{splitName} include già {senderCount, plural, one {questo mittente} oth
 msgid "{starterTierName} Plan Required"
 msgstr "Piano {starterTierName} richiesto"
 
+#: components/assistant-chat/activity-group.tsx
+msgid "{stepCount, plural, one {Worked through # step} other {Worked through # steps}}"
+msgstr "{stepCount, plural, one {Completato # passaggio} other {Completati # passaggi}}"
+
 #: app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer.ts
 msgid "{stoppedCount, plural, one {Processed # email} other {Processed # emails}}"
 msgstr "{stoppedCount, plural, one {# email elaborata} other {# email elaborate}}"
@@ -711,7 +726,6 @@ msgstr "{stoppedCount, plural, one {# email elaborata} other {# email elaborate}
 msgid "{succeeded} of {total} succeeded"
 msgstr "{succeeded} di {total} completati correttamente"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "{successCount, plural, one {# invitation sent successfully!} other {# invitations sent successfully!}}"
 msgstr "{successCount, plural, one {# invito inviato correttamente!} other {# inviti inviati correttamente!}}"
@@ -1307,10 +1321,6 @@ msgstr "Aggiungi conoscenza"
 msgid "Add Microsoft"
 msgstr "Aggiungi Microsoft"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Add more anytime from settings."
-msgstr "Puoi aggiungerne altri in qualsiasi momento dalle impostazioni."
-
 #: app/(app)/[emailAccountId]/assistant/RulesPromptNew.tsx
 msgid "Add new rules"
 msgstr "Aggiungi nuove regole"
@@ -1759,6 +1769,10 @@ msgstr "Annuale"
 msgid "any"
 msgstr "qualsiasi"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Anyone in your Slack workspace can read #{pendingChannelName}, including the email content in these notifications."
+msgstr "Chiunque nel tuo workspace Slack può leggere #{pendingChannelName}, incluso il contenuto delle email in queste notifiche."
+
 #: app/(app)/[emailAccountId]/mail/NewSplitDialog.tsx
 msgid "anything awaiting my reply"
 msgstr "tutto ciò che attende una mia risposta"
@@ -2139,7 +2153,9 @@ msgstr "Allegati archiviati automaticamente mentre lavori"
 msgid "Attachments get filed"
 msgstr "Gli allegati vengono archiviati"
 
+#. placeholder {0}: attachments.join(", ")
 #. placeholder {0}: attachments.map(escapeHtml).join(", ")
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: app/(app)/[emailAccountId]/mail/print-messages.ts
 msgid "Attachments: {0}"
 msgstr "Allegati: {0}"
@@ -2494,8 +2510,8 @@ msgid "Bulk Unsubscriber"
 msgstr "Annullamento iscrizioni in blocco"
 
 #: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
-msgid "Bundle in Inbox"
-msgstr "Raggruppa nella posta in arrivo"
+msgid "Bundle in All"
+msgstr "Raggruppa in «Tutti»"
 
 #: app/(app)/[emailAccountId]/mail/MailSetupPanel.tsx
 msgid "Bundle low-priority email?"
@@ -2601,6 +2617,7 @@ msgstr "Possiamo spostare la chiamata di giovedì?"
 #: components/email-list/ThreadDeliveryStatus.tsx
 #: components/FeedbackDialog.tsx
 #: components/InviteMemberModal.tsx
+#: components/SlackNotificationTargetSelect.tsx
 #: components/team-comments/ShareConversationDialog.tsx
 msgid "Cancel"
 msgstr "Annulla"
@@ -3066,6 +3083,10 @@ msgstr "CC (facoltativo)"
 msgid "Cc: {0}"
 msgstr "Cc: {0}"
 
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
+msgid "Cc: {cc}"
+msgstr "Cc: {cc}"
+
 #: components/assistant-chat/tools.tsx
 msgid "CC: {cc}"
 msgstr "CC: {cc}"
@@ -3231,6 +3252,11 @@ msgstr "Scegli profilo"
 #: app/(app)/[emailAccountId]/compose/ComposeSignaturePicker.tsx
 msgid "Choose signature"
 msgstr "Scegli firma"
+
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+#: app/(app)/[emailAccountId]/mail/SplitTabs.tsx
+msgid "Choose what All shows"
+msgstr "Scegli cosa mostrare in «Tutti»"
 
 #: app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal.tsx
 msgid "Choose what happens when you click the action buttons on each category"
@@ -3655,10 +3681,6 @@ msgstr "Collegato, ma gli strumenti non sono disponibili"
 msgid "Connected. {toolsCount, plural, one {# tool available.} other {# tools available.}}"
 msgstr "Collegato. {toolsCount, plural, one {# strumento disponibile.} other {# strumenti disponibili.}}"
 
-#: app/(app)/accounts/page.tsx
-msgid "Connecting or reconnecting a mailbox isn't available when you signed in with an email code. Sign in with Google or Microsoft and try again."
-msgstr "Non puoi collegare o ricollegare una casella di posta se hai effettuato l'accesso con un codice email. Accedi con Google o Microsoft e riprova."
-
 #: app/(app)/[emailAccountId]/calendars/ConnectCalendar.tsx
 #: app/(app)/[emailAccountId]/drive/ConnectDrive.tsx
 #: app/(app)/[emailAccountId]/integrations/IntegrationRow.tsx
@@ -3781,6 +3803,15 @@ msgstr "Copia il link di prenotazione"
 msgid "Copy code {code}"
 msgstr "Copia il codice {code}"
 
+#: app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx
+msgid "Copy email"
+msgstr "Copia email"
+
+#: app/(app)/[emailAccountId]/mail/mail-command-palette.ts
+#: lib/shortcuts/registry.ts
+msgid "Copy email with details"
+msgstr "Copia email con dettagli"
+
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/UnsubscribeCelebrationDialog.tsx
 msgid "Copy link"
 msgstr "Copia link"
@@ -3788,6 +3819,10 @@ msgstr "Copia link"
 #: components/ReferralDialog.tsx
 msgid "Copy Link"
 msgstr "Copia link"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Copy message"
+msgstr "Copia messaggio"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Copy Message"
@@ -4296,6 +4331,11 @@ msgstr "Intervallo di date"
 #: app/(app)/[emailAccountId]/mail/MailSearchFilters.tsx
 msgid "Date within"
 msgstr "Data entro"
+
+#. placeholder {0}: formatCopyDate(date, i18n)
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
+msgid "Date: {0}"
+msgstr "Data: {0}"
 
 #: app/(app)/[emailAccountId]/settings/DigestSettingsForm.tsx
 #: app/(app)/[emailAccountId]/stats/Stats.tsx
@@ -5197,6 +5237,10 @@ msgstr "Il contenuto dell'email non è disponibile ({0}). I commenti interni res
 msgid "Email content preview"
 msgstr "Anteprima del contenuto dell'email"
 
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Email copied"
+msgstr "Email copiata"
+
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Email copied to clipboard"
 msgstr "Email copiata negli appunti"
@@ -5389,10 +5433,6 @@ msgstr "Fine settimana"
 #: components/EndTrialButton.tsx
 msgid "End your free trial and pay now?"
 msgstr "Terminare la prova gratuita e pagare ora?"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Enter a valid email"
-msgstr "Inserisci un'email valida"
 
 #: app/(app)/[emailAccountId]/compose/useComposeSend.ts
 msgid "Enter a valid recipient email address."
@@ -5857,6 +5897,10 @@ msgstr "Impossibile annullare l'invito"
 msgid "Failed to connect Slack"
 msgstr "Impossibile connettere Slack"
 
+#: components/CopyInput.tsx
+msgid "Failed to copy"
+msgstr "Impossibile copiare"
+
 #: app/(app)/[emailAccountId]/calendars/BookingLinksSection.tsx
 msgid "Failed to copy booking link"
 msgstr "Impossibile copiare il link di prenotazione"
@@ -5879,7 +5923,6 @@ msgstr "Impossibile creare la chiave API"
 msgid "Failed to create booking link"
 msgstr "Impossibile creare il link di prenotazione"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "Failed to create organization and send invitations"
 msgstr "Impossibile creare l'organizzazione e inviare gli inviti"
@@ -6073,10 +6116,6 @@ msgstr "Impossibile cercare i follow-up"
 #: app/(app)/[emailAccountId]/onboarding-brief/StepSendTestBrief.tsx
 msgid "Failed to send brief"
 msgstr "Impossibile inviare il brief"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Failed to send invitations"
-msgstr "Impossibile inviare gli inviti"
 
 #: app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting.tsx
 msgid "Failed to send test check-in"
@@ -6534,6 +6573,7 @@ msgid "From: {0} • {1}"
 msgstr "Da: {0} • {1}"
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "From: {from}"
 msgstr "Da: {from}"
@@ -7326,6 +7366,11 @@ msgstr "Inattivo"
 msgid "Inbox"
 msgstr "Posta in arrivo"
 
+#. placeholder {0}: status.version
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Inbox Zero {0} is ready"
+msgstr "Inbox Zero {0} è pronto"
+
 #: app/(app)/ProviderRateLimitBanner.tsx
 msgid "Inbox Zero actions are temporarily paused until around <0>{retryAtLabel}</0>. This limit is enforced by {providerLabel}, and other apps connected to this mailbox can contribute to the same shared limit."
 msgstr "Le azioni di Inbox Zero sono temporaneamente sospese fino a circa <0>{retryAtLabel}</0>. Questo limite è imposto da {providerLabel} e anche le altre app collegate a questa casella di posta contribuiscono allo stesso limite condiviso."
@@ -7341,6 +7386,10 @@ msgstr "Estensione Inbox Zero Tabs non trovata. Installala prima."
 #: app/(app)/[emailAccountId]/channels/Channels.tsx
 msgid "Inbox Zero where you work."
 msgstr "Inbox Zero dove lavori."
+
+#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
+msgid "Inbox Zero works in Gmail or Outlook, so you don't need to switch. If you want, use our email app on web, desktop, iPhone, and Android."
+msgstr "Inbox Zero funziona in Gmail o Outlook, quindi non devi cambiare. Se vuoi, usa la nostra app email da web, desktop, iPhone e Android."
 
 #: app/(app)/[emailAccountId]/mail/ThreadRow.tsx
 msgid "Inbox: {label}"
@@ -7521,10 +7570,6 @@ msgstr "Invita i colleghi"
 #: components/SlackNotificationTargetSelect.tsx
 msgid "Invite the bot with <0>/invite @{botName}</0>"
 msgstr "Invita il bot con <0>/invite @{botName}</0>"
-
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
-msgid "Invite your team"
-msgstr "Invita il tuo team"
 
 #: app/(app)/organization/[organizationId]/Members.tsx
 msgid "Invited by {inviterName}"
@@ -8638,14 +8683,6 @@ msgstr "Risposta mediana"
 msgid "Median Response Time"
 msgstr "Tempo di risposta mediano"
 
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet the Inbox Zero email app"
-msgstr "Scopri l'app email Inbox Zero"
-
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Meet your new email app"
-msgstr "Scopri la tua nuova app email"
-
 #: app/(app)/[emailAccountId]/meetings/MeetingDetail.tsx
 msgid "Meeting"
 msgstr "Riunione"
@@ -8733,6 +8770,10 @@ msgstr "Menziona un collega"
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Message"
 msgstr "Messaggio"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Message copied"
+msgstr "Messaggio copiato"
 
 #: app/(app)/[emailAccountId]/integrations/RequestAccessDialog.tsx
 msgid "Message copied to clipboard"
@@ -10497,10 +10538,6 @@ msgstr "Prompt"
 msgid "Provider"
 msgstr "Provider"
 
-#: app/(app)/accounts/page.tsx
-msgid "Provider sign-in required"
-msgstr "Accesso al provider richiesto"
-
 #: app/(app)/[emailAccountId]/assistant/FixWithChat.tsx
 msgid "Providing an explanation helps the AI understand your intent better"
 msgstr "Fornire una spiegazione aiuta l'IA a capire meglio cosa intendi"
@@ -10590,10 +10627,6 @@ msgstr "Leggi e cerca nella posta"
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Read and send email from every account in one fast inbox"
 msgstr "Leggi e invia le email di tutti i tuoi account in un'unica posta in arrivo veloce"
-
-#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
-msgid "Read and send email on web, desktop, and iPhone. Add the AI assistant anytime."
-msgstr "Leggi e invia email da web, desktop e iPhone. Aggiungi l'assistente IA quando vuoi."
 
 #: components/assistant-chat/tools.tsx
 msgid "Read Email"
@@ -10926,6 +10959,10 @@ msgstr "Rimuovi invece un solo account"
 msgid "Remove optional access below, or disconnect to remove all access. To add permissions, reconnect from the application and approve the new access."
 msgstr "Rimuovi gli accessi facoltativi qui sotto, oppure disconnetti per rimuovere ogni accesso. Per aggiungere autorizzazioni, ricollega dall'applicazione e approva il nuovo accesso."
 
+#: components/assistant-chat/chat.tsx
+msgid "Remove queued message"
+msgstr "Rimuovi messaggio in coda"
+
 #: app/(app)/[emailAccountId]/calendars/WeeklyHoursEditor.tsx
 msgid "Remove range"
 msgstr "Rimuovi l'intervallo"
@@ -11114,6 +11151,14 @@ msgstr "Dati sul tempo di risposta basati {0, plural, one {sull'ultima # email} 
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "Response Time Distribution"
 msgstr "Distribuzione del tempo di risposta"
+
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Restart"
+msgstr "Riavvia"
+
+#: app/(app)/DesktopUpdateToast.tsx
+msgid "Restart the app to finish updating."
+msgstr "Riavvia l’app per completare l’aggiornamento."
 
 #: components/DesktopUpdateMenuItem.tsx
 msgid "Restart to update"
@@ -11567,6 +11612,10 @@ msgstr "Ricerca nei ricordi..."
 msgid "See examples"
 msgstr "Vedi esempi"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "See how it works"
+msgstr "Scopri come funziona"
+
 #: app/(app)/[emailAccountId]/settings/SentMessageOpenTrackingSetting.tsx
 msgid "See when recipients open emails you send from the mail client."
 msgstr "Scopri quando i destinatari aprono le email che invii dal client di posta."
@@ -11795,7 +11844,6 @@ msgstr "Invia feedback"
 msgid "Send History"
 msgstr "Cronologia invii"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: components/InviteMemberModal.tsx
 msgid "Send invites"
 msgstr "Invia inviti"
@@ -11808,6 +11856,14 @@ msgstr "Invia più tardi"
 #: app/(app)/[emailAccountId]/compose/DeliveryOptions.tsx
 msgid "Send later date and time"
 msgstr "Data e ora di invio posticipato"
+
+#: components/assistant-chat/chat.tsx
+msgid "Send message"
+msgstr "Invia messaggio"
+
+#: components/assistant-chat/chat.tsx
+msgid "Send now"
+msgstr "Invia ora"
 
 #: app/(app)/[emailAccountId]/assistant/AvailableActionsPanel.tsx
 msgid "Send replies"
@@ -11845,6 +11901,10 @@ msgstr "Invia a"
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Send to <0>{destinationLabel}</0>"
 msgstr "Invia a <0>{destinationLabel}</0>"
+
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Send to a public channel?"
+msgstr "Inviare a un canale pubblico?"
 
 #: components/voice/VoiceOverlay.tsx
 msgid "Send to chat"
@@ -11946,6 +12006,10 @@ msgstr "Invio…"
 #: app/(app)/[emailAccountId]/assistant/ActionSteps.tsx
 msgid "Sends an automated notification from {BRAND_NAME} informing the sender their email was filtered as cold outreach."
 msgstr "Invia una notifica automatica da {BRAND_NAME} per informare il mittente che la sua email è stata filtrata come cold email."
+
+#: components/assistant-chat/chat.tsx
+msgid "Sends when the assistant finishes"
+msgstr "Verrà inviato quando l'assistente avrà finito"
 
 #: app/(app)/[emailAccountId]/assistant/settings/SensitiveDataPolicySetting.tsx
 msgid "Sensitive data protection"
@@ -12253,6 +12317,10 @@ msgstr "Mostrali"
 msgid "Showing {0} of {1, plural, one {# filing} other {# filings}}"
 msgstr "Visualizzati {0} di {1, plural, one {# documento archiviato} other {# documenti archiviati}}"
 
+#: components/email-list/AttachmentPreview.tsx
+msgid "Showing part of this file. Download it to see everything."
+msgstr "Viene mostrata solo una parte di questo file. Scaricalo per vederlo tutto."
+
 #: components/assistant-chat/message-part.tsx
 msgid "Showing the split on screen"
 msgstr "Visualizzazione della scheda sullo schermo"
@@ -12325,7 +12393,6 @@ msgstr "Confronto dimensioni"
 msgid "Size unit"
 msgstr "Unità di dimensione"
 
-#: app/(app)/[emailAccountId]/onboarding/StepInviteTeam.tsx
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Skip"
 msgstr "Salta"
@@ -12601,6 +12668,10 @@ msgstr "Interrompi"
 msgid "Stop recording"
 msgstr "Interrompi registrazione"
 
+#: components/assistant-chat/chat.tsx
+msgid "Stop response"
+msgstr "Interrompi risposta"
+
 #: components/team-comments/ConversationDiscussion.tsx
 msgid "Stop sharing"
 msgstr "Interrompi condivisione"
@@ -12644,6 +12715,7 @@ msgstr "Oggetto: “{0}”"
 msgid "Subject: \"{subject}\""
 msgstr "Oggetto: “{subject}”"
 
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "Subject: {subject}"
 msgstr "Oggetto: {subject}"
@@ -13170,6 +13242,10 @@ msgid "This feature is not available during the free trial. Start your paid plan
 msgstr "Questa funzione non è disponibile durante la prova gratuita. Attiva il piano a pagamento per usarla."
 
 #: components/email-list/AttachmentPreview.tsx
+msgid "This file is empty."
+msgstr "Questo file è vuoto."
+
+#: components/email-list/AttachmentPreview.tsx
 msgid "This file is too large to preview."
 msgstr "Questo file è troppo grande per l'anteprima."
 
@@ -13400,6 +13476,7 @@ msgid "To: {0}"
 msgstr "A: {0}"
 
 #: app/(app)/[emailAccountId]/assistant/condition-messages.ts
+#: app/(app)/[emailAccountId]/mail/copy-messages.ts
 #: components/assistant-chat/tools.tsx
 msgid "To: {to}"
 msgstr "A: {to}"
@@ -13648,6 +13725,14 @@ msgstr "Lunghezza tipica: 2-3 frasi\n"
 "- Usa spesso le forme contratte\n"
 "- Risposte concise e dirette\n"
 "- Chiusure minime"
+
+#: app/(app)/[emailAccountId]/mail/MailShell.tsx
+msgid "Unable to copy this email"
+msgstr "Impossibile copiare questa email"
+
+#: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
+msgid "Unable to copy this message"
+msgstr "Impossibile copiare questo messaggio"
 
 #: app/(app)/[emailAccountId]/mail/MessageActionsMenu.tsx
 msgid "Unable to download this message"
@@ -14054,6 +14139,10 @@ msgstr "Usa il mio link di invito per iniziare con Inbox Zero!"
 msgid "Use prompt"
 msgstr "Usa prompt"
 
+#: components/SlackNotificationTargetSelect.tsx
+msgid "Use public channel"
+msgstr "Usa canale pubblico"
+
 #: app/(app)/[emailAccountId]/drive/ConnectDrive.tsx
 msgid "Use your existing folders"
 msgstr "Usa le tue cartelle esistenti"
@@ -14242,6 +14331,10 @@ msgstr "In attesa di partecipare"
 #: components/EndTrialButton.tsx
 msgid "Want a different plan or to pay monthly? <0>Change your plan first</0>."
 msgstr "Vuoi un piano diverso o pagare mensilmente? <0>Cambia prima il tuo piano</0>."
+
+#: app/(app)/[emailAccountId]/onboarding/StepMailApp.tsx
+msgid "Want a faster inbox too?"
+msgstr "Vuoi anche una casella di posta più veloce?"
 
 #: app/(app)/[emailAccountId]/assistant/settings/FollowUpRemindersSetting.tsx
 msgid "Want pings in your chat app? <0>Configure on the Channels page</0>."
@@ -14481,6 +14574,7 @@ msgstr "Riepilogo settimanale"
 msgid "Weekly Response Time Trend"
 msgstr "Andamento settimanale del tempo di risposta"
 
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
 #: app/(app)/[emailAccountId]/setup/SetupContent.tsx
 msgid "Welcome to {BRAND_NAME}"
 msgstr "Benvenuto in {BRAND_NAME}"
@@ -14639,6 +14733,10 @@ msgstr "Perché questa regola avrebbe dovuto essere applicata? (facoltativo)"
 #: app/(app)/[emailAccountId]/stats/ResponseTimeAnalytics.tsx
 msgid "Within 1 Hour"
 msgstr "Entro 1 ora"
+
+#: components/assistant-chat/activity-group.tsx
+msgid "Working..."
+msgstr "In corso..."
 
 #: app/(app)/[emailAccountId]/clean/ActionSelectionStep.tsx
 msgid "Would you like cleaned emails to be archived or marked as read?"
@@ -14851,6 +14949,10 @@ msgstr "I tuoi account sono stati uniti."
 msgid "Your AI Assistant isn't processing emails because all rules are disabled. Enable them to get started."
 msgstr "Il tuo assistente IA non sta elaborando le email perché tutte le regole sono disattivate. Attivale per iniziare."
 
+#: app/(app)/[emailAccountId]/onboarding/StepWelcome.tsx
+msgid "Your AI email assistant. It sorts your inbox, drafts your replies, and clears out the clutter, right inside Gmail or Outlook."
+msgstr "Il tuo assistente email con IA. Ordina la tua casella, scrive le bozze delle risposte e fa pulizia, direttamente in Gmail o Outlook."
+
 #: app/(app)/[emailAccountId]/assistant/RulesTabNew.tsx
 msgid "Your assistant automatically organizes incoming emails using these rules."
 msgstr "Il tuo assistente organizza automaticamente le email in arrivo usando queste regole."
@@ -14867,10 +14969,19 @@ msgstr "Le statistiche della tua email sono attualmente private. Attiva l'access
 msgid "Your email analytics are currently private. Enable access to let other organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively."
 msgstr "Le statistiche della tua email sono attualmente private. Attiva l'accesso per permettere agli altri amministratori dell'organizzazione di vedere le statistiche e i dati di utilizzo della tua posta in arrivo. Aiuta il tuo team a capire la produttività e a collaborare in modo più efficace."
 
+#. placeholder {0}: rateLimitResumeAt.toLocaleTimeString(i18n.locale)
+#: components/StatsRateLimitNotice.tsx
+msgid "Your email provider is limiting requests, so loading your emails is paused. It will continue automatically around {0}."
+msgstr "Il tuo provider di posta sta limitando le richieste, quindi il caricamento delle tue email è in pausa. Riprenderà automaticamente verso le {0}."
+
 #. placeholder {0}: state.rateLimitResumeAt.toLocaleTimeString(i18n.locale)
 #: app/(app)/[emailAccountId]/assistant/BulkRunRules.tsx
 msgid "Your email provider is limiting requests, so processing is paused. It will continue automatically around {0}."
 msgstr "Il tuo provider di posta sta limitando le richieste, quindi l'elaborazione è in pausa. Riprenderà automaticamente verso le {0}."
+
+#: providers/StatLoaderProvider.tsx
+msgid "Your email provider kept limiting requests, so loading stopped. Try again in a few minutes."
+msgstr "Il tuo provider di posta ha continuato a limitare le richieste, quindi il caricamento si è interrotto. Riprova tra qualche minuto."
 
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 msgid "Your feedback helps us learn"

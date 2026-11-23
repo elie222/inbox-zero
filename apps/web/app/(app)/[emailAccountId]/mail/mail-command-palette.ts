@@ -4,6 +4,7 @@ import {
   ArchiveIcon,
   ArchiveRestoreIcon,
   Clock3Icon,
+  CopyIcon,
   ExternalLinkIcon,
   FolderInputIcon,
   ForwardIcon,
@@ -36,6 +37,7 @@ type MailCommandActions = {
   openSnooze?: () => void;
   openExternal?: () => void;
   translate?: () => void;
+  copyEmail?: () => void;
   comment?: () => void;
   trash?: () => void;
   toggleAutoArchive?: () => void;
@@ -207,6 +209,19 @@ export function buildMailCommandPalette({
       priority: 4,
       keywords: ["translate", "language", "original"],
       action: actions.translate,
+    });
+  }
+
+  if (targetCount === 1 && actions.copyEmail) {
+    commands.push({
+      id: "mail-copy-email",
+      label: t(i18n)`Copy email with details`,
+      icon: CopyIcon,
+      shortcut: getShortcutHint("copyEmail"),
+      section: "actions",
+      priority: 4,
+      keywords: ["copy", "clipboard", "sender", "details"],
+      action: actions.copyEmail,
     });
   }
 

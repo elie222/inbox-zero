@@ -8,6 +8,13 @@ const gmailCursorSchema = z.object({
   historyId: z.string().regex(/^\d+$/),
   after: z.string().datetime(),
   pageToken: z.string().min(1).optional(),
+  // A history page can expand to more changes than one sync page may carry.
+  // While a page is being drained, these record the next change, the history
+  // id to advance to once the page is exhausted, and the identity of the
+  // ordered change list the offset is relative to.
+  changeOffset: z.number().int().nonnegative().optional(),
+  endHistoryId: z.string().regex(/^\d+$/).optional(),
+  pageFingerprint: z.string().min(1).max(64).optional(),
 });
 
 const microsoftCursorSchema = z.object({

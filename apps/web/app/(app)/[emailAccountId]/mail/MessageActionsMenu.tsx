@@ -4,6 +4,7 @@ import { type ComponentProps, useState } from "react";
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import {
   CodeIcon,
+  CopyIcon,
   DownloadIcon,
   MoreHorizontalIcon,
   PrinterIcon,
@@ -21,7 +22,8 @@ import {
 } from "@/app/(app)/[emailAccountId]/mail/message-source";
 import { MessageSourceDialog } from "@/app/(app)/[emailAccountId]/mail/MessageSourceDialog";
 import { printMessages } from "@/app/(app)/[emailAccountId]/mail/print-messages";
-import { toastError } from "@/components/Toast";
+import { copyMessages } from "@/app/(app)/[emailAccountId]/mail/copy-messages";
+import { toastError, toastSuccess } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -64,6 +66,15 @@ export function MessageActionsMenu({
     } catch (error) {
       captureException(error);
       toastError({ description: t`Unable to download this message` });
+    }
+  };
+
+  const copyMessage = async () => {
+    try {
+      await copyMessages({ subject, messages: [message], i18n });
+      toastSuccess({ description: t`Message copied` });
+    } catch {
+      toastError({ description: t`Unable to copy this message` });
     }
   };
 
@@ -116,6 +127,11 @@ export function MessageActionsMenu({
           </DropdownMenuSub>
 
           <DropdownMenuSeparator />
+
+          <DropdownMenuItem onSelect={copyMessage}>
+            <CopyIcon className="mr-2 size-4" />
+            <Trans>Copy message</Trans>
+          </DropdownMenuItem>
 
           <DropdownMenuItem
             onSelect={() =>

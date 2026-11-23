@@ -43,6 +43,7 @@ export function buildDesktopHealthProperties(health: DesktopHealth) {
     ...durationProperties("sqlite_read", child?.sqliteReadMs),
     ...durationProperties("sqlite_write", child?.sqliteWriteMs),
     ...durationProperties("mail_command", child?.mailCommandMs),
+    ...mailSyncProperties(child?.mailSync),
   };
 }
 
@@ -57,4 +58,47 @@ function durationProperties(
     [`${metric}_p95_ms`]: summary.p95Ms,
     [`${metric}_max_ms`]: summary.maxMs,
   };
+}
+
+function mailSyncProperties(
+  accounts: NonNullable<
+    NonNullable<DesktopHealth["engine"]>["child"]
+  >["mailSync"],
+) {
+  if (!accounts) return {};
+  const inboxAges = presentNumbers(
+    accounts.map((account) => account.newestInboxMessageAgeMs),
+  );
+  const caughtUpAges = presentNumbers(
+    accounts.map((account) => account.oldestStreamCaughtUpAgeMs),
+  );
+  return {
+    mail_accounts: accounts.length,
+    mail_accounts_offline: accounts.filter(
+      (account) => account.connection === "offline",
+    ).length,
+    mail_accounts_blocked_auth: accounts.filter(
+      (account) => account.connection === "blocked_auth",
+    ).length,
+    mail_streams: sum(accounts.map((account) => account.streams)),
+    mail_streams_behind: sum(accounts.map((account) => account.streamsBehind)),
+    mail_streams_paused: sum(accounts.map((account) => account.streamsPaused)),
+    ...(inboxAges.length
+      ? {
+          mail_inbox_newest_age_min_ms: Math.min(...inboxAges),
+          mail_inbox_newest_age_max_ms: Math.max(...inboxAges),
+        }
+      : {}),
+    ...(caughtUpAges.length
+      ? { mail_stream_caught_up_age_max_ms: Math.max(...caughtUpAges) }
+      : {}),
+  };
+}
+
+function presentNumbers(values: Array<number | null>) {
+  return values.filter((value): value is number => value !== null);
+}
+
+function sum(values: number[]) {
+  return values.reduce((total, value) => total + value, 0);
 }

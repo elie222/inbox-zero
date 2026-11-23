@@ -174,6 +174,14 @@ test("selects the sender when composing from all accounts", async ({
     signature,
   });
 
+  // A slow lookup for the new sender must not leave the previous account's
+  // signature in the editor.
+  await page.route("**/api/user/signature", async (route) => {
+    if (route.request().headers()["x-email-account-id"] === secondAccount.id)
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.continue();
+  });
+
   try {
     await page.goto(`/${emailAccountId}/mail?accountScope=all`);
     await page.getByRole("button", { name: /^Compose/ }).click();

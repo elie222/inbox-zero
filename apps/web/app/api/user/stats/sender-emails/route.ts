@@ -37,7 +37,7 @@ async function getSenderEmails(
     SELECT ${Prisma.raw(dateFunction)} AS "startOfPeriod", COUNT(*) as count
     FROM "EmailMessage"
     WHERE "emailAccountId" = ${emailAccountId}
-      AND "from" = ${fromEmail}
+      AND LOWER("from") = LOWER(${fromEmail})
   `;
 
   // Add date filters if provided

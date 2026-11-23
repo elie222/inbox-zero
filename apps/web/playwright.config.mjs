@@ -479,6 +479,15 @@ function createReaderVisualMessage({ attachment, recipient }) {
     "Content-Transfer-Encoding: base64",
     "",
     attachment.toString("base64"),
+    `--${boundary}`,
+    // Senders often mislabel CSVs, so preview must work from the filename.
+    'Content-Type: application/octet-stream; name="invoices.csv"',
+    'Content-Disposition: attachment; filename="invoices.csv"',
+    "Content-Transfer-Encoding: base64",
+    "",
+    Buffer.from(
+      'Invoice,Customer,Amount\nINV-001,"Acme, Inc.",1200.00\nINV-002,Globex,640.50\n',
+    ).toString("base64"),
     `--${boundary}--`,
     "",
   ].join("\r\n");

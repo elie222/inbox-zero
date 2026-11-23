@@ -61,6 +61,7 @@ import {
 } from "@/utils/outlook/page-token";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { SafeError } from "@/utils/error";
+import { notifyMailboxChanged } from "@/utils/mailbox-push";
 
 const SEARCH_INBOX_MAX_RESULTS = 20;
 const SEARCH_INBOX_PAGE_TOKEN_PREFIX = "search:";
@@ -1137,6 +1138,13 @@ const buildManageInboxTool = ({
     }
   };
 
+  // Provider pushes miss some of these changes, so open mail views would
+  // otherwise keep showing the old state until their next idle sync.
+  const refreshOpenMailViews = async (changedCount: number) => {
+    if (changedCount > 0)
+      await notifyMailboxChanged({ emailAccountId, logger });
+  };
+
   return tool({
     description:
       "Run inbox actions on threads or senders. For emails already shown or found in this turn, prefer thread actions with threadIds. Use archive_threads for ordinary inbox cleanup; only use trash_threads when the user explicitly asks to delete or trash. Use delete_drafts when the user asks to delete drafts. Do not widen a limited thread-level request into sender-wide cleanup. Only use sender-wide cleanup with fromEmails when the user clearly wants all mail from that sender, and get confirmation before doing broad sender-wide cleanup. Only use unsubscribe_senders for an explicit unsubscribe request.",
@@ -1218,6 +1226,7 @@ const buildManageInboxTool = ({
                 email,
                 emailAccountId,
               );
+            await refreshOpenMailViews(archivedMessagesCount);
 
             return withChatTotals(
               {
@@ -1245,6 +1254,7 @@ const buildManageInboxTool = ({
               email,
               emailAccountId,
             );
+          await refreshOpenMailViews(archivedMessagesCount);
 
           return withChatTotals(
             {
@@ -1330,6 +1340,7 @@ const buildManageInboxTool = ({
           .map((result) => result.threadId);
         const successCount =
           threadActionResults.length - failedThreadIds.length;
+        await refreshOpenMailViews(successCount);
 
         return withChatTotals(
           {

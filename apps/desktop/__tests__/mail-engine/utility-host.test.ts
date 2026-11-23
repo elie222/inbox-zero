@@ -176,6 +176,17 @@ describe("desktop mail process owner", () => {
     expect(errors).toEqual([]);
   });
 
+  it("starts the engine with the client version it sends to the mail API", async () => {
+    const child = new FakeChild();
+    const owner = createOwner({ fork: () => child, client: "desktop/0.1.29" });
+    await owner.handleIpc(INSPECT);
+
+    expect(child.sentOfType("start")).toEqual([
+      expect.objectContaining({ origin: ORIGIN, client: "desktop/0.1.29" }),
+    ]);
+    await owner.close();
+  });
+
   it("only gives session cookies to requests for the app origin", async () => {
     const child = new FakeChild();
     const cookieHeader = vi.fn(async () => "session=abc");

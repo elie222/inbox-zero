@@ -1,3 +1,4 @@
+import isEqual from "lodash/isEqual";
 import type {
   DraftContent,
   DraftSaveResult,
@@ -482,36 +483,45 @@ export function createReplyDraftWriter(
       unsavedWrites.delete(draftKey(identity));
       forgetKeptReplyDraft(identity);
     }
-    const operation = pending
-      .catch(() => {})
-      .then(async () => {
-        assertAccountEpoch(identity.emailAccountId, epoch);
-        const previous = drafts.get(draftKey(identity));
-        if ((previous?.revision ?? 0) !== revision) {
-          throw new Error(
-            "This draft changed in another tab. Reopen the composer to load that version.",
-          );
-        }
-        const nextContent =
-          content && withProviderReferences(content, previous?.content);
+    const operation = Promise.allSettled([
+      pending,
+      pendingWrites.get(draftKey(identity)),
+    ]).then(async () => {
+      assertAccountEpoch(identity.emailAccountId, epoch);
+      const previous = drafts.get(draftKey(identity));
+      if ((previous?.revision ?? 0) !== revision) {
+        throw new Error(
+          "This draft has newer edits. Reopen the composer to load them.",
+        );
+      }
+      const nextContent =
+        content && withProviderReferences(content, previous?.content);
+      // Flushing the same snapshot mustn't invalidate a composer that just
+      // loaded it. Still try to persist it in case the last write failed.
+      if (
+        !nextContent ||
+        !previous ||
+        !isEqual(previous.content, nextContent)
+      ) {
+        revision += 1;
         drafts.set(draftKey(identity), {
           ...identity,
           content: nextContent,
-          revision: revision + 1,
+          revision,
           updatedAt,
         });
-        revision += 1;
-        // The list marks the thread as a draft from this change, so it
-        // mustn't wait on the local save.
-        if (Boolean(previous?.content) !== Boolean(content)) {
-          notifyReplyDraftChange(identity);
-        }
-        const persisted = await persistEngineReplyDraft(
-          identity,
-          nextContent,
-        ).catch(() => false);
-        if (persisted && unsaved) forgetUnsavedReplyDraft(unsaved);
-      });
+      }
+      // The list marks the thread as a draft from this change, so it
+      // mustn't wait on the local save.
+      if (Boolean(previous?.content) !== Boolean(content)) {
+        notifyReplyDraftChange(identity);
+      }
+      const persisted = await persistEngineReplyDraft(
+        identity,
+        nextContent,
+      ).catch(() => false);
+      if (persisted && unsaved) forgetUnsavedReplyDraft(unsaved);
+    });
     // A write refused for a conflict or a cleared account isn't the user's
     // latest copy to bring back.
     if (unsaved) operation.catch(() => forgetUnsavedReplyDraft(unsaved));

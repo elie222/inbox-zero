@@ -150,7 +150,9 @@ export type AccountSyncState = {
   accountId: string;
   generation: string;
   assistantCursor: string | null;
-  streams: Array<SyncStreamPosition & { accountId: string }>;
+  streams: Array<
+    SyncStreamPosition & { accountId: string; retryAtMs?: number }
+  >;
   stream: (SyncStreamPosition & { accountId: string }) | null;
 };
 
@@ -290,6 +292,11 @@ export interface MailStore {
   }): Promise<
     { status: "committed"; revision: LocalRevision } | { status: "stale" }
   >;
+  deferSyncStream(input: {
+    accountId: string;
+    position: SyncStreamPosition;
+    retryAtMs: number;
+  }): Promise<void>;
   enqueueHydration(input: {
     keys: MessageKey[];
     purpose: "metadata" | "body";
@@ -369,6 +376,15 @@ export interface MailStore {
    * only the server can still stop.
    */
   readHeldSend(key: OperationKey): Promise<PreparedOperation | null>;
+  /** Cheap enough for periodic health reports. */
+  readInboxFreshness(): Promise<
+    Array<{
+      accountId: string;
+      provider: "google" | "microsoft";
+      connection: "ready" | "offline" | "blocked_auth";
+      newestInboxMessageAtMs: number | null;
+    }>
+  >;
   readMailboxCounts(query: MailboxCountsQuery): Promise<{
     revision: LocalRevision;
     view: MailboxCountsView;

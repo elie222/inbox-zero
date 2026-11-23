@@ -46,7 +46,8 @@ export function toCreateRuleBodyFromAiRule(
       folderName: action.fields?.folderName
         ? { value: action.fields.folderName }
         : undefined,
-      delayInMinutes: action.delayInMinutes,
+      // The LLM schema can't enforce a minimum, so the model may emit 0 for "no delay".
+      delayInMinutes: action.delayInMinutes || null,
     })),
   };
 }

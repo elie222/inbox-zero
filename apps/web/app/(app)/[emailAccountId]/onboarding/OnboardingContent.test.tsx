@@ -23,9 +23,6 @@ vi.mock("@/hooks/useSignupEvent", () => ({ useSignUpEvent: vi.fn() }));
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => ({ emailAccountId: "account-test", provider: "google" }),
 }));
-vi.mock("@/hooks/useOrganizationMembership", () => ({
-  useOrganizationMembership: () => ({ data: {} }),
-}));
 vi.mock("@/hooks/useRules", () => ({ useRules: () => ({ data: [] }) }));
 vi.mock("./useCompleteOnboarding", () => ({
   useCompleteOnboarding: () => ({ destination: "welcome-upgrade" }),
@@ -44,7 +41,6 @@ vi.mock("./StepCustomRules", () => ({ StepCustomRules: () => null }));
 vi.mock("./StepInboxProcessed", () => ({ StepInboxProcessed: () => null }));
 vi.mock("./StepCompanySize", () => ({ StepCompanySize: () => null }));
 vi.mock("./StepHowYouHeard", () => ({ StepHowYouHeard: () => null }));
-vi.mock("./StepInviteTeam", () => ({ StepInviteTeam: () => null }));
 vi.mock("./StepIntent", () => ({ StepIntent: () => null }));
 vi.mock("./StepMailApp", () => ({ StepMailApp: () => null }));
 

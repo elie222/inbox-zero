@@ -91,13 +91,14 @@ describe("emulated Playwright suite selection", () => {
     );
   });
 
-  test("selects the split feature instead of every mail spec", () => {
+  test("selects the split and setup specs for split tab changes", () => {
     const selection = selectChangedPlaywrightTargets(
       "apps/web/app/(app)/[emailAccountId]/mail/SplitTabs.tsx",
       appRoot,
     );
     expect(selection.runFullSuite).toBe(false);
     expect(selection.targetFiles).toEqual([
+      "__tests__/playwright/emulated/mail/mail-setup.spec.ts",
       "__tests__/playwright/emulated/mail/split-tabs.spec.ts",
     ]);
   });
@@ -246,9 +247,11 @@ describe("emulated Playwright suite selection", () => {
       ].join("\n"),
       appRoot,
     );
-    expect(
-      expandPlaywrightTargets(selection.targetFiles, appRoot),
-    ).toHaveLength(2);
+    expect(selection.targetFiles).toEqual([
+      "__tests__/playwright/emulated/mail/reader-visuals.spec.ts",
+      "__tests__/playwright/emulated/mail/mail-setup.spec.ts",
+      "__tests__/playwright/emulated/mail/split-tabs.spec.ts",
+    ]);
   });
   test("selects a route's product area", () => {
     const selection = selectChangedPlaywrightTargets(

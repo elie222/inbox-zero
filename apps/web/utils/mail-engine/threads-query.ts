@@ -89,7 +89,11 @@ export function threadsQueryToPredicate(
   } else if (query.type === "all") {
     clauses.push({ kind: "mailbox", mailbox: "all" });
   } else if (query.type?.startsWith("CATEGORY_")) {
-    clauses.push(gmailTokenToPredicate(query.type));
+    // Like a label, Gmail leaves Trash and Spam out of a category's view.
+    clauses.push(gmailTokenToPredicate(query.type), {
+      kind: "mailbox",
+      mailbox: "all",
+    });
   } else if (
     !query.q &&
     !query.labelId &&
@@ -153,15 +157,21 @@ export function threadsQueryToPredicate(
   }
   if (query.excludeSplits?.length) {
     clauses.push({
-      kind: "not",
+      kind: "no_matching_message",
       predicate: {
-        kind: "any",
-        predicates: query.excludeSplits.map((split) => ({
-          kind: split.matchAll ? "all" : "any",
-          predicates: split.filters.map((filter) =>
-            splitFilterToPredicate(filter, now),
-          ),
-        })),
+        kind: "all",
+        predicates: [
+          { kind: "role", role: "inbox" },
+          {
+            kind: "any",
+            predicates: query.excludeSplits.map((split) => ({
+              kind: split.matchAll ? "all" : "any",
+              predicates: split.filters.map((filter) =>
+                splitFilterToPredicate(filter, now),
+              ),
+            })),
+          },
+        ],
       },
     });
   }

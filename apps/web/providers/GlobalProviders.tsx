@@ -81,7 +81,9 @@ function ManageServiceWorker() {
       }
       cancelPendingUpdate?.();
       if (!claimAutomaticReload()) {
-        cancelPendingUpdate = reloadAtNextSafeMoment(reloadForUpdate);
+        cancelPendingUpdate = reloadAtNextSafeMoment(reloadForUpdate, {
+          waitForVisibilityChange: true,
+        });
         return;
       }
       refreshing = true;

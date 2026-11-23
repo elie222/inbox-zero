@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { MAIL_CLIENT_HEADER } from "@inboxzero/mail-core/protocol/mail-http";
 import { readDesktopAttachment } from "./attachment";
 
 const payload = {
@@ -15,6 +16,7 @@ describe("desktop inline attachment transport", () => {
       await readDesktopAttachment({
         payload,
         origin: "https://mail.example.test",
+        client: "desktop/0.1.29",
         fetch,
       }),
     ).toEqual(bytes);
@@ -27,7 +29,10 @@ describe("desktop inline attachment transport", () => {
     expect(parsed.searchParams.get("attachmentId")).toBe("part/&1");
     expect(parsed.searchParams.get("messageId")).toBe("message-1");
     expect(parsed.searchParams.get("protocolVersion")).toBe("1");
-    expect(init.headers).toEqual({ "X-Email-Account-ID": "account-1" });
+    expect(init.headers).toEqual({
+      "X-Email-Account-ID": "account-1",
+      [MAIL_CLIENT_HEADER]: "desktop/0.1.29",
+    });
     expect(init.credentials).toBe("include");
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });

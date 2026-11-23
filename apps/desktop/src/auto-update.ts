@@ -1,10 +1,17 @@
-import { app, dialog, Notification } from "electron";
+import { app, dialog, Notification, powerMonitor } from "electron";
 import type { AppUpdater, UpdateInfo } from "electron-updater";
 import { captureDesktopError } from "./sentry";
 import { isTransientNetworkError } from "./network-errors";
 import { getDesktopUpdateFeedUrl } from "./update-feed";
 
 export const DESKTOP_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000;
+// A mail client is often left open for days, so waiting for a quit means a
+// downloaded update may never apply. Fifteen minutes without keyboard or mouse
+// input (or a locked screen) means nobody is mid-task, and it is short enough
+// to fire before most machines' default sleep timers. Polling each minute
+// keeps the restart close to that point without measurable cost.
+export const DESKTOP_IDLE_INSTALL_THRESHOLD_SECONDS = 15 * 60;
+export const DESKTOP_IDLE_INSTALL_CHECK_MS = 60 * 1000;
 
 let downloadedVersion: string | null = null;
 let updateEventsBound = false;
@@ -12,6 +19,8 @@ let reportDownloadProgress = false;
 let downloadingVersion: string | null = null;
 let lastReportedPercent: number | null = null;
 let onUpdateReady: ((version: string) => void) | undefined;
+let prepareToQuitWhenIdle: (() => void) | undefined;
+let idleInstallTimer: ReturnType<typeof setInterval> | undefined;
 let onDownloadProgress:
   | ((progress: DesktopDownloadProgress | null) => void)
   | undefined;
@@ -35,6 +44,9 @@ export function resetDesktopAutoUpdateForTests() {
   lastReportedPercent = null;
   onUpdateReady = undefined;
   onDownloadProgress = undefined;
+  prepareToQuitWhenIdle = undefined;
+  clearInterval(idleInstallTimer);
+  idleInstallTimer = undefined;
 }
 
 export function isDesktopUpdateReady() {
@@ -46,9 +58,12 @@ export async function startDesktopAutoUpdate(
   handlers?: {
     onUpdateReady?: (version: string) => void;
     onDownloadProgress?: (progress: DesktopDownloadProgress | null) => void;
+    /** Enables installing a downloaded update once the computer is idle. */
+    prepareToQuit?: () => void;
   },
 ): Promise<boolean> {
   if (!isPackaged) return false;
+  prepareToQuitWhenIdle = handlers?.prepareToQuit;
 
   try {
     const autoUpdater = await getDesktopAutoUpdater(handlers);
@@ -174,7 +189,24 @@ function bindUpdateDownloaded(autoUpdater: AppUpdater) {
     notifyUpdateReady(info.version);
     onUpdateReady?.(info.version);
     stopReportingDownloadProgress();
+    installWhenIdle();
   });
+}
+
+function installWhenIdle() {
+  const prepareToQuit = prepareToQuitWhenIdle;
+  if (!prepareToQuit || idleInstallTimer) return;
+  idleInstallTimer = setInterval(() => {
+    const state = powerMonitor.getSystemIdleState(
+      DESKTOP_IDLE_INSTALL_THRESHOLD_SECONDS,
+    );
+    if (state !== "idle" && state !== "locked") return;
+    // Keep polling: a successful install exits the app, while electron-updater
+    // reports most install failures on its `error` event and returns normally,
+    // so the next idle check is the retry.
+    installDownloadedDesktopUpdate(prepareToQuit).catch(logDesktopUpdateError);
+  }, DESKTOP_IDLE_INSTALL_CHECK_MS);
+  idleInstallTimer.unref();
 }
 
 // Events that arrive before the check resolves have no version yet; the check

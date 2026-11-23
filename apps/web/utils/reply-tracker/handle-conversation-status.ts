@@ -7,6 +7,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { SystemType, ThreadTrackerType } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { sortByInternalDate } from "@/utils/date";
+import { getSendAsEmails, isSentByUser } from "@/utils/email/send-as";
 import { withPrismaRetry } from "@/utils/prisma-retry";
 import {
   buildThreadStatusMessagesForLLM,
@@ -45,9 +46,10 @@ export async function determineConversationStatus({
   });
 
   // For test messages with fake IDs, skip the API call and use the message itself as the thread
-  const threadMessages = isTest
-    ? [message]
-    : await provider.getThreadMessages(message.threadId);
+  const [threadMessages, sendAsEmails] = await Promise.all([
+    isTest ? [message] : provider.getThreadMessages(message.threadId),
+    getSendAsEmails({ provider, userEmail: emailAccount.email, logger }),
+  ]);
 
   if (!threadMessages?.length) {
     logger.error("No thread messages found");
@@ -72,10 +74,13 @@ export async function determineConversationStatus({
 
   const threadMessagesForLLM = buildThreadStatusMessagesForLLM(sortedMessages);
 
-  // Check if the user sent the last email in the thread
   const lastMessage = sortedMessages.at(-1);
   const userSentLastEmail = lastMessage
-    ? provider.isSentMessage(lastMessage)
+    ? isSentByUser({
+        message: lastMessage,
+        userEmails: [emailAccount.email, ...sendAsEmails],
+        provider,
+      })
     : false;
 
   const { status, rationale } = await aiDetermineThreadStatus({

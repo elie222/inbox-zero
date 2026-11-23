@@ -99,9 +99,97 @@ describe("engine catch-up after a long gap", () => {
     expect(source.newestPageReads()).toBe(0);
     await engine.close();
   });
+
+  it("reports how far the local mailbox lags the provider while catching up", async () => {
+    let nowMs = 100_000;
+    const store = await storeWithCheckpoint("h-0", [
+      inboxMessage("seeded", 5000),
+    ]);
+    const engine = createMailEngine({
+      store,
+      source: historySource({ historyPages: 3 }).port,
+      executor: idleExecutor(),
+      runtime: createHostRuntime({ nowMs: () => nowMs }),
+    });
+    const freshness = {
+      provider: "google",
+      connection: "ready",
+      streams: 1,
+      streamsPaused: 0,
+    };
+
+    expect(await engine.getSyncFreshness()).toEqual([
+      {
+        ...freshness,
+        newestInboxMessageAgeMs: 95_000,
+        streamsBehind: 0,
+        oldestStreamCaughtUpAgeMs: null,
+      },
+    ]);
+
+    await engine.runUntil(Date.now() + 2000);
+    nowMs += 30_000;
+
+    expect(await engine.getSyncFreshness()).toEqual([
+      {
+        ...freshness,
+        newestInboxMessageAgeMs: 125_000,
+        streamsBehind: 1,
+        oldestStreamCaughtUpAgeMs: 30_000,
+      },
+    ]);
+
+    for (let run = 0; run < 4; run += 1) {
+      await engine.runUntil(Date.now() + 2000);
+    }
+    nowMs += 1000;
+
+    expect(await engine.getSyncFreshness()).toEqual([
+      {
+        ...freshness,
+        newestInboxMessageAgeMs: 121_000,
+        streamsBehind: 0,
+        oldestStreamCaughtUpAgeMs: 1000,
+      },
+    ]);
+    await engine.close();
+  });
+
+  it("removes mail deleted during catch-up from the inbox and conversation views", async () => {
+    const store = await storeWithCheckpoint("h-0", [
+      inboxMessage("deleted-during-catch-up", 1000),
+    ]);
+    const engine = createMailEngine({
+      store,
+      source: deletionSource("deleted-during-catch-up"),
+      executor: idleExecutor(),
+      runtime: createHostRuntime({ nowMs: () => 1000 }),
+    });
+
+    expect(await inboxSubjects(store)).toContain("deleted-during-catch-up");
+
+    for (let run = 0; run < 3; run += 1) {
+      await engine.runUntil(Date.now() + 2000);
+    }
+
+    expect(await inboxSubjects(store)).not.toContain("deleted-during-catch-up");
+    const conversation = await store.readConversation(
+      {
+        accountId: session.accountId,
+        conversationId: "c-deleted-during-catch-up",
+      },
+      { pageSize: 10, after: null },
+    );
+    expect(conversation.view.messages).toEqual([]);
+    expect(await streamCheckpoint(store)).toBe("h-1");
+    await engine.close();
+  });
 });
 
-async function storeWithCheckpoint(checkpoint: string) {
+async function storeWithCheckpoint(
+  checkpoint: string,
+  changes: ProviderChange[] = [],
+) {
   const store = await createSqliteMailStore(createNodeSqliteDriver());
   await store.ensureAccount({
     accountId: session.accountId,
@@ -115,7 +203,7 @@ async function storeWithCheckpoint(checkpoint: string) {
       requestId: "seed",
       from: { streamId: "primary", generation: "g1", checkpoint: null },
       to: { streamId: "primary", generation: "g1", checkpoint },
-      changes: [],
+      changes,
       requiredHydration: [],
       roundComplete: true,
     },
@@ -249,6 +337,32 @@ function historySource({
     port,
     historyReads: () => historyReads,
     newestPageReads: () => newestPageReads,
+  };
+}
+
+function deletionSource(messageId: string): MailboxSource {
+  return {
+    ...historySource({ historyPages: 1 }).port,
+    async readChanges({ position, requestId }) {
+      return {
+        status: "page",
+        page: {
+          session,
+          requestId,
+          from: position,
+          to: { ...position, checkpoint: "h-1" },
+          changes: [
+            {
+              kind: "message_deleted",
+              key: { accountId: session.accountId, messageId },
+              evidence: "deleted during catch-up",
+            },
+          ],
+          requiredHydration: [],
+          roundComplete: true,
+        },
+      };
+    },
   };
 }
 

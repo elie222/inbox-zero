@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { prepareOutgoingInlineImages } from "./outgoing-inline-images";
+import { publishOutgoingInlineImages } from "./outgoing-inline-images";
 import {
   inlineImageCacheKey,
   retainInlineImages,
@@ -17,13 +17,13 @@ afterEach(async () => {
 });
 
 describe("outgoing inline images", () => {
-  it("keeps an independent preview through the queued-to-confirmed message handoff", async () => {
-    const blob = new Blob(["image"], { type: "image/png" });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({ ok: true, blob: async () => blob }),
-    );
-    const createObjectURL = vi.fn().mockReturnValue("blob:reader-preview");
+  it("keeps both previews through the queued-to-confirmed message handoff", () => {
+    const first = new Blob(["first"], { type: "image/png" });
+    const second = new Blob(["second"], { type: "image/png" });
+    const createObjectURL = vi
+      .fn()
+      .mockReturnValueOnce("blob:reader-first")
+      .mockReturnValueOnce("blob:reader-second");
     vi.stubGlobal(
       "URL",
       class extends URL {
@@ -31,35 +31,38 @@ describe("outgoing inline images", () => {
       },
     );
 
-    const publish = await prepareOutgoingInlineImages("acc-1", [
+    publishOutgoingInlineImages("acc-1", "send-1", [
       {
         disposition: "inline",
-        contentId: "<image@local>",
-        previewUrl: "blob:composer-preview",
+        contentId: "<first@local>",
+        preview: { blob: first },
+      },
+      {
+        disposition: "inline",
+        contentId: "second@local",
+        preview: { blob: second },
       },
     ]);
-    publish("send-1");
 
-    const html = '<img src="cid:image@local">';
+    const html = '<img src="cid:first@local"><img src="cid:second@local">';
+    const rendered =
+      '<img src="blob:reader-first"><img src="blob:reader-second">';
     const queuedKey = inlineImageCacheKey("acc-1", "outgoing:send-1", "send-1");
     const confirmedKey = inlineImageCacheKey(
       "acc-1",
       "provider-message",
       "send-1",
     );
-    expect(withLoadedInlineImages(queuedKey, html)).toContain(
-      'src="blob:reader-preview"',
-    );
-    expect(withLoadedInlineImages(confirmedKey, html)).toContain(
-      'src="blob:reader-preview"',
-    );
+    expect(withLoadedInlineImages(queuedKey, html)).toBe(rendered);
+    expect(withLoadedInlineImages(confirmedKey, html)).toBe(rendered);
     expect(
       withLoadedInlineImages(
         inlineImageCacheKey("acc-2", "provider-message", "send-1"),
         html,
       ),
     ).toBe(html);
-    expect(createObjectURL).toHaveBeenCalledWith(blob);
+    expect(createObjectURL).toHaveBeenNthCalledWith(1, first);
+    expect(createObjectURL).toHaveBeenNthCalledWith(2, second);
   });
 
   it.each([
@@ -76,12 +79,6 @@ describe("outgoing inline images", () => {
         static revokeObjectURL = revokeObjectURL;
       },
     );
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue({ ok: true, blob: async () => new Blob(["image"]) }),
-    );
     const releaseMounted = Array.from({ length: 20 }, (_, index) => {
       const messageId = `mounted-${mountReader}-${index}`;
       const release = retainInlineImages(messageId);
@@ -94,15 +91,14 @@ describe("outgoing inline images", () => {
     });
     let releaseReader: (() => void) | undefined;
     try {
-      const publish = await prepareOutgoingInlineImages("acc-1", [
+      const operationId = `pending-${mountReader}`;
+      publishOutgoingInlineImages("acc-1", operationId, [
         {
           disposition: "inline",
           contentId: "image",
-          previewUrl: "blob:composer-preview",
+          preview: { blob: new Blob(["image"]) },
         },
       ]);
-      const operationId = `pending-${mountReader}`;
-      publish(operationId);
       const key = inlineImageCacheKey("acc-1", "", operationId);
       const html = '<img src="cid:image">';
       expect(withLoadedInlineImages(key, html)).toContain(
@@ -127,29 +123,18 @@ describe("outgoing inline images", () => {
     }
   });
 
-  it("does not block sending when a local preview cannot be read", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("revoked")));
-    const publish = await prepareOutgoingInlineImages("acc-1", [
+  it("ignores regular attachments and inline images without local previews", () => {
+    const html = '<img src="cid:file"><img src="cid:missing">';
+    publishOutgoingInlineImages("acc-1", "send-2", [
       {
-        disposition: "inline",
-        contentId: "missing",
-        previewUrl: "blob:revoked",
+        disposition: "attachment",
+        contentId: "file",
+        preview: { blob: new Blob(["file"]) },
       },
+      { disposition: "inline", contentId: "missing" },
     ]);
-    expect(() => publish("send-2")).not.toThrow();
-  });
-
-  it("ignores regular attachments and remote image URLs", async () => {
-    const fetch = vi.fn();
-    vi.stubGlobal("fetch", fetch);
-    await prepareOutgoingInlineImages("acc-1", [
-      { disposition: "attachment", contentId: "file", previewUrl: "blob:file" },
-      {
-        disposition: "inline",
-        contentId: "remote",
-        previewUrl: "https://example.com/image",
-      },
-    ]);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(
+      withLoadedInlineImages(inlineImageCacheKey("acc-1", "", "send-2"), html),
+    ).toBe(html);
   });
 });

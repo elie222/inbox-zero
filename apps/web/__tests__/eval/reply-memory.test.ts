@@ -16,7 +16,7 @@ import { aiExtractReplyMemoriesFromDraftEdit } from "@/utils/ai/reply/extract-re
 import { aiSummarizeLearnedWritingStyle } from "@/utils/ai/reply/summarize-learned-writing-style";
 import { isDefined } from "@/utils/types";
 
-// EVAL_MODELS=gpt-5.4-mini pnpm test-ai eval/reply-memory
+// EVAL_MODELS=gpt-6-luna pnpm test-ai eval/reply-memory
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/reply-memory
 
 const shouldRunEval = shouldRunEvalTests();

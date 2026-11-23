@@ -68,6 +68,23 @@ test(`${playwrightMailProvider} emulator signs in and creates an app account`, a
       },
     );
     expect(response.ok(), await response.text()).toBe(true);
+    const csvResponse = await page.request.post(
+      `${process.env.MICROSOFT_BASE_URL}/v1.0/me/messages/msg_playwright_reader_visual_received/attachments`,
+      {
+        headers: {
+          Authorization: "Bearer playwright_microsoft_fixture_token",
+        },
+        data: {
+          "@odata.type": "#microsoft.graph.fileAttachment",
+          name: "invoices.csv",
+          contentType: "application/octet-stream",
+          contentBytes: Buffer.from(
+            'Invoice,Customer,Amount\nINV-001,"Acme, Inc.",1200.00\nINV-002,Globex,640.50\n',
+          ).toString("base64"),
+        },
+      },
+    );
+    expect(csvResponse.ok(), await csvResponse.text()).toBe(true);
   }
 
   await markOnboardingComplete(PLAYWRIGHT_TEST_EMAIL);

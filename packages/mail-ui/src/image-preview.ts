@@ -13,6 +13,13 @@ type DecodeWithOptions = (
   options: { parseMN: boolean; debug: boolean },
 ) => IFD[];
 
+const csvTypes = new Set([
+  "text/csv",
+  "application/csv",
+  "text/comma-separated-values",
+  "text/tab-separated-values",
+]);
+
 // Bounds the RGBA buffer a sender can make us allocate (~100 MB).
 const MAX_TIFF_PIXELS = 25_000_000;
 // Byte size per TIFF field type, indexed by type id (1-13).
@@ -37,7 +44,20 @@ export function isPreviewableAttachment({
   return (
     isPreviewableImageType(mimeType) ||
     normalizeMimeType(mimeType) === "application/pdf" ||
-    filename.toLowerCase().endsWith(".pdf")
+    filename.toLowerCase().endsWith(".pdf") ||
+    isCsvAttachment({ mimeType, filename })
+  );
+}
+
+export function isCsvAttachment({
+  mimeType,
+  filename,
+}: {
+  mimeType: string;
+  filename: string;
+}) {
+  return (
+    csvTypes.has(normalizeMimeType(mimeType)) || /\.(csv|tsv)$/i.test(filename)
   );
 }
 

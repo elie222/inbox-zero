@@ -179,6 +179,7 @@ vi.mock("@/hooks/useProductAnalytics", () => ({
 }));
 
 vi.mock("@/providers/ChatProvider", () => ({
+  QueuedMessageNotSentError: class extends Error {},
   useChat: () => ({
     chat: {
       messages: [],
@@ -199,6 +200,9 @@ vi.mock("@/providers/ChatProvider", () => ({
     setAttachments: mockSetAttachments,
     setChatId: mockSetChatId,
     submitTextMessage: mockSubmitTextMessage,
+    queuedMessage: null,
+    sendQueuedMessageNow: vi.fn(),
+    unqueueMessage: vi.fn(),
     stop: mockStop,
   }),
 }));

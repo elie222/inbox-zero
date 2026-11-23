@@ -24,13 +24,23 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { cn } from "@/utils";
 import {
   getAttachmentPreview,
+  isCsvAttachment,
   isPreviewableImageType,
 } from "@inboxzero/mail-ui/image-preview";
 import { fetchAttachment, saveBlob } from "@/utils/attachments/download";
 import { getAttachmentFileType } from "./attachment-file-type";
+import { type CsvPreview, getCsvPreview } from "./csv-preview";
 
 const PREVIEW_MAX_BYTES = 50 * 1024 * 1024;
 type PreviewError = "too_large" | "unavailable" | "load_failed";
@@ -42,6 +52,9 @@ type AttachmentPreview = {
   emailAccountId: string;
 };
 type Gallery = { items: AttachmentPreview[]; index: number };
+type Preview =
+  | { kind: "file"; url: string; type: string }
+  | { kind: "table"; table: CsvPreview };
 
 const PreviewContext = createContext<((gallery: Gallery) => void) | null>(null);
 
@@ -286,7 +299,7 @@ function AttachmentPreviewBody({
   error,
 }: {
   filename: string;
-  preview?: { url: string; type: string };
+  preview?: Preview;
   error?: PreviewError;
 }) {
   if (error)
@@ -304,6 +317,7 @@ function AttachmentPreviewBody({
       </p>
     );
   if (!preview) return <Loader2 className="size-6 animate-spin" />;
+  if (preview.kind === "table") return <CsvTable {...preview.table} />;
   if (preview.type === "application/pdf")
     return (
       <iframe
@@ -325,14 +339,74 @@ function AttachmentPreviewBody({
   );
 }
 
+function CsvTable({ rows, truncated }: CsvPreview) {
+  const [header, ...body] = rows;
+  if (!header)
+    return (
+      <p>
+        {truncated ? (
+          <Trans>This file is too large to preview.</Trans>
+        ) : (
+          <Trans>This file is empty.</Trans>
+        )}
+      </p>
+    );
+  return (
+    <div className="flex size-full flex-col self-stretch bg-background">
+      <Table
+        containerClassName="min-h-0 flex-1"
+        className="w-auto text-foreground text-xs"
+      >
+        <TableHeader sticky>
+          <TableRow>
+            {header.map((cell, index) => (
+              <TableHead
+                key={index}
+                title={cell}
+                className={cn(
+                  CELL_CLASS,
+                  "h-auto font-semibold text-foreground",
+                )}
+              >
+                {cell}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {body.map((row, rowIndex) => (
+            <TableRow key={rowIndex}>
+              {row.map((cell, index) => (
+                <TableCell key={index} title={cell} className={CELL_CLASS}>
+                  {cell}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      {truncated ? (
+        <p className="border-t px-4 py-2 text-muted-foreground">
+          <Trans>
+            Showing part of this file. Download it to see everything.
+          </Trans>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function useAttachmentPreviewFile({
   url,
   emailAccountId,
   size,
+  mimeType,
+  filename,
 }: AttachmentPreview) {
   const tooLarge = size > PREVIEW_MAX_BYTES;
+  const isCsv = isCsvAttachment({ mimeType, filename });
   const [file, setFile] = useState<Blob>();
-  const [preview, setPreview] = useState<{ url: string; type: string }>();
+  const [preview, setPreview] = useState<Preview>();
   const [error, setError] = useState<PreviewError | undefined>(
     tooLarge ? "too_large" : undefined,
   );
@@ -350,14 +424,19 @@ function useAttachmentPreviewFile({
     })
       .then(async (blob) => {
         const typed = await getAttachmentPreview(blob);
+        const table = !typed && isCsv ? await getCsvPreview(blob) : undefined;
         if (controller.signal.aborted) return;
         setFile(blob);
+        if (table) {
+          setPreview({ kind: "table", table });
+          return;
+        }
         if (!typed) {
           setError("unavailable");
           return;
         }
         objectUrl = URL.createObjectURL(typed);
-        setPreview({ url: objectUrl, type: typed.type });
+        setPreview({ kind: "file", url: objectUrl, type: typed.type });
       })
       .catch(() => {
         if (!controller.signal.aborted) setError("load_failed");
@@ -367,7 +446,9 @@ function useAttachmentPreviewFile({
       controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [url, emailAccountId, tooLarge]);
+  }, [url, emailAccountId, tooLarge, isCsv]);
 
   return { file, preview, error };
 }
+
+const CELL_CLASS = "max-w-xs truncate whitespace-nowrap border-r px-3 py-1.5";

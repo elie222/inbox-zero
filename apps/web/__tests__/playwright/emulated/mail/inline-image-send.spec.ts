@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { expect } from "@playwright/test";
+import { expect, type Locator } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
@@ -8,7 +8,7 @@ import {
   openMail,
 } from "./mail-test-helpers";
 
-test("keeps a reply's inline image visible before and after provider confirmation", async ({
+test("keeps both inline images visible before and after provider confirmation", async ({
   page,
 }, testInfo) => {
   test.setTimeout(180_000);
@@ -26,18 +26,24 @@ test("keeps a reply's inline image visible before and after provider confirmatio
   await source
     .getByRole("textbox", { name: "Email message" })
     .fill("An inline image reply.");
-  await source.getByTestId("compose-inline-image-input").setInputFiles({
-    name: "inline-example.png",
-    mimeType: "image/png",
-    buffer: await readFile("public/splash_screens/icon.png"),
-  });
-  await expect(source.locator("img[data-content-id]")).toHaveCount(1);
+  const [first, second] = await Promise.all([
+    readFile("public/icons/icon-192x192.png"),
+    readFile("public/icons/icon-512x512.png"),
+  ]);
+  await source.getByTestId("compose-inline-image-input").setInputFiles([
+    { name: "first.png", mimeType: "image/png", buffer: first },
+    { name: "second.png", mimeType: "image/png", buffer: second },
+  ]);
+  const composerImages = source.locator("img[data-content-id]");
+  await expect(composerImages).toHaveCount(2);
   await expect(
     source.getByRole("list", { name: "Attachments" }).locator("li[aria-busy]"),
   ).toHaveCount(0, { timeout: 90_000 });
-  await source.locator("img[data-content-id]").evaluate((image) => {
-    image.setAttribute("width", "160");
-    image.setAttribute("height", "160");
+  await composerImages.evaluateAll((images) => {
+    for (const image of images) {
+      image.setAttribute("width", "160");
+      image.setAttribute("height", "160");
+    }
   });
   await source.getByRole("button", { name: "Send", exact: true }).click();
 
@@ -50,19 +56,7 @@ test("keeps a reply's inline image visible before and after provider confirmatio
   const row = page.locator(
     `li[data-send-operation-id="${operationId}"]:not([aria-hidden="true"])`,
   );
-  const image = row
-    .locator('iframe[title="Email content preview"]')
-    .first()
-    .contentFrame()
-    .locator('img[src^="blob:"]');
-  await expect(image).toBeVisible();
-  await expect
-    .poll(() =>
-      image.evaluate(
-        (node: HTMLImageElement) => node.complete && node.naturalWidth > 0,
-      ),
-    )
-    .toBe(true);
+  await expectBothImagesLoaded(outgoing);
   await capturePlaywrightCheckpoint(page, testInfo, "queued-inline-image");
 
   await expect(row).not.toHaveAttribute(
@@ -70,13 +64,24 @@ test("keeps a reply's inline image visible before and after provider confirmatio
     /^outgoing:/,
     { timeout: 90_000 },
   );
-  await expect(image).toBeVisible();
-  await expect
-    .poll(() =>
-      image.evaluate(
-        (node: HTMLImageElement) => node.complete && node.naturalWidth > 0,
-      ),
-    )
-    .toBe(true);
+  await expectBothImagesLoaded(row);
   await capturePlaywrightCheckpoint(page, testInfo, "confirmed-inline-image");
 });
+
+async function expectBothImagesLoaded(row: Locator) {
+  const images = row
+    .locator('iframe[title="Email content preview"]')
+    .first()
+    .contentFrame()
+    .locator('img[alt="first.png"], img[alt="second.png"]');
+  await expect
+    .poll(() =>
+      images.evaluateAll((images: HTMLImageElement[]) =>
+        images
+          .filter((image) => image.complete && image.naturalWidth > 0)
+          .map((image) => image.alt)
+          .sort(),
+      ),
+    )
+    .toEqual(["first.png", "second.png"]);
+}

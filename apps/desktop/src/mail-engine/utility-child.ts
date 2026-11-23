@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { MailSyncFreshness } from "@inboxzero/mail-core/engine";
 import {
   createDurationRecorder,
   type DurationSummary,
@@ -11,8 +12,17 @@ import { followMailboxSignal } from "./mailbox-signals";
 import { createDesktopMailOwner, type DesktopMailOwner } from "./owner";
 import { createOriginMailRequest } from "./request";
 
+// Under the host's health timeout, leaving room for the reply.
+const SYNC_FRESHNESS_TIMEOUT_MS = 1000;
+
 export type MainToChildMessage =
-  | { type: "start"; id: string; databasePath: string; origin: string }
+  | {
+      type: "start";
+      id: string;
+      databasePath: string;
+      origin: string;
+      client?: string;
+    }
   | { type: "ipc"; id: string; payload: unknown }
   | { type: "subscribe"; subscriptionId: string; payload: unknown }
   | { type: "unsubscribe"; subscriptionId: string }
@@ -36,6 +46,8 @@ export type ChildHealth = {
   sqliteWriteMs: DurationSummary | null;
   /** Archive, star, send and other commands, until accepted and shown in open views. */
   mailCommandMs: DurationSummary | null;
+  /** One entry per local account, with no account ids. Null before the engine starts. */
+  mailSync: MailSyncFreshness[] | null;
 };
 
 /**
@@ -80,12 +92,16 @@ export function createUtilityChildRuntime(
     return owner;
   }
 
-  function health(): ChildHealth {
+  async function health(): Promise<ChildHealth> {
+    // Read first and bounded, so a read queued behind a long write cannot
+    // push the reply past the host's timeout and lose the drained timings.
+    const mailSync = owner ? await readSyncFreshness(owner) : null;
     return {
       eventLoopDelayMs: eventLoopDelay.drain(),
       sqliteReadMs: sqliteReads.drain(),
       sqliteWriteMs: sqliteWrites.drain(),
       mailCommandMs: mailCommands.drain(),
+      mailSync,
     };
   }
 
@@ -97,6 +113,7 @@ export function createUtilityChildRuntime(
           ...createRoutedBackendPorts(
             createOriginMailRequest({
               origin: message.origin,
+              client: message.client,
               cookieHeader: requestCookieHeader,
             }),
           ),
@@ -187,6 +204,18 @@ export function createUtilityChildRuntime(
       }
     },
   };
+}
+
+function readSyncFreshness(owner: DesktopMailOwner) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    owner.syncFreshness(),
+    new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), SYNC_FRESHNESS_TIMEOUT_MS);
+    }),
+  ])
+    .catch(() => null)
+    .finally(() => clearTimeout(timer));
 }
 
 function isMailCommand(payload: unknown) {

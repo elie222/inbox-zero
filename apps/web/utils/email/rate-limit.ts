@@ -15,6 +15,7 @@ import {
 import {
   calculateRetryDelay,
   extractErrorInfo,
+  getExplicitRetryDelayMs,
   isRetryableError,
 } from "@/utils/gmail/retry";
 import {
@@ -26,6 +27,8 @@ import { getRetryAfterHeaderFromError } from "@/utils/retry/get-retry-after-head
 
 const DEFAULT_RATE_LIMIT_DELAY_MS = 30_000;
 const RETRY_AT_BUFFER_SECONDS = 5;
+// Gmail's per-user quotas reset per minute.
+const GMAIL_QUOTA_WINDOW_MS = 60_000;
 
 export type EmailProviderRateLimitState = {
   provider: EmailProviderRateLimitProvider;
@@ -317,6 +320,8 @@ export function getProviderRateLimitRetryAfterSeconds({
     delayMs = error.retryAt
       ? new Date(error.retryAt).getTime() - Date.now()
       : null;
+  } else if (rateLimitProvider === "google") {
+    delayMs = getGoogleRetryAfterMs(error);
   } else if (rateLimitProvider) {
     delayMs = getProviderRateLimitDelayMs({
       error,
@@ -327,6 +332,21 @@ export function getProviderRateLimitRetryAfterSeconds({
 
   if (!delayMs || delayMs <= 0) return;
   return Math.ceil(delayMs / 1000);
+}
+
+// Without an explicit retry time, Gmail's in-request backoff starts at 1s,
+// which is too short for a client deciding when to come back.
+function getGoogleRetryAfterMs(error: unknown) {
+  const errorInfo = extractErrorInfo(error);
+  if (!isRetryableError(errorInfo).isRateLimit) return null;
+
+  const explicitDelayMs = getExplicitRetryDelayMs(
+    getRetryAfterHeaderFromError(error),
+    errorInfo.errorMessage,
+  );
+  return explicitDelayMs && explicitDelayMs > 0
+    ? explicitDelayMs
+    : GMAIL_QUOTA_WINDOW_MS;
 }
 
 function getGoogleRateLimitDelayMs(error: unknown, attemptNumber: number) {

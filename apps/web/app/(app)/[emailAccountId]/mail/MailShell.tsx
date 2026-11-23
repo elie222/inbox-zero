@@ -127,7 +127,7 @@ import {
 } from "@/utils/email/provider-types";
 import { getOpenInMailboxLabel } from "@/utils/url";
 import { useEmailLabels } from "@/providers/EmailLabelsProvider";
-import { undoLatestToast } from "@/components/Toast";
+import { toastError, toastSuccess, undoLatestToast } from "@/components/Toast";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useLabels } from "@/hooks/useLabels";
 import { useFolders } from "@/hooks/useFolders";
@@ -163,6 +163,7 @@ import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getConversationSubject } from "@/utils/email/subject";
 import { printMessages } from "@/app/(app)/[emailAccountId]/mail/print-messages";
+import { copyMessages } from "@/app/(app)/[emailAccountId]/mail/copy-messages";
 
 // Module-level so an "empty" reader doesn't hand children a new array each render.
 const NO_MESSAGES: ThreadMessage[] = [];
@@ -418,6 +419,7 @@ export function MailShell() {
               name: t`Other`,
               matchAll: true,
               filters: [],
+              hideFromAll: false,
             },
           ]
         : []),
@@ -437,11 +439,27 @@ export function MailShell() {
         deletable: split.filters.length > 0,
         reorderable: split.id !== "all" && split.id !== OTHER_SPLIT_ID,
         bundleEligible:
-          split.id !== OTHER_SPLIT_ID && isBundleEligibleSplit(split),
+          !split.hideFromAll &&
+          split.id !== OTHER_SPLIT_ID &&
+          isBundleEligibleSplit(split),
       })),
     [splits],
   );
+  const showSplitTabs = !isScoped && !searchQuery;
+  const canShowSetup = showSplitTabs && !isAllAccounts && !!settings;
+  const allSplit = splits.find(
+    (split) => !split.filters.length && split.id !== OTHER_SPLIT_ID,
+  );
+  const allSplitId = allSplit?.id;
+  const canEditAll = canShowSetup && isGoogle && !!allSplitId;
+  const editAllOnly = canEditAll && setupParam === "all";
+  const isSetupOpen =
+    canShowSetup &&
+    (editAllOnly ||
+      (setupParam !== null && setupParam !== "all") ||
+      settings.setup === MailSetupState.PENDING);
   const activeSplit =
+    (editAllOnly ? allSplit : undefined) ??
     splits.find((split) => split.id === activeSplitId) ??
     splits.find((split) => split.id === settings?.defaultSplitId) ??
     splits[0];
@@ -723,6 +741,26 @@ export function MailShell() {
         i18n,
       });
   }, [i18n, openMessages]);
+  const copyOpenThread = useMemo(() => {
+    // The reader keeps showing the previous thread until the next one renders.
+    if (openReaderThreadKey !== visibleReaderThreadKey) return;
+    const messages = openMessages.filter(
+      (message) => !message.labelIds?.includes(GmailLabel.DRAFT),
+    );
+    if (!messages.length) return;
+    return async () => {
+      try {
+        await copyMessages({
+          subject: getConversationSubject(messages) ?? "",
+          messages,
+          i18n,
+        });
+        toastSuccess({ description: t`Email copied` });
+      } catch {
+        toastError({ description: t`Unable to copy this email` });
+      }
+    };
+  }, [i18n, openMessages, openReaderThreadKey, t, visibleReaderThreadKey]);
   const teamCommentsAvailable = useTeamCommentsAvailable(readerEmailAccountId);
   const openTeamComments = useMemo(
     () =>
@@ -1312,6 +1350,7 @@ export function MailShell() {
             : undefined,
         snooze: snoozeTargets,
         translate: isReaderTarget ? translateOpenThread : undefined,
+        copyEmail: isReaderTarget ? copyOpenThread : undefined,
         comment: isReaderTarget ? openTeamComments : undefined,
         trash: trashTargets,
       },
@@ -1465,16 +1504,19 @@ export function MailShell() {
   }
   const showList =
     layout === "split" || !openThreadSelection || readerPreparing;
-  const showSplitTabs = !isScoped && !searchQuery;
-  const canShowSetup = showSplitTabs && !isAllAccounts && !!settings;
-  const isSetupOpen =
-    canShowSetup &&
-    (setupParam !== null || settings.setup === MailSetupState.PENDING);
   const closeSetup = () => {
     setSetupParam(null);
-    if (settings?.setup !== MailSetupState.DONE)
+    if (!editAllOnly && settings?.setup !== MailSetupState.DONE)
       updatePreferences({ setup: MailSetupState.DONE });
   };
+  const openAllSettings = useCallback(() => {
+    if (!allSplitId) return;
+    setSearchParam(null);
+    setActiveSplitId(allSplitId);
+    setSetupParam("all");
+  }, [allSplitId, setSearchParam, setActiveSplitId, setSetupParam]);
+  const onOpenAllSettings =
+    canEditAll && !isSetupOpen ? openAllSettings : undefined;
   const canCycleSplits = showSplitTabs && showList;
   const cycleSplit = (step: 1 | -1) => {
     const index = splits.findIndex(
@@ -1579,6 +1621,7 @@ export function MailShell() {
           ? () => window.open(openExternalUrl, "_blank", "noopener,noreferrer")
           : undefined,
       translate: isMailOverlayOpen ? undefined : translateOpenThread,
+      copyEmail: isMailOverlayOpen ? undefined : copyOpenThread,
       undo: async () => {
         await waitForPendingUndoable();
         if (await undoLatestToast()) return;
@@ -1990,7 +2033,10 @@ export function MailShell() {
           {splitPickerDialog}
           {isSetupOpen && (
             <MailSetupPanel
-              splits={splits}
+              key={editAllOnly ? "all" : "setup"}
+              splits={splitTabs}
+              allSplitId={allSplitId}
+              editAllOnly={editAllOnly}
               layout={layout}
               bundleInbox={bundleInbox}
               defaultSplitId={settings.defaultSplitId}
@@ -2051,6 +2097,7 @@ export function MailShell() {
                   isInboxView ? toggleBundleInbox : undefined
                 }
                 onToggleAssistant={onToggleAssistant}
+                onOpenAllSettings={onOpenAllSettings}
                 onOpenSetup={
                   canShowSetup && !isSetupOpen
                     ? () => {
@@ -2089,6 +2136,8 @@ export function MailShell() {
                     splits={splitTabs}
                     activeSplitId={displayedActiveSplitId}
                     onSelectSplit={setActiveSplitId}
+                    allSplitId={allSplitId}
+                    onOpenAllSettings={onOpenAllSettings}
                     isAllAccounts={isAllAccounts}
                     getSenders={getSplitSenders}
                     countAccountIds={splitCountAccountIds}
@@ -2267,6 +2316,7 @@ export function MailShell() {
                 onTranslate={translateOpenThread}
                 onComment={openTeamComments}
                 onPrint={printOpenThread}
+                onCopy={copyOpenThread}
                 isMenuOpen={isMenuOpen}
                 onMenuOpenChange={setIsMenuOpen}
                 enableMessageNavigation={!sidePanelThreadId && !previewThreadId}

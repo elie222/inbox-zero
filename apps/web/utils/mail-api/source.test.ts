@@ -320,6 +320,39 @@ describe("createEmailProviderMailboxSource", () => {
     expect(getMessagesWithPagination).not.toHaveBeenCalled();
   });
 
+  it("honors Retry-After on Outlook folder changes", async () => {
+    const source = createEmailProviderMailboxSource({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        async getMailboxSyncPage() {
+          throw Object.assign(new Error("Too many requests"), {
+            statusCode: 429,
+            headers: new Headers({ "Retry-After": "120" }),
+          });
+        },
+      } as unknown as EmailProvider,
+    });
+
+    await expect(
+      source.readChanges({
+        session: { accountId: "acc-1", generation: "g1" },
+        requestId: "r1",
+        position: {
+          streamId: "inbox",
+          generation: "g1",
+          checkpoint: "folder-cursor",
+        },
+        pageSize: 20,
+        signal: new AbortController().signal,
+      }),
+    ).resolves.toEqual({
+      status: "paused",
+      reason: "throttled",
+      retryAfterMs: 120_000,
+    });
+  });
+
   it("exposes Outlook folders as sync scopes, with custom folders at low priority", async () => {
     const getFolders = vi.fn().mockResolvedValue([
       {

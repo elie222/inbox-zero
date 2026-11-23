@@ -1,7 +1,9 @@
 "use client";
 
 import { CopyIcon, EyeIcon, EyeOffIcon } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
 import { useState } from "react";
+import { toastError } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 
 export function CopyInput({
@@ -11,6 +13,7 @@ export function CopyInput({
   value: string;
   masked?: boolean;
 }) {
+  const { t } = useLingui();
   const [copied, setCopied] = useState(false);
   const [visible, setVisible] = useState(!masked);
 
@@ -22,7 +25,7 @@ export function CopyInput({
         type={visible ? "text" : "password"}
         value={value}
         readOnly
-        disabled
+        disabled={!visible}
       />
       {masked && (
         <Button
@@ -38,10 +41,16 @@ export function CopyInput({
         </Button>
       )}
       <Button
+        type="button"
         variant="outline"
-        onClick={() => {
-          navigator.clipboard.writeText(value);
-          setCopied(true);
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(value);
+            setCopied(true);
+          } catch {
+            setCopied(false);
+            toastError({ description: t`Failed to copy` });
+          }
         }}
       >
         <CopyIcon className="mr-2 size-4" />

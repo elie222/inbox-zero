@@ -201,6 +201,33 @@ describe("chat route rule freshness persistence", () => {
     mockAiProcessAssistantChat.mockResolvedValue(createAssistantStreamResult());
   });
 
+  it("replays previous replies without their conversation-bound reasoning", async () => {
+    const reply = { type: "text", text: "I found three matching messages." };
+    const reasoning = {
+      type: "reasoning",
+      text: "Previous model reasoning",
+      providerOptions: { anthropic: { signature: "previous-signature" } },
+    };
+    const nextTurn = { role: "user", content: "Show me the first one." };
+    mockConvertToModelMessages.mockResolvedValueOnce([
+      { role: "assistant", content: [reasoning, reply] },
+      { role: "assistant", content: [reasoning] },
+      nextTurn,
+    ]);
+    const expected = [{ role: "assistant", content: [reply] }, nextTurn];
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    expect(mockShouldCompact).toHaveBeenCalledWith(expected);
+    expect(mockAiProcessAssistantChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: expected,
+        conversationMessagesForMemory: expected,
+      }),
+    );
+  });
+
   it("passes the chat cursor into assistant processing and persists the highest seen revision", async () => {
     mockAiProcessAssistantChat.mockImplementationOnce(async (args) => {
       args.onRulesStateExposed?.(4);

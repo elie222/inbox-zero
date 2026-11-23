@@ -4,7 +4,7 @@ import { withEmailAccount } from "@/utils/middleware";
 import type { Logger } from "@/utils/logger";
 import { MessagingProvider } from "@/generated/prisma/enums";
 import { getMessagingChannelReconnectMessage } from "@/utils/messaging/channel-validity";
-import { listPrivateChannelsForUser } from "@/utils/messaging/providers/slack/channels";
+import { listChannelsForUser } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 
 export type GetChannelTargetsResponse = Awaited<ReturnType<typeof getData>>;
@@ -60,7 +60,7 @@ async function getData({
         }
 
         const client = createSlackClient(channel.accessToken);
-        const channels = await listPrivateChannelsForUser(
+        const channels = await listChannelsForUser(
           client,
           channel.providerUserId,
         );
