@@ -94,6 +94,7 @@ describe("swr-persistence", () => {
       layout: "SPLIT",
       expandedPreview: true,
       bundleInbox: false,
+      groupBySender: true,
       defaultSplitId: null,
       setup: "DONE",
       splits: [

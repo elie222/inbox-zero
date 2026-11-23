@@ -13,6 +13,7 @@ export async function getMailSettings({
       mailLayout: true,
       mailExpandedPreview: true,
       mailBundleInbox: true,
+      mailGroupBySender: true,
       mailDefaultSplitId: true,
       mailSetup: true,
       mailSplits: {
@@ -38,6 +39,7 @@ export async function getMailSettings({
     layout: emailAccount?.mailLayout ?? null,
     expandedPreview: emailAccount?.mailExpandedPreview ?? false,
     bundleInbox: emailAccount?.mailBundleInbox ?? false,
+    groupBySender: emailAccount?.mailGroupBySender ?? true,
     defaultSplitId: emailAccount?.mailDefaultSplitId ?? null,
     setup: emailAccount?.mailSetup ?? MailSetupState.DONE,
     splits: ensureAllMailSplit(emailAccount?.mailSplits ?? []),

@@ -6814,6 +6814,10 @@ msgstr "日別にグループ化"
 msgid "Group by month"
 msgstr "月別にグループ化"
 
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Group by sender"
+msgstr "送信者別にグループ化"
+
 #: app/(app)/[emailAccountId]/stats/Stats.tsx
 msgid "Group by week"
 msgstr "週別にグループ化"

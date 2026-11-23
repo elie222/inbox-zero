@@ -274,6 +274,7 @@ export function MailShell() {
     settings?.layout === MailLayout.SPLIT ? "split" : "list";
   const expandedPreview = settings?.expandedPreview ?? false;
   const bundleInbox = settings?.bundleInbox ?? false;
+  const groupBySender = settings?.groupBySender ?? true;
 
   // Written through the SWR cache rather than mirrored in local state, so the
   // preference has one source of truth and every reader sees the new value.
@@ -330,6 +331,11 @@ export function MailShell() {
     // Turning bundling on picks default splits on the server.
     if (enabling) mutateSettings();
   }, [bundleInbox, mutateSettings, updatePreferences]);
+
+  const toggleGroupBySender = useCallback(
+    () => updatePreferences({ groupBySender: !groupBySender }),
+    [groupBySender, updatePreferences],
+  );
 
   // A sidebar selection scopes the whole list, which replaces the split tabs —
   // splits are a way of slicing the inbox, not of slicing an arbitrary view.
@@ -541,10 +547,13 @@ export function MailShell() {
   }, []);
   const { rows: threads, rowBundles } = useMemo(
     () =>
-      bundleInbox && isInboxView
+      (bundleInbox || groupBySender) && isInboxView
         ? bundleInboxThreads({
             threads: listedThreads,
             splits: settings?.splits ?? [],
+            bundleSplits: bundleInbox,
+            groupBySender,
+            userEmail,
             expandedBundleIds,
             // A sign-in code is wanted now, so it never waits inside a bundle.
             keepVisible: (thread) => isOtpThread(thread, userLabels),
@@ -552,9 +561,11 @@ export function MailShell() {
         : { rows: listedThreads, rowBundles: undefined },
     [
       bundleInbox,
+      groupBySender,
       isInboxView,
       listedThreads,
       settings?.splits,
+      userEmail,
       expandedBundleIds,
       userLabels,
     ],
@@ -2095,6 +2106,10 @@ export function MailShell() {
                 bundleInbox={bundleInbox}
                 onToggleBundleInbox={
                   isInboxView ? toggleBundleInbox : undefined
+                }
+                groupBySender={groupBySender}
+                onToggleGroupBySender={
+                  isInboxView ? toggleGroupBySender : undefined
                 }
                 onToggleAssistant={onToggleAssistant}
                 onOpenAllSettings={onOpenAllSettings}
