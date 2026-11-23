@@ -128,11 +128,19 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
     posthog,
   ]);
 
+  const onSkip = () => {
+    posthog?.capture("onboarding_unsubscribe_skipped", {
+      selectedCount: selectedSenders.length,
+      totalSuggestions: suggestions.length,
+    });
+    onNext();
+  };
+
   if (!emailAccountId) return null;
 
   // The shape of the list, not the static content, so the screen doesn't swap
   // out from under the user once the personalized version arrives.
-  if (isLoading && !data) return <LoadingBulkUnsubscribeStep />;
+  if (isLoading && !data) return <LoadingBulkUnsubscribeStep onSkip={onSkip} />;
 
   // On error or with nothing to suggest, fall back to the static marketing
   // content — onboarding must never feel broken.
@@ -147,14 +155,6 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
       else next.add(name);
       return next;
     });
-  };
-
-  const onSkip = () => {
-    posthog?.capture("onboarding_unsubscribe_skipped", {
-      selectedCount: selectedSenders.length,
-      totalSuggestions: suggestions.length,
-    });
-    onNext();
   };
 
   const onUnsubscribeSelected = async () => {
@@ -264,7 +264,7 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
   );
 }
 
-function LoadingBulkUnsubscribeStep() {
+function LoadingBulkUnsubscribeStep({ onSkip }: { onSkip?: () => void }) {
   const { t } = useLingui();
 
   return (
@@ -291,8 +291,13 @@ function LoadingBulkUnsubscribeStep() {
           </ul>
         </div>
 
-        <div className="mt-7 flex justify-center">
+        <div className="mt-7 flex flex-col items-center gap-3">
           <Skeleton className="h-11 w-full max-w-xs rounded-md" />
+          {onSkip && (
+            <Button variant="link" size="sm" onClick={onSkip}>
+              <Trans>Skip for now</Trans>
+            </Button>
+          )}
         </div>
       </output>
     </div>
