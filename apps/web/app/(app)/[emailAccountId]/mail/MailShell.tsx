@@ -1970,6 +1970,27 @@ export function MailShell() {
     rowBundles,
     selectedIds,
   ]);
+  const collapsedRowKeys = useMemo(
+    () =>
+      new Set(
+        [...(rowBundles ?? [])]
+          .filter(([, row]) => row.kind === "collapsed")
+          .map(([key]) => key),
+      ),
+    [rowBundles],
+  );
+  const previousCollapsedRowKeys = useRef(collapsedRowKeys);
+  useEffect(() => {
+    const previous = previousCollapsedRowKeys.current;
+    previousCollapsedRowKeys.current = collapsedRowKeys;
+    // A selected email that new mail turns into the head of a bundle row
+    // would otherwise stand for the whole bundle, widening what acts on.
+    const widened = [...selectedIds].filter(
+      (key) => collapsedRowKeys.has(key) && !previous.has(key),
+    );
+    if (!widened.length) return;
+    replaceSelection([...selectedIds].filter((key) => !widened.includes(key)));
+  }, [collapsedRowKeys, replaceSelection, selectedIds]);
   const threadCount = threads.length;
   const { selectedCount, selectAll, clear: clearSelection } = selection;
   // Only offered once something is selected, so the tabs sit flush otherwise.
