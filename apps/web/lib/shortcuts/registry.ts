@@ -175,6 +175,25 @@ const SHORTCUT_DEFINITIONS = [
     allowWhileTyping: true,
     desktopOnly: true,
   },
+  // Handled by the desktop app's View menu; listed so help and tooltips show them.
+  {
+    id: "goBack",
+    keys: ["mod+["],
+    display: ["modorctrl+["],
+    scope: "mail",
+    group: "Navigate",
+    label: msg`Go back`,
+    desktopOnly: true,
+  },
+  {
+    id: "goForward",
+    keys: ["mod+]"],
+    display: ["modorctrl+]"],
+    scope: "mail",
+    group: "Navigate",
+    label: msg`Go forward`,
+    desktopOnly: true,
+  },
   {
     id: "backToApp",
     keys: ["g>a"],

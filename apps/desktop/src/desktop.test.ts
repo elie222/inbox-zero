@@ -410,6 +410,7 @@ describe("desktop shell helpers", () => {
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
       "[data-desktop-mac-titlebar-toggle]",
     );
+    expect(DESKTOP_WINDOW_DRAG_CSS).toContain("[data-desktop-mac-history]");
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
       "--desktop-traffic-lights-width: 78px",
     );

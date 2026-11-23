@@ -243,14 +243,22 @@ export function MailShell() {
   }, []);
 
   const isAllAccounts = accountScope === "all";
+  // Each email opened or closed gets its own history entry, so Back returns to
+  // it. Corrections that only undo or rename the current entry replace it.
   const setOpenThread = useCallback(
-    (selection: ThreadSelection | null) => {
+    (
+      selection: ThreadSelection | null,
+      { history = "push" }: { history?: "push" | "replace" } = {},
+    ) => {
       setIsMenuOpen(false);
-      return setOpenThreadQuery({
-        "thread-id": selection?.threadId ?? null,
-        "thread-account-id":
-          isAllAccounts && selection ? selection.emailAccountId : null,
-      });
+      return setOpenThreadQuery(
+        {
+          "thread-id": selection?.threadId ?? null,
+          "thread-account-id":
+            isAllAccounts && selection ? selection.emailAccountId : null,
+        },
+        { history },
+      );
     },
     [isAllAccounts, setOpenThreadQuery],
   );
@@ -1069,7 +1077,7 @@ export function MailShell() {
             getFocusedIndex() === advancedTo.bundleIndex);
       if (removedOpenThreadKey && !queuedOpenThread && stayedWhereAdvanced) {
         setFocusedIndex(focusedIndex);
-        setOpenThread(openThreadSelection);
+        setOpenThread(openThreadSelection, { history: "replace" });
       }
       if (!queuedThreadKeys.length && !hadSelection) return;
       if (
@@ -1077,7 +1085,7 @@ export function MailShell() {
         !autoAdvanceReader &&
         getOpenThreadKey() === removedOpenThreadKey
       ) {
-        setOpenThread(null);
+        setOpenThread(null, { history: "replace" });
       }
       selection.clear();
       if (hadSelection && queuedThreadKeys.length < ids.length) {
@@ -1759,10 +1767,13 @@ export function MailShell() {
       )
         return;
       setReplyToMessageId(undefined);
-      setOpenThread({
-        emailAccountId: openThreadSelection.emailAccountId,
-        threadId: sentThreadId,
-      });
+      setOpenThread(
+        {
+          emailAccountId: openThreadSelection.emailAccountId,
+          threadId: sentThreadId,
+        },
+        { history: "replace" },
+      );
     },
   );
   const searchFolders = useMemo(
