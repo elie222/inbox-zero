@@ -1739,10 +1739,15 @@ function mockPendingSendFailure(error: unknown, provider = "microsoft") {
       updatedAt: new Date("2026-02-23T00:00:00.000Z"),
       parts: [buildPendingSendPart()],
     } as any)
-    .mockResolvedValueOnce({
-      id: "chat-message-1",
-      parts: [buildProcessingSendPart()],
-    } as any);
+    // The reload sees the processing lease this request just saved.
+    .mockImplementationOnce(
+      async () =>
+        ({
+          id: "chat-message-1",
+          parts: (prisma.chatMessage.updateMany.mock.calls[0][0] as any).data
+            .parts,
+        }) as any,
+    );
 
   prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as any);
 

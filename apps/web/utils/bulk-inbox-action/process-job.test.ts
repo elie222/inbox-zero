@@ -6,6 +6,7 @@ import { aiFilterEmailsForBulkAction } from "@/utils/ai/bulk-inbox-action/filter
 import { createEmailProvider } from "@/utils/email/provider";
 import { ProviderRateLimitModeError } from "@/utils/email/rate-limit-mode-error";
 import { createScopedLogger } from "@/utils/logger";
+import { notifyMailboxChanged } from "@/utils/mailbox-push";
 import { sleep } from "@/utils/sleep";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -19,6 +20,7 @@ vi.mock("@/utils/ai/bulk-inbox-action/filter-emails", () => ({
   aiFilterEmailsForBulkAction: vi.fn(),
 }));
 vi.mock("@/utils/sleep", () => ({ sleep: vi.fn() }));
+vi.mock("@/utils/mailbox-push");
 
 const logger = createScopedLogger("bulk-inbox-action-test");
 const CHUNK_TOKEN = "token-1";
@@ -45,6 +47,10 @@ describe("processBulkInboxActionJobChunk", () => {
 
     expect(outcome.status).toBe("completed");
     expect(mailbox.inboxThreadIds()).toEqual([]);
+    // Open mail views sync as batches land instead of waiting for idle sync.
+    expect(notifyMailboxChanged).toHaveBeenCalledWith(
+      expect.objectContaining({ emailAccountId: job.emailAccountId }),
+    );
     expect(job).toMatchObject({
       status: "COMPLETED",
       processedCount: 120,

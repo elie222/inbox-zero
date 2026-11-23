@@ -156,6 +156,10 @@ test("walks a new mail user through setup with a live preview", async ({
 
   await panel.getByRole("button", { name: "Next" }).click();
   await panel.getByRole("switch", { name: "Bundle my inbox" }).click();
+  await expect(
+    panel.getByRole("switch", { name: "Project Alpha" }),
+  ).toBeHidden();
+  await expect(panel.getByRole("switch", { name: "Newsletter" })).toBeVisible();
   await shot(page, testInfo, "6-bundles");
 
   await panel.getByRole("button", { name: "Done" }).click();
@@ -196,6 +200,114 @@ test("suggests setup to existing users without opening it", async ({
   await page.getByRole("menuitem", { name: "Set up your inbox" }).click();
   await expect(panel).toBeVisible();
   await expect(page).toHaveURL(/setup=1/);
+});
+
+test("edits what All shows directly from the inbox", async ({
+  page,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  await withClient((client) =>
+    client.query(
+      `UPDATE "EmailAccount" SET "mailSetup" = 'SUGGESTED' WHERE id = $1`,
+      [emailAccountId],
+    ),
+  );
+  await page.goto(`/${emailAccountId}/mail`, { waitUntil: "domcontentloaded" });
+  const allTab = page.getByRole("button", { name: "All", exact: true });
+  const unreadTab = page.getByRole("button", { name: "Unread", exact: true });
+  const panel = page.getByRole("region", { name: "What should All show?" });
+  const projectSwitch = panel.getByRole("switch", { name: "Project Alpha" });
+  const projectThread = page
+    .getByRole("listbox", { name: "Conversations" })
+    .getByRole("option")
+    .filter({ hasText: "Project Alpha" });
+
+  await unreadTab.click({ timeout: 60_000 });
+  await allTab.click({ button: "right" });
+  await expect(
+    page.getByRole("menuitem", { name: "Turn off split" }),
+  ).toBeHidden();
+  const allSettings = page.getByRole("menuitem", {
+    name: "Choose what All shows",
+  });
+  await shot(page, testInfo, "all-tab-menu");
+  await allSettings.click();
+
+  await expect(allTab).toHaveAttribute("aria-current", "true");
+  await expect(projectThread).toHaveCount(1);
+  await expect(projectSwitch).toBeChecked();
+  await projectSwitch.click();
+  await expect(projectSwitch).toBeEnabled();
+  await expect(projectThread).toHaveCount(0);
+  await shot(page, testInfo, "all-tab-settings");
+  await panel.getByRole("button", { name: "Done" }).click();
+  await expect(panel).toBeHidden();
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "View options" }).click();
+  await expect(
+    page.getByRole("menuitem", { name: "Set up your inbox" }),
+  ).toBeVisible();
+  await allSettings.click();
+  await expect(projectSwitch).not.toBeChecked();
+  await projectSwitch.click();
+  await expect(projectSwitch).toBeEnabled();
+  await expect(projectThread).toHaveCount(1);
+
+  const unreadId = await unreadTab.getAttribute("data-split-tab");
+  await page.goto(`/${emailAccountId}/mail?setup=all&split=${unreadId}`, {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(panel).toBeVisible();
+  await expect(allTab).toHaveAttribute("aria-current", "true");
+  await expect(projectThread).toHaveCount(1);
+});
+
+test("toggles inbox grouping from a split tab", async ({ page }, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  await withClient((client) =>
+    client.query(
+      `UPDATE "EmailAccount" SET "mailSetup" = 'DONE', "mailBundleInbox" = true WHERE id = $1`,
+      [emailAccountId],
+    ),
+  );
+  await page.goto(`/${emailAccountId}/mail`, { waitUntil: "domcontentloaded" });
+  const projectTab = page.getByRole("button", {
+    name: "Project Alpha",
+    exact: true,
+  });
+  const grouping = page.getByRole("menuitemcheckbox", {
+    name: "Bundle in All",
+  });
+  await projectTab.click({ button: "right", timeout: 60_000 });
+  await expect(grouping).not.toBeChecked();
+  await shot(page, testInfo, "split-menu-grouping-off");
+  await grouping.click();
+
+  await projectTab.click({ button: "right" });
+  await expect(grouping).toBeChecked();
+  await shot(page, testInfo, "split-menu-grouping-on");
+  await grouping.click();
+
+  await projectTab.click({ button: "right" });
+  await expect(grouping).not.toBeChecked();
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "All", exact: true }).click({
+    button: "right",
+  });
+  await page.getByRole("menuitem", { name: "Choose what All shows" }).click();
+  const panel = page.getByRole("region", { name: "What should All show?" });
+  const projectSwitch = panel.getByRole("switch", { name: "Project Alpha" });
+  await projectSwitch.click();
+  await expect(projectSwitch).toBeEnabled();
+  await panel.getByRole("button", { name: "Done" }).click();
+
+  await projectTab.click({ button: "right" });
+  await expect(
+    page.getByRole("menuitem", { name: "Edit filters and name" }),
+  ).toBeVisible();
+  await expect(grouping).toBeHidden();
 });
 
 async function shot(

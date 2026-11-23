@@ -6,7 +6,7 @@ import { msg } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { CheckIcon, LayersIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
-import { isBundleEligibleSplit } from "@/app/(app)/[emailAccountId]/mail/inbox-bundles";
+import type { MailSplitTab } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -28,10 +28,7 @@ import type { UpdateMailPreferencesBody } from "@/utils/actions/mail-split.valid
 import { cn } from "@/utils";
 import { getActionErrorMessage } from "@/utils/error";
 import { getDefaultMailSplitDrafts } from "@/utils/split-inbox/default-splits";
-import {
-  OTHER_SPLIT_ID,
-  type MailSplit,
-} from "@/utils/split-inbox/split-query";
+import type { MailSplit } from "@/utils/split-inbox/split-query";
 
 type Step = "layout" | "tabs" | "all" | "default" | "bundles";
 
@@ -49,6 +46,8 @@ const STEP_QUESTIONS: Record<Step, MessageDescriptor> = {
  */
 export function MailSetupPanel({
   splits,
+  allSplitId,
+  editAllOnly,
   layout,
   bundleInbox,
   defaultSplitId,
@@ -60,7 +59,9 @@ export function MailSetupPanel({
   supportsStarred,
 }: {
   /** The tabs as shown, including Other. */
-  splits: MailSplit[];
+  splits: (MailSplit & MailSplitTab)[];
+  allSplitId: string | undefined;
+  editAllOnly: boolean;
   layout: MailLayoutMode;
   bundleInbox: boolean;
   defaultSplitId: string | null;
@@ -82,12 +83,9 @@ export function MailSetupPanel({
   const steps: Step[] = canHideFromAll
     ? ["layout", "tabs", "all", "default", "bundles"]
     : ["layout", "tabs", "default", "bundles"];
-  const step = steps[stepIndex];
-  const isLastStep = stepIndex === steps.length - 1;
+  const step = editAllOnly ? "all" : steps[stepIndex];
+  const isLastStep = editAllOnly || stepIndex === steps.length - 1;
 
-  const allSplit = splits.find(
-    (split) => !split.filters.length && split.id !== OTHER_SPLIT_ID,
-  );
   const filteredSplits = splits.filter((split) => split.filters.length > 0);
   const defaultId = splits.some((split) => split.id === defaultSplitId)
     ? defaultSplitId
@@ -136,8 +134,8 @@ export function MailSetupPanel({
   const goTo = (index: number) => {
     setStepIndex(index);
     // These steps change what the inbox tab shows, so show it.
-    if ((steps[index] === "all" || steps[index] === "bundles") && allSplit)
-      onSelectSplit(allSplit.id);
+    if ((steps[index] === "all" || steps[index] === "bundles") && allSplitId)
+      onSelectSplit(allSplitId);
   };
 
   const runSplitChange = async (
@@ -194,36 +192,49 @@ export function MailSetupPanel({
     );
   };
 
+  const question = i18n._(STEP_QUESTIONS[step]);
+
   return (
     <section
-      aria-label={t`Mail setup`}
-      className="fixed right-4 bottom-4 left-4 z-40 flex max-h-[min(32rem,calc(100vh-2rem))] flex-col overflow-hidden rounded-xl border border-blue-200 bg-popover dark:border-blue-900 text-popover-foreground text-sm shadow-xl sm:left-auto sm:w-96"
+      aria-label={editAllOnly ? question : t`Mail setup`}
+      className={cn(
+        "fixed right-4 bottom-4 left-4 z-40 flex max-h-[min(32rem,calc(100vh-2rem))] flex-col overflow-hidden rounded-xl border bg-popover text-popover-foreground text-sm shadow-xl sm:left-auto sm:w-96",
+        !editAllOnly && "border-blue-200 dark:border-blue-900",
+      )}
     >
-      <div className="h-1 bg-blue-100 dark:bg-blue-950" aria-hidden>
-        <div
-          className="h-full rounded-r-full [background-image:var(--button-gradient)] transition-[width] duration-300"
-          style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }}
-        />
-      </div>
-      <header className="bg-gradient-to-b from-blue-50 to-transparent px-4 pt-3 pb-2 dark:from-blue-950/40">
-        <div className="flex items-center justify-between">
-          <span className="font-medium text-blue-600 dark:text-blue-400">
-            <Trans>
-              Step {stepIndex + 1} of {steps.length}
-            </Trans>
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t`Close mail setup`}
-            className="-mr-1.5 flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <XIcon className="size-4" />
-          </button>
+      {!editAllOnly && (
+        <div className="h-1 bg-blue-100 dark:bg-blue-950" aria-hidden>
+          <div
+            className="h-full rounded-r-full [background-image:var(--button-gradient)] transition-[width] duration-300"
+            style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }}
+          />
         </div>
-        <h2 className="mt-1 font-medium text-base">
-          {i18n._(STEP_QUESTIONS[step])}
-        </h2>
+      )}
+      <header
+        className={cn(
+          "px-4 pt-3 pb-2",
+          !editAllOnly &&
+            "bg-gradient-to-b from-blue-50 to-transparent dark:from-blue-950/40",
+        )}
+      >
+        {!editAllOnly && (
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-blue-600 dark:text-blue-400">
+              <Trans>
+                Step {stepIndex + 1} of {steps.length}
+              </Trans>
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t`Close mail setup`}
+              className="-mr-1.5 flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <XIcon className="size-4" />
+            </button>
+          </div>
+        )}
+        <h2 className="mt-1 font-medium text-base">{question}</h2>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
@@ -333,14 +344,14 @@ export function MailSetupPanel({
               }}
             />
             {bundleInbox &&
-              (settings?.splits ?? [])
-                .filter(isBundleEligibleSplit)
+              splits
+                .filter((split) => split.bundleEligible)
                 .map((split) => (
                   <SwitchRow
                     key={split.id}
                     label={split.name}
                     inset
-                    checked={split.bundleInInbox}
+                    checked={!!split.bundleInInbox}
                     disabled={!!busyId}
                     onCheckedChange={(checked) =>
                       setSplitFlag(split.id, { bundleInInbox: checked })
@@ -359,7 +370,7 @@ export function MailSetupPanel({
         )}
         <Button
           size="sm"
-          variant="gradient"
+          variant={editAllOnly ? "outline" : "gradient"}
           onClick={() => (isLastStep ? onClose() : goTo(stepIndex + 1))}
         >
           {isLastStep ? <Trans>Done</Trans> : <Trans>Next</Trans>}

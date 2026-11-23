@@ -18,6 +18,9 @@ import {
 import { preparedOperationSchema, targetOutcomeSchema } from "../operations";
 import { MAX_CHANGES_BATCH_READS } from "../ports/mailbox-source";
 
+/** Sent by native clients as `<client>/<version>` so server logs show which build made a request. */
+export const MAIL_CLIENT_HEADER = "x-inbox-zero-client";
+
 export const mailProtocolVersionSchema = z.literal(MAIL_PROTOCOL_VERSION);
 
 export const mailHttpErrorCodeSchema = z.enum([

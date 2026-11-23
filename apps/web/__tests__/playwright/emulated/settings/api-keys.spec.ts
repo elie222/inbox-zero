@@ -49,6 +49,27 @@ test("creates, authorizes, lists, and revokes an API key", async ({
     .inputValue();
   expect(secretKey.length).toBeGreaterThan(32);
 
+  await page.evaluate(() => {
+    Object.defineProperty(navigator.clipboard, "writeText", {
+      configurable: true,
+      value: () =>
+        Promise.reject(
+          new DOMException("Permission denied", "NotAllowedError"),
+        ),
+    });
+  });
+  const copyButton = createDialog.getByRole("button", {
+    name: "Copy",
+    exact: true,
+  });
+  await copyButton.click();
+  const copyError = page.getByText("Failed to copy", { exact: true });
+  await expect(copyError).toBeVisible();
+  await expect(copyButton).toBeVisible();
+  await copyError.screenshot({
+    path: test.info().outputPath("clipboard-denied.png"),
+  });
+
   const authorizedResponse = await request.get("/api/v1/rules", {
     headers: { "API-Key": secretKey },
   });

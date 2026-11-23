@@ -6,7 +6,7 @@ import {
 import prisma from "@/utils/prisma";
 import {
   getChannelInfo,
-  listPrivateChannelsForUser,
+  listChannelsForUser,
 } from "./providers/slack/channels";
 import { createSlackClient } from "./providers/slack/client";
 import { sendChannelConfirmation } from "./providers/slack/send";
@@ -111,27 +111,15 @@ export async function resolveSlackRouteTarget({
     throw new SafeError("Could not find the selected Slack channel");
   }
 
-  if (!channelInfo.isPrivate) {
-    logger.error("Slack channel target is not private", { targetId });
-    throw new SafeError(
-      "Only private channels are allowed. Please select a private channel.",
-    );
-  }
-
   if (!providerUserId) {
     logger.error("Slack channel target cannot be validated without user id", {
       targetId,
     });
-    throw new SafeError(
-      "Please reconnect Slack before selecting a private channel.",
-    );
+    throw new SafeError("Please reconnect Slack before selecting a channel.");
   }
 
-  const availablePrivateChannels = await listPrivateChannelsForUser(
-    client,
-    providerUserId,
-  );
-  const isAvailableToUser = availablePrivateChannels.some(
+  const availableChannels = await listChannelsForUser(client, providerUserId);
+  const isAvailableToUser = availableChannels.some(
     (channel) => channel.id === targetId,
   );
 
@@ -139,9 +127,7 @@ export async function resolveSlackRouteTarget({
     logger.error("Slack channel target is unavailable to user", {
       targetId,
     });
-    throw new SafeError(
-      "Only private channels you are a member of are allowed. Please select one of your private channels.",
-    );
+    throw new SafeError("You can only select channels you are a member of.");
   }
 
   return {

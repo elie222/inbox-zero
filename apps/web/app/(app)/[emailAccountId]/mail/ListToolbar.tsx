@@ -88,6 +88,7 @@ export type ListToolbarProps = {
   /** Omitted outside the single-account inbox, where bundling never applies. */
   onToggleBundleInbox?: () => void;
   onToggleAssistant: () => void;
+  onOpenAllSettings?: () => void;
   /** Omitted where the setup card can't apply, or while it's open. */
   onOpenSetup?: () => void;
   /** Marks the view options menu until the reader has been through setup once. */
@@ -130,6 +131,7 @@ export const ListToolbar = memo(function ListToolbar({
   bundleInbox,
   onToggleBundleInbox,
   onToggleAssistant,
+  onOpenAllSettings,
   onOpenSetup,
   isSetupSuggested,
   selectAll,
@@ -325,6 +327,7 @@ export const ListToolbar = memo(function ListToolbar({
           onTogglePreview={onTogglePreview}
           bundleInbox={bundleInbox}
           onToggleBundleInbox={onToggleBundleInbox}
+          onOpenAllSettings={onOpenAllSettings}
           onOpenSetup={onOpenSetup}
           isSetupSuggested={isSetupSuggested}
         />
@@ -606,6 +609,7 @@ function ViewOptionsMenu({
   onTogglePreview,
   bundleInbox,
   onToggleBundleInbox,
+  onOpenAllSettings,
   onOpenSetup,
   isSetupSuggested,
 }: Pick<
@@ -616,6 +620,7 @@ function ViewOptionsMenu({
   | "onTogglePreview"
   | "bundleInbox"
   | "onToggleBundleInbox"
+  | "onOpenAllSettings"
   | "onOpenSetup"
   | "isSetupSuggested"
 >) {
@@ -666,19 +671,22 @@ function ViewOptionsMenu({
             {getShortcutHint("toggleLayout")}
           </DropdownMenuShortcut>
         </DropdownMenuCheckboxItem>
-        {onOpenSetup ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onOpenSetup}>
-              <SettingsIcon className="mr-2 size-4" />
-              {isSetupSuggested ? (
-                <Trans>Set up your inbox</Trans>
-              ) : (
-                <Trans>Run mail setup again</Trans>
-              )}
-            </DropdownMenuItem>
-          </>
-        ) : null}
+        {(onOpenAllSettings || onOpenSetup) && <DropdownMenuSeparator />}
+        {onOpenAllSettings && (
+          <DropdownMenuItem onSelect={onOpenAllSettings} inset>
+            <Trans>Choose what All shows</Trans>
+          </DropdownMenuItem>
+        )}
+        {onOpenSetup && (
+          <DropdownMenuItem onSelect={onOpenSetup}>
+            <SettingsIcon className="size-4" />
+            {isSetupSuggested ? (
+              <Trans>Set up your inbox</Trans>
+            ) : (
+              <Trans>Run mail setup again</Trans>
+            )}
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

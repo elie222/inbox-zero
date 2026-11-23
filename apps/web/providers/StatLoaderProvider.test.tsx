@@ -98,7 +98,7 @@ describe("statistics request lifecycle", () => {
   it("stops a manual import on failure, shows the error and permits retry", async () => {
     mocks.fetch
       .mockResolvedValueOnce(
-        new Response('{"error":"rate limited"}', { status: 429 }),
+        new Response('{"error":"server error"}', { status: 500 }),
       )
       .mockResolvedValue(new Response("{}"));
     const { result } = renderHook(useStatLoader, {
@@ -150,3 +150,146 @@ describe("statistics request lifecycle", () => {
     expect(result.current.isLoading).toBe(false);
   });
 });
+
+describe("manual import under provider rate limits", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ now: new Date("2026-11-15T12:00:00Z") });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const batchOptions = { loadBefore: true, showToast: true };
+
+  it("waits at least a minute when Retry-After is shorter, then finishes the import", async () => {
+    // A per-minute quota cannot recover in 1s, which is what the route can report.
+    mocks.fetch
+      .mockResolvedValueOnce(rateLimitedResponse("1"))
+      .mockImplementation(() => Promise.resolve(new Response("{}")));
+    const { result } = renderHook(useStatLoader, {
+      wrapper: StatLoaderProvider,
+    });
+    let batch!: Promise<void>;
+    act(() => {
+      batch = result.current.onLoadBatch(batchOptions);
+    });
+    await act(() => vi.advanceTimersByTimeAsync(0));
+
+    expect(result.current.rateLimitResumeAt).toEqual(
+      new Date("2026-11-15T12:01:00Z"),
+    );
+    expect(result.current.isLoading).toBe(true);
+    await act(() => vi.advanceTimersByTimeAsync(59_000));
+    expect(mocks.fetch).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+      await batch;
+    });
+    expect(mocks.fetch).toHaveBeenCalledTimes(51);
+    expect(mocks.toastSuccess).toHaveBeenCalledOnce();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+    expect(result.current.rateLimitResumeAt).toBeNull();
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it("honors a Retry-After longer than a minute", async () => {
+    mocks.fetch
+      .mockResolvedValueOnce(rateLimitedResponse("120"))
+      .mockImplementation(() => Promise.resolve(new Response("{}")));
+    const { result } = renderHook(useStatLoader, {
+      wrapper: StatLoaderProvider,
+    });
+    act(() => {
+      result.current.onLoadBatch(batchOptions);
+    });
+    await act(() => vi.advanceTimersByTimeAsync(0));
+
+    expect(result.current.rateLimitResumeAt).toEqual(
+      new Date("2026-11-15T12:02:00Z"),
+    );
+    await act(() => vi.advanceTimersByTimeAsync(119_000));
+    expect(mocks.fetch).toHaveBeenCalledOnce();
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    expect(mocks.fetch.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it("gives up with an error after 15 minutes without a successful load", async () => {
+    mocks.fetch.mockImplementation(() =>
+      Promise.resolve(rateLimitedResponse("300")),
+    );
+    const { result } = renderHook(useStatLoader, {
+      wrapper: StatLoaderProvider,
+    });
+    let batch!: Promise<void>;
+    act(() => {
+      batch = result.current.onLoadBatch(batchOptions);
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15 * 60_000);
+      await batch;
+    });
+    expect(mocks.fetch).toHaveBeenCalledTimes(4);
+    expect(mocks.toastError).toHaveBeenCalledOnce();
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(result.current.rateLimitResumeAt).toBeNull();
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it("ends the pause as soon as the batch is canceled and sends no more requests", async () => {
+    mocks.fetch
+      .mockResolvedValueOnce(rateLimitedResponse())
+      .mockImplementation(() => Promise.resolve(new Response("{}")));
+    const { result } = renderHook(useStatLoader, {
+      wrapper: StatLoaderProvider,
+    });
+    let batch!: Promise<void>;
+    act(() => {
+      batch = result.current.onLoadBatch(batchOptions);
+    });
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(result.current.rateLimitResumeAt).not.toBeNull();
+
+    await act(async () => {
+      result.current.onCancelLoadBatch();
+      await batch;
+    });
+    expect(result.current.rateLimitResumeAt).toBeNull();
+    expect(result.current.isLoading).toBe(false);
+
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+    expect(mocks.fetch).toHaveBeenCalledOnce();
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+
+  it("does not pause a batch that was canceled while its request was in flight", async () => {
+    const pending = Promise.withResolvers<Response>();
+    mocks.fetch.mockReturnValueOnce(pending.promise);
+    const { result } = renderHook(useStatLoader, {
+      wrapper: StatLoaderProvider,
+    });
+    let batch!: Promise<void>;
+    act(() => {
+      batch = result.current.onLoadBatch(batchOptions);
+    });
+    act(() => result.current.onCancelLoadBatch());
+
+    await act(async () => {
+      pending.resolve(rateLimitedResponse());
+      await batch;
+    });
+    expect(result.current.rateLimitResumeAt).toBeNull();
+    expect(result.current.isLoading).toBe(false);
+    expect(mocks.fetch).toHaveBeenCalledOnce();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+});
+
+function rateLimitedResponse(retryAfterSeconds?: string) {
+  return new Response('{"error":"rate limited","isKnownError":true}', {
+    status: 429,
+    headers: retryAfterSeconds ? { "Retry-After": retryAfterSeconds } : {},
+  });
+}

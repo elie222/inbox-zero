@@ -12,8 +12,10 @@ import { createGateway } from "@ai-sdk/gateway";
 import { createOllama } from "ollama-ai-provider-v2";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createCerebras } from "@ai-sdk/cerebras";
+import { wrapLanguageModel } from "ai";
 import { env } from "@/env";
 import { Provider } from "@/utils/llms/config";
+import { coalesceConsecutiveMessagesMiddleware } from "@/utils/llms/coalesce-messages";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "../error";
@@ -318,7 +320,10 @@ function selectModel(
       return {
         provider: Provider.OPENAI_COMPATIBLE,
         modelName,
-        model: openaiCompatible(modelName),
+        model: wrapLanguageModel({
+          model: openaiCompatible(modelName),
+          middleware: coalesceConsecutiveMessagesMiddleware,
+        }),
         providerOptions: getLocalThinkingProviderOptions("openai-compatible"),
       };
     }

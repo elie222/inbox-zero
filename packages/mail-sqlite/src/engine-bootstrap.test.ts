@@ -453,6 +453,157 @@ describe("engine bootstrap coverage", () => {
     await engine.close();
   });
 
+  it("honors a folder's retry delay across an engine restart", async () => {
+    let now = 1000;
+    const scopes: ScopeDescriptor[] = [
+      { id: "inbox", kind: "folder", folderId: "inbox" },
+      { id: "custom", kind: "folder", folderId: "custom" },
+    ];
+    const readStreams: string[] = [];
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "microsoft",
+      generation: "g1",
+    });
+    const createEngine = () =>
+      createMailEngine({
+        store: { ...store, async close() {} },
+        source: {
+          ...slowBootstrapSource({
+            onBootstrap() {},
+            onEnumerate() {},
+            scopes,
+          }),
+          async readChanges({ position }) {
+            readStreams.push(position.streamId);
+            return {
+              status: "paused",
+              retryAfterMs: position.streamId === "custom" ? 10 * 60_000 : 0,
+              reason: "unavailable",
+            };
+          },
+        },
+        executor: uncertainExecutor(),
+        runtime: createHostRuntime({ nowMs: () => now }),
+      });
+    let engine = createEngine();
+    try {
+      await engine.runUntil(now + 1000);
+      now += 61_000;
+      await engine.runUntil(now + 1000);
+      expect(readStreams).toEqual(["custom", "inbox"]);
+      const retryAtMs = now + 10 * 60_000;
+
+      const position = {
+        streamId: "custom",
+        generation: "g1",
+        checkpoint: "enumerated",
+      };
+      const unchangedPage = await store.applySyncPage({
+        ownerId: "owner",
+        page: {
+          session: { accountId: "acc-1", generation: "g1" },
+          requestId: "late-newest-page",
+          from: position,
+          to: position,
+          changes: [],
+          requiredHydration: [],
+          roundComplete: false,
+        },
+      });
+      expect(unchangedPage.status).toBe("committed");
+
+      await engine.close();
+      engine = createEngine();
+      now = retryAtMs - 1;
+      await engine.requestSync(["acc-1"]);
+      await engine.runUntil(now + 1000);
+      expect(readStreams).toEqual(["custom", "inbox", "inbox"]);
+
+      now = retryAtMs;
+      await engine.requestSync(["acc-1"]);
+      await engine.runUntil(now + 1000);
+      expect(readStreams).toEqual([
+        "custom",
+        "inbox",
+        "inbox",
+        "custom",
+        "inbox",
+      ]);
+    } finally {
+      await engine.close();
+      await store.close();
+    }
+  });
+
+  it("commits the remaining batch pages when a retry deadline write fails", async () => {
+    let now = 1000;
+    const store = await createSqliteMailStore(createNodeSqliteDriver());
+    await store.ensureAccount({
+      accountId: "acc-1",
+      provider: "microsoft",
+      generation: "g1",
+    });
+    const failure = new Error("Retry deadline write failed");
+    const deferSyncStream = vi
+      .fn(store.deferSyncStream)
+      .mockRejectedValueOnce(failure);
+    const engine = createMailEngine({
+      store: { ...store, deferSyncStream },
+      source: {
+        ...slowBootstrapSource({
+          onBootstrap() {},
+          onEnumerate() {},
+          scopes: [
+            { id: "custom", kind: "folder", folderId: "custom" },
+            { id: "inbox", kind: "folder", folderId: "inbox" },
+          ],
+        }),
+        async readChangesBatch({ reads, session }) {
+          return reads.map(({ position, requestId }) => {
+            if (position.streamId === "custom") {
+              return {
+                status: "paused",
+                retryAfterMs: 10 * 60_000,
+                reason: "unavailable",
+              };
+            }
+            return {
+              status: "page",
+              page: {
+                session,
+                requestId,
+                from: position,
+                to: { ...position, checkpoint: "inbox-advanced" },
+                changes: [],
+                requiredHydration: [],
+                roundComplete: true,
+              },
+            };
+          });
+        },
+      },
+      executor: uncertainExecutor(),
+      runtime: createHostRuntime({ nowMs: () => now }),
+    });
+    try {
+      await engine.runUntil(now + 1000);
+      now += 61_000;
+      await expect(engine.runUntil(now + 1000)).rejects.toThrow(failure);
+      const [account] = await store.readAccountSyncStates();
+      expect(
+        account?.streams.find((stream) => stream.streamId === "inbox")
+          ?.checkpoint,
+      ).toBe("inbox-advanced");
+
+      await engine.runUntil(now + 1000);
+      expect(deferSyncStream).toHaveBeenCalledTimes(2);
+    } finally {
+      await engine.close();
+    }
+  });
+
   it("starts every discovered folder in one pass after the time budget runs out", async () => {
     let now = 1000;
     const receivedScopes: string[] = [];

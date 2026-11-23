@@ -14,7 +14,10 @@ vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/utils/email/provider", () => ({ createEmailProvider: vi.fn() }));
-vi.mock("@/utils/split-inbox/splits.server", () => ({
+vi.mock("@/utils/split-inbox/splits.server", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/utils/split-inbox/splits.server")
+  >()),
   createMailSplitOrThrow: vi.fn(),
   updateMailSplit: vi.fn(),
   deleteMailSplit: vi.fn(),
@@ -117,10 +120,87 @@ describe("manageSplitInboxTool", () => {
       filters: [{ kind: "TO", value: "@rakazo.com" }],
     });
   });
+
+  it("reports which splits are excluded from All", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      mailSplits: [
+        {
+          id: "split-1",
+          name: "Customers",
+          hideFromAll: true,
+          filters: [{ kind: "LABEL", value: "Label_7" }],
+        },
+      ],
+    } as never);
+
+    expect(await run({ action: "list" })).toMatchObject({
+      success: true,
+      splits: [
+        {
+          id: "split-1",
+          hideFromAll: true,
+          conditions: [{ kind: "LABEL", value: "Customers" }],
+        },
+      ],
+    });
+  });
+
+  it.each([
+    { action: "hideFromAll", hideFromAll: true },
+    { action: "showInAll", hideFromAll: false },
+  ])("saves $action on the account's filtered split", async ({
+    action,
+    hideFromAll,
+  }) => {
+    const split = { id: "split-1", name: "Customers", hideFromAll };
+    prisma.mailSplit.updateManyAndReturn.mockResolvedValue([split] as never);
+
+    expect(await run({ action, splitId: split.id })).toMatchObject({
+      success: true,
+      action,
+      split,
+    });
+    expect(prisma.mailSplit.updateManyAndReturn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          emailAccountId: "account-1",
+          id: split.id,
+          filters: { some: {} },
+        },
+        data: { hideFromAll },
+      }),
+    );
+    expect(updateMailSplit).not.toHaveBeenCalled();
+  });
+
+  it("reports an error when no matching filtered split can be changed", async () => {
+    prisma.mailSplit.updateManyAndReturn.mockResolvedValue([]);
+
+    expect(await run({ action: "hideFromAll", splitId: "all" })).toMatchObject({
+      success: false,
+    });
+  });
+
+  it("rejects All visibility changes for Outlook", async () => {
+    const outlookTool = manageSplitInboxTool({
+      email: "user@example.com",
+      emailAccountId: "account-1",
+      provider: "microsoft",
+      logger: createTestLogger(),
+    });
+
+    expect(
+      await run({ action: "hideFromAll", splitId: "split-1" }, outlookTool),
+    ).toMatchObject({
+      success: false,
+      error: expect.stringContaining("Gmail"),
+    });
+    expect(prisma.mailSplit.updateManyAndReturn).not.toHaveBeenCalled();
+  });
 });
 
-function run(input: Record<string, unknown>) {
-  return tool.execute?.(
+function run(input: Record<string, unknown>, splitTool = tool) {
+  return splitTool.execute?.(
     input as never,
     {
       toolCallId: "call",

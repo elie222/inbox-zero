@@ -46,6 +46,7 @@ import type {
   MailStore,
   MailStoreInspectionInput,
   MailStoreInspection,
+  SyncStreamPosition,
 } from "@inboxzero/mail-core/ports/mail-store";
 import type {
   BodyObservation,
@@ -682,16 +683,10 @@ export async function createSqliteMailStore(
           digest,
           bodyCodec,
         });
-        await tx.execute(
-          `INSERT INTO sync_streams(account_id, stream_id, generation, checkpoint)
-           VALUES (?, ?, ?, ?)
-           ON CONFLICT(account_id, stream_id) DO UPDATE SET generation = excluded.generation, checkpoint = excluded.checkpoint`,
-          [
-            input.page.session.accountId,
-            input.page.to.streamId,
-            input.page.to.generation,
-            input.page.to.checkpoint,
-          ],
+        await writeSyncStreamPosition(
+          tx,
+          input.page.session.accountId,
+          input.page.to,
         );
         if (input.page.roundComplete) {
           await tx.execute(
@@ -1442,13 +1437,53 @@ export async function createSqliteMailStore(
         return inserted > 0;
       });
     },
+    async deferSyncStream({ accountId, position, retryAtMs }) {
+      await driver.write(async (tx) => {
+        await tx.execute(
+          `UPDATE sync_streams
+           SET retry_at_ms = MAX(COALESCE(retry_at_ms, 0), ?)
+           WHERE account_id = ? AND stream_id = ? AND generation = ? AND checkpoint IS ?`,
+          [
+            retryAtMs,
+            accountId,
+            position.streamId,
+            position.generation,
+            position.checkpoint,
+          ],
+        );
+      });
+    },
+    async readInboxFreshness() {
+      return driver.read(async (tx) => {
+        const accounts = await tx.query(
+          "SELECT account_id, provider, connection FROM accounts ORDER BY account_id",
+        );
+        const result = [];
+        for (const account of accounts) {
+          // One seek on effective_inbox_order per account.
+          const newest = await tx.query(
+            `SELECT MAX(received_at_ms) AS newest FROM effective_messages
+             WHERE account_id = ? AND in_inbox = 1`,
+            [account.account_id],
+          );
+          result.push({
+            accountId: String(account.account_id),
+            provider: String(account.provider) as "google" | "microsoft",
+            connection: connectionStatus(account.connection),
+            newestInboxMessageAtMs:
+              newest[0]?.newest == null ? null : Number(newest[0].newest),
+          });
+        }
+        return result;
+      });
+    },
     async readAccountSyncStates() {
       return driver.read(async (tx) => {
         const accounts = await tx.query(
           "SELECT account_id, generation, assistant_cursor FROM accounts ORDER BY account_id",
         );
         const streams = await tx.query(
-          "SELECT account_id, stream_id, generation, checkpoint FROM sync_streams ORDER BY account_id, stream_id",
+          "SELECT account_id, stream_id, generation, checkpoint, retry_at_ms FROM sync_streams ORDER BY account_id, stream_id",
         );
         const streamsByAccount = new Map<
           string,
@@ -1457,6 +1492,7 @@ export async function createSqliteMailStore(
             streamId: string;
             generation: string;
             checkpoint: string | null;
+            retryAtMs?: number;
           }>
         >();
         for (const stream of streams) {
@@ -1467,6 +1503,9 @@ export async function createSqliteMailStore(
             streamId: String(stream.stream_id),
             generation: String(stream.generation),
             checkpoint: nullableString(stream.checkpoint),
+            ...(stream.retry_at_ms != null
+              ? { retryAtMs: Number(stream.retry_at_ms) }
+              : {}),
           });
           streamsByAccount.set(accountId, list);
         }
@@ -1671,18 +1710,10 @@ export async function createSqliteMailStore(
           );
         } else {
           const nextStream = input.catchUpFrom ?? input.from;
-          await tx.execute(
-            `INSERT INTO sync_streams(account_id, stream_id, generation, checkpoint)
-             VALUES (?, ?, ?, ?)
-             ON CONFLICT(account_id, stream_id) DO UPDATE SET
-               generation = excluded.generation,
-               checkpoint = excluded.checkpoint`,
-            [
-              input.session.accountId,
-              nextStream.streamId,
-              nextStream.generation,
-              nextStream.checkpoint,
-            ],
+          await writeSyncStreamPosition(
+            tx,
+            input.session.accountId,
+            nextStream,
           );
           if (scopeAllowsMissingDeletion(input.scopeId)) {
             await tx.execute(
@@ -3043,6 +3074,27 @@ async function bumpRevision(tx: SqlTransaction): Promise<LocalRevision> {
     "UPDATE profile_state SET sequence = sequence + 1 WHERE id = 1",
   );
   return readRevision(tx);
+}
+
+async function writeSyncStreamPosition(
+  tx: SqlTransaction,
+  accountId: string,
+  position: SyncStreamPosition,
+) {
+  await tx.execute(
+    `INSERT INTO sync_streams(account_id, stream_id, generation, checkpoint)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(account_id, stream_id) DO UPDATE SET
+       generation = excluded.generation,
+       checkpoint = excluded.checkpoint,
+       retry_at_ms = CASE
+         WHEN sync_streams.generation = excluded.generation
+           AND sync_streams.checkpoint IS excluded.checkpoint
+         THEN sync_streams.retry_at_ms
+         ELSE NULL
+       END`,
+    [accountId, position.streamId, position.generation, position.checkpoint],
+  );
 }
 
 async function accountGenerationMatches(

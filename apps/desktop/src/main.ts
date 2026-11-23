@@ -40,6 +40,7 @@ import {
   findDesktopProtocolUrl,
   getDesktopAppOrigin,
   getDesktopBrowserStartUrl,
+  getDesktopAccountLinkingBrowserUrl,
   getDesktopHomeUrl,
   getDesktopLocalMailUrl,
   getDesktopMailAccountId,
@@ -57,6 +58,7 @@ import {
   shouldSmokeLocalMail,
   shouldUseLocalMailRenderer,
 } from "./desktop";
+import { installDesktopWindowFocus } from "./window-focus";
 import { createMailNotifier } from "./mail-notifications";
 import { captureDesktopError, initDesktopSentry } from "./sentry";
 import { startEventLoopDelayMonitor } from "./health";
@@ -181,6 +183,7 @@ function startDesktopApp() {
     return readDesktopAttachment({
       payload,
       origin: appOrigin,
+      client: desktopMailClient(),
       fetch: (url, init) => event.sender.session.fetch(url, init),
     });
   });
@@ -307,12 +310,9 @@ function startDesktopApp() {
             installUpdate();
             return;
           }
-          checkForDesktopUpdatesManually(
-            () => {
-              isQuitting = true;
-            },
-            { showsProgressInApp: hasVisibleUpdateStatusSubscriber },
-          ).catch(logDesktopUpdateError);
+          checkForDesktopUpdatesManually(prepareToQuitForUpdate, {
+            showsProgressInApp: hasVisibleUpdateStatusSubscriber,
+          }).catch(logDesktopUpdateError);
         },
         createWindow: () => createAppWindow(),
         getActiveContents: (window) =>
@@ -368,6 +368,7 @@ function startDesktopApp() {
           setDownloadProgress(null);
         },
         onDownloadProgress: setDownloadProgress,
+        prepareToQuit: prepareToQuitForUpdate,
       }).catch(logDesktopUpdateError);
     }
   });
@@ -384,9 +385,16 @@ function startDesktopApp() {
 }
 
 function installUpdate() {
-  installDownloadedDesktopUpdate(() => {
-    isQuitting = true;
-  }).catch(logDesktopUpdateError);
+  installDownloadedDesktopUpdate(prepareToQuitForUpdate).catch(
+    logDesktopUpdateError,
+  );
+}
+
+function prepareToQuitForUpdate() {
+  // On macOS the updater closes every window before `before-quit`, which then
+  // has no windows left to snapshot for the relaunch.
+  if (appWindows.length > 0) persistWindowsNow();
+  isQuitting = true;
 }
 
 function setDownloadProgress(progress: DesktopDownloadProgress | null) {
@@ -486,15 +494,15 @@ function createAppWindow(options?: {
   applyUnreadBadge();
 
   window.on("resize", () => layoutActiveTab(appWindow));
-  window.on("focus", () => {
-    lastFocused = appWindow;
-    // A BaseWindow does not hand keyboard focus to its views by itself.
-    appWindow.activeTab.contents.focus();
-    applyUnreadBadge();
-    syncUpdateProgressBar();
-  });
-  // The window can take focus before the listener above exists.
-  if (window.isFocused()) tab.contents.focus();
+  installDesktopWindowFocus(
+    window,
+    () => appWindow.activeTab.contents,
+    () => {
+      lastFocused = appWindow;
+      applyUnreadBadge();
+      syncUpdateProgressBar();
+    },
+  );
   if (options?.isMaximized) window.maximize();
   window.on("blur", () => {
     syncUpdateProgressBar();
@@ -899,7 +907,9 @@ function getStartAuthCallbackPath(options: unknown): string | null {
 
 async function openExternal(url: string) {
   if (!isAllowedExternalUrl(url)) return;
-  await shell.openExternal(url);
+  await shell.openExternal(
+    getDesktopAccountLinkingBrowserUrl(url, appOrigin) ?? url,
+  );
 }
 
 function reportSignInError(error: unknown) {
@@ -921,6 +931,10 @@ function getDesktopMailOwner() {
   return desktopMailOwner;
 }
 
+function desktopMailClient() {
+  return `desktop/${app.getVersion()}`;
+}
+
 function desktopMailboxPath() {
   return path.join(app.getPath("userData"), "mailbox.sqlite");
 }
@@ -930,6 +944,7 @@ function createDesktopMailProcess() {
   return createDesktopMailProcessOwner({
     databasePath: desktopMailboxPath(),
     origin: appOrigin,
+    client: desktopMailClient(),
     fork: () =>
       utilityProcess.fork(
         path.join(import.meta.dirname, "mail-engine-child.js"),

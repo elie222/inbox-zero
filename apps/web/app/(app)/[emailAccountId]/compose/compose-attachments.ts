@@ -7,7 +7,7 @@ export type ComposeAttachment = EmailAttachmentMetadata & {
   draftAttachmentId?: string;
   status: "uploading" | "uploaded" | "failed";
   error?: string;
-  previewUrl?: string;
+  preview?: { url: string; blob: Blob };
   /**
    * An inline image this composer placed in the editor. Images that came
    * with the draft's original HTML are left alone even when the editor
@@ -40,7 +40,7 @@ export function mergeDraftAttachments(
       ...(item.contentId ? { contentId: item.contentId } : {}),
       draftAttachmentId: item.id,
       status: "uploaded",
-      ...(known?.previewUrl ? { previewUrl: known.previewUrl } : {}),
+      ...(known?.preview ? { preview: known.preview } : {}),
       ...(known?.managed ? { managed: true } : {}),
     };
   });
@@ -57,7 +57,7 @@ export function mergeDraftAttachments(
  * mailbox draft, never its bytes. Files not on the draft yet aren't kept.
  */
 export function toAttachmentReference({
-  previewUrl: _previewUrl,
+  preview: _preview,
   status,
   error: _error,
   managed: _managed,

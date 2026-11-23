@@ -26,6 +26,52 @@ export function getDesktopLoginUrl(appOrigin: string): string {
   return new URL("/login", appOrigin).toString();
 }
 
+export function getDesktopAccountLinkingBrowserUrl(
+  url: string,
+  appOrigin: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  try {
+    const authorization = new URL(url);
+    const callback = authorization.searchParams.get("redirect_uri");
+    const state = authorization.searchParams.get("state");
+    if (!callback || !state) return null;
+    const redirect = new URL(callback);
+    if (redirect.origin !== appOrigin) return null;
+
+    let provider: "google" | "microsoft";
+    if (
+      (authorization.origin === "https://accounts.google.com" ||
+        isConfiguredDesktopOAuthEmulator(
+          authorization,
+          env.GOOGLE_BASE_URL,
+          env.NODE_ENV,
+        )) &&
+      redirect.pathname === "/api/google/linking/callback"
+    ) {
+      provider = "google";
+    } else if (
+      (authorization.origin === "https://login.microsoftonline.com" ||
+        isConfiguredDesktopOAuthEmulator(
+          authorization,
+          env.MICROSOFT_BASE_URL,
+          env.NODE_ENV,
+        )) &&
+      redirect.pathname === "/api/outlook/linking/callback"
+    ) {
+      provider = "microsoft";
+    } else {
+      return null;
+    }
+    const browserStart = new URL("/api/oauth/linking/browser-start", appOrigin);
+    browserStart.searchParams.set("provider", provider);
+    browserStart.searchParams.set("state", state);
+    return browserStart.href;
+  } catch {
+    return null;
+  }
+}
+
 export function getDesktopHomeUrl(appOrigin: string): string {
   return new URL("/welcome-redirect?mode=mail", appOrigin).toString();
 }
@@ -369,4 +415,17 @@ export function getDesktopWindowDragCss(
   // Windows already has a native overlay drag region; Linux keeps a native title bar.
   if (platform !== "darwin") return null;
   return DESKTOP_WINDOW_DRAG_CSS;
+}
+
+function isConfiguredDesktopOAuthEmulator(
+  authorization: URL,
+  baseUrl: string | undefined,
+  nodeEnv: string | undefined,
+) {
+  if (nodeEnv === "production" || !baseUrl) return false;
+  if (authorization.protocol !== "http:" && authorization.protocol !== "https:")
+    return false;
+  if (!["localhost", "127.0.0.1", "[::1]"].includes(authorization.hostname))
+    return false;
+  return authorization.origin === new URL(baseUrl).origin;
 }

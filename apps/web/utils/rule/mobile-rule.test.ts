@@ -102,4 +102,27 @@ describe("toCreateRuleBodyFromAiRule", () => {
 
     expect(result.success).toBe(true);
   });
+
+  it("treats an AI-generated zero-minute delay as no delay", () => {
+    const result = createRuleBody.safeParse(
+      toCreateRuleBodyFromAiRule({
+        name: "Newsletters",
+        condition: {
+          aiInstructions: "Newsletters",
+          conditionalOperator: null,
+          static: null,
+        },
+        actions: [
+          {
+            type: ActionType.ARCHIVE,
+            fields: null,
+            delayInMinutes: 0,
+          },
+        ],
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.data?.actions[0].delayInMinutes).toBeNull();
+  });
 });

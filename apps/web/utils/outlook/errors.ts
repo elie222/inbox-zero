@@ -1,5 +1,12 @@
 // Helper functions for checking Microsoft Graph API errors
 
+export class OutlookSyncFolderUnavailableError extends Error {
+  constructor() {
+    super("Outlook sync folder unavailable");
+    this.name = "OutlookSyncFolderUnavailableError";
+  }
+}
+
 /**
  * Check if an error indicates that a resource already exists
  * (e.g., filter, category, etc.)

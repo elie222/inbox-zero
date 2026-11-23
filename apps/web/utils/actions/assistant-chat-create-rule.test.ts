@@ -254,64 +254,29 @@ describe("confirmAssistantCreateRule", () => {
     expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(4);
   });
 
-  it("does not clear processing when a newer confirmed state already exists", async () => {
+  it("does not reset a processing lease that another request has taken over", async () => {
     const logger = createTestLogger();
-    const pendingPart = buildPendingCreateRulePart();
-    const processingAt = "2026-02-23T00:01:00.000Z";
-    const processingPart = buildPendingCreateRulePart({
+    const otherRequestPart = buildPendingCreateRulePart({
       output: {
         confirmationState: "processing",
-        confirmationProcessingAt: processingAt,
+        confirmationProcessingAt: "2026-02-23T00:01:00.000Z",
       },
     });
-    const confirmedPart = buildPendingCreateRulePart({
-      output: {
-        confirmationState: "confirmed",
-        ruleId: "rule-created-1",
-        confirmationResult: {
-          ruleId: "rule-created-1",
-          confirmedAt: "2026-02-23T00:02:00.000Z",
-        },
-      },
-    });
-
-    let storedMessage = {
-      id: "cm-1",
-      chatId: "chat-1",
-      updatedAt: new Date("2026-02-23T00:00:00.000Z"),
-      parts: [pendingPart],
-    };
 
     prisma.chatMessage.findFirst
-      .mockResolvedValueOnce({ ...storedMessage } as never)
+      .mockResolvedValueOnce({
+        id: "cm-1",
+        chatId: "chat-1",
+        updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+        parts: [buildPendingCreateRulePart()],
+      } as never)
       .mockResolvedValueOnce({
         id: "cm-1",
         chatId: "chat-1",
         updatedAt: new Date("2026-02-23T00:01:00.000Z"),
-        parts: [processingPart],
+        parts: [otherRequestPart],
       } as never);
-
-    prisma.chatMessage.updateMany.mockImplementation(async (args) => {
-      const where = args.where as { updatedAt?: Date };
-
-      if (where.updatedAt?.toISOString() === "2026-02-23T00:00:00.000Z") {
-        storedMessage = {
-          ...storedMessage,
-          updatedAt: new Date("2026-02-23T00:01:00.000Z"),
-          parts: [processingPart],
-        };
-        return { count: 1 } as never;
-      }
-
-      storedMessage = {
-        ...storedMessage,
-        updatedAt: new Date("2026-02-23T00:02:00.000Z"),
-        parts: [confirmedPart],
-      };
-
-      return { count: 0 } as never;
-    });
-
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 1 } as never);
     createRuleMock.mockRejectedValueOnce(new Error("create failed"));
 
     await expect(
@@ -325,10 +290,8 @@ describe("confirmAssistantCreateRule", () => {
       }),
     ).rejects.toThrow("create failed");
 
-    expect(
-      (storedMessage.parts[0] as { output: { confirmationState: string } })
-        .output.confirmationState,
-    ).toBe("confirmed");
+    // Only this request's own reservation was written.
+    expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(1);
   });
 
   it("returns the confirmed rule when another request wins the reservation race", async () => {

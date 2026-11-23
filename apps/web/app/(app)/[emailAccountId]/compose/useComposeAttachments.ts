@@ -159,7 +159,7 @@ export function useComposeAttachments({
         });
         updateAttachments([
           ...attachmentsRef.current,
-          { ...attachment, previewUrl: undefined, managed: false },
+          { ...attachment, preview: undefined, managed: false },
         ]);
       },
     );
@@ -212,12 +212,13 @@ export function useComposeAttachments({
 
     const accepted = created.filter(({ file, attachment }) => {
       if (disposition !== "inline" || !attachment.contentId) return true;
-      attachment.previewUrl = URL.createObjectURL(file);
+      const previewUrl = URL.createObjectURL(file);
+      attachment.preview = { url: previewUrl, blob: file };
       attachment.managed = true;
       const inserted = editorRef.current?.insertInlineImage({
         alt: attachment.filename,
         contentId: attachment.contentId,
-        previewUrl: attachment.previewUrl,
+        previewUrl,
       });
       if (inserted) return true;
       revokePreview(attachment);
@@ -309,5 +310,5 @@ async function isInlineImageContent(file: File) {
 }
 
 function revokePreview(attachment: ComposeAttachment) {
-  if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+  if (attachment.preview) URL.revokeObjectURL(attachment.preview.url);
 }

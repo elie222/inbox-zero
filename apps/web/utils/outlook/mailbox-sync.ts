@@ -1,3 +1,7 @@
+import {
+  type GraphRequest,
+  RetryHandlerOptions,
+} from "@microsoft/microsoft-graph-client";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import {
   compactMailboxSyncMessage,
@@ -17,13 +21,18 @@ import {
   extractErrorInfo,
   withMicrosoftGraphRetry,
 } from "@/utils/outlook/retry";
-import { isNotFoundError } from "@/utils/outlook/errors";
+import {
+  isNotFoundError,
+  OutlookSyncFolderUnavailableError,
+} from "@/utils/outlook/errors";
 import { mapWithConcurrency } from "@/utils/async";
 
 const MESSAGE_SELECT_FIELDS =
   "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,flag,categories,parentFolderId,hasAttachments,webLink,inferenceClassification";
 
 const MESSAGE_REFETCH_CONCURRENCY = 5;
+const SYNC_FOLDER_NOT_FOUND = "ErrorSyncFolderNotFound";
+const FOLDER_RECOVERY_TIMEOUT_MS = 5000;
 
 type DeltaMessage = Message & {
   "@removed"?: { reason?: string };
@@ -42,6 +51,7 @@ export async function getOutlookMailboxSyncPage({
   after,
   folderId,
   limit,
+  signal,
 }: {
   client: OutlookClient;
   logger: Logger;
@@ -49,6 +59,7 @@ export async function getOutlookMailboxSyncPage({
   after?: Date;
   folderId?: string;
   limit: number;
+  signal?: AbortSignal;
 }): Promise<MailboxSyncPage> {
   if (!cursor) {
     if (!after) throw new Error("after is required for initial mailbox sync");
@@ -59,6 +70,7 @@ export async function getOutlookMailboxSyncPage({
   if (folderId && decoded.folderId && folderId !== decoded.folderId) {
     throw new InvalidMailboxSyncCursorError();
   }
+  let deltaFetched = false;
   try {
     const deltaResponse = await withMicrosoftGraphRetry<DeltaResponse>(
       () =>
@@ -69,16 +81,18 @@ export async function getOutlookMailboxSyncPage({
           .get(),
       logger,
     );
-    const response = await resolveAmbiguousDeltaMessages({
-      client,
-      logger,
-      response: deltaResponse,
-    });
+    deltaFetched = true;
+    const { response, missingMessageCount } =
+      await resolveAmbiguousDeltaMessages({
+        client,
+        logger,
+        response: deltaResponse,
+      });
     const [categoryMap, folderIds] = await Promise.all([
       getCategoryMap(client, logger),
       getFolderIds(client, logger),
     ]);
-    return buildOutlookMailboxSyncPage({
+    const page = buildOutlookMailboxSyncPage({
       response,
       after: decoded.after,
       folderId: decoded.folderId ?? folderId,
@@ -87,21 +101,44 @@ export async function getOutlookMailboxSyncPage({
       categoryMap,
       folderIds,
     });
+    if (missingMessageCount > 0) {
+      mailboxSyncDiagnosticLogger(logger).info(
+        "Outlook delta page handled missing messages",
+        { missingMessageCount, checkpointAdvanced: page.cursor !== cursor },
+      );
+    }
+    return page;
   } catch (error) {
     const { status, code } = extractErrorInfo(error);
-    if (
-      status !== 410 &&
-      code !== "SyncStateNotFound" &&
-      code !== "resyncRequired"
-    ) {
-      throw error;
+    const folderNotFound =
+      !deltaFetched && status === 404 && code === SYNC_FOLDER_NOT_FOUND;
+    const restart =
+      status === 410 ||
+      code === "SyncStateNotFound" ||
+      code === "resyncRequired" ||
+      folderNotFound;
+    if (!deltaFetched) {
+      mailboxSyncDiagnosticLogger(logger).warn("Outlook delta request failed", {
+        status: typeof status === "number" ? status : undefined,
+        code: mailboxSyncDiagnosticCode(code),
+        checkpointAdvanced: false,
+        restart,
+      });
     }
-    return getInitialPage({
+    if (!restart) throw error;
+    let recoverySignal: AbortSignal | undefined;
+    if (folderNotFound) {
+      const timeout = AbortSignal.timeout(FOLDER_RECOVERY_TIMEOUT_MS);
+      recoverySignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+    }
+    return readInitialPage({
       client,
       logger,
       after: new Date(decoded.after),
       folderId: decoded.folderId ?? folderId,
       limit,
+      signal: recoverySignal,
+      recoveringMissingFolder: folderNotFound,
     });
   }
 }
@@ -179,15 +216,19 @@ async function getInitialPage({
   after,
   folderId,
   limit,
+  signal,
+  recoveringMissingFolder,
 }: {
   client: OutlookClient;
   logger: Logger;
   after: Date;
   folderId?: string;
   limit: number;
+  signal?: AbortSignal;
+  recoveringMissingFolder?: boolean;
 }) {
   const resolvedFolderId = folderId ?? "inbox";
-  const snapshotResponse = await withMicrosoftGraphRetry<DeltaResponse>(
+  const snapshotResponse = await readSyncRequest<DeltaResponse>(
     () =>
       client
         .getClient()
@@ -197,19 +238,25 @@ async function getInitialPage({
         .select(MESSAGE_SELECT_FIELDS)
         .filter(`receivedDateTime ge ${after.toISOString()}`)
         .top(limit)
-        .header("Prefer", `IdType="ImmutableId", odata.maxpagesize=${limit}`)
-        .get(),
+        .header("Prefer", `IdType="ImmutableId", odata.maxpagesize=${limit}`),
     logger,
-  );
-  const response = await resolveAmbiguousDeltaMessages({
+    signal,
+  ).catch((error: unknown) => {
+    if (recoveringMissingFolder && extractErrorInfo(error).status === 404) {
+      throw new OutlookSyncFolderUnavailableError();
+    }
+    throw error;
+  });
+  const { response } = await resolveAmbiguousDeltaMessages({
     client,
     logger,
     response: snapshotResponse,
+    signal,
   });
 
   const [categoryMap, folderIds] = await Promise.all([
-    getCategoryMap(client, logger),
-    getFolderIds(client, logger),
+    getCategoryMap(client, logger, signal),
+    getFolderIds(client, logger, { signal }),
   ]);
   return buildOutlookMailboxSyncPage({
     response,
@@ -228,14 +275,19 @@ async function resolveAmbiguousDeltaMessages({
   client,
   logger,
   response,
+  signal,
 }: {
   client: OutlookClient;
   logger: Logger;
   response: DeltaResponse;
-}): Promise<DeltaResponse> {
+  signal?: AbortSignal;
+}) {
   const messages = response.value ?? [];
-  if (!messages.some(needsMessageRefetch)) return response;
+  if (!messages.some(needsMessageRefetch)) {
+    return { response, missingMessageCount: 0 };
+  }
 
+  let missingMessageCount = 0;
   const refetched = await mapWithConcurrency(
     messages,
     MESSAGE_REFETCH_CONCURRENCY,
@@ -245,8 +297,10 @@ async function resolveAmbiguousDeltaMessages({
         client,
         logger,
         messageId: message.id,
+        signal,
       });
       if (currentMessage) return currentMessage;
+      missingMessageCount++;
 
       // Folder deltas use `deleted` for both permanent deletion and moving a
       // message out of the folder. Keep the removal when the message is gone.
@@ -265,7 +319,10 @@ async function resolveAmbiguousDeltaMessages({
     });
   }
 
-  return { ...response, value: completeMessages };
+  return {
+    response: { ...response, value: completeMessages },
+    missingMessageCount,
+  };
 }
 
 function isPartialMessage(
@@ -290,24 +347,79 @@ async function getSyncMessage({
   client,
   logger,
   messageId,
+  signal,
 }: {
   client: OutlookClient;
   logger: Logger;
   messageId: string;
+  signal?: AbortSignal;
 }): Promise<DeltaMessage | null> {
   try {
-    return await withMicrosoftGraphRetry<DeltaMessage>(
+    return await readSyncRequest<DeltaMessage>(
       () =>
         client
           .getClient()
           .api(`/me/messages/${encodeURIComponent(messageId)}`)
           .select(MESSAGE_SELECT_FIELDS)
-          .header("Prefer", 'IdType="ImmutableId"')
-          .get(),
+          .header("Prefer", 'IdType="ImmutableId"'),
       logger,
+      signal,
     );
   } catch (error) {
     if (isNotFoundError(error)) return null;
     throw error;
+  }
+}
+
+async function readInitialPage(input: Parameters<typeof getInitialPage>[0]) {
+  const { signal } = input;
+  if (!signal) return getInitialPage(input);
+
+  signal.throwIfAborted();
+  // Lookup retry waits can outlive the HTTP request they were retrying.
+  const { promise, reject } = Promise.withResolvers<never>();
+  const onAbort = () => reject(signal.reason);
+  signal.addEventListener("abort", onAbort, { once: true });
+  try {
+    return await Promise.race([getInitialPage(input), promise]);
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+  }
+}
+
+async function readSyncRequest<T>(
+  request: () => GraphRequest,
+  logger: Logger,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (!signal) return withMicrosoftGraphRetry<T>(() => request().get(), logger);
+
+  signal.throwIfAborted();
+  return request()
+    .options({ signal })
+    .middlewareOptions([new RetryHandlerOptions(0, 0)])
+    .get();
+}
+
+function mailboxSyncDiagnosticLogger(logger: Logger) {
+  // Keep the request ID for correlation without inheriting mailbox identifiers.
+  return logger.with({
+    email: undefined,
+    emailAccountId: undefined,
+    userId: undefined,
+    url: undefined,
+  });
+}
+
+function mailboxSyncDiagnosticCode(code: string | undefined) {
+  switch (code) {
+    case "ErrorItemNotFound":
+    case "ErrorInvalidSyncStateData":
+    case SYNC_FOLDER_NOT_FOUND:
+    case "SyncStateNotFound":
+    case "resyncRequired":
+      return code;
+    default:
+      return "other";
   }
 }

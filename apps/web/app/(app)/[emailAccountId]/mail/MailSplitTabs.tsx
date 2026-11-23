@@ -48,6 +48,8 @@ export const MailSplitTabs = memo(function MailSplitTabs({
   splits,
   activeSplitId,
   onSelectSplit,
+  allSplitId,
+  onOpenAllSettings,
   isAllAccounts,
   getSenders,
   countAccountIds,
@@ -59,6 +61,8 @@ export const MailSplitTabs = memo(function MailSplitTabs({
   splits: (MailSplit & MailSplitTab)[];
   activeSplitId: string | null;
   onSelectSplit: (splitId: string | null) => void;
+  allSplitId?: string;
+  onOpenAllSettings?: () => void;
   isAllAccounts: boolean;
   /** Senders the user corresponds with, read when a split is described. */
   getSenders: () => string[];
@@ -302,6 +306,8 @@ export const MailSplitTabs = memo(function MailSplitTabs({
         leading={leading}
         activeSplitId={activeSplitId}
         onSelect={onSelectSplit}
+        allSplitId={allSplitId}
+        onOpenAllSettings={onOpenAllSettings}
         onDelete={onDelete}
         onToggleBundle={
           settings?.bundleInbox && !isAllAccounts ? onToggleBundle : undefined

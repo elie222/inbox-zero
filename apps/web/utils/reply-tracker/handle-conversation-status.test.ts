@@ -17,6 +17,7 @@ describe("determineConversationStatus", () => {
     isSentMessage: vi.fn((message: { headers: { from: string } }) =>
       message.headers.from.includes(emailAccount.email),
     ),
+    getSendAsAddresses: vi.fn(),
   };
 
   const inbound = getMockMessage({
@@ -37,6 +38,7 @@ describe("determineConversationStatus", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    provider.getSendAsAddresses.mockResolvedValue([]);
     vi.mocked(aiDetermineThreadStatus).mockResolvedValue({
       status: SystemType.FYI,
       rationale: "Informational",
@@ -93,5 +95,41 @@ describe("determineConversationStatus", () => {
 
     expect(aiDetermineThreadStatus).not.toHaveBeenCalled();
     expect(result.rule).toBeNull();
+  });
+
+  it("treats a trailing message from a send-as alias as the user's", async () => {
+    provider.getSendAsAddresses.mockResolvedValue([
+      { email: emailAccount.email, isDefault: true },
+      { email: "Studio@Example.com", isDefault: false },
+    ]);
+    const aliasReply = getMockMessage({
+      id: "alias-reply-1",
+      from: "Studio <studio@example.com>",
+      to: "sender@example.com",
+      subject: "Re: Test",
+    });
+    provider.getThreadMessages.mockResolvedValue([inbound, aliasReply]);
+
+    await run();
+
+    const args = vi.mocked(aiDetermineThreadStatus).mock.calls[0][0];
+    expect(args.userSentLastEmail).toBe(true);
+  });
+
+  it("still determines status when send-as addresses can't be loaded", async () => {
+    provider.getSendAsAddresses.mockRejectedValue(new Error("Forbidden"));
+    const aliasReply = getMockMessage({
+      id: "alias-reply-1",
+      from: "studio@example.com",
+      to: "sender@example.com",
+      subject: "Re: Test",
+    });
+    provider.getThreadMessages.mockResolvedValue([inbound, aliasReply]);
+
+    const result = await run();
+
+    const args = vi.mocked(aiDetermineThreadStatus).mock.calls[0][0];
+    expect(args.userSentLastEmail).toBe(false);
+    expect(result.rule?.id).toBe("rule-fyi");
   });
 });

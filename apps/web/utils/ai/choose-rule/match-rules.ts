@@ -825,7 +825,7 @@ async function filterConversationStatusRulesWithMetadata<
     return { rules: potentialMatches, filteredRuleNames: [] };
   }
 
-  const extractedSenderEmail = extractEmailAddress(senderEmail);
+  const extractedSenderEmail = extractEmailAddress(senderEmail).toLowerCase();
 
   const filteredConversationRuleNames = potentialMatches
     .filter((r) => isConversationStatusType(r.systemType))

@@ -26,7 +26,7 @@ import { useDragReorder } from "./use-drag-reorder";
 export type MailSplitTab = {
   id: string;
   name: string;
-  /** Built-in splits (e.g. All) can't be edited or removed. */
+  /** Only filtered splits can be turned off. */
   deletable: boolean;
   /** Saved splits can be dragged into a new position; synthetic ones stay put. */
   reorderable?: boolean;
@@ -44,6 +44,8 @@ export type SplitTabsProps = {
   onSelect: (splitId: string) => void;
   onDelete: (splitId: string) => void;
   onEdit?: (splitId: string) => void;
+  allSplitId?: string;
+  onOpenAllSettings?: () => void;
   /** Offered only while inbox bundling is on. */
   onToggleBundle?: (splitId: string, bundleInInbox: boolean) => void;
   /** Receives every reorderable split id in its new order. */
@@ -63,6 +65,8 @@ export function SplitTabs({
   onSelect,
   onDelete,
   onEdit,
+  allSplitId,
+  onOpenAllSettings,
   onToggleBundle,
   onReorder,
   onNewSplit,
@@ -256,13 +260,18 @@ export function SplitTabs({
         <div ref={trackRef} className="flex w-max items-center gap-5">
           <LayoutGroup id={underlineGroupId}>
             {orderedSplits.map((split) => {
+              const openAllSettings =
+                split.id === allSplitId ? onOpenAllSettings : undefined;
               const active = split.id === activeSplitId;
               const dragging = drag?.id === split.id;
               const countLabel = splitCountLabel(countsById?.get(split.id));
 
               return (
                 <ContextMenu key={split.id}>
-                  <ContextMenuTrigger asChild disabled={!split.deletable}>
+                  <ContextMenuTrigger
+                    asChild
+                    disabled={!split.deletable && !openAllSettings}
+                  >
                     <motion.button
                       type="button"
                       layout={drag ? "position" : false}
@@ -315,8 +324,13 @@ export function SplitTabs({
                       ) : null}
                     </motion.button>
                   </ContextMenuTrigger>
-                  <ContextMenuContent className="w-44">
-                    {onEdit && (
+                  <ContextMenuContent className="w-max min-w-44 max-w-64">
+                    {openAllSettings && (
+                      <ContextMenuItem onSelect={openAllSettings}>
+                        <Trans>Choose what All shows</Trans>
+                      </ContextMenuItem>
+                    )}
+                    {split.deletable && onEdit && (
                       <ContextMenuItem onSelect={() => onEdit(split.id)}>
                         <Trans>Edit filters and name</Trans>
                       </ContextMenuItem>
@@ -328,15 +342,17 @@ export function SplitTabs({
                           onToggleBundle(split.id, checked)
                         }
                       >
-                        <Trans>Bundle in Inbox</Trans>
+                        <Trans>Bundle in All</Trans>
                       </ContextMenuCheckboxItem>
                     )}
-                    <ContextMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onSelect={() => onDelete(split.id)}
-                    >
-                      <Trans>Turn off split</Trans>
-                    </ContextMenuItem>
+                    {split.deletable && (
+                      <ContextMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onSelect={() => onDelete(split.id)}
+                      >
+                        <Trans>Turn off split</Trans>
+                      </ContextMenuItem>
+                    )}
                   </ContextMenuContent>
                 </ContextMenu>
               );

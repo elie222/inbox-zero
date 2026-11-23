@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { parseSignedOAuthState } from "@/utils/oauth/state";
 
 const {
   mockAuthState,
@@ -60,6 +61,13 @@ describe("outlook linking auth-url route", () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { url: string };
     expect(body.url).toContain("https://login.microsoftonline.com/authorize");
+    const state = new URL(body.url).searchParams.get("state");
+    expect(response.cookies.get("outlook_linking_state")?.value).toBe(state);
+    expect(parseSignedOAuthState(state!)).toMatchObject({
+      type: "account-linking",
+      provider: "microsoft",
+      userId: "user-1",
+    });
   });
 
   it("lets an email code session start mailbox linking", async () => {

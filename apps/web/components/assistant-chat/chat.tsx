@@ -4,6 +4,7 @@ import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircleIcon,
+  ClockIcon,
   HistoryIcon,
   Loader2,
   MailIcon,
@@ -13,7 +14,7 @@ import {
   XIcon,
 } from "lucide-react";
 import type { I18n } from "@lingui/core";
-import { msg } from "@lingui/core/macro";
+import { msg, plural } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Messages } from "./messages";
 import { PreviewAttachment } from "./preview-attachment";
@@ -27,7 +28,7 @@ import {
 import { useChats } from "@/hooks/useChats";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
-import { useChat } from "@/providers/ChatProvider";
+import { QueuedMessageNotSentError, useChat } from "@/providers/ChatProvider";
 import type { Attachment } from "@/providers/ChatProvider";
 import {
   PromptInput,
@@ -83,6 +84,9 @@ export function Chat({
     attachments,
     setAttachments,
     submitTextMessage,
+    queuedMessage,
+    sendQueuedMessageNow,
+    unqueueMessage,
     stop,
   } = useChat();
   const { messages, status, regenerate, setMessages } = chat;
@@ -192,17 +196,19 @@ export function Chat({
   const firstName = session?.user?.name?.split(" ")[0];
   const hasMessages = messages.length > 0;
   const hasContent = input.trim().length > 0 || attachments.length > 0;
+  const isRunActive = status === "streaming" || status === "submitted";
 
   const inputArea = (
     <PromptInput
       onSubmit={(e) => {
         e.preventDefault();
-        if (hasContent && (status === "ready" || status === "error")) {
+        if (hasContent) {
           analytics.captureAction("chat_message_submitted", {
             has_text: input.trim().length > 0,
             attachment_count: attachments.length,
             has_context: Boolean(context),
             message_count: messages.length,
+            queued: isRunActive,
           });
           handleSubmit();
         }
@@ -212,6 +218,18 @@ export function Chat({
         <ChatSendError
           message={sendError.message}
           onNewChat={sendError.offerNewChat ? setNewChat : undefined}
+        />
+      ) : null}
+      {queuedMessage ? (
+        <QueuedMessageChip
+          message={queuedMessage}
+          onSendNow={() => {
+            analytics.captureAction("chat_queued_message_sent_now", {
+              status,
+            });
+            sendQueuedMessageNow();
+          }}
+          onRemove={unqueueMessage}
         />
       ) : null}
       {context ? (
@@ -275,7 +293,8 @@ export function Chat({
               via_voice: true,
             });
             // A dictated message has no draft, so keep it for a retry.
-            submitTextMessage(text).catch(() => {
+            submitTextMessage(text).catch((error: unknown) => {
+              if (error instanceof QueuedMessageNotSentError) return;
               setInput((current) =>
                 current.trim() ? `${text}\n\n${current}` : text,
               );
@@ -301,23 +320,22 @@ export function Chat({
           </Button>
         </Tooltip>
 
+        {/* While a reply runs, typing turns stop into send, which queues. */}
         <PromptInputSubmit
-          status={
-            status === "streaming"
-              ? "streaming"
-              : status === "submitted"
-                ? "submitted"
-                : "ready"
+          status={isRunActive && !hasContent ? status : "ready"}
+          aria-label={
+            isRunActive && !hasContent ? t`Stop response` : t`Send message`
           }
-          disabled={
-            status === "ready" || status === "error" ? !hasContent : false
-          }
+          disabled={!isRunActive && !hasContent}
           onClick={(e) => {
-            if (status === "streaming" || status === "submitted") {
+            if (isRunActive && !hasContent) {
               analytics.captureAction("chat_generation_stopped", {
                 status,
               });
               e.preventDefault();
+              // A stop means "not that", so the queued message comes back
+              // for editing instead of going out.
+              unqueueMessage();
               stop();
               setMessages((messages) => messages);
             }
@@ -645,6 +663,61 @@ function ChatSendError({
             <Trans>New chat</Trans>
           </Button>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+function QueuedMessageChip({
+  message,
+  onSendNow,
+  onRemove,
+}: {
+  message: { text: string; attachments: Attachment[] };
+  onSendNow: () => void;
+  onRemove: () => void;
+}) {
+  const { t } = useLingui();
+  const attachmentCount = message.attachments.length;
+
+  return (
+    <div className="px-2 pt-2">
+      <div
+        data-testid="chat-queued-message"
+        className="flex max-w-full items-center gap-2.5 rounded-lg border border-dashed bg-muted/40 py-1.5 pl-2.5 pr-1"
+      >
+        <ClockIcon className="size-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="truncate text-sm">
+            {message.text ||
+              t`${plural(attachmentCount, {
+                one: "# image",
+                other: "# images",
+              })}`}
+          </div>
+          <div className="truncate text-xs text-muted-foreground">
+            <Trans>Sends when the assistant finishes</Trans>
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          className="shrink-0"
+          onClick={onSendNow}
+        >
+          <Trans>Send now</Trans>
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="iconXs"
+          aria-label={t`Remove queued message`}
+          className="shrink-0 text-muted-foreground"
+          onClick={onRemove}
+        >
+          <XIcon className="size-3.5" />
+        </Button>
       </div>
     </div>
   );

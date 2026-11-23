@@ -156,6 +156,72 @@ describe.runIf(shouldRunEval)("Eval: assistant chat core tools", () => {
 
   describeEvalMatrix("assistant-chat core tools", (model, emailAccount) => {
     test(
+      "uses split visibility to keep matching mail out of All",
+      async () => {
+        const split = {
+          id: "split-project-updates",
+          name: "Project Updates",
+          hideFromAll: false,
+          matchAll: true,
+          filters: [{ kind: "FROM", value: "updates@project.example" }],
+        };
+        prisma.emailAccount.findUnique.mockResolvedValue({
+          ...baseAccountSnapshot,
+          mailSplits: [split],
+        });
+        prisma.mailSplit.updateManyAndReturn.mockResolvedValue([
+          { ...split, hideFromAll: true },
+        ] as never);
+
+        const { toolCalls, actual } = await runAssistantChat({
+          emailAccount,
+          messages: [
+            {
+              role: "user",
+              content:
+                "I still want to read Project Updates in its own inbox tab. Can you keep those messages out of All?",
+            },
+          ],
+        });
+
+        const pass =
+          toolCalls.some(
+            ({ toolName, output }) =>
+              toolName === "manageSplitInbox" &&
+              !!output &&
+              typeof output === "object" &&
+              "success" in output &&
+              output.success === true &&
+              "action" in output &&
+              output.action === "hideFromAll",
+          ) &&
+          !toolCalls.some(({ toolName }) =>
+            [
+              "manageInbox",
+              "bulkManageInbox",
+              "createRule",
+              "updateRule",
+            ].includes(toolName),
+          );
+
+        evalReporter.record({
+          testName: "uses split visibility to keep matching mail out of All",
+          model: model.label,
+          pass,
+          actual,
+        });
+        expect(pass).toBe(true);
+        expect(prisma.mailSplit.updateManyAndReturn).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ id: split.id }),
+            data: { hideFromAll: true },
+          }),
+        );
+      },
+      MULTI_STEP_TIMEOUT,
+    );
+
+    test(
       "calls getAccountOverview for account info queries",
       async () => {
         const { toolCalls, actual } = await runAssistantChat({

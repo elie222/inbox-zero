@@ -677,6 +677,26 @@ describe("queryBatchMessages", () => {
     );
   });
 
+  it("stops paging when Graph returns a next link that does not advance", async () => {
+    const pageUrl =
+      "https://graph.microsoft.com/v1.0/me/mailFolders('archive')/messages?%24top=20&%24skip=200";
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [{ id: "msg-1", conversationId: "thread-1" }],
+      "@odata.nextLink": pageUrl,
+    });
+    const api = vi.fn().mockReturnValue(request);
+
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      { pageToken: pageUrl },
+      createTestLogger(),
+    );
+
+    expect(result.messages.map((m) => m.id)).toEqual(["msg-1"]);
+    expect(result.nextPageToken).toBeUndefined();
+  });
+
   it("skips a message Graph cannot read instead of failing its whole page", async () => {
     const pageUrl =
       "https://graph.microsoft.com/v1.0/me/mailFolders('folder-1')/messages?$top=3&$skip=620";

@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NEXT_ACTION_NOT_FOUND_HEADER } from "next/dist/client/components/app-router-headers";
 import { toast } from "sonner";
 import { registerOpenComposer, runPendingReloads } from "./safe-reload";
 import { installStaleDeploymentReload } from "./stale-deployment";
 vi.mock("sonner", () => ({ toast: { info: vi.fn(), error: vi.fn() } }));
 
+beforeEach(() => {
+  vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+});
+
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
 });

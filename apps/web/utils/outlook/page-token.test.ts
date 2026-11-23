@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isAdvancingGraphNextLink,
   isAllowedMicrosoftGraphPageToken,
   resolveMicrosoftGraphNextLink,
 } from "@/utils/outlook/page-token";
@@ -98,5 +99,34 @@ describe("resolveMicrosoftGraphNextLink", () => {
     expect(() =>
       resolveMicrosoftGraphNextLink("http://169.254.169.254/latest/meta-data"),
     ).toThrow("Invalid Outlook page token");
+  });
+});
+
+describe("isAdvancingGraphNextLink", () => {
+  const link = (skip: number) =>
+    `https://graph.microsoft.com/v1.0/me/mailFolders('archive')/messages?%24top=20&%24skip=${skip}`;
+
+  it("advances only when $skip increases", () => {
+    expect(isAdvancingGraphNextLink(link(200), link(220))).toBe(true);
+    expect(isAdvancingGraphNextLink(link(200), link(200))).toBe(false);
+    expect(isAdvancingGraphNextLink(link(200), link(0))).toBe(false);
+  });
+
+  it("treats a relative link to the same page as not advancing", () => {
+    expect(
+      isAdvancingGraphNextLink(
+        "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=abc",
+        "/v1.0/me/messages?$skiptoken=abc",
+      ),
+    ).toBe(false);
+  });
+
+  it("advances on a new $skiptoken", () => {
+    expect(
+      isAdvancingGraphNextLink(
+        "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=abc",
+        "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=def",
+      ),
+    ).toBe(true);
   });
 });
