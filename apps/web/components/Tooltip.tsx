@@ -32,8 +32,9 @@ export const Tooltip = ({
   side,
 }: TooltipProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  // Touch has no hover, so a tap toggles the tooltip. A mouse click never
-  // opens one: it would flash over the button on every press.
+  // Touch has no hover, so tapping something that only carries information
+  // (a badge, a date) toggles its tooltip. Tapping a control runs the control
+  // instead, and a mouse click never opens one.
   const isTouch = useRef(false);
 
   if (hide) return children;
@@ -45,8 +46,9 @@ export const Tooltip = ({
         onPointerDown={(event) => {
           isTouch.current = event.pointerType === "touch";
         }}
-        onClick={() => {
-          if (isTouch.current) setIsOpen((open) => !open);
+        onClick={(event) => {
+          if (isTouch.current && !event.currentTarget.matches(CONTROLS))
+            setIsOpen((open) => !open);
         }}
       >
         {children}
@@ -65,3 +67,6 @@ export const Tooltip = ({
     </ShadcnTooltip>
   );
 };
+
+const CONTROLS =
+  'button, a[href], input, select, textarea, [role="button"], [role="checkbox"], [role="switch"], [role="menuitem"], [role="tab"]';
