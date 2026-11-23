@@ -1984,13 +1984,20 @@ export function MailShell() {
     const previous = previousCollapsedRowKeys.current;
     previousCollapsedRowKeys.current = collapsedRowKeys;
     // A selected email that new mail turns into the head of a bundle row
-    // would otherwise stand for the whole bundle, widening what acts on.
+    // would otherwise stand for the whole bundle and widen what an action hits.
     const widened = [...selectedIds].filter(
       (key) => collapsedRowKeys.has(key) && !previous.has(key),
     );
     if (!widened.length) return;
-    replaceSelection([...selectedIds].filter((key) => !widened.includes(key)));
-  }, [collapsedRowKeys, replaceSelection, selectedIds]);
+    // Filtered to visible rows too, since the selection hook is dropping the
+    // members this same change hid.
+    const visibleKeys = new Set(orderedIds);
+    replaceSelection(
+      [...selectedIds].filter(
+        (key) => visibleKeys.has(key) && !widened.includes(key),
+      ),
+    );
+  }, [collapsedRowKeys, orderedIds, replaceSelection, selectedIds]);
   const threadCount = threads.length;
   const { selectedCount, selectAll, clear: clearSelection } = selection;
   // Only offered once something is selected, so the tabs sit flush otherwise.
