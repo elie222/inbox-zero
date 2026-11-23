@@ -47,7 +47,7 @@ export function bundleInboxThreads({
 }: {
   threads: ListThread[];
   splits: BundleSplit[];
-  /** The tab being listed, which never folds into a bundle of itself. */
+  /** The tab being listed, which neither bundles nor protects its own mail. */
   viewedSplitId?: string;
   /** Whether splits the user chose to bundle collapse into one row each. */
   bundleSplits: boolean;
@@ -70,9 +70,11 @@ export function bundleInboxThreads({
       )
     : [];
   // A thread that also belongs to a split the user did not bundle, like To
-  // Reply, needs attention, so it never hides inside a bundle.
+  // Reply, needs attention, so it never hides inside a bundle. The tab being
+  // viewed already shows that split on its own, so it protects nothing there.
   const protectedSplits = matchable.filter(
     ({ split }) =>
+      split.id !== viewedSplitId &&
       !split.bundleInInbox &&
       split.filters.some((filter) => CONTENT_FILTER_KINDS.has(filter.kind)),
   );

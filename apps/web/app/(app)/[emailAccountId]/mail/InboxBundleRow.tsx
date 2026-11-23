@@ -80,8 +80,11 @@ export const InboxBundleRow = memo(function InboxBundleRow({
 
   return (
     <MailThreadRow
-      accountAvatar={
-        <LayersIcon aria-hidden className="size-3.5 shrink-0 text-primary" />
+      countBadge={
+        <span className="inline-flex shrink-0 items-center gap-1 self-center rounded-md bg-primary/10 px-1.5 py-px font-medium text-primary text-xs leading-4">
+          <LayersIcon aria-hidden className="size-3" />
+          {bundle.threads.length}
+        </span>
       }
       compact={compact}
       expandedPreview={expandedPreview}

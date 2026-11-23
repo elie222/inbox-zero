@@ -230,20 +230,34 @@ describe("bundleInboxThreads", () => {
     expect(rowBundles.get("s1")?.bundle.id).toBe("sender:sender@example.com");
   });
 
-  it("never folds the tab being viewed into a bundle of itself", () => {
-    const { rows, rowBundles } = bundleInboxThreads({
+  it("treats the split being viewed as neither a bundle nor a protection", () => {
+    const work = split("work", "Label_work", false);
+    const threads = [
+      thread("n1", ["Label_notification"], "alerts@example.com"),
+      thread("n2", ["Label_notification"], "alerts@example.com"),
+      thread("w1", ["Label_work"], "pat@example.com"),
+      thread("w2", ["Label_work"], "pat@example.com"),
+    ];
+
+    const inNotifications = bundleInboxThreads({
       ...bySender,
-      threads: [
-        thread("n1", ["Label_notification"], "alerts@example.com"),
-        thread("n2", ["Label_notification"], "alerts@example.com"),
-        thread("n3", ["Label_notification"], "billing@example.com"),
-      ],
-      splits: [notifications],
+      threads: threads.slice(0, 2),
+      splits: [notifications, work],
       viewedSplitId: "notifications",
     });
+    expect(inNotifications.rowBundles.get("n1")?.bundle.id).toBe(
+      "sender:alerts@example.com",
+    );
 
-    expect(rows.map((row) => row.id)).toEqual(["n1", "n3"]);
-    expect(rowBundles.get("n1")?.bundle.id).toBe("sender:alerts@example.com");
+    const inWork = bundleInboxThreads({
+      ...bySender,
+      threads: threads.slice(2),
+      splits: [notifications, work],
+      viewedSplitId: "work",
+    });
+    expect(inWork.rowBundles.get("w1")?.bundle.id).toBe(
+      "sender:pat@example.com",
+    );
   });
 
   it("leaves a sender's only thread as an ordinary row", () => {

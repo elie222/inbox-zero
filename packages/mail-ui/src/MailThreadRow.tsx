@@ -22,6 +22,8 @@ export type MailThreadRowProps = {
   isStarred: boolean;
   isDraft: boolean;
   messageCount: number;
+  /** Replaces the message count, for a row that stands for several conversations. */
+  countBadge?: ReactNode;
   isFocused: boolean;
   isSelected: boolean;
   hasAnySelection: boolean;
@@ -54,6 +56,7 @@ export function MailThreadRow({
   isStarred,
   isDraft,
   messageCount,
+  countBadge,
   isFocused,
   isSelected,
   hasAnySelection,
@@ -90,11 +93,12 @@ export function MailThreadRow({
     </span>
   ) : null;
   const messageCountMarker =
-    messageCount > 1 ? (
+    countBadge ??
+    (messageCount > 1 ? (
       <span className="shrink-0 font-normal text-muted-foreground text-xs">
         {messageCount}
       </span>
-    ) : null;
+    ) : null);
   const participantLine = (
     <>
       <span

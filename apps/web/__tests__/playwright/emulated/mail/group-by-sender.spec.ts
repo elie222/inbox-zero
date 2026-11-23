@@ -5,6 +5,7 @@ import { getEmailAccountId } from "../account-test-helpers";
 import {
   conversationWithSubject,
   openMail,
+  toggleMailLayout,
   withClient,
 } from "./mail-test-helpers";
 
@@ -68,4 +69,10 @@ test("groups a sender's mail into one row that expands in place", async ({
   await expect(danaGroup).toHaveCount(1);
   await danaGroup.scrollIntoViewIfNeeded();
   await capturePlaywrightCheckpoint(page, testInfo, "sender-group-unread-tab");
+
+  await page.emulateMedia({ colorScheme: "dark" });
+  await toggleMailLayout(page);
+  await expect(danaGroup).toHaveCount(1);
+  await danaGroup.scrollIntoViewIfNeeded();
+  await capturePlaywrightCheckpoint(page, testInfo, "sender-group-split-dark");
 });
