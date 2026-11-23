@@ -243,16 +243,26 @@ export function MailShell() {
   }, []);
 
   const isAllAccounts = accountScope === "all";
+  // Each email opened or closed gets its own history entry, so Back returns to
+  // it. Corrections that only undo or rename the current entry replace it, as
+  // does any call that leaves the open email unchanged.
   const setOpenThread = useCallback(
-    (selection: ThreadSelection | null) => {
+    (
+      selection: ThreadSelection | null,
+      { history = "push" }: { history?: "push" | "replace" } = {},
+    ) => {
       setIsMenuOpen(false);
-      return setOpenThreadQuery({
-        "thread-id": selection?.threadId ?? null,
-        "thread-account-id":
-          isAllAccounts && selection ? selection.emailAccountId : null,
-      });
+      const threadId = selection?.threadId ?? null;
+      const threadAccountId =
+        isAllAccounts && selection ? selection.emailAccountId : null;
+      const changesThread =
+        threadId !== openThreadId || threadAccountId !== openThreadAccountId;
+      return setOpenThreadQuery(
+        { "thread-id": threadId, "thread-account-id": threadAccountId },
+        { history: changesThread ? history : "replace" },
+      );
     },
-    [isAllAccounts, setOpenThreadQuery],
+    [isAllAccounts, openThreadId, openThreadAccountId, setOpenThreadQuery],
   );
   const combinedAccounts = useMemo(
     () =>
@@ -1025,8 +1035,11 @@ export function MailShell() {
       const opensRow =
         nextRow &&
         rowBundles?.get(getListThreadKey(nextRow))?.kind !== "collapsed";
+      // The removed email is leaving the list, and a failed action rolls back
+      // by replacing too, so the history never holds it twice.
       setOpenThread(
         opensRow ? getListThreadSelection(nextRow, emailAccountId) : null,
+        { history: "replace" },
       );
       if (opensRow) return { openedKey: getListThreadKey(nextRow) };
       return nextRow && nextThread ? { bundleIndex: nextThread.index } : null;
@@ -1069,7 +1082,7 @@ export function MailShell() {
             getFocusedIndex() === advancedTo.bundleIndex);
       if (removedOpenThreadKey && !queuedOpenThread && stayedWhereAdvanced) {
         setFocusedIndex(focusedIndex);
-        setOpenThread(openThreadSelection);
+        setOpenThread(openThreadSelection, { history: "replace" });
       }
       if (!queuedThreadKeys.length && !hadSelection) return;
       if (
@@ -1077,7 +1090,7 @@ export function MailShell() {
         !autoAdvanceReader &&
         getOpenThreadKey() === removedOpenThreadKey
       ) {
-        setOpenThread(null);
+        setOpenThread(null, { history: "replace" });
       }
       selection.clear();
       if (hadSelection && queuedThreadKeys.length < ids.length) {
@@ -1759,10 +1772,13 @@ export function MailShell() {
       )
         return;
       setReplyToMessageId(undefined);
-      setOpenThread({
-        emailAccountId: openThreadSelection.emailAccountId,
-        threadId: sentThreadId,
-      });
+      setOpenThread(
+        {
+          emailAccountId: openThreadSelection.emailAccountId,
+          threadId: sentThreadId,
+        },
+        { history: "replace" },
+      );
     },
   );
   const searchFolders = useMemo(

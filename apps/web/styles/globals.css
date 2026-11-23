@@ -301,6 +301,8 @@
 html[data-mac-desktop] {
   --desktop-traffic-lights-width: 78px;
   --desktop-traffic-lights-height: 52px;
+  /* The sidebar toggle plus back/forward, lifted beside the lights. */
+  --desktop-titlebar-controls-width: 100px;
 }
 
 html[data-mac-desktop] [data-hide-on-desktop-mac] {
@@ -314,6 +316,14 @@ html[data-mac-desktop] [data-desktop-mac-titlebar-toggle] {
   top: 12px;
   left: var(--desktop-traffic-lights-width);
   z-index: 30;
+}
+
+html[data-mac-desktop] [data-desktop-mac-history] {
+  position: fixed;
+  top: 12px;
+  left: calc(var(--desktop-traffic-lights-width) + 2rem);
+  z-index: 30;
+  display: flex;
 }
 
 html[data-mac-desktop] [data-desktop-mac-end] {
