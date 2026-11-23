@@ -1933,6 +1933,21 @@ export function MailShell() {
       return;
     }
     const wanted = new Set(assistantSelection);
+    // A collapsed bundle row acts on every thread it holds, so open the ones
+    // holding a requested thread and select just that thread inside.
+    const bundlesToOpen = [...(rowBundles?.values() ?? [])]
+      .filter(
+        (row) =>
+          row.kind === "collapsed" &&
+          row.bundle.threads.some((thread) => wanted.has(thread.id)),
+      )
+      .map((row) => row.bundle.id);
+    if (bundlesToOpen.length) {
+      setExpandedBundleIds(
+        (current) => new Set([...current, ...bundlesToOpen]),
+      );
+      return;
+    }
     const keys = listedThreads
       .filter(
         (thread) =>
@@ -1954,6 +1969,7 @@ export function MailShell() {
     listedThreads,
     orderedIds,
     replaceSelection,
+    rowBundles,
     selectedIds,
   ]);
   const threadCount = threads.length;
