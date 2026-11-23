@@ -136,8 +136,11 @@ export function bundleInboxThreads({
     if (!groupBySender) return null;
     // A conversation the user has written in is a real exchange, not a feed.
     const hasUserMessage =
+      // A draft counts even from a send-as alias, which the address misses.
       thread.messages.some((message) =>
-        message.labelIds?.includes(GmailLabel.SENT),
+        message.labelIds?.some(
+          (label) => label === GmailLabel.SENT || label === GmailLabel.DRAFT,
+        ),
       ) ||
       [...(thread.participantMessages ?? []), ...thread.messages].some(
         (message) =>

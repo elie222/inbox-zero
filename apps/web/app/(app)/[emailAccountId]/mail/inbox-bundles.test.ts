@@ -192,17 +192,25 @@ describe("bundleInboxThreads", () => {
       labelIds: ["SENT"],
       headers: { from: "Me <ME@example.com>", to: "dana@example.com" },
     } as (typeof replied.messages)[number]);
+    const drafted = thread("drafted", [], "Dana <dana@example.com>");
+    drafted.messages.push({
+      ...drafted.messages[0],
+      id: "drafted-draft",
+      labelIds: ["DRAFT"],
+      headers: { from: "Me <alias@example.org>", to: "dana@example.com" },
+    } as (typeof drafted.messages)[number]);
     const { rows } = bundleInboxThreads({
       ...bySender,
       threads: [
         replied,
+        drafted,
         thread("d1", [], "Dana <dana@example.com>"),
         thread("d2", [], "Dana <dana@example.com>"),
       ],
       splits: [],
     });
 
-    expect(rows.map((row) => row.id)).toEqual(["replied", "d1"]);
+    expect(rows.map((row) => row.id)).toEqual(["replied", "drafted", "d1"]);
   });
 
   it("puts mail in a bundled split before grouping the rest by sender", () => {
