@@ -244,23 +244,25 @@ export function MailShell() {
 
   const isAllAccounts = accountScope === "all";
   // Each email opened or closed gets its own history entry, so Back returns to
-  // it. Corrections that only undo or rename the current entry replace it.
+  // it. Corrections that only undo or rename the current entry replace it, as
+  // does any call that leaves the open email unchanged.
   const setOpenThread = useCallback(
     (
       selection: ThreadSelection | null,
       { history = "push" }: { history?: "push" | "replace" } = {},
     ) => {
       setIsMenuOpen(false);
+      const threadId = selection?.threadId ?? null;
+      const threadAccountId =
+        isAllAccounts && selection ? selection.emailAccountId : null;
+      const changesThread =
+        threadId !== openThreadId || threadAccountId !== openThreadAccountId;
       return setOpenThreadQuery(
-        {
-          "thread-id": selection?.threadId ?? null,
-          "thread-account-id":
-            isAllAccounts && selection ? selection.emailAccountId : null,
-        },
-        { history },
+        { "thread-id": threadId, "thread-account-id": threadAccountId },
+        { history: changesThread ? history : "replace" },
       );
     },
-    [isAllAccounts, setOpenThreadQuery],
+    [isAllAccounts, openThreadId, openThreadAccountId, setOpenThreadQuery],
   );
   const combinedAccounts = useMemo(
     () =>
@@ -1033,8 +1035,11 @@ export function MailShell() {
       const opensRow =
         nextRow &&
         rowBundles?.get(getListThreadKey(nextRow))?.kind !== "collapsed";
+      // The removed email is leaving the list, and a failed action rolls back
+      // by replacing too, so the history never holds it twice.
       setOpenThread(
         opensRow ? getListThreadSelection(nextRow, emailAccountId) : null,
+        { history: "replace" },
       );
       if (opensRow) return { openedKey: getListThreadKey(nextRow) };
       return nextRow && nextThread ? { bundleIndex: nextThread.index } : null;
