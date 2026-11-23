@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { useLingui } from "@lingui/react/macro";
 import { Tooltip } from "@/components/Tooltip";
+import { Button } from "@/components/ui/button";
 
 /**
  * Back/forward beside the sidebar toggle in the mac desktop titlebar. The
@@ -24,35 +25,34 @@ export function DesktopHistoryNav() {
   );
 
   return (
-    <div className="hidden items-center gap-0.5" data-desktop-mac-history>
+    <div className="hidden items-center gap-1" data-desktop-mac-history>
       <Tooltip shortcuts={["goBack"]} side="bottom">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
           aria-label={t`Go back`}
           disabled={!canGoBack}
           onClick={() => window.history.back()}
-          className={historyButton}
         >
-          <ArrowLeftIcon className="size-4" />
-        </button>
+          <ArrowLeftIcon />
+        </Button>
       </Tooltip>
       <Tooltip shortcuts={["goForward"]} side="bottom">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
           aria-label={t`Go forward`}
           disabled={!canGoForward}
           onClick={() => window.history.forward()}
-          className={historyButton}
         >
-          <ArrowRightIcon className="size-4" />
-        </button>
+          <ArrowRightIcon />
+        </Button>
       </Tooltip>
     </div>
   );
 }
-
-const historyButton =
-  "flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40";
 
 function getNavigation(): Navigation | null {
   return "navigation" in window ? window.navigation : null;
