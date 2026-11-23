@@ -230,6 +230,22 @@ describe("bundleInboxThreads", () => {
     expect(rowBundles.get("s1")?.bundle.id).toBe("sender:sender@example.com");
   });
 
+  it("never folds the tab being viewed into a bundle of itself", () => {
+    const { rows, rowBundles } = bundleInboxThreads({
+      ...bySender,
+      threads: [
+        thread("n1", ["Label_notification"], "alerts@example.com"),
+        thread("n2", ["Label_notification"], "alerts@example.com"),
+        thread("n3", ["Label_notification"], "billing@example.com"),
+      ],
+      splits: [notifications],
+      viewedSplitId: "notifications",
+    });
+
+    expect(rows.map((row) => row.id)).toEqual(["n1", "n3"]);
+    expect(rowBundles.get("n1")?.bundle.id).toBe("sender:alerts@example.com");
+  });
+
   it("leaves a sender's only thread as an ordinary row", () => {
     const threads = [
       thread("dana", [], "dana@example.com"),

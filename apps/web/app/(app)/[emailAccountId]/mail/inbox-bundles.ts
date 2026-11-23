@@ -37,6 +37,7 @@ type BundleSplit = MailSplit & { bundleInInbox: boolean };
 export function bundleInboxThreads({
   threads,
   splits,
+  viewedSplitId,
   bundleSplits,
   groupBySender,
   userEmail,
@@ -46,6 +47,8 @@ export function bundleInboxThreads({
 }: {
   threads: ListThread[];
   splits: BundleSplit[];
+  /** The tab being listed, which never folds into a bundle of itself. */
+  viewedSplitId?: string;
   /** Whether splits the user chose to bundle collapse into one row each. */
   bundleSplits: boolean;
   groupBySender: boolean;
@@ -60,7 +63,10 @@ export function bundleInboxThreads({
     .map((split) => ({ split, matches: createSplitMatcher(split, now) }));
   const bundled = bundleSplits
     ? matchable.filter(
-        ({ split }) => split.bundleInInbox && isBundleEligibleSplit(split),
+        ({ split }) =>
+          split.id !== viewedSplitId &&
+          split.bundleInInbox &&
+          isBundleEligibleSplit(split),
       )
     : [];
   // A thread that also belongs to a split the user did not bundle, like To

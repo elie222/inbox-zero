@@ -59,4 +59,13 @@ test("groups a sender's mail into one row that expands in place", async ({
   await expect(toggle).toHaveAttribute("aria-checked", "false");
   await toggle.click();
   await expect(danaGroup).toHaveCount(1);
+
+  // Grouping is the same on every tab, not only All.
+  await page.getByRole("button", { name: "Unread", exact: true }).click();
+  await expect(
+    conversationWithSubject(page, conversations, "Keyboard Navigation Message"),
+  ).toBeVisible({ timeout: 60_000 });
+  await expect(danaGroup).toHaveCount(1);
+  await danaGroup.scrollIntoViewIfNeeded();
+  await capturePlaywrightCheckpoint(page, testInfo, "sender-group-unread-tab");
 });

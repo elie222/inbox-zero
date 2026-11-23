@@ -528,13 +528,10 @@ export function MailShell() {
       isAllAccounts ? !searchQuery : threadListQueryRequiresInbox(query),
       JSON.stringify([emailAccountId, isAllAccounts]),
     );
-  const isInboxView =
-    !isAllAccounts &&
-    !searchQuery &&
-    !scopeQuery &&
-    !!activeSplit &&
-    !activeSplit.filters.length &&
-    activeSplit.id !== OTHER_SPLIT_ID;
+  // Bundles fold the inbox's tabs. Search, the combined inbox and other
+  // mailboxes like Sent or Archive list mail as it is.
+  const viewedSplit =
+    !isAllAccounts && !searchQuery && !scopeQuery ? activeSplit : undefined;
   const [expandedBundleIds, setExpandedBundleIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
@@ -547,10 +544,11 @@ export function MailShell() {
   }, []);
   const { rows: threads, rowBundles } = useMemo(
     () =>
-      (bundleInbox || groupBySender) && isInboxView
+      (bundleInbox || groupBySender) && viewedSplit
         ? bundleInboxThreads({
             threads: listedThreads,
             splits: settings?.splits ?? [],
+            viewedSplitId: viewedSplit.id,
             bundleSplits: bundleInbox,
             groupBySender,
             userEmail,
@@ -562,7 +560,7 @@ export function MailShell() {
     [
       bundleInbox,
       groupBySender,
-      isInboxView,
+      viewedSplit,
       listedThreads,
       settings?.splits,
       userEmail,
@@ -2121,11 +2119,11 @@ export function MailShell() {
                 onTogglePreview={togglePreview}
                 bundleInbox={bundleInbox}
                 onToggleBundleInbox={
-                  isInboxView ? toggleBundleInbox : undefined
+                  viewedSplit ? toggleBundleInbox : undefined
                 }
                 groupBySender={groupBySender}
                 onToggleGroupBySender={
-                  isInboxView ? toggleGroupBySender : undefined
+                  viewedSplit ? toggleGroupBySender : undefined
                 }
                 onToggleAssistant={onToggleAssistant}
                 onOpenAllSettings={onOpenAllSettings}
