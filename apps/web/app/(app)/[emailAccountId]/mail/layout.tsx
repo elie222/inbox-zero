@@ -25,7 +25,7 @@ export default async function MailLayout({
 }) {
   if (!env.NEXT_PUBLIC_MAIL_APP_ENABLED) {
     const { emailAccountId } = await params;
-    redirect(prefixPath(emailAccountId, "/automation"));
+    redirect(prefixPath(encodeURIComponent(emailAccountId), "/automation"));
   }
 
   const cookieStore = await cookies();
