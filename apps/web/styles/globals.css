@@ -295,9 +295,8 @@
   }
 }
 
-/* Mac desktop shell: leave the traffic-light row empty. Sizes are set on
-   :root by the Electron shell (and by html[data-mac-desktop] before paint).
-   Do not require the html flag here — hydration can remove it. */
+/* The Electron shell also injects the traffic-light dimensions on :root,
+   so the mail toolbar can use them if hydration removes the HTML flag. */
 html[data-mac-desktop] {
   --desktop-traffic-lights-width: 78px;
   --desktop-traffic-lights-height: 52px;
@@ -329,6 +328,29 @@ html[data-mac-desktop] [data-desktop-mac-history] {
 html[data-mac-desktop] [data-desktop-mac-end] {
   flex: none;
   margin-left: auto;
+}
+
+/* Below lg, the mail rail is hidden and the toolbar starts at the window edge. */
+.mail-list-toolbar {
+  padding-left: calc(0.75rem + var(--desktop-traffic-lights-width, 0px));
+}
+
+@screen lg {
+  .mail-list-toolbar {
+    padding-left: 0.75rem;
+  }
+
+  .mail-list-toolbar.sidebar-collapsed {
+    /* Older Electron shells only supply the traffic-light width. Allow room
+       for their sidebar toggle as well. */
+    padding-left: max(
+      0.75rem,
+      0.75rem +
+      var(--desktop-traffic-lights-width, 0px) +
+      var(--desktop-titlebar-controls-width, 2rem) -
+      var(--sidebar-width-icon)
+    );
+  }
 }
 
 /* While a panel edge is being dragged, keep the resize cursor under the pointer
