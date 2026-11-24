@@ -42,15 +42,22 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useRules } from "@/hooks/useRules";
 import { isColdEmailBlockerEnabled } from "@/utils/cold-email/cold-email-blocker-enabled";
 import { SystemType } from "@/generated/prisma/enums";
-import { isValidEmail } from "@/utils/email";
 
 export function ColdEmailList() {
   const { t } = useLingui();
   const searchParams = useSearchParams();
   const page = searchParams.get("page") || "1";
-  const [senderParam, setSenderParam] = useQueryState("not-cold");
+  const [senderId, setSenderId] = useQueryState("not-cold");
+  const { data: confirmation } = useSWR<ColdEmailsResponse>(
+    senderId
+      ? `/api/user/cold-email?${new URLSearchParams({ senderId })}`
+      : null,
+  );
+  const senderToConfirm = confirmation?.coldEmails[0];
   const confirmSender =
-    senderParam && isValidEmail(senderParam) ? senderParam : null;
+    senderToConfirm && senderToConfirm.id === senderId
+      ? senderToConfirm.fromEmail
+      : null;
   const { data, isLoading, error, mutate } = useSWR<ColdEmailsResponse>(
     `/api/user/cold-email?page=${page}`,
   );
@@ -62,10 +69,10 @@ export function ColdEmailList() {
   const { executeAsync: markNotColdEmail, isExecuting } = useAction(
     markNotColdEmailAction.bind(null, emailAccountId),
     {
-      onSuccess: () => {
+      onSuccess: ({ input }) => {
         toastSuccess({ description: t`Marked not cold email!` });
-        if (confirmSender) {
-          setSenderParam(null);
+        if (input.senderId === senderId) {
+          setSenderId(null);
           mutate();
         }
       },
@@ -76,10 +83,9 @@ export function ColdEmailList() {
   );
 
   const markNotColdEmailSelected = useCallback(async () => {
-    const calls = Array.from(selected.keys())
-      .map((id) => data?.coldEmails.find((c) => c.id === id))
-      .filter(Boolean)
-      .map((c) => markNotColdEmail({ sender: c!.fromEmail }));
+    const calls = (data?.coldEmails ?? [])
+      .filter(({ id }) => selected.get(id))
+      .map(({ id }) => markNotColdEmail({ senderId: id }));
 
     await Promise.all(calls);
     mutate();
@@ -159,11 +165,11 @@ export function ColdEmailList() {
 
   return (
     <>
-      {confirmSender && (
+      {senderId && confirmSender && (
         <AlertDialog
           open
           onOpenChange={(open) => {
-            if (!open && !isExecuting) setSenderParam(null);
+            if (!open && !isExecuting) setSenderId(null);
           }}
         >
           <AlertDialogContent>
@@ -183,7 +189,7 @@ export function ColdEmailList() {
                 <Trans>Cancel</Trans>
               </AlertDialogCancel>
               <Button
-                onClick={() => markNotColdEmail({ sender: confirmSender })}
+                onClick={() => markNotColdEmail({ senderId })}
                 loading={isExecuting}
               >
                 <Trans>Not cold email</Trans>
@@ -211,7 +217,7 @@ function Row({
   mutate: () => void;
   selected: Map<string, boolean>;
   onToggleSelect: (id: string) => void;
-  markNotColdEmail: (input: { sender: string }) => Promise<unknown>;
+  markNotColdEmail: (input: { senderId: string }) => Promise<unknown>;
   isExecuting: boolean;
 }) {
   const { t } = useLingui();
@@ -249,7 +255,7 @@ function Row({
           <Button
             Icon={CircleXIcon}
             onClick={async () => {
-              await markNotColdEmail({ sender: row.fromEmail });
+              await markNotColdEmail({ senderId: row.id });
               mutate();
             }}
             loading={isExecuting}

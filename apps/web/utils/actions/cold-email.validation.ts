@@ -13,5 +13,5 @@ export const coldEmailBlockerBody = z.object({
 });
 export type ColdEmailBlockerBody = z.infer<typeof coldEmailBlockerBody>;
 
-export const markNotColdEmailBody = z.object({ sender: z.string() });
+export const markNotColdEmailBody = z.object({ senderId: z.string().min(1) });
 export type MarkNotColdEmailBody = z.infer<typeof markNotColdEmailBody>;

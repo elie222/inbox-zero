@@ -11,6 +11,7 @@ import prisma from "@/utils/prisma";
 import {
   ActionType,
   ExecutedRuleStatus,
+  GroupItemType,
   ScheduledActionStatus,
   SystemType,
 } from "@/generated/prisma/enums";
@@ -18,6 +19,7 @@ import type { Logger } from "@/utils/logger";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { extractEmailAddress } from "@/utils/email";
+import { normalizeGroupItemValue } from "@/utils/group/group-item";
 import { getEmailSearchUrl, getEmailUrlForMessage } from "@/utils/url";
 import { sendSummaryEmailBody } from "./validation";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -153,7 +155,7 @@ async function sendEmail({
         systemType: SystemType.COLD_EMAIL,
       },
     },
-    select: { id: true },
+    select: { id: true, groupId: true },
   });
 
   const coldExecutedRuleWhere = coldEmailRule
@@ -245,26 +247,48 @@ async function sendEmail({
     };
   };
 
-  const coldEmailers = coldExecutedRules.flatMap((r) => {
+  const coldMessages = coldExecutedRules.flatMap((r) => {
     const message = messageMap[r.messageId];
     if (!message) return [];
     const senderAddress = extractEmailAddress(message.headers.from);
-    return [
-      {
+    return [{ message, senderAddress, sentAt: r.createdAt }];
+  });
+  const coldSenderValues = new Set(
+    coldMessages
+      .map(({ senderAddress }) => normalizeGroupItemValue(senderAddress))
+      .filter(Boolean),
+  );
+  const flaggedSenders =
+    coldEmailRule?.groupId && coldSenderValues.size
+      ? await prisma.groupItem.findMany({
+          where: {
+            groupId: coldEmailRule.groupId,
+            type: GroupItemType.FROM,
+            exclude: false,
+            value: { in: [...coldSenderValues] },
+          },
+          select: { id: true, value: true },
+        })
+      : [];
+  const senderIds = new Map(flaggedSenders.map(({ id, value }) => [value, id]));
+  const coldEmailers = coldMessages.map(
+    ({ message, senderAddress, sentAt }) => {
+      const senderId = senderIds.get(normalizeGroupItemValue(senderAddress));
+      return {
         from: message.headers.from || "Unknown",
         subject:
           message.headers.subject || decodeSnippet(message.snippet) || "",
-        sentAt: r.createdAt,
+        sentAt,
         ...getEmailLinks(message, senderAddress),
-        notColdUrl: senderAddress
+        notColdUrl: senderId
           ? new URL(
-              `/${encodeURIComponent(emailAccountId)}/cold-email-blocker?${new URLSearchParams({ "not-cold": senderAddress })}`,
+              `/${encodeURIComponent(emailAccountId)}/cold-email-blocker?${new URLSearchParams({ "not-cold": senderId })}`,
               env.NEXT_PUBLIC_BASE_URL,
             ).href
           : undefined,
-      },
-    ];
-  });
+      };
+    },
+  );
 
   const archivedEmails = buildArchivedEmailSummaryItems({
     archivedActions,

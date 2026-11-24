@@ -348,7 +348,25 @@ describe("summary email route", () => {
           refresh_token: "refresh-token",
         },
       });
-    prisma.rule.findUnique.mockResolvedValue({ id: "cold-rule-id" });
+    prisma.rule.findUnique.mockResolvedValue({
+      id: "cold-rule-id",
+      groupId: "flagged-senders",
+    });
+    prisma.groupItem.findMany.mockResolvedValue([
+      {
+        id: "flagged-sales-sender",
+        value: "sales@example.com",
+        groupId: "flagged-senders",
+        type: "FROM",
+        exclude: false,
+        createdAt: blockedAt,
+        updatedAt: blockedAt,
+        reason: null,
+        threadId: null,
+        messageId: null,
+        source: null,
+      },
+    ]);
     prisma.executedRule.count.mockResolvedValue(250);
     prisma.executedRule.findMany.mockResolvedValue([
       { messageId: "cold-message-1", createdAt: blockedAt },
@@ -386,7 +404,7 @@ describe("summary email route", () => {
                 ).href
               : "https://mail.google.com/mail/u/?authuser=user%40example.com#all/cold-message-1",
             notColdUrl: new URL(
-              "/email-account-id/cold-email-blocker?not-cold=sales%40example.com",
+              "/email-account-id/cold-email-blocker?not-cold=flagged-sales-sender",
               env.NEXT_PUBLIC_BASE_URL,
             ).href,
           }),

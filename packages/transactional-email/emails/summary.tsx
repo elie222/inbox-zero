@@ -117,7 +117,7 @@ SummaryEmail.PreviewProps = {
       subject: "Quick question about your website",
       url: "https://www.getinboxzero.com/example-account/mail?thread-id=outreach-1",
       notColdUrl:
-        "https://www.getinboxzero.com/example-account/cold-email-blocker?not-cold=james%40example.com",
+        "https://www.getinboxzero.com/example-account/cold-email-blocker?not-cold=flagged-james",
       sentAt: new Date("2024-03-15"),
     },
     {
@@ -125,7 +125,7 @@ SummaryEmail.PreviewProps = {
       subject: "Want to reach more customers?",
       url: "https://www.getinboxzero.com/example-account/mail?thread-id=outreach-2",
       notColdUrl:
-        "https://www.getinboxzero.com/example-account/cold-email-blocker?not-cold=matt%40example.com",
+        "https://www.getinboxzero.com/example-account/cold-email-blocker?not-cold=flagged-matt",
       sentAt: new Date("2024-03-15"),
     },
     {
@@ -133,7 +133,7 @@ SummaryEmail.PreviewProps = {
       subject: "",
       url: "https://www.getinboxzero.com/example-account/mail?thread-id=outreach-3",
       notColdUrl:
-        "https://www.getinboxzero.com/example-account/cold-email-blocker?not-cold=paul%40example.com",
+        "https://www.getinboxzero.com/example-account/cold-email-blocker?not-cold=flagged-paul",
       sentAt: new Date("2024-03-15"),
     },
   ],

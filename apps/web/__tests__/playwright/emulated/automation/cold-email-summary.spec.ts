@@ -12,6 +12,7 @@ test("a weekly summary link excludes its sender only after confirmation", async 
   const sender = "outreach+summary@example.com";
   const ruleId = randomUUID();
   const groupId = randomUUID();
+  const senderId = randomUUID();
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
@@ -28,14 +29,26 @@ test("a weekly summary link excludes its sender only after confirmation", async 
     await client.query(
       `INSERT INTO "GroupItem" (id, "groupId", type, value, "createdAt", "updatedAt")
        VALUES ($1, $2, 'FROM', $3, NOW(), NOW())`,
-      [randomUUID(), groupId, sender],
+      [senderId, groupId, sender],
     );
 
-    const url = `/${emailAccountId}/cold-email-blocker?${new URLSearchParams({ "not-cold": sender })}`;
-    await page.goto(url);
+    const url = `/${emailAccountId}/cold-email-blocker?${new URLSearchParams({ "not-cold": senderId })}`;
     const dialog = page.getByRole("alertdialog", {
       name: "Mark Not Cold Email",
     });
+    const forgedSender = "unflagged@example.com";
+    const lookup = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).searchParams.get("senderId") === forgedSender,
+    );
+    await page.goto(
+      `/${emailAccountId}/cold-email-blocker?${new URLSearchParams({ "not-cold": forgedSender })}`,
+    );
+    const lookupResponse = await lookup;
+    expect((await lookupResponse.json()).coldEmails).toEqual([]);
+    await expect(dialog).toBeHidden();
+
+    await page.goto(url);
     await expect(dialog).toContainText(sender);
     await capturePlaywrightCheckpoint(page, testInfo, "not-cold-confirmation");
 
