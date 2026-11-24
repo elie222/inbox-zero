@@ -239,11 +239,12 @@ export function MailShell() {
   } | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pendingSearchFocusRef = useRef(false);
-  const [pendingListFocusKey, setPendingListFocusKey] = useState<string | null>(
-    null,
-  );
+  const [pendingListFocus, setPendingListFocus] = useState<{
+    key: string;
+    searchQuery: string | null;
+  } | null>(null);
   const clearPendingListFocus = useCallback(
-    () => setPendingListFocusKey(null),
+    () => setPendingListFocus(null),
     [],
   );
 
@@ -261,7 +262,7 @@ export function MailShell() {
       { history = "push" }: { history?: "push" | "replace" } = {},
     ) => {
       setIsMenuOpen(false);
-      if (selection) setPendingListFocusKey(null);
+      if (selection) setPendingListFocus(null);
       const threadId = selection?.threadId ?? null;
       const threadAccountId =
         isAllAccounts && selection ? selection.emailAccountId : null;
@@ -389,6 +390,10 @@ export function MailShell() {
       ? searchDraft.value
       : searchParam) ?? "";
   const searchQuery = searchValue.trim() || null;
+  if (pendingListFocus && pendingListFocus.searchQuery !== searchQuery)
+    setPendingListFocus(null);
+  const pendingListFocusKey =
+    pendingListFocus?.searchQuery === searchQuery ? pendingListFocus.key : null;
   // Scheduled sends live in our own database, so this view has no thread
   // list to fetch.
   const isScheduledView =
@@ -401,6 +406,7 @@ export function MailShell() {
   const searchSettled = !searchQuery || searchQuery === settledSearch;
   const setSearch = useCallback(
     (value: string) => {
+      setPendingListFocus(null);
       setSearchDraft(undefined);
       setSettledSearch(value.trim() || null);
       return setSearchParam(value.trim() || null);
@@ -408,7 +414,10 @@ export function MailShell() {
     [setSearchParam],
   );
   const onSearchChange = useCallback(
-    (value: string) => setSearchDraft({ identity: searchEditIdentity, value }),
+    (value: string) => {
+      setPendingListFocus(null);
+      setSearchDraft({ identity: searchEditIdentity, value });
+    },
     [searchEditIdentity],
   );
   // Picking the view that's already open leaves the URL unchanged, so an
@@ -1447,7 +1456,7 @@ export function MailShell() {
 
   const selectAllAccounts = useCallback(() => {
     setSearchDraft(undefined);
-    setPendingListFocusKey(null);
+    setPendingListFocus(null);
     selection.clear();
     setFocusedIndex(0);
     setOpenThread(null);
@@ -1497,13 +1506,13 @@ export function MailShell() {
     if (layout === "list" && openThreadKey) {
       const index = orderedIds.indexOf(openThreadKey);
       if (index >= 0) setFocusedIndex(index);
-      setPendingListFocusKey(openThreadKey);
+      setPendingListFocus({ key: openThreadKey, searchQuery });
     }
     setOpenThread(null);
   });
 
   const goToInbox = useCallback(() => {
-    setPendingListFocusKey(null);
+    setPendingListFocus(null);
     selection.clear();
     setOpenThread(null);
     setScopeType("inbox");
@@ -1539,6 +1548,22 @@ export function MailShell() {
   }
   const showList =
     layout === "split" || !openThreadSelection || readerPreparing;
+  const listError = searchQuery && threads.length ? undefined : error;
+  const restoreFocusKey =
+    showList &&
+    !openThreadSelection &&
+    !readerPreparing &&
+    !previewThreadId &&
+    !isScheduledView
+      ? pendingListFocusKey
+      : null;
+  // When the reader closes while the list is still loading, closeReader cannot
+  // resolve the row index yet; sync focusedIndex once the target row arrives.
+  useLayoutEffect(() => {
+    if (!restoreFocusKey || listError) return;
+    const index = orderedIds.indexOf(restoreFocusKey);
+    if (index >= 0) setFocusedIndex(index);
+  }, [listError, orderedIds, restoreFocusKey]);
   const closeSetup = () => {
     setSetupParam(null);
     if (!editAllOnly && settings?.setup !== MailSetupState.DONE)
@@ -1670,7 +1695,7 @@ export function MailShell() {
         ? undefined
         : () => {
             if (selection.hasSelection) selection.clear();
-            setPendingListFocusKey(null);
+            setPendingListFocus(null);
             if (layout === "list" && openThreadId) setOpenThread(null);
             pendingSearchFocusRef.current = true;
             focusPendingSearch();
@@ -2246,9 +2271,7 @@ export function MailShell() {
                         loading={
                           !threads.length && (isLoading || !searchSettled)
                         }
-                        error={
-                          searchQuery && threads.length ? undefined : error
-                        }
+                        error={listError}
                         errorComponent={
                           searchQuery && error && !threads.length ? (
                             <div className="flex flex-col items-center pb-8">
@@ -2306,14 +2329,7 @@ export function MailShell() {
                           onScrolledChange={setIsListScrolled}
                           rowBundles={rowBundles}
                           onToggleBundle={collapseBundle}
-                          restoreFocusKey={
-                            showList &&
-                            !openThreadSelection &&
-                            !readerPreparing &&
-                            !previewThreadId
-                              ? pendingListFocusKey
-                              : null
-                          }
+                          restoreFocusKey={restoreFocusKey}
                           onFocusRestored={clearPendingListFocus}
                           listKey={
                             isAllAccounts

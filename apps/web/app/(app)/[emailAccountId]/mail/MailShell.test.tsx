@@ -19,7 +19,9 @@ const mockState = vi.hoisted(() => ({
   isMobile: false as boolean | undefined,
   settingsLayout: "SPLIT" as "LIST" | "SPLIT",
   setupParam: null as string | null,
+  searchParam: null as string | null,
   forceMenuOpen: false,
+  isLoadingThreads: false,
   threads: [] as Array<{
     id: string;
     messages: Array<{
@@ -185,7 +187,12 @@ vi.mock("nuqs", () => {
       return [state, setQuery] as const;
     },
     useQueryState: (key: string) => {
-      const initial = key === "setup" ? mockState.setupParam : null;
+      const initial =
+        key === "setup"
+          ? mockState.setupParam
+          : key === "q"
+            ? mockState.searchParam
+            : null;
       return React.useState<string | null>(initial);
     },
   };
@@ -194,7 +201,7 @@ vi.mock("nuqs", () => {
 vi.mock("@/app/(app)/[emailAccountId]/mail/use-mail-threads", () => ({
   useMailThreads: () => ({
     threads: mockState.threads,
-    isLoading: false,
+    isLoading: mockState.isLoadingThreads,
     error: undefined,
     hasMore: false,
     isLoadingMore: false,
@@ -434,7 +441,9 @@ describe("MailShell mobile layout", () => {
     mockState.isMobile = false;
     mockState.settingsLayout = "SPLIT";
     mockState.setupParam = null;
+    mockState.searchParam = null;
     mockState.forceMenuOpen = false;
+    mockState.isLoadingThreads = false;
     mockState.threads = [
       createMockThread("thread-1"),
       createMockThread("thread-2"),
@@ -442,7 +451,10 @@ describe("MailShell mobile layout", () => {
     mockState.shortcutHandlers = {};
   });
 
-  afterEach(cleanup);
+  afterEach(() => {
+    vi.useRealTimers();
+    cleanup();
+  });
 
   it("keeps split view on desktop when split layout is preferred", () => {
     mockState.forceMenuOpen = true;
@@ -639,6 +651,106 @@ describe("MailShell mobile layout", () => {
     expect(document.activeElement).toBe(
       screen.getByRole("combobox", { name: "Search mail" }),
     );
+  });
+
+  it("clears pending list focus when the search query changes while the list is loading", () => {
+    vi.useFakeTimers();
+    mockState.isMobile = true;
+    const { rerender } = render(<MailShell />);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("option", { name: "Open thread-2" }));
+    });
+    expect(screen.getByText("Reading thread-2")).toBeTruthy();
+
+    mockState.threads = [];
+    mockState.isLoadingThreads = true;
+    rerender(<MailShell />);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    });
+    expect(screen.queryByTestId("mail-reader")).toBeNull();
+    expect(screen.queryByTestId("thread-list")).toBeNull();
+
+    const searchInput = screen.getByRole("combobox", { name: "Search mail" });
+    searchInput.focus();
+    act(() => {
+      fireEvent.change(searchInput, { target: { value: "invoice" } });
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    mockState.isLoadingThreads = false;
+    mockState.threads = [
+      createMockThread("thread-1"),
+      createMockThread("thread-2"),
+    ];
+    rerender(<MailShell />);
+
+    expect(screen.getByTestId("thread-list")).toBeTruthy();
+    expect(document.activeElement).toBe(searchInput);
+  });
+
+  it("preserves list focus restoration on reader close when an active search query does not change", () => {
+    mockState.isMobile = true;
+    mockState.searchParam = "invoice";
+    render(<MailShell />);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("option", { name: "Open thread-2" }));
+    });
+    expect(screen.getByText("Reading thread-2")).toBeTruthy();
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    });
+
+    expect(screen.queryByTestId("mail-reader")).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole("option", { name: "Open thread-2" }),
+    );
+  });
+
+  it("syncs focusedIndex when the list reloads with the restored thread at a different index", () => {
+    mockState.isMobile = true;
+    const { rerender } = render(<MailShell />);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("option", { name: "Open thread-2" }));
+    });
+    expect(screen.getByText("Reading thread-2")).toBeTruthy();
+
+    mockState.threads = [];
+    mockState.isLoadingThreads = true;
+    rerender(<MailShell />);
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    });
+    expect(screen.queryByTestId("mail-reader")).toBeNull();
+    expect(screen.queryByTestId("thread-list")).toBeNull();
+
+    mockState.isLoadingThreads = false;
+    mockState.threads = [
+      createMockThread("thread-0"),
+      createMockThread("thread-1"),
+      createMockThread("thread-2"),
+    ];
+    rerender(<MailShell />);
+
+    const thread2Row = screen.getByRole("option", { name: "Open thread-2" });
+    expect(document.activeElement).toBe(thread2Row);
+    expect(thread2Row.tabIndex).toBe(0);
+    expect(screen.getByRole("option", { name: "Open thread-1" }).tabIndex).toBe(
+      -1,
+    );
+
+    act(() => {
+      mockState.shortcutHandlers.open?.();
+    });
+    expect(screen.getByText("Reading thread-2")).toBeTruthy();
   });
 });
 
