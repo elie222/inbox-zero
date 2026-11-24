@@ -85,7 +85,7 @@ function FeatureCard({
 
 function getFeatures() {
   const features = [
-    ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
+    ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED && env.NEXT_PUBLIC_MAIL_APP_ENABLED
       ? [
           {
             href: "/mail",

@@ -11,6 +11,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { env } from "@/env";
 import { cn } from "@/utils";
 import { prefixPath } from "@/utils/path";
 
@@ -55,22 +56,28 @@ export function AppSidebarHeader({
           data-desktop-mac-titlebar-toggle
         />
         <DesktopHistoryNav />
-        <AppSectionSwitcher
-          active={active}
-          emailAccountId={emailAccountId}
-          collapsed
-        />
+        {env.NEXT_PUBLIC_MAIL_APP_ENABLED ? (
+          <AppSectionSwitcher
+            active={active}
+            emailAccountId={emailAccountId}
+            collapsed
+          />
+        ) : null}
       </div>
     );
   }
 
   return (
     <div className="flex shrink-0 items-center gap-1 pt-[max(0px,calc(var(--desktop-traffic-lights-height,0px)-0.5rem))] pb-2">
-      <AppSectionSwitcher
-        active={active}
-        emailAccountId={emailAccountId}
-        collapsed={false}
-      />
+      {env.NEXT_PUBLIC_MAIL_APP_ENABLED ? (
+        <AppSectionSwitcher
+          active={active}
+          emailAccountId={emailAccountId}
+          collapsed={false}
+        />
+      ) : (
+        <div className="flex-1" />
+      )}
       {hideToggle ? null : (
         <>
           <SidebarTrigger

@@ -71,18 +71,26 @@ export function getVisibleOnboardingStepKeys({
   autoDraftDisabled,
   emailAppEnabled,
   isSelfHosted,
+  mailAppEnabled,
   signupIntent,
 }: {
   autoDraftDisabled: boolean;
   emailAppEnabled: boolean;
   isSelfHosted?: boolean;
+  mailAppEnabled: boolean;
   signupIntent: SignupIntent | null;
 }) {
   // The sales survey is irrelevant for self-hosted deployments.
   const survey = isSelfHosted ? [] : surveyStepOrder;
-  // Until the user picks, the AI setup steps stand in as the most common path.
-  const setup = signupIntent === "MAIL_CLIENT" ? [] : aiAssistantSetupStepOrder;
-  const stepOrder = [...introStepOrder, STEP_KEYS.INTENT, ...survey, ...setup];
+  // Without the email app there is no choice to make: everyone gets the AI
+  // setup. Until the user picks, the AI setup steps stand in as the most common
+  // path.
+  const intent = mailAppEnabled ? [STEP_KEYS.INTENT] : [];
+  const setup =
+    mailAppEnabled && signupIntent === "MAIL_CLIENT"
+      ? []
+      : aiAssistantSetupStepOrder;
+  const stepOrder = [...introStepOrder, ...intent, ...survey, ...setup];
 
   return stepOrder.filter((stepKey) => {
     if (
@@ -92,7 +100,12 @@ export function getVisibleOnboardingStepKeys({
       return false;
     }
 
-    if (!emailAppEnabled && stepKey === STEP_KEYS.EMAIL_APP) return false;
+    if (
+      (!emailAppEnabled || !mailAppEnabled) &&
+      stepKey === STEP_KEYS.EMAIL_APP
+    ) {
+      return false;
+    }
 
     return true;
   });

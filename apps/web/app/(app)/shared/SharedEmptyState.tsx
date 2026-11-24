@@ -2,6 +2,7 @@
 
 import { Trans } from "@lingui/react/macro";
 import Link from "next/link";
+import { env } from "@/env";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -32,13 +33,15 @@ export function SharedEmptyState() {
           </Trans>
         </EmptyDescription>
       </EmptyHeader>
-      <EmptyContent>
-        <Button asChild variant="outline" size="sm">
-          <Link href={prefixPath(emailAccountId, "/mail")}>
-            <Trans>Go to inbox</Trans>
-          </Link>
-        </Button>
-      </EmptyContent>
+      {env.NEXT_PUBLIC_MAIL_APP_ENABLED && (
+        <EmptyContent>
+          <Button asChild variant="outline" size="sm">
+            <Link href={prefixPath(emailAccountId, "/mail")}>
+              <Trans>Go to inbox</Trans>
+            </Link>
+          </Button>
+        </EmptyContent>
+      )}
     </Empty>
   );
 }

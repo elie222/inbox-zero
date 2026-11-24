@@ -2,6 +2,7 @@
 
 import { Trans } from "@lingui/react/macro";
 import Link from "next/link";
+import { env } from "@/env";
 import { EarlyAccessFeatures } from "@/app/(app)/early-access/EarlyAccessFeatures";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,29 +23,31 @@ export default function RequestAccessPage() {
     <div className="container px-2 pt-2 sm:px-4 sm:pt-8">
       <div className="mx-auto max-w-2xl space-y-4 sm:space-y-8">
         <EarlyAccessFeatures />
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <Trans>Mail</Trans>
-            </CardTitle>
-            <CardDescription>
-              <Trans>Open your inbox in the Inbox Zero mail client.</Trans>
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {emailAccountId ? (
-              <Button asChild>
-                <Link href={prefixPath(emailAccountId, "/mail")}>
+        {env.NEXT_PUBLIC_MAIL_APP_ENABLED && (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <Trans>Mail</Trans>
+              </CardTitle>
+              <CardDescription>
+                <Trans>Open your inbox in the Inbox Zero mail client.</Trans>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {emailAccountId ? (
+                <Button asChild>
+                  <Link href={prefixPath(emailAccountId, "/mail")}>
+                    <Trans>Open Mail</Trans>
+                  </Link>
+                </Button>
+              ) : (
+                <Button disabled>
                   <Trans>Open Mail</Trans>
-                </Link>
-              </Button>
-            ) : (
-              <Button disabled>
-                <Trans>Open Mail</Trans>
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
         {isGoogleProvider(provider) && (
           <>
             <Card>

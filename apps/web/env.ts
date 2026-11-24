@@ -477,6 +477,7 @@ const parsedEnv = createEnv({
       .optional()
       .default(false),
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: booleanString.default(true),
+    NEXT_PUBLIC_MAIL_APP_ENABLED: booleanString.default(true),
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: booleanString.optional().default(true),
     NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
     NEXT_PUBLIC_SUPPORT_EMAIL: z
@@ -591,6 +592,7 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED:
       process.env.NEXT_PUBLIC_GMAIL_OTHER_CONTACTS_ENABLED,
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: process.env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
+    NEXT_PUBLIC_MAIL_APP_ENABLED: process.env.NEXT_PUBLIC_MAIL_APP_ENABLED,
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED:
       process.env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED,
     NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS:

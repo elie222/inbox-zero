@@ -94,7 +94,8 @@ async function getSetupProgress({
     env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED ||
       env.NEXT_PUBLIC_BOOKING_LINKS_ENABLED,
   );
-  const showEmailAppStep = env.NEXT_PUBLIC_EMAIL_SEND_ENABLED;
+  const showEmailAppStep =
+    env.NEXT_PUBLIC_EMAIL_SEND_ENABLED && env.NEXT_PUBLIC_MAIL_APP_ENABLED;
 
   const teamInviteCompleted =
     hasTeamMembers || hasPendingInvitations || teamInviteDismissed;

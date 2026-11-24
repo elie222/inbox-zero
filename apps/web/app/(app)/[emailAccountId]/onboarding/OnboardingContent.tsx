@@ -94,6 +94,7 @@ export function OnboardingContent({
         isDraftRepliesDisabledByRuleState(rules),
       emailAppEnabled: env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
       isSelfHosted: Boolean(env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS),
+      mailAppEnabled: env.NEXT_PUBLIC_MAIL_APP_ENABLED,
       signupIntent: intent,
     }).filter((key) => isDefined(stepMap[key]));
   const visibleStepKeys = getVisibleStepKeys(signupIntent);

@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { DeploymentUpdateNotice } from "@/app/(app)/[emailAccountId]/mail/DeploymentUpdateNotice";
 import { MailThemeScope } from "@/app/(app)/[emailAccountId]/mail/MailThemeScope";
 import {
@@ -9,15 +10,24 @@ import {
   MAIL_SIDEBAR_WIDTH_BOUNDS,
   MAIL_SIDEBAR_WIDTH_COOKIE,
 } from "@/app/(app)/[emailAccountId]/mail/panel-widths";
+import { env } from "@/env";
 import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
 import { MAIL_SHORTCUT_SCOPES } from "@/lib/shortcuts/registry";
 import { parsePanelWidthCookie } from "@/utils/panel-width";
+import { prefixPath } from "@/utils/path";
 
 export default async function MailLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: Promise<{ emailAccountId: string }>;
 }) {
+  if (!env.NEXT_PUBLIC_MAIL_APP_ENABLED) {
+    const { emailAccountId } = await params;
+    redirect(prefixPath(encodeURIComponent(emailAccountId), "/automation"));
+  }
+
   const cookieStore = await cookies();
   const sidebarWidth =
     parsePanelWidthCookie(

@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   }),
   env: {
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: false,
+    NEXT_PUBLIC_MAIL_APP_ENABLED: true,
   },
 }));
 
@@ -54,6 +55,7 @@ import WelcomeRedirectPage from "./page";
 describe("WelcomeRedirectPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.env.NEXT_PUBLIC_MAIL_APP_ENABLED = true;
     mocks.auth.mockResolvedValue({ user: { id: "user-1" } });
   });
 
@@ -130,6 +132,23 @@ describe("WelcomeRedirectPage", () => {
     await expect(
       WelcomeRedirectPage({ searchParams: Promise.resolve({}) }),
     ).rejects.toThrow("account-redirect:/mail");
+  });
+
+  it("sends email-app users to automation when the email app is disabled", async () => {
+    mocks.env.NEXT_PUBLIC_MAIL_APP_ENABLED = false;
+    mocks.findUser.mockResolvedValue({
+      completedOnboardingAt: new Date("2026-01-01T00:00:00.000Z"),
+      signupIntent: "MAIL_CLIENT",
+      premiumId: null,
+    });
+
+    await expect(
+      WelcomeRedirectPage({
+        searchParams: Promise.resolve({ mode: "mail" }),
+      }),
+    ).rejects.toThrow("account-redirect:/automation");
+
+    expect(mocks.updateUser).not.toHaveBeenCalled();
   });
 
   it("sends mobile-paid users with active Apple premium to setup", async () => {

@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
+import { env } from "@/env";
 import { completedOnboardingAction } from "@/utils/actions/onboarding";
 import {
   ASSISTANT_ONBOARDING_COOKIE,
@@ -111,5 +112,7 @@ function getDestination({
   isPremium: boolean;
 }) {
   if (!isPremium) return "welcome-upgrade";
-  return signupIntent === "MAIL_CLIENT" ? "mail" : "setup";
+  return env.NEXT_PUBLIC_MAIL_APP_ENABLED && signupIntent === "MAIL_CLIENT"
+    ? "mail"
+    : "setup";
 }

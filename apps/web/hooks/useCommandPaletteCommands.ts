@@ -19,6 +19,7 @@ import {
   MailsIcon,
   SlidersHorizontalIcon,
 } from "lucide-react";
+import { env } from "@/env";
 import type { Command } from "@/lib/commands/types";
 import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useRules } from "@/hooks/useRules";
@@ -66,20 +67,26 @@ export function useCommandPaletteCommands({
           openSettings();
         },
       },
-      {
-        id: "settings-mail-setup",
-        label: t`Mail setup`,
-        description: t`Layout, tabs and bundles`,
-        icon: SlidersHorizontalIcon,
-        section: "settings",
-        priority: 2,
-        keywords: ["mail onboarding", "setup", "layout", "tabs", "split"],
-        action: () => router.push(prefixPath(emailAccountId, "/mail?setup=1")),
-      },
+      ...(env.NEXT_PUBLIC_MAIL_APP_ENABLED
+        ? [
+            {
+              id: "settings-mail-setup",
+              label: t`Mail setup`,
+              description: t`Layout, tabs and bundles`,
+              icon: SlidersHorizontalIcon,
+              section: "settings" as const,
+              priority: 2,
+              keywords: ["mail onboarding", "setup", "layout", "tabs", "split"],
+              action: () =>
+                router.push(prefixPath(emailAccountId, "/mail?setup=1")),
+            },
+          ]
+        : []),
     ];
     // Kept even while a conversation is selected: jumping to another mailbox
     // is as likely then as from anywhere else.
-    const mailboxCommands: Command[] = MAILBOX_ITEMS.map((item, index) => {
+    const mailboxItems = env.NEXT_PUBLIC_MAIL_APP_ENABLED ? MAILBOX_ITEMS : [];
+    const mailboxCommands: Command[] = mailboxItems.map((item, index) => {
       const mailbox = i18n._(item.label);
       return {
         id: `nav-mailbox-${item.type}`,
@@ -100,13 +107,17 @@ export function useCommandPaletteCommands({
     if (!enabled) return [...mailboxCommands, ...generalSettingsCommands];
 
     const navigationItems = [
-      {
-        name: "Mail",
-        label: t`Go to Mail`,
-        href: prefixPath(emailAccountId, "/mail"),
-        icon: InboxIcon,
-        keywords: ["mail", "inbox", "email"],
-      },
+      ...(env.NEXT_PUBLIC_MAIL_APP_ENABLED
+        ? [
+            {
+              name: "Mail",
+              label: t`Go to Mail`,
+              href: prefixPath(emailAccountId, "/mail"),
+              icon: InboxIcon,
+              keywords: ["mail", "inbox", "email"],
+            },
+          ]
+        : []),
       {
         name: "Assistant",
         label: t`Go to Assistant`,
