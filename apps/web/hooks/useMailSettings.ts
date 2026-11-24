@@ -12,6 +12,7 @@ const mailSettingsSchema = z.object({
   layout: z.enum(MailLayout).nullable(),
   expandedPreview: z.boolean(),
   bundleInbox: z.boolean(),
+  groupBySender: z.boolean(),
   defaultSplitId: z.string().nullable(),
   setup: z.enum(MailSetupState),
   splits: z.array(

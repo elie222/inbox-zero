@@ -128,7 +128,10 @@ async function markOnboardingComplete(email: string) {
            SET "behaviorProfile" = '{}'::jsonb,
                "personaAnalysis" = '{}'::jsonb,
                "writingStyle" = 'Playwright seeded writing style',
-               "mailSetup" = 'DONE'
+               "mailSetup" = 'DONE',
+               -- Specs pick seeded rows by subject, and many share a sender.
+               -- group-by-sender.spec.ts turns grouping back on.
+               "mailGroupBySender" = false
            WHERE email = $1`,
           [email],
         );

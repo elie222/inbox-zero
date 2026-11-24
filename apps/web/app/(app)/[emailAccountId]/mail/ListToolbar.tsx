@@ -87,6 +87,9 @@ export type ListToolbarProps = {
   bundleInbox: boolean;
   /** Omitted outside the single-account inbox, where bundling never applies. */
   onToggleBundleInbox?: () => void;
+  groupBySender: boolean;
+  /** Omitted outside the single-account inbox, where grouping never applies. */
+  onToggleGroupBySender?: () => void;
   onToggleAssistant: () => void;
   onOpenAllSettings?: () => void;
   /** Omitted where the setup card can't apply, or while it's open. */
@@ -130,6 +133,8 @@ export const ListToolbar = memo(function ListToolbar({
   onTogglePreview,
   bundleInbox,
   onToggleBundleInbox,
+  groupBySender,
+  onToggleGroupBySender,
   onToggleAssistant,
   onOpenAllSettings,
   onOpenSetup,
@@ -327,6 +332,8 @@ export const ListToolbar = memo(function ListToolbar({
           onTogglePreview={onTogglePreview}
           bundleInbox={bundleInbox}
           onToggleBundleInbox={onToggleBundleInbox}
+          groupBySender={groupBySender}
+          onToggleGroupBySender={onToggleGroupBySender}
           onOpenAllSettings={onOpenAllSettings}
           onOpenSetup={onOpenSetup}
           isSetupSuggested={isSetupSuggested}
@@ -609,6 +616,8 @@ function ViewOptionsMenu({
   onTogglePreview,
   bundleInbox,
   onToggleBundleInbox,
+  groupBySender,
+  onToggleGroupBySender,
   onOpenAllSettings,
   onOpenSetup,
   isSetupSuggested,
@@ -620,6 +629,8 @@ function ViewOptionsMenu({
   | "onTogglePreview"
   | "bundleInbox"
   | "onToggleBundleInbox"
+  | "groupBySender"
+  | "onToggleGroupBySender"
   | "onOpenAllSettings"
   | "onOpenSetup"
   | "isSetupSuggested"
@@ -651,6 +662,14 @@ function ViewOptionsMenu({
             onCheckedChange={onToggleBundleInbox}
           >
             <Trans>Bundle low-priority emails</Trans>
+          </DropdownMenuCheckboxItem>
+        ) : null}
+        {onToggleGroupBySender ? (
+          <DropdownMenuCheckboxItem
+            checked={groupBySender}
+            onCheckedChange={onToggleGroupBySender}
+          >
+            <Trans>Group by sender</Trans>
           </DropdownMenuCheckboxItem>
         ) : null}
         <DropdownMenuCheckboxItem

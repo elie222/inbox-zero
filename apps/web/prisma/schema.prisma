@@ -200,6 +200,8 @@ model EmailAccount {
   /// Collapses threads from bundled splits into one row each in the inbox.
   /// Null until first turned on, which is when default bundles are chosen.
   mailBundleInbox     Boolean?
+  /// Collapses the inbox's other mail from one sender into one row.
+  mailGroupBySender   Boolean        @default(true)
   mailDefaultSplitId  String?
   mailSetup           MailSetupState @default(PENDING)
 

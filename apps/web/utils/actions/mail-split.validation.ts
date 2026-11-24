@@ -91,6 +91,7 @@ export const updateMailPreferencesBody = z
     layout: z.nativeEnum(MailLayout).optional(),
     expandedPreview: z.boolean().optional(),
     bundleInbox: z.boolean().optional(),
+    groupBySender: z.boolean().optional(),
     /** Null goes back to opening on the first tab. */
     defaultSplitId: z.string().min(1).nullable().optional(),
     setup: z.enum(MailSetupState).optional(),

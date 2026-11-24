@@ -6821,6 +6821,10 @@ msgstr "Raggruppa per giorno"
 msgid "Group by month"
 msgstr "Raggruppa per mese"
 
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Group by sender"
+msgstr "Raggruppa per mittente"
+
 #: app/(app)/[emailAccountId]/stats/Stats.tsx
 msgid "Group by week"
 msgstr "Raggruppa per settimana"

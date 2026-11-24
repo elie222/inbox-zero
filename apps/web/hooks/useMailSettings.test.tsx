@@ -10,6 +10,7 @@ const settings: MailSettingsResponse = {
   layout: "LIST",
   expandedPreview: false,
   bundleInbox: false,
+  groupBySender: true,
   defaultSplitId: null,
   setup: "DONE",
   splits: [

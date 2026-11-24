@@ -6821,6 +6821,10 @@ msgstr "Regrouper par jour"
 msgid "Group by month"
 msgstr "Regrouper par mois"
 
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Group by sender"
+msgstr "Regrouper par expéditeur"
+
 #: app/(app)/[emailAccountId]/stats/Stats.tsx
 msgid "Group by week"
 msgstr "Regrouper par semaine"

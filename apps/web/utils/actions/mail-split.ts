@@ -123,6 +123,7 @@ export const updateMailPreferencesAction = actionClient
         layout,
         expandedPreview,
         bundleInbox,
+        groupBySender,
         defaultSplitId,
         setup,
       },
@@ -138,6 +139,9 @@ export const updateMailPreferencesAction = actionClient
           ...(bundleInbox === undefined
             ? {}
             : { mailBundleInbox: bundleInbox }),
+          ...(groupBySender === undefined
+            ? {}
+            : { mailGroupBySender: groupBySender }),
           ...(defaultSplitId === undefined
             ? {}
             : { mailDefaultSplitId: defaultSplitId }),

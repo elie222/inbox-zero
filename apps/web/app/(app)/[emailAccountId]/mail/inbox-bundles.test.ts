@@ -6,10 +6,23 @@ const notifications = split("notifications", "Label_notification", true);
 const newsletters = split("newsletters", "Label_newsletter", true);
 const toReply = split("to-reply", "Label_to_reply", false);
 const all = { ...split("all", "", false), filters: [] };
+const splitBundlesOnly = {
+  bundleSplits: true,
+  groupBySender: false,
+  userEmail: "me@example.com",
+};
+const bySender = {
+  bundleSplits: true,
+  groupBySender: true,
+  userEmail: "me@example.com",
+  expandedBundleIds: new Set<string>(),
+  keepVisible: () => false,
+};
 
 describe("bundleInboxThreads", () => {
   it("places each bundle where its newest thread was and keeps other mail in order", () => {
     const { rows, rowBundles } = bundleInboxThreads({
+      ...splitBundlesOnly,
       threads: [
         thread("n1", ["Label_notification"]),
         thread("person", []),
@@ -34,6 +47,7 @@ describe("bundleInboxThreads", () => {
 
   it("lists an expanded bundle's threads together at the bundle's position", () => {
     const { rows, rowBundles } = bundleInboxThreads({
+      ...splitBundlesOnly,
       threads: [
         thread("person", []),
         thread("n1", ["Label_notification"]),
@@ -58,6 +72,7 @@ describe("bundleInboxThreads", () => {
 
   it("keeps threads that need attention out of bundles", () => {
     const { rows, rowBundles } = bundleInboxThreads({
+      ...splitBundlesOnly,
       threads: [
         thread("reply", ["Label_notification", "Label_to_reply"]),
         thread("code", ["Label_notification"]),
@@ -88,6 +103,7 @@ describe("bundleInboxThreads", () => {
       filters: [{ kind: "FROM" as const, value: "boss@example.com" }],
     };
     const { rows } = bundleInboxThreads({
+      ...splitBundlesOnly,
       threads: [
         thread("from-boss", ["Label_notification"], "boss@example.com"),
         thread("n1", ["Label_notification"]),
@@ -117,6 +133,7 @@ describe("bundleInboxThreads", () => {
       thread("unrelated2", ["UNREAD"]),
     ];
     const { rows, rowBundles } = bundleInboxThreads({
+      ...splitBundlesOnly,
       threads,
       splits: [newsletterOrUnread],
       expandedBundleIds: new Set(),
@@ -133,10 +150,125 @@ describe("bundleInboxThreads", () => {
       thread("person", []),
     ];
     const { rows, rowBundles } = bundleInboxThreads({
+      ...splitBundlesOnly,
       threads,
       splits: [notifications],
       expandedBundleIds: new Set(),
       keepVisible: () => false,
+    });
+
+    expect(rows).toEqual(threads);
+    expect(rowBundles.size).toBe(0);
+  });
+
+  it("groups other mail by sender address rather than display name", () => {
+    const { rows, rowBundles } = bundleInboxThreads({
+      ...bySender,
+      threads: [
+        thread("alert1", [], "F5Bot Alerts <Alerts@F5Bot.com>"),
+        thread("sumeeth", [], "Rakazo <sumeeth@example.com>"),
+        thread("alert2", [], "F5Bot <alerts@f5bot.com>"),
+        thread("mercy", [], "Rakazo <mercy@example.com>"),
+      ],
+      splits: [],
+    });
+
+    expect(rows.map((row) => row.id)).toEqual(["alert1", "sumeeth", "mercy"]);
+    expect(rowBundles.get("alert1")?.bundle).toMatchObject({
+      id: "sender:alerts@f5bot.com",
+      kind: "sender",
+      name: "F5Bot Alerts",
+    });
+    expect(
+      rowBundles.get("alert1")?.bundle.threads.map((row) => row.id),
+    ).toEqual(["alert1", "alert2"]);
+  });
+
+  it("keeps threads the user has written in out of sender groups", () => {
+    const replied = thread("replied", [], "Dana <dana@example.com>");
+    replied.messages.push({
+      ...replied.messages[0],
+      id: "replied-reply",
+      labelIds: ["SENT"],
+      headers: { from: "Me <ME@example.com>", to: "dana@example.com" },
+    } as (typeof replied.messages)[number]);
+    const drafted = thread("drafted", [], "Dana <dana@example.com>");
+    drafted.messages.push({
+      ...drafted.messages[0],
+      id: "drafted-draft",
+      labelIds: ["DRAFT"],
+      headers: { from: "Me <alias@example.org>", to: "dana@example.com" },
+    } as (typeof drafted.messages)[number]);
+    const { rows } = bundleInboxThreads({
+      ...bySender,
+      threads: [
+        replied,
+        drafted,
+        thread("d1", [], "Dana <dana@example.com>"),
+        thread("d2", [], "Dana <dana@example.com>"),
+      ],
+      splits: [],
+    });
+
+    expect(rows.map((row) => row.id)).toEqual(["replied", "drafted", "d1"]);
+  });
+
+  it("puts mail in a bundled split before grouping the rest by sender", () => {
+    const { rows, rowBundles } = bundleInboxThreads({
+      ...bySender,
+      threads: [
+        thread("n1", ["Label_notification"]),
+        thread("s1", []),
+        thread("n2", ["Label_notification"]),
+        thread("s2", []),
+      ],
+      splits: [notifications],
+    });
+
+    expect(rows.map((row) => row.id)).toEqual(["n1", "s1"]);
+    expect(rowBundles.get("n1")?.bundle.id).toBe("notifications");
+    expect(rowBundles.get("s1")?.bundle.id).toBe("sender:sender@example.com");
+  });
+
+  it("treats the split being viewed as neither a bundle nor a protection", () => {
+    const work = split("work", "Label_work", false);
+    const threads = [
+      thread("n1", ["Label_notification"], "alerts@example.com"),
+      thread("n2", ["Label_notification"], "alerts@example.com"),
+      thread("w1", ["Label_work"], "pat@example.com"),
+      thread("w2", ["Label_work"], "pat@example.com"),
+    ];
+
+    const inNotifications = bundleInboxThreads({
+      ...bySender,
+      threads: threads.slice(0, 2),
+      splits: [notifications, work],
+      viewedSplitId: "notifications",
+    });
+    expect(inNotifications.rowBundles.get("n1")?.bundle.id).toBe(
+      "sender:alerts@example.com",
+    );
+
+    const inWork = bundleInboxThreads({
+      ...bySender,
+      threads: threads.slice(2),
+      splits: [notifications, work],
+      viewedSplitId: "work",
+    });
+    expect(inWork.rowBundles.get("w1")?.bundle.id).toBe(
+      "sender:pat@example.com",
+    );
+  });
+
+  it("leaves a sender's only thread as an ordinary row", () => {
+    const threads = [
+      thread("dana", [], "dana@example.com"),
+      thread("alex", [], "alex@example.com"),
+    ];
+    const { rows, rowBundles } = bundleInboxThreads({
+      ...bySender,
+      threads,
+      splits: [],
     });
 
     expect(rows).toEqual(threads);

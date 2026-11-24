@@ -284,6 +284,7 @@ export function MailShell() {
     settings?.layout === MailLayout.SPLIT ? "split" : "list";
   const expandedPreview = settings?.expandedPreview ?? false;
   const bundleInbox = settings?.bundleInbox ?? false;
+  const groupBySender = settings?.groupBySender ?? true;
 
   // Written through the SWR cache rather than mirrored in local state, so the
   // preference has one source of truth and every reader sees the new value.
@@ -340,6 +341,11 @@ export function MailShell() {
     // Turning bundling on picks default splits on the server.
     if (enabling) mutateSettings();
   }, [bundleInbox, mutateSettings, updatePreferences]);
+
+  const toggleGroupBySender = useCallback(
+    () => updatePreferences({ groupBySender: !groupBySender }),
+    [groupBySender, updatePreferences],
+  );
 
   // A sidebar selection scopes the whole list, which replaces the split tabs —
   // splits are a way of slicing the inbox, not of slicing an arbitrary view.
@@ -532,13 +538,10 @@ export function MailShell() {
       isAllAccounts ? !searchQuery : threadListQueryRequiresInbox(query),
       JSON.stringify([emailAccountId, isAllAccounts]),
     );
-  const isInboxView =
-    !isAllAccounts &&
-    !searchQuery &&
-    !scopeQuery &&
-    !!activeSplit &&
-    !activeSplit.filters.length &&
-    activeSplit.id !== OTHER_SPLIT_ID;
+  // Bundles fold the inbox's tabs. Search, the combined inbox and other
+  // mailboxes like Sent or Archive list mail as it is.
+  const viewedSplit =
+    !isAllAccounts && !searchQuery && !scopeQuery ? activeSplit : undefined;
   const [expandedBundleIds, setExpandedBundleIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
@@ -551,10 +554,14 @@ export function MailShell() {
   }, []);
   const { rows: threads, rowBundles } = useMemo(
     () =>
-      bundleInbox && isInboxView
+      (bundleInbox || groupBySender) && viewedSplit
         ? bundleInboxThreads({
             threads: listedThreads,
             splits: settings?.splits ?? [],
+            viewedSplitId: viewedSplit.id,
+            bundleSplits: bundleInbox,
+            groupBySender,
+            userEmail,
             expandedBundleIds,
             // A sign-in code is wanted now, so it never waits inside a bundle.
             keepVisible: (thread) => isOtpThread(thread, userLabels),
@@ -562,9 +569,11 @@ export function MailShell() {
         : { rows: listedThreads, rowBundles: undefined },
     [
       bundleInbox,
-      isInboxView,
+      groupBySender,
+      viewedSplit,
       listedThreads,
       settings?.splits,
+      userEmail,
       expandedBundleIds,
       userLabels,
     ],
@@ -1938,6 +1947,21 @@ export function MailShell() {
       return;
     }
     const wanted = new Set(assistantSelection);
+    // A collapsed bundle row acts on every thread it holds, so open the ones
+    // holding a requested thread and select just that thread inside.
+    const bundlesToOpen = [...(rowBundles?.values() ?? [])]
+      .filter(
+        (row) =>
+          row.kind === "collapsed" &&
+          row.bundle.threads.some((thread) => wanted.has(thread.id)),
+      )
+      .map((row) => row.bundle.id);
+    if (bundlesToOpen.length) {
+      setExpandedBundleIds(
+        (current) => new Set([...current, ...bundlesToOpen]),
+      );
+      return;
+    }
     const keys = listedThreads
       .filter(
         (thread) =>
@@ -1959,8 +1983,37 @@ export function MailShell() {
     listedThreads,
     orderedIds,
     replaceSelection,
+    rowBundles,
     selectedIds,
   ]);
+  const collapsedRowKeys = useMemo(
+    () =>
+      new Set(
+        [...(rowBundles ?? [])]
+          .filter(([, row]) => row.kind === "collapsed")
+          .map(([key]) => key),
+      ),
+    [rowBundles],
+  );
+  const previousCollapsedRowKeys = useRef(collapsedRowKeys);
+  useEffect(() => {
+    const previous = previousCollapsedRowKeys.current;
+    previousCollapsedRowKeys.current = collapsedRowKeys;
+    // A selected email that new mail turns into the head of a bundle row
+    // would otherwise stand for the whole bundle and widen what an action hits.
+    const widened = [...selectedIds].filter(
+      (key) => collapsedRowKeys.has(key) && !previous.has(key),
+    );
+    if (!widened.length) return;
+    // Filtered to visible rows too, since the selection hook is dropping the
+    // members this same change hid.
+    const visibleKeys = new Set(orderedIds);
+    replaceSelection(
+      [...selectedIds].filter(
+        (key) => visibleKeys.has(key) && !widened.includes(key),
+      ),
+    );
+  }, [collapsedRowKeys, orderedIds, replaceSelection, selectedIds]);
   const threadCount = threads.length;
   const { selectedCount, selectAll, clear: clearSelection } = selection;
   // Only offered once something is selected, so the tabs sit flush otherwise.
@@ -2110,7 +2163,11 @@ export function MailShell() {
                 onTogglePreview={togglePreview}
                 bundleInbox={bundleInbox}
                 onToggleBundleInbox={
-                  isInboxView ? toggleBundleInbox : undefined
+                  viewedSplit ? toggleBundleInbox : undefined
+                }
+                groupBySender={groupBySender}
+                onToggleGroupBySender={
+                  viewedSplit ? toggleGroupBySender : undefined
                 }
                 onToggleAssistant={onToggleAssistant}
                 onOpenAllSettings={onOpenAllSettings}

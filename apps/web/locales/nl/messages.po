@@ -6821,6 +6821,10 @@ msgstr "Groeperen per dag"
 msgid "Group by month"
 msgstr "Groeperen per maand"
 
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Group by sender"
+msgstr "Groeperen per afzender"
+
 #: app/(app)/[emailAccountId]/stats/Stats.tsx
 msgid "Group by week"
 msgstr "Groeperen per week"

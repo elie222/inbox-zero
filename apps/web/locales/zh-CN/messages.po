@@ -6821,6 +6821,10 @@ msgstr "按天分组"
 msgid "Group by month"
 msgstr "按月分组"
 
+#: app/(app)/[emailAccountId]/mail/ListToolbar.tsx
+msgid "Group by sender"
+msgstr "按发件人分组"
+
 #: app/(app)/[emailAccountId]/stats/Stats.tsx
 msgid "Group by week"
 msgstr "按周分组"
