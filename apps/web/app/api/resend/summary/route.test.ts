@@ -395,7 +395,7 @@ describe("summary email route", () => {
     });
   });
 
-  it("counts applied and completed archives outside the cold-email rule", async () => {
+  it("keeps archives when the cold-email execution predates the summary window", async () => {
     prisma.emailAccount.findUnique
       .mockResolvedValueOnce({ lastSummaryEmailAt: null })
       .mockResolvedValueOnce({
@@ -420,6 +420,18 @@ describe("summary email route", () => {
       }),
     );
 
+    const coldEmailWhere = prisma.executedRule.count.mock.calls[0]?.[0]?.where;
+    expect(coldEmailWhere).toMatchObject({
+      ruleId: "cold-rule-id",
+      createdAt: { gt: expect.any(Date) },
+    });
+    const { gt: cutoff } = coldEmailWhere?.createdAt as { gt: Date };
+    const archiveFilters = [
+      { ruleId: null },
+      { ruleId: { not: "cold-rule-id" } },
+      { createdAt: { lte: cutoff } },
+    ];
+
     expect(prisma.executedAction.count).toHaveBeenCalledTimes(2);
     expect(prisma.executedAction.count).toHaveBeenCalledWith({
       where: expect.objectContaining({
@@ -429,7 +441,7 @@ describe("summary email route", () => {
           emailAccountId: "email-account-id",
           automated: true,
           status: ExecutedRuleStatus.APPLIED,
-          OR: [{ ruleId: null }, { ruleId: { not: "cold-rule-id" } }],
+          OR: archiveFilters,
         }),
       }),
     });
@@ -445,7 +457,7 @@ describe("summary email route", () => {
         executedRule: {
           emailAccountId: "email-account-id",
           automated: true,
-          OR: [{ ruleId: null }, { ruleId: { not: "cold-rule-id" } }],
+          OR: archiveFilters,
         },
       }),
     });

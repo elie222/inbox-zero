@@ -161,7 +161,7 @@ function ArchivedEmails({
       title={title}
       description="Moved out of your inbox by your rules."
       footnote={
-        hiddenCount > 0
+        archivedEmails.length > 0 && hiddenCount > 0
           ? `And ${hiddenCount} more archived ${pluralize(hiddenCount, "email")}.`
           : undefined
       }
@@ -201,7 +201,7 @@ function ColdEmails({
       title={title}
       description="If a sender was flagged by mistake, you can mark them as not cold."
       footnote={
-        hiddenCount > 0
+        coldEmailers.length > 0 && hiddenCount > 0
           ? `And ${hiddenCount} more cold ${pluralize(hiddenCount, "email")}.`
           : undefined
       }

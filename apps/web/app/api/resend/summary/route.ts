@@ -375,12 +375,16 @@ async function getArchivedActions({
   cutOffDate: Date;
   coldEmailRuleId?: string;
 }) {
-  // The digest reports cold-email rule activity in its own section.
+  // Keep archives whose rule ran before this week's cold-email reporting window.
   const executedRuleWhere = {
     emailAccountId,
     automated: true,
     OR: coldEmailRuleId
-      ? [{ ruleId: null }, { ruleId: { not: coldEmailRuleId } }]
+      ? [
+          { ruleId: null },
+          { ruleId: { not: coldEmailRuleId } },
+          { createdAt: { lte: cutOffDate } },
+        ]
       : undefined,
   } satisfies Prisma.ExecutedRuleWhereInput;
   const immediateWhere = {
