@@ -64,6 +64,9 @@ test("a weekly summary link excludes its sender only after confirmation", async 
     await expect(flagged).toHaveCount(0);
     await page.getByRole("link", { name: "Marked Not Cold" }).click();
     await expect(flagged).toBeVisible();
+
+    await page.goto(url);
+    await expect(dialog).toContainText(sender);
   } finally {
     await client.query(`DELETE FROM "Rule" WHERE id = $1`, [ruleId]);
     await client.query(`DELETE FROM "Group" WHERE id = $1`, [groupId]);

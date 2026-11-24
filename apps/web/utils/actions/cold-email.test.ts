@@ -27,6 +27,19 @@ const SENDER = "cold@example.com";
 const SENDER_ID = "flagged-sender-id";
 const OTHER_SENDER = "other@example.com";
 const COLD_LABEL_ID = "Label_cold";
+const flaggedSender = {
+  id: SENDER_ID,
+  groupId: "cold-senders-group",
+  type: "FROM" as const,
+  value: SENDER,
+  exclude: false,
+  createdAt: new Date(0),
+  updatedAt: new Date(0),
+  reason: null,
+  threadId: null,
+  messageId: null,
+  source: null,
+};
 
 describe("markNotColdEmailAction", () => {
   beforeEach(() => {
@@ -43,19 +56,7 @@ describe("markNotColdEmailAction", () => {
       groupId: "cold-senders-group",
       actions: [{ type: "LABEL", label: "Cold Email", labelId: COLD_LABEL_ID }],
     } as any);
-    prisma.groupItem.findUnique.mockResolvedValue({
-      id: SENDER_ID,
-      groupId: "cold-senders-group",
-      type: "FROM",
-      value: SENDER,
-      exclude: false,
-      createdAt: new Date(0),
-      updatedAt: new Date(0),
-      reason: null,
-      threadId: null,
-      messageId: null,
-      source: null,
-    });
+    prisma.groupItem.findUnique.mockResolvedValue(flaggedSender);
     saveLearnedPatternMock.mockResolvedValue(undefined);
   });
 
@@ -72,12 +73,42 @@ describe("markNotColdEmailAction", () => {
         id: "unrecognized-sender-id",
         groupId: "cold-senders-group",
         type: "FROM",
-        exclude: false,
+        OR: [{ exclude: false }, { exclude: true, source: "USER" }],
       },
-      select: { value: true },
+      select: { value: true, exclude: true },
     });
     expect(saveLearnedPatternMock).not.toHaveBeenCalled();
     expect(createEmailProviderMock).not.toHaveBeenCalled();
+  });
+
+  it("retries mailbox cleanup without rewriting a saved sender exclusion", async () => {
+    const mailbox = new FakeMailbox(
+      makeThreads("archived", 1, { inInbox: false, labels: [COLD_LABEL_ID] }),
+    );
+    createEmailProviderMock.mockResolvedValue(mailbox.provider);
+    mailbox.provider.getThreadsWithQuery.mockRejectedValueOnce(
+      new Error("Mailbox temporarily unavailable"),
+    );
+    saveLearnedPatternMock.mockImplementationOnce(async () => {
+      prisma.groupItem.findUnique.mockResolvedValue({
+        ...flaggedSender,
+        exclude: true,
+        source: "USER",
+      });
+    });
+
+    const first = await markNotColdEmailAction("account-1", {
+      senderId: SENDER_ID,
+    });
+    expect(first?.serverError).toBeDefined();
+    expect(mailbox.threadIdsWithLabel(COLD_LABEL_ID)).toEqual(["archived-0"]);
+
+    const retry = await markNotColdEmailAction("account-1", {
+      senderId: SENDER_ID,
+    });
+    expect(retry?.serverError).toBeUndefined();
+    expect(mailbox.threadIdsWithLabel(COLD_LABEL_ID)).toEqual([]);
+    expect(saveLearnedPatternMock).toHaveBeenCalledTimes(1);
   });
 
   it("removes the Cold Email label from archived threads beyond the first page", async () => {
