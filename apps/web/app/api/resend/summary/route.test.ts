@@ -8,8 +8,22 @@ import {
   SystemType,
 } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
+import { env } from "@/env";
 
 vi.mock("@/utils/prisma");
+const settings = vi.hoisted(() => ({ mailAppEnabled: true }));
+
+vi.mock("@/env", async (importOriginal) => {
+  const { env } = await importOriginal<typeof import("@/env")>();
+  return {
+    env: {
+      ...env,
+      get NEXT_PUBLIC_MAIL_APP_ENABLED() {
+        return settings.mailAppEnabled;
+      },
+    },
+  };
+});
 
 const {
   mockCreateEmailProvider,
@@ -66,6 +80,7 @@ import { POST } from "./route";
 describe("summary email route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    settings.mailAppEnabled = true;
     mockIsAuthorizedCronOrInternalRequest.mockReturnValue(true);
     mockCreateUnsubscribeToken.mockResolvedValue("unsubscribe-token");
     mockSendSummaryEmail.mockResolvedValue(undefined);
@@ -153,24 +168,35 @@ describe("summary email route", () => {
       to: "user@example.com",
       emailProps: expect.objectContaining({
         archivedEmailCount: 2,
+        emailAccountId: "email-account-id",
         archivedEmails: [
           {
             from: "Marketing <marketing@example.com>",
             subject: "Product update",
             sentAt: archivedAt,
             ruleName: "Marketing",
-            url: "https://mail.google.com/mail/u/?authuser=user%40example.com#all/archived-message-1",
-            senderUrl:
-              "https://mail.google.com/mail/u/?authuser=user%40example.com#advanced-search/from=marketing%40example.com",
+            url: new URL(
+              "/email-account-id/mail?thread-id=thread-archived-message-1",
+              env.NEXT_PUBLIC_BASE_URL,
+            ).href,
+            senderUrl: new URL(
+              "/email-account-id/mail?q=from%3Amarketing%40example.com",
+              env.NEXT_PUBLIC_BASE_URL,
+            ).href,
           },
           {
             from: "Newsletter <newsletter@example.com>",
             subject: "Newsletter snippet",
             sentAt: archivedAt,
             ruleName: "Newsletter",
-            url: "https://mail.google.com/mail/u/?authuser=user%40example.com#all/archived-message-2",
-            senderUrl:
-              "https://mail.google.com/mail/u/?authuser=user%40example.com#advanced-search/from=newsletter%40example.com",
+            url: new URL(
+              "/email-account-id/mail?thread-id=thread-archived-message-2",
+              env.NEXT_PUBLIC_BASE_URL,
+            ).href,
+            senderUrl: new URL(
+              "/email-account-id/mail?q=from%3Anewsletter%40example.com",
+              env.NEXT_PUBLIC_BASE_URL,
+            ).href,
           },
         ],
         coldEmailers: [],
@@ -297,7 +323,11 @@ describe("summary email route", () => {
     });
   });
 
-  it("reports the full cold email count while fetching only the most recent ones", async () => {
+  it.each([
+    true,
+    false,
+  ])("reports the full cold email count and links to available mail (app enabled: %s)", async (mailAppEnabled) => {
+    settings.mailAppEnabled = mailAppEnabled;
     const blockedAt = new Date("2026-06-28T12:00:00.000Z");
     const getMessagesBatch = vi.fn().mockResolvedValue([
       getMessage({
@@ -318,7 +348,25 @@ describe("summary email route", () => {
           refresh_token: "refresh-token",
         },
       });
-    prisma.rule.findUnique.mockResolvedValue({ id: "cold-rule-id" });
+    prisma.rule.findUnique.mockResolvedValue({
+      id: "cold-rule-id",
+      groupId: "flagged-senders",
+    });
+    prisma.groupItem.findMany.mockResolvedValue([
+      {
+        id: "flagged-sales-sender",
+        value: "sales@example.com",
+        groupId: "flagged-senders",
+        type: "FROM",
+        exclude: false,
+        createdAt: blockedAt,
+        updatedAt: blockedAt,
+        reason: null,
+        threadId: null,
+        messageId: null,
+        source: null,
+      },
+    ]);
     prisma.executedRule.count.mockResolvedValue(250);
     prisma.executedRule.findMany.mockResolvedValue([
       { messageId: "cold-message-1", createdAt: blockedAt },
@@ -348,13 +396,24 @@ describe("summary email route", () => {
           expect.objectContaining({
             from: "Sales <sales@example.com>",
             sentAt: blockedAt,
+            subject: "Quick question",
+            url: mailAppEnabled
+              ? new URL(
+                  "/email-account-id/mail?thread-id=thread-cold-message-1",
+                  env.NEXT_PUBLIC_BASE_URL,
+                ).href
+              : "https://mail.google.com/mail/u/?authuser=user%40example.com#all/cold-message-1",
+            notColdUrl: new URL(
+              "/email-account-id/cold-email-blocker?not-cold=flagged-sales-sender",
+              env.NEXT_PUBLIC_BASE_URL,
+            ).href,
           }),
         ],
       }),
     });
   });
 
-  it("counts applied immediate archives and completed delayed archives", async () => {
+  it("keeps archives when the cold-email execution predates the summary window", async () => {
     prisma.emailAccount.findUnique
       .mockResolvedValueOnce({ lastSummaryEmailAt: null })
       .mockResolvedValueOnce({
@@ -365,7 +424,9 @@ describe("summary email route", () => {
           refresh_token: "refresh-token",
         },
       });
-    prisma.rule.findUnique.mockResolvedValue(null);
+    prisma.rule.findUnique.mockResolvedValue({ id: "cold-rule-id" });
+    prisma.executedRule.count.mockResolvedValue(0);
+    prisma.executedRule.findMany.mockResolvedValue([]);
     prisma.executedAction.count.mockResolvedValue(0);
     prisma.executedAction.findMany.mockResolvedValue([]);
     prisma.emailAccount.update.mockResolvedValue({});
@@ -377,6 +438,18 @@ describe("summary email route", () => {
       }),
     );
 
+    const coldEmailWhere = prisma.executedRule.count.mock.calls[0]?.[0]?.where;
+    expect(coldEmailWhere).toMatchObject({
+      ruleId: "cold-rule-id",
+      createdAt: { gt: expect.any(Date) },
+    });
+    const { gt: cutoff } = coldEmailWhere?.createdAt as { gt: Date };
+    const archiveFilters = [
+      { ruleId: null },
+      { ruleId: { not: "cold-rule-id" } },
+      { createdAt: { lte: cutoff } },
+    ];
+
     expect(prisma.executedAction.count).toHaveBeenCalledTimes(2);
     expect(prisma.executedAction.count).toHaveBeenCalledWith({
       where: expect.objectContaining({
@@ -386,6 +459,7 @@ describe("summary email route", () => {
           emailAccountId: "email-account-id",
           automated: true,
           status: ExecutedRuleStatus.APPLIED,
+          OR: archiveFilters,
         }),
       }),
     });
@@ -398,7 +472,11 @@ describe("summary email route", () => {
             status: ScheduledActionStatus.COMPLETED,
           }),
         },
-        executedRule: { emailAccountId: "email-account-id", automated: true },
+        executedRule: {
+          emailAccountId: "email-account-id",
+          automated: true,
+          OR: archiveFilters,
+        },
       }),
     });
   });

@@ -24,8 +24,22 @@ vi.mock("@/utils/rule/learned-patterns", () => ({
 import { markNotColdEmailAction } from "@/utils/actions/cold-email";
 
 const SENDER = "cold@example.com";
+const SENDER_ID = "flagged-sender-id";
 const OTHER_SENDER = "other@example.com";
 const COLD_LABEL_ID = "Label_cold";
+const flaggedSender = {
+  id: SENDER_ID,
+  groupId: "cold-senders-group",
+  type: "FROM" as const,
+  value: SENDER,
+  exclude: false,
+  createdAt: new Date(0),
+  updatedAt: new Date(0),
+  reason: null,
+  threadId: null,
+  messageId: null,
+  source: null,
+};
 
 describe("markNotColdEmailAction", () => {
   beforeEach(() => {
@@ -39,10 +53,55 @@ describe("markNotColdEmailAction", () => {
       id: "cold-rule",
       enabled: true,
       instructions: null,
-      groupId: null,
+      groupId: "cold-senders-group",
       actions: [{ type: "LABEL", label: "Cold Email", labelId: COLD_LABEL_ID }],
     } as any);
+    prisma.groupItem.findUnique.mockResolvedValue(flaggedSender);
     saveLearnedPatternMock.mockResolvedValue(undefined);
+  });
+
+  it("rejects sender IDs that are not flagged for this account", async () => {
+    prisma.groupItem.findUnique.mockResolvedValue(null);
+
+    const result = await markNotColdEmailAction("account-1", {
+      senderId: "unrecognized-sender-id",
+    });
+
+    expect(result?.serverError).toBe("Cold email sender not found");
+    expect(prisma.groupItem.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: "unrecognized-sender-id",
+        groupId: "cold-senders-group",
+        type: "FROM",
+        exclude: false,
+      },
+      select: { value: true },
+    });
+    expect(saveLearnedPatternMock).not.toHaveBeenCalled();
+    expect(createEmailProviderMock).not.toHaveBeenCalled();
+  });
+
+  it("leaves the sender flagged when mailbox cleanup fails so it can be retried", async () => {
+    const mailbox = new FakeMailbox(
+      makeThreads("archived", 1, { inInbox: false, labels: [COLD_LABEL_ID] }),
+    );
+    createEmailProviderMock.mockResolvedValue(mailbox.provider);
+    mailbox.provider.getThreadsWithQuery.mockRejectedValueOnce(
+      new Error("Mailbox temporarily unavailable"),
+    );
+    const first = await markNotColdEmailAction("account-1", {
+      senderId: SENDER_ID,
+    });
+    expect(first?.serverError).toBeDefined();
+    expect(mailbox.threadIdsWithLabel(COLD_LABEL_ID)).toEqual(["archived-0"]);
+    expect(saveLearnedPatternMock).not.toHaveBeenCalled();
+
+    const retry = await markNotColdEmailAction("account-1", {
+      senderId: SENDER_ID,
+    });
+    expect(retry?.serverError).toBeUndefined();
+    expect(mailbox.threadIdsWithLabel(COLD_LABEL_ID)).toEqual([]);
+    expect(saveLearnedPatternMock).toHaveBeenCalledTimes(1);
   });
 
   it("removes the Cold Email label from archived threads beyond the first page", async () => {
@@ -62,7 +121,7 @@ describe("markNotColdEmailAction", () => {
     createEmailProviderMock.mockResolvedValue(mailbox.provider);
 
     const result = await markNotColdEmailAction("account-1", {
-      sender: SENDER,
+      senderId: SENDER_ID,
     });
 
     expect(result?.serverError).toBeUndefined();
@@ -87,7 +146,7 @@ describe("markNotColdEmailAction", () => {
     createEmailProviderMock.mockResolvedValue(mailbox.provider);
 
     const result = await markNotColdEmailAction("account-1", {
-      sender: SENDER,
+      senderId: SENDER_ID,
     });
 
     expect(result?.serverError).toBeUndefined();
@@ -102,11 +161,12 @@ describe("markNotColdEmailAction", () => {
     createEmailProviderMock.mockResolvedValue(mailbox.provider);
 
     const result = await markNotColdEmailAction("account-1", {
-      sender: SENDER,
+      senderId: SENDER_ID,
     });
 
-    expect(result?.serverError).toBeUndefined();
+    expect(result?.serverError).toBeDefined();
     expect(mailbox.threadIdsWithLabel(COLD_LABEL_ID)).toEqual(["archived-0"]);
+    expect(saveLearnedPatternMock).not.toHaveBeenCalled();
   });
 
   it("skips cleanup when the rule's label no longer exists in the mailbox", async () => {
@@ -117,7 +177,7 @@ describe("markNotColdEmailAction", () => {
     createEmailProviderMock.mockResolvedValue(mailbox.provider);
 
     const result = await markNotColdEmailAction("account-1", {
-      sender: SENDER,
+      senderId: SENDER_ID,
     });
 
     expect(result?.serverError).toBeUndefined();

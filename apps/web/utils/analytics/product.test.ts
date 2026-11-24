@@ -29,21 +29,23 @@ describe("getPageViewSearch", () => {
 });
 
 describe("stripUntrackedUrlParams", () => {
-  it("removes thread ids and search text from every URL PostHog attaches", () => {
+  it("removes mailbox data from every URL PostHog attaches", () => {
     const event = stripUntrackedUrlParams({
       properties: {
         $current_url:
           "https://app.test/acc/mail?split=news&thread-id=t1&q=invoice",
-        $referrer: "https://app.test/acc/mail?side-panel-thread-id=t2",
+        $referrer:
+          "https://app.test/acc/cold-email-blocker?not-cold=sender%40example.com",
         event_name: "kept",
       },
       $set_once: {
-        $initial_current_url: "https://app.test/acc/mail?q=refund",
+        $initial_current_url:
+          "https://app.test/acc/mail?side-panel-thread-id=t2&q=refund",
       },
     });
     expect(event.properties).toEqual({
       $current_url: "https://app.test/acc/mail?split=news",
-      $referrer: "https://app.test/acc/mail",
+      $referrer: "https://app.test/acc/cold-email-blocker",
       event_name: "kept",
     });
     expect(event.$set_once).toEqual({

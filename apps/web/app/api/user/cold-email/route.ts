@@ -15,7 +15,8 @@ async function getColdEmails(
   {
     emailAccountId,
     status,
-  }: { emailAccountId: string; status: ColdEmailStatus },
+    senderId,
+  }: { emailAccountId: string; status: ColdEmailStatus; senderId?: string },
   page: number,
 ) {
   const coldEmailRule = await prisma.rule.findUnique({
@@ -33,6 +34,7 @@ async function getColdEmails(
   }
 
   const where = {
+    id: senderId,
     groupId: coldEmailRule.groupId,
     type: GroupItemType.FROM,
     exclude: status === ColdEmailStatus.USER_REJECTED_COLD,
@@ -73,12 +75,16 @@ export const GET = withEmailAccount("user/cold-email", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
 
   const url = new URL(request.url);
+  const senderId = url.searchParams.get("senderId") || undefined;
   const page = Number.parseInt(url.searchParams.get("page") || "1");
   const status =
     (url.searchParams.get("status") as ColdEmailStatus | undefined) ||
     ColdEmailStatus.AI_LABELED_COLD;
 
-  const result = await getColdEmails({ emailAccountId, status }, page);
+  const result = await getColdEmails(
+    { emailAccountId, status, senderId },
+    page,
+  );
 
   return NextResponse.json(result);
 });

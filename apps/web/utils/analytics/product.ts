@@ -254,6 +254,7 @@ const UNTRACKED_PAGE_VIEW_PARAMS = [
   "thread-id",
   "thread-account-id",
   "side-panel-thread-id",
+  "not-cold",
   "q",
 ];
 

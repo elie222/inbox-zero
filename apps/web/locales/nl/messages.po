@@ -2599,6 +2599,7 @@ msgstr "Kunnen we het gesprek van donderdag verplaatsen?"
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog.tsx
 #: app/(app)/[emailAccountId]/calendars/ConfigureBookingLinkDialog.tsx
 #: app/(app)/[emailAccountId]/calendars/CreateBookingLinkDialog.tsx
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 #: app/(app)/[emailAccountId]/drive/FilingActivity.tsx
 #: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
@@ -6585,6 +6586,10 @@ msgstr "Volledige toegang"
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Full setup guide"
 msgstr "Volledige installatiegids"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Future emails from {confirmSender} will be excluded from your Cold Email rule."
+msgstr "Toekomstige e-mails van {confirmSender} worden uitgesloten van je regel voor ongevraagde e-mails."
 
 #: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
 msgid "Future emails from {senderName} will be archived"

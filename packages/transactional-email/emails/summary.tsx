@@ -1,7 +1,6 @@
 import { Column, Link, Row, Section, Text } from "@react-email/components";
 import type { ReactNode } from "react";
 import {
-  ACCENT,
   StatsEmailCard,
   StatsEmailLayout,
 } from "./components/stats-email-layout";
@@ -10,10 +9,9 @@ type EmailItem = {
   from: string;
   subject: string;
   sentAt: Date;
-  // Opens the email in the user's mail client.
   url?: string;
-  // Opens a search for everything from this sender.
   senderUrl?: string;
+  notColdUrl?: string;
 };
 
 type ArchivedEmailItem = EmailItem & {
@@ -26,17 +24,13 @@ export interface SummaryEmailProps {
   baseUrl: string;
   coldEmailCount?: number;
   coldEmailers: EmailItem[];
+  emailAccountId: string;
   // End of the week being summarized. Defaults to now.
   periodEnd?: Date;
   unsubscribeToken: string;
 }
 
 const MAX_SUBJECTS_PER_SENDER = 3;
-
-const BADGES = {
-  green: { bg: "#F3FFEF", border: "#DDF4D3", color: "#17A34A" },
-  blue: { bg: "#EFF6FF", border: "#D6E8FC", color: ACCENT },
-};
 
 export default function SummaryEmail(props: SummaryEmailProps) {
   const {
@@ -45,41 +39,43 @@ export default function SummaryEmail(props: SummaryEmailProps) {
     archivedEmails = [],
     coldEmailers,
     coldEmailCount = coldEmailers.length,
+    emailAccountId,
     periodEnd = new Date(),
     unsubscribeToken,
   } = props;
 
+  const archiveTitle = `${archivedEmailCount} ${pluralize(archivedEmailCount, "email")} archived`;
+  const coldTitle = `${coldEmailCount} cold ${pluralize(coldEmailCount, "email")} flagged`;
   const preview = [
-    `${archivedEmailCount} ${pluralize(archivedEmailCount, "email")} archived`,
-    `${coldEmailCount} cold ${pluralize(coldEmailCount, "email")} blocked`,
-  ].join(", ");
+    archivedEmailCount ? archiveTitle : "",
+    coldEmailCount ? coldTitle : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const accountUrl = new URL(`/${encodeURIComponent(emailAccountId)}`, baseUrl)
+    .href;
 
   return (
     <StatsEmailLayout
       baseUrl={baseUrl}
       unsubscribeToken={unsubscribeToken}
-      preview={`${preview}. Here's your week in email.`}
+      preview={preview || "Your week in email"}
       eyebrow={<>Weekly Update &middot; {formatPeriod(periodEnd)}</>}
       title="Your week in email"
       subtitle="Here's how your assistant handled your inbox this week."
     >
-      <StatStrip
-        stats={[
-          { value: archivedEmailCount, label: "archived for you" },
-          { value: coldEmailCount, label: "cold emails blocked" },
-        ]}
-      />
-
       <ArchivedEmails
+        title={archiveTitle}
         archivedEmailCount={archivedEmailCount}
         archivedEmails={archivedEmails}
-        baseUrl={baseUrl}
+        accountUrl={accountUrl}
       />
 
       <ColdEmails
+        title={coldTitle}
         coldEmailCount={coldEmailCount}
         coldEmailers={coldEmailers}
-        baseUrl={baseUrl}
+        accountUrl={accountUrl}
       />
     </StatsEmailLayout>
   );
@@ -87,93 +83,73 @@ export default function SummaryEmail(props: SummaryEmailProps) {
 
 SummaryEmail.PreviewProps = {
   baseUrl: "https://www.getinboxzero.com",
+  emailAccountId: "example-account",
   periodEnd: new Date("2024-03-20"),
   archivedEmailCount: 8,
   archivedEmails: [
     {
       from: "Updates <updates@example.com>",
       subject: "New product features this week",
+      url: "https://www.getinboxzero.com/example-account/mail?thread-id=update-1",
+      senderUrl:
+        "https://www.getinboxzero.com/example-account/mail?q=from%3Aupdates%40example.com",
       sentAt: new Date("2024-03-20"),
       ruleName: "Marketing",
     },
     {
       from: "Updates <updates@example.com>",
       subject: "Last chance to join our webinar",
+      url: "https://www.getinboxzero.com/example-account/mail?thread-id=update-2",
       sentAt: new Date("2024-03-19"),
       ruleName: "Marketing",
     },
     {
       from: "Newsletter <newsletter@example.com>",
       subject: "Weekly industry roundup",
+      url: "https://www.getinboxzero.com/example-account/mail?thread-id=newsletter",
       sentAt: new Date("2024-03-19"),
       ruleName: "Newsletter",
-    },
-    {
-      from: "Sales <sales@example.com>",
-      subject: "Quick question",
-      sentAt: new Date("2024-03-18"),
-      ruleName: "Cold Email",
     },
   ],
   coldEmailers: [
     {
       from: "James <james@example.com>",
-      subject: "",
+      subject: "Quick question about your website",
+      url: "https://www.getinboxzero.com/example-account/mail?thread-id=outreach-1",
+      notColdUrl:
+        "https://www.getinboxzero.com/example-account/cold-email-blocker?not-cold=flagged-james",
       sentAt: new Date("2024-03-15"),
     },
     {
       from: "Matt <matt@example.com>",
-      subject: "",
+      subject: "Want to reach more customers?",
+      url: "https://www.getinboxzero.com/example-account/mail?thread-id=outreach-2",
+      notColdUrl:
+        "https://www.getinboxzero.com/example-account/cold-email-blocker?not-cold=flagged-matt",
       sentAt: new Date("2024-03-15"),
     },
     {
       from: "Paul <paul@example.com>",
       subject: "",
+      url: "https://www.getinboxzero.com/example-account/mail?thread-id=outreach-3",
+      notColdUrl:
+        "https://www.getinboxzero.com/example-account/cold-email-blocker?not-cold=flagged-paul",
       sentAt: new Date("2024-03-15"),
     },
   ],
   unsubscribeToken: "123",
 } satisfies SummaryEmailProps;
 
-function StatStrip({ stats }: { stats: { value: number; label: string }[] }) {
-  return (
-    <Section className="pb-8">
-      <Section className="rounded-2xl border border-solid border-[#EFEFEF] bg-white">
-        <Row>
-          {stats.map((stat, index) => (
-            <Column
-              key={stat.label}
-              align="center"
-              width={`${100 / stats.length}%`}
-              className="px-3 py-[22px]"
-              style={
-                index < stats.length - 1
-                  ? { borderRight: "1px solid #EFEFEF" }
-                  : undefined
-              }
-            >
-              <Text className="m-0 text-center text-[36px] font-medium leading-10 tracking-[-0.02em] text-[#242424]">
-                {stat.value}
-              </Text>
-              <Text className="m-0 pt-1 text-center text-[13px] leading-[18px] text-[#6D6E70]">
-                {stat.label}
-              </Text>
-            </Column>
-          ))}
-        </Row>
-      </Section>
-    </Section>
-  );
-}
-
 function ArchivedEmails({
+  title,
   archivedEmailCount,
   archivedEmails,
-  baseUrl,
+  accountUrl,
 }: {
+  title: string;
   archivedEmailCount: number;
   archivedEmails: ArchivedEmailItem[];
-  baseUrl: string;
+  accountUrl: string;
 }) {
   if (!archivedEmailCount) return null;
 
@@ -182,17 +158,16 @@ function ArchivedEmails({
 
   return (
     <StatsEmailCard
-      title="Archived For You"
-      badge={{ label: `${archivedEmailCount} this week`, ...BADGES.green }}
-      description="Emails your rules labeled and moved out of your inbox."
+      title={title}
+      description="Moved out of your inbox by your rules."
       footnote={
-        hiddenCount > 0
+        archivedEmails.length > 0 && hiddenCount > 0
           ? `And ${hiddenCount} more archived ${pluralize(hiddenCount, "email")}.`
           : undefined
       }
       cta={{
-        href: `${baseUrl}/automation?tab=history`,
-        label: "View automation history",
+        href: `${accountUrl}/automation?tab=history`,
+        label: "View rule activity",
       }}
     >
       {archivedEmailGroups.map((group) => (
@@ -207,13 +182,15 @@ function ArchivedEmails({
 }
 
 function ColdEmails({
+  title,
   coldEmailCount,
   coldEmailers,
-  baseUrl,
+  accountUrl,
 }: {
+  title: string;
   coldEmailCount: number;
   coldEmailers: EmailItem[];
-  baseUrl: string;
+  accountUrl: string;
 }) {
   if (!coldEmailCount) return null;
 
@@ -221,15 +198,17 @@ function ColdEmails({
 
   return (
     <StatsEmailCard
-      title="Cold Email Blocker"
-      badge={{ label: `${coldEmailCount} blocked`, ...BADGES.blue }}
-      description="Unsolicited outreach kept out of your inbox."
+      title={title}
+      description="If a sender was flagged by mistake, you can mark them as not cold."
       footnote={
-        hiddenCount > 0
+        coldEmailers.length > 0 && hiddenCount > 0
           ? `And ${hiddenCount} more cold ${pluralize(hiddenCount, "email")}.`
           : undefined
       }
-      cta={{ href: `${baseUrl}/cold-email-blocker`, label: "View cold emails" }}
+      cta={{
+        href: `${accountUrl}/cold-email-blocker`,
+        label: "Review cold emails",
+      }}
     >
       <EmailList emails={coldEmailers} />
     </StatsEmailCard>
@@ -250,10 +229,7 @@ function EmailList({
   return (
     <>
       {heading && (
-        <Text
-          className="m-0 px-6 pt-2.5 text-[12px] font-semibold leading-4"
-          style={{ color: ACCENT }}
-        >
+        <Text className="m-0 px-6 pt-2.5 text-[12px] font-semibold leading-4 text-[#6D6E70]">
           {heading}
         </Text>
       )}
@@ -288,10 +264,16 @@ function SenderRow({
   }`;
 
   const sender = (
-    <Text className="m-0 text-[14px] font-semibold leading-5 text-[#242424]">
+    <Text
+      className="m-0 text-[14px] font-semibold leading-5 text-[#242424]"
+      style={{ overflowWrap: "anywhere" }}
+    >
       {name}
       {address && (
-        <span className="font-normal text-[#848484]"> {address}</span>
+        <span className="text-[12px] font-normal text-[#6D6E70]">
+          {" "}
+          {address}
+        </span>
       )}
     </Text>
   );
@@ -299,17 +281,16 @@ function SenderRow({
   return (
     <Row className={borderClass}>
       <Column className="py-3">
-        <OptionalLink href={senderHref}>{sender}</OptionalLink>
-        {shownEmails.map(
-          (email, index) =>
-            email.subject && (
-              <OptionalLink key={`${email.subject}-${index}`} href={email.url}>
-                <Text className="m-0 pt-0.5 text-[14px] leading-5 text-[#3D3D3D]">
-                  {email.subject}
-                </Text>
-              </OptionalLink>
-            ),
-        )}
+        <OptionalLink href={senderHref}>
+          {sender}
+          {count === 1 && <EmailSubject email={latest} />}
+        </OptionalLink>
+        {count > 1 &&
+          shownEmails.map((email, index) => (
+            <OptionalLink key={`${email.subject}-${index}`} href={email.url}>
+              <EmailSubject email={email} />
+            </OptionalLink>
+          ))}
         {hiddenCount > 0 && (
           <OptionalLink href={latest.senderUrl}>
             <Text className="m-0 pt-0.5 text-[13px] leading-5 text-[#848484]">
@@ -320,18 +301,41 @@ function SenderRow({
       </Column>
       <Column
         align="right"
-        className="w-[70px] whitespace-nowrap py-3 align-top"
+        className="w-px whitespace-nowrap py-3 pl-2 align-middle"
       >
-        <Text className="m-0 text-[13px] leading-5 text-[#848484]">
+        <Text className="m-0 text-[12px] leading-5 text-[#6D6E70]">
           {formatDay(latest.sentAt)}
+          {latest.notColdUrl && (
+            <RowAction href={latest.notColdUrl}>Mark not cold</RowAction>
+          )}
+          {senderHref && <RowAction href={senderHref}>View</RowAction>}
         </Text>
-        {count > 1 && (
-          <Text className="m-0 text-[12px] leading-4 text-[#848484]">
-            {count} emails
-          </Text>
-        )}
       </Column>
     </Row>
+  );
+}
+
+function EmailSubject({ email }: { email: EmailItem }) {
+  if (!email.subject && !email.url) return null;
+
+  return (
+    <Text
+      className="m-0 pt-0.5 text-[14px] leading-5 text-[#3D3D3D]"
+      style={{ overflowWrap: "anywhere" }}
+    >
+      {email.subject || "(No subject)"}
+    </Text>
+  );
+}
+
+function RowAction({ href, children }: { href: string; children: string }) {
+  return (
+    <Link
+      href={href}
+      className="ml-1.5 inline-block whitespace-nowrap rounded-md border border-solid border-[#E0E0E0] px-1.5 py-1 align-middle text-[12px] font-medium leading-4 text-[#3D3D3D] no-underline"
+    >
+      {children}
+    </Link>
   );
 }
 
