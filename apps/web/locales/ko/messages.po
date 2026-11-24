@@ -2599,6 +2599,7 @@ msgstr "목요일 통화 일정을 옮길 수 있을까요?"
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog.tsx
 #: app/(app)/[emailAccountId]/calendars/ConfigureBookingLinkDialog.tsx
 #: app/(app)/[emailAccountId]/calendars/CreateBookingLinkDialog.tsx
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 #: app/(app)/[emailAccountId]/drive/FilingActivity.tsx
 #: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
@@ -6585,6 +6586,10 @@ msgstr "전체 액세스"
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Full setup guide"
 msgstr "전체 설정 가이드"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Future emails from {confirmSender} will be excluded from your Cold Email rule."
+msgstr "앞으로 {confirmSender}에서 보내는 이메일은 콜드 이메일 규칙에서 제외됩니다."
 
 #: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
 msgid "Future emails from {senderName} will be archived"

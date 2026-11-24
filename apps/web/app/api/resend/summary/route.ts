@@ -183,7 +183,11 @@ async function sendEmail({
           },
         })
       : Promise.resolve([]),
-    getArchivedActions({ emailAccountId, cutOffDate }),
+    getArchivedActions({
+      emailAccountId,
+      cutOffDate,
+      coldEmailRuleId: coldEmailRule?.id,
+    }),
   ]);
 
   const messageIds = [
@@ -207,33 +211,59 @@ async function sendEmail({
     messages.map((message) => [message.id, message]),
   );
 
-  const getEmailLinks = (message: ParsedMessage) => {
-    const senderAddress = extractEmailAddress(message.headers.from);
+  const mailUrl = new URL(
+    `/${encodeURIComponent(emailAccountId)}/mail`,
+    env.NEXT_PUBLIC_BASE_URL,
+  ).href;
+  const getEmailLinks = (
+    message: ParsedMessage,
+    senderAddress = extractEmailAddress(message.headers.from),
+  ) => {
+    if (!env.NEXT_PUBLIC_MAIL_APP_ENABLED) {
+      const {
+        email,
+        account: { provider },
+      } = emailAccount;
+      return {
+        url: getEmailUrlForMessage(
+          message.id,
+          message.threadId,
+          email,
+          provider,
+        ),
+        senderUrl: senderAddress
+          ? getEmailSearchUrl(senderAddress, email, provider)
+          : undefined,
+      };
+    }
+
     return {
-      url: getEmailUrlForMessage(
-        message.id,
-        message.threadId,
-        emailAccount.email,
-        emailAccount.account.provider,
-      ),
+      url: `${mailUrl}?${new URLSearchParams({ "thread-id": message.threadId })}`,
       senderUrl: senderAddress
-        ? getEmailSearchUrl(
-            senderAddress,
-            emailAccount.email,
-            emailAccount.account.provider,
-          )
+        ? `${mailUrl}?${new URLSearchParams({ q: `from:${senderAddress}` })}`
         : undefined,
     };
   };
 
-  const coldEmailers = coldExecutedRules.map((r) => {
+  const coldEmailers = coldExecutedRules.flatMap((r) => {
     const message = messageMap[r.messageId];
-    return {
-      from: message?.headers.from || "Unknown",
-      subject: decodeSnippet(message?.snippet) || "",
-      sentAt: r.createdAt,
-      ...(message ? getEmailLinks(message) : {}),
-    };
+    if (!message) return [];
+    const senderAddress = extractEmailAddress(message.headers.from);
+    return [
+      {
+        from: message.headers.from || "Unknown",
+        subject:
+          message.headers.subject || decodeSnippet(message.snippet) || "",
+        sentAt: r.createdAt,
+        ...getEmailLinks(message, senderAddress),
+        notColdUrl: senderAddress
+          ? new URL(
+              `/${encodeURIComponent(emailAccountId)}/cold-email-blocker?${new URLSearchParams({ "not-cold": senderAddress })}`,
+              env.NEXT_PUBLIC_BASE_URL,
+            ).href
+          : undefined,
+      },
+    ];
   });
 
   const archivedEmails = buildArchivedEmailSummaryItems({
@@ -266,6 +296,7 @@ async function sendEmail({
       to: userEmail,
       emailProps: {
         baseUrl: env.NEXT_PUBLIC_BASE_URL,
+        emailAccountId,
         archivedEmailCount,
         archivedEmails,
         coldEmailCount,
@@ -338,17 +369,26 @@ async function getMessages({
 async function getArchivedActions({
   emailAccountId,
   cutOffDate,
+  coldEmailRuleId,
 }: {
   emailAccountId: string;
   cutOffDate: Date;
+  coldEmailRuleId?: string;
 }) {
+  // The digest reports cold-email rule activity in its own section.
+  const executedRuleWhere = {
+    emailAccountId,
+    automated: true,
+    OR: coldEmailRuleId
+      ? [{ ruleId: null }, { ruleId: { not: coldEmailRuleId } }]
+      : undefined,
+  } satisfies Prisma.ExecutedRuleWhereInput;
   const immediateWhere = {
     type: ActionType.ARCHIVE,
     createdAt: { gt: cutOffDate },
     scheduledAction: { is: null },
     executedRule: {
-      emailAccountId,
-      automated: true,
+      ...executedRuleWhere,
       status: ExecutedRuleStatus.APPLIED,
       // Immediate actions are created with their rule, but the rule's timestamp
       // is taken before AI processing, so allow it to trail the action.
@@ -368,7 +408,7 @@ async function getArchivedActions({
         executedAt: { gt: cutOffDate },
       },
     },
-    executedRule: { emailAccountId, automated: true },
+    executedRule: executedRuleWhere,
   } satisfies Prisma.ExecutedActionWhereInput;
 
   const findArchivedActions = (where: Prisma.ExecutedActionWhereInput) =>

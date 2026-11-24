@@ -1,6 +1,7 @@
 "use client";
 
 import { useAction } from "next-safe-action/hooks";
+import { useQueryState } from "nuqs";
 import { useCallback } from "react";
 import useSWR from "swr";
 import { CircleXIcon } from "lucide-react";
@@ -19,6 +20,15 @@ import { DateCell } from "@/app/(app)/[emailAccountId]/assistant/DateCell";
 import { TablePagination } from "@/components/TablePagination";
 import { AlertBasic } from "@/components/Alert";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useSearchParams } from "next/navigation";
 import { markNotColdEmailAction } from "@/utils/actions/cold-email";
 import { toggleRuleAction } from "@/utils/actions/rule";
@@ -32,11 +42,15 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useRules } from "@/hooks/useRules";
 import { isColdEmailBlockerEnabled } from "@/utils/cold-email/cold-email-blocker-enabled";
 import { SystemType } from "@/generated/prisma/enums";
+import { isValidEmail } from "@/utils/email";
 
 export function ColdEmailList() {
   const { t } = useLingui();
   const searchParams = useSearchParams();
   const page = searchParams.get("page") || "1";
+  const [senderParam, setSenderParam] = useQueryState("not-cold");
+  const confirmSender =
+    senderParam && isValidEmail(senderParam) ? senderParam : null;
   const { data, isLoading, error, mutate } = useSWR<ColdEmailsResponse>(
     `/api/user/cold-email?page=${page}`,
   );
@@ -50,6 +64,10 @@ export function ColdEmailList() {
     {
       onSuccess: () => {
         toastSuccess({ description: t`Marked not cold email!` });
+        if (confirmSender) {
+          setSenderParam(null);
+          mutate();
+        }
       },
       onError: () => {
         toastError({ description: t`Error marking not cold email!` });
@@ -67,7 +85,7 @@ export function ColdEmailList() {
     mutate();
   }, [selected, data?.coldEmails, mutate, markNotColdEmail]);
 
-  return (
+  const list = (
     <LoadingContent loading={isLoading} error={error}>
       {data?.coldEmails.length ? (
         <div>
@@ -137,6 +155,45 @@ export function ColdEmailList() {
         <NoColdEmails />
       )}
     </LoadingContent>
+  );
+
+  return (
+    <>
+      {confirmSender && (
+        <AlertDialog
+          open
+          onOpenChange={(open) => {
+            if (!open && !isExecuting) setSenderParam(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                <Trans>Mark Not Cold Email</Trans>
+              </AlertDialogTitle>
+              <AlertDialogDescription className="break-words">
+                <Trans>
+                  Future emails from {confirmSender} will be excluded from your
+                  Cold Email rule.
+                </Trans>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isExecuting}>
+                <Trans>Cancel</Trans>
+              </AlertDialogCancel>
+              <Button
+                onClick={() => markNotColdEmail({ sender: confirmSender })}
+                loading={isExecuting}
+              >
+                <Trans>Not cold email</Trans>
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+      {list}
+    </>
   );
 }
 

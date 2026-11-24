@@ -2599,6 +2599,7 @@ msgstr "¿Podemos mover la llamada del jueves?"
 #: app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog.tsx
 #: app/(app)/[emailAccountId]/calendars/ConfigureBookingLinkDialog.tsx
 #: app/(app)/[emailAccountId]/calendars/CreateBookingLinkDialog.tsx
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
 #: app/(app)/[emailAccountId]/drive/DriveSetup.tsx
 #: app/(app)/[emailAccountId]/drive/FilingActivity.tsx
 #: app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog.tsx
@@ -6585,6 +6586,10 @@ msgstr "Acceso completo"
 #: app/(app)/[emailAccountId]/settings/McpSection.tsx
 msgid "Full setup guide"
 msgstr "Guía de configuración completa"
+
+#: app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList.tsx
+msgid "Future emails from {confirmSender} will be excluded from your Cold Email rule."
+msgstr "Los próximos correos de {confirmSender} quedarán excluidos de tu regla de correos en frío."
 
 #: app/(app)/[emailAccountId]/mail/use-unsubscribe-sender.ts
 msgid "Future emails from {senderName} will be archived"
