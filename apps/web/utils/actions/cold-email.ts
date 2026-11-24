@@ -2,7 +2,7 @@
 
 import chunk from "lodash/chunk";
 import prisma from "@/utils/prisma";
-import { GroupItemSource } from "@/generated/prisma/enums";
+import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import {
   coldEmailBlockerBody,
@@ -13,10 +13,7 @@ import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
-import {
-  getColdEmailFeedbackSenderWhere,
-  getColdEmailRule,
-} from "@/utils/cold-email/cold-email-rule";
+import { getColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 import { internalDateToDate } from "@/utils/date";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { emailToContentForAI } from "@/utils/ai/content-sanitizer";
@@ -34,8 +31,13 @@ export const markNotColdEmailAction = actionClient
         throw new SafeError("Cold email sender not found");
 
       const item = await prisma.groupItem.findUnique({
-        where: getColdEmailFeedbackSenderWhere(coldEmailRule.groupId, senderId),
-        select: { value: true, exclude: true },
+        where: {
+          id: senderId,
+          groupId: coldEmailRule.groupId,
+          type: GroupItemType.FROM,
+          exclude: false,
+        },
+        select: { value: true },
       });
       if (!item) throw new SafeError("Cold email sender not found");
       const sender = item.value;
@@ -45,22 +47,20 @@ export const markNotColdEmailAction = actionClient
         logger,
       });
 
-      if (!item.exclude) {
-        await saveLearnedPattern({
-          emailAccountId,
-          from: sender,
-          ruleId: coldEmailRule.id,
-          exclude: true,
-          logger,
-          source: GroupItemSource.USER,
-        });
-      }
-
+      // Leave the sender flagged if the provider fails so this action can be retried.
       await removeColdEmailLabelFromSender({
         emailProvider,
         sender,
         coldEmailRule,
         logger,
+      });
+      await saveLearnedPattern({
+        emailAccountId,
+        from: sender,
+        ruleId: coldEmailRule.id,
+        exclude: true,
+        logger,
+        source: GroupItemSource.USER,
       });
     },
   );
@@ -144,6 +144,7 @@ async function removeColdEmailLabelFromSender({
       threadCount: threadIds.size,
       error: failures[0],
     });
+    throw failures[0];
   }
 }
 

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
-import { getColdEmailFeedbackSenderWhere } from "@/utils/cold-email/cold-email-rule";
 import {
   ColdEmailStatus,
   GroupItemType,
@@ -34,13 +33,12 @@ async function getColdEmails(
     return { coldEmails: [], totalPages: 0 };
   }
 
-  const where = senderId
-    ? getColdEmailFeedbackSenderWhere(coldEmailRule.groupId, senderId)
-    : {
-        groupId: coldEmailRule.groupId,
-        type: GroupItemType.FROM,
-        exclude: status === ColdEmailStatus.USER_REJECTED_COLD,
-      };
+  const where = {
+    id: senderId,
+    groupId: coldEmailRule.groupId,
+    type: GroupItemType.FROM,
+    exclude: status === ColdEmailStatus.USER_REJECTED_COLD,
+  };
 
   const [groupItems, count] = await Promise.all([
     prisma.groupItem.findMany({
@@ -51,7 +49,6 @@ async function getColdEmails(
       select: {
         id: true,
         value: true,
-        exclude: true,
         createdAt: true,
         reason: true,
         threadId: true,
@@ -64,10 +61,7 @@ async function getColdEmails(
   const coldEmails = groupItems.map((item) => ({
     id: item.id,
     fromEmail: item.value,
-    status:
-      item.exclude === true
-        ? ColdEmailStatus.USER_REJECTED_COLD
-        : ColdEmailStatus.AI_LABELED_COLD,
+    status: status,
     createdAt: item.createdAt,
     reason: item.reason,
     threadId: item.threadId,

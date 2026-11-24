@@ -73,15 +73,15 @@ describe("markNotColdEmailAction", () => {
         id: "unrecognized-sender-id",
         groupId: "cold-senders-group",
         type: "FROM",
-        OR: [{ exclude: false }, { exclude: true, source: "USER" }],
+        exclude: false,
       },
-      select: { value: true, exclude: true },
+      select: { value: true },
     });
     expect(saveLearnedPatternMock).not.toHaveBeenCalled();
     expect(createEmailProviderMock).not.toHaveBeenCalled();
   });
 
-  it("retries mailbox cleanup without rewriting a saved sender exclusion", async () => {
+  it("leaves the sender flagged when mailbox cleanup fails so it can be retried", async () => {
     const mailbox = new FakeMailbox(
       makeThreads("archived", 1, { inInbox: false, labels: [COLD_LABEL_ID] }),
     );
@@ -89,19 +89,12 @@ describe("markNotColdEmailAction", () => {
     mailbox.provider.getThreadsWithQuery.mockRejectedValueOnce(
       new Error("Mailbox temporarily unavailable"),
     );
-    saveLearnedPatternMock.mockImplementationOnce(async () => {
-      prisma.groupItem.findUnique.mockResolvedValue({
-        ...flaggedSender,
-        exclude: true,
-        source: "USER",
-      });
-    });
-
     const first = await markNotColdEmailAction("account-1", {
       senderId: SENDER_ID,
     });
     expect(first?.serverError).toBeDefined();
     expect(mailbox.threadIdsWithLabel(COLD_LABEL_ID)).toEqual(["archived-0"]);
+    expect(saveLearnedPatternMock).not.toHaveBeenCalled();
 
     const retry = await markNotColdEmailAction("account-1", {
       senderId: SENDER_ID,
@@ -171,8 +164,9 @@ describe("markNotColdEmailAction", () => {
       senderId: SENDER_ID,
     });
 
-    expect(result?.serverError).toBeUndefined();
+    expect(result?.serverError).toBeDefined();
     expect(mailbox.threadIdsWithLabel(COLD_LABEL_ID)).toEqual(["archived-0"]);
+    expect(saveLearnedPatternMock).not.toHaveBeenCalled();
   });
 
   it("skips cleanup when the rule's label no longer exists in the mailbox", async () => {
