@@ -29,6 +29,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
+import { env } from "@/env";
 import {
   commandPaletteOpenAtom,
   feedbackDialogOpenAtom,
@@ -160,7 +161,7 @@ function CommandPaletteContent({
       setSearch("");
       setOpen((wasOpen) => !wasOpen);
     },
-    compose: onOpenComposeModal,
+    compose: env.NEXT_PUBLIC_MAIL_APP_ENABLED ? onOpenComposeModal : undefined,
     help: () => setShortcutsOpen(true),
     archive: threadId
       ? async () => {

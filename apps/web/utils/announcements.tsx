@@ -35,8 +35,10 @@ export interface Announcement {
 export const ANNOUNCEMENTS: Announcement[] = [
   {
     id: "email-client-launch",
-    // The launch pitches sending and native apps; hide it where sending is off.
-    enabled: env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
+    // The launch pitches sending and native apps; hide it where sending or the
+    // email app is off.
+    enabled:
+      env.NEXT_PUBLIC_EMAIL_SEND_ENABLED && env.NEXT_PUBLIC_MAIL_APP_ENABLED,
     title: "The email app is live",
     description:
       "A fast email app for web, desktop, and iPhone, with your AI assistant built in.",

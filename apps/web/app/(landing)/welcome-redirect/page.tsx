@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import prisma from "@/utils/prisma";
 import { redirectToEmailAccountPath } from "@/utils/account";
@@ -25,9 +26,14 @@ export default async function WelcomeRedirectPage(props: {
   if (!user) redirect("/logout");
   if (searchParams.force) redirect("/onboarding");
   if (user.completedOnboardingAt) {
+    const wantsMail =
+      env.NEXT_PUBLIC_MAIL_APP_ENABLED &&
+      (searchParams.mode === "mail" || user.signupIntent === "MAIL_CLIENT");
+
     // Opening the email app from an AI-assistant account means they now use
     // both.
     if (
+      env.NEXT_PUBLIC_MAIL_APP_ENABLED &&
       searchParams.mode === "mail" &&
       (!user.signupIntent || user.signupIntent === "AI_ASSISTANT")
     ) {
@@ -37,11 +43,7 @@ export default async function WelcomeRedirectPage(props: {
       });
     }
 
-    await redirectToEmailAccountPath(
-      searchParams.mode === "mail" || user.signupIntent === "MAIL_CLIENT"
-        ? "/mail"
-        : "/automation",
-    );
+    await redirectToEmailAccountPath(wantsMail ? "/mail" : "/automation");
   }
 
   if (user.premiumId) {
