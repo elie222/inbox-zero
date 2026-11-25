@@ -366,9 +366,16 @@ async function getSyncMessage({
       signal,
     );
   } catch (error) {
-    if (isNotFoundError(error)) return null;
+    if (isNotFoundError(error) || isUnreadableSyncMessage(error)) return null;
     throw error;
   }
+}
+
+// Graph answers some purged items with ErrorAccessDenied instead of a 404.
+// Failing the page on it would replay the same delta page forever.
+function isUnreadableSyncMessage(error: unknown) {
+  const { status, code } = extractErrorInfo(error);
+  return status === 403 && code === "ErrorAccessDenied";
 }
 
 async function readInitialPage(input: Parameters<typeof getInitialPage>[0]) {
