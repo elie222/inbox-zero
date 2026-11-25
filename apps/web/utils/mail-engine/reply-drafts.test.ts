@@ -438,13 +438,19 @@ describe("local reply drafts", () => {
     setActiveMailClient(null);
   });
 
-  it("does not repeat an uncertain creation or revive a discarded compose", async () => {
+  it("retries an unconfirmed creation but does not revive a discarded compose", async () => {
     const writer = createReplyDraftWriter(identity);
     await writer.save({ ...content, requestId: "compose-1" });
     await updateReplyDraftProviderState(identity, "compose-1");
+    // The server reuses the draft a lost create left, so a retry is safe.
     await expect(
       updateReplyDraftProviderState(identity, "compose-1"),
-    ).rejects.toThrow(/could not be confirmed/);
+    ).resolves.toBeUndefined();
+    await updateReplyDraftProviderState(identity, "compose-1", "provider-1");
+    expect((await getReplyDraft(identity))?.content).toMatchObject({
+      providerDraftId: "provider-1",
+      providerDraftCreationUnconfirmed: false,
+    });
     await writer.clear();
     await expect(
       updateReplyDraftProviderState(identity, "compose-1"),

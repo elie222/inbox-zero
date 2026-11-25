@@ -5,6 +5,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { SendEmailBody } from "@/utils/types/mail";
 import type { Logger } from "@/utils/logger";
 import {
+  getComposeSessionDraftIds,
   markComposeSessionSent,
   recordComposeSessionDraft,
 } from "@/utils/redis/compose-session-draft";
@@ -29,6 +30,10 @@ export async function saveComposeDraft({
     bcc:
       content.bcc == null ? content.bcc : completeDraftRecipients(content.bcc),
   };
+  // A create whose response never reached the composer is retried; the
+  // session's draft from that attempt is reused instead of making a second.
+  if (!draftId && composeSession)
+    draftId = await findSessionDraft(composeSession, provider);
   if (!draftId) {
     // Return the reference before syncing the rest of the content so later
     // failures can retry an update without creating another mailbox draft.
@@ -149,6 +154,20 @@ function composeDraftTextUpdate(content: SendEmailBody) {
     subject: content.subject,
     messageHtml: content.messageHtml,
   };
+}
+
+// A failed lookup throws rather than reading as "no draft", which would
+// create a second one; the composer keeps the text and retries.
+async function findSessionDraft(
+  composeSession: { id: string; emailAccountId: string },
+  provider: EmailProvider,
+) {
+  const draftIds = await getComposeSessionDraftIds({
+    emailAccountId: composeSession.emailAccountId,
+    sessionId: composeSession.id,
+  });
+  for (const draftId of draftIds)
+    if (await provider.getDraft(draftId)) return draftId;
 }
 
 async function recordSessionDraft(

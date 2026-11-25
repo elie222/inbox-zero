@@ -45,6 +45,20 @@ export async function recordComposeSessionDraft({
   return sent !== null;
 }
 
+/** Every mailbox draft the compose session has saved, in no set order. */
+export async function getComposeSessionDraftIds({
+  emailAccountId,
+  sessionId,
+}: {
+  emailAccountId: string;
+  sessionId: string;
+}) {
+  const fields = await redis.hkeys(sessionKey(emailAccountId, sessionId));
+  return fields
+    .filter((field) => field.startsWith("draft:"))
+    .map((field) => field.slice("draft:".length));
+}
+
 /** Marks the compose session sent and returns every draft it saved. */
 export async function markComposeSessionSent({
   emailAccountId,

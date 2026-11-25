@@ -30,9 +30,9 @@ it("uses the known provider reference even when local draft storage is unavailab
   vi.mocked(getReplyDraft).mockRejectedValue(
     new Error("Local draft storage was cleared"),
   );
-  await expect(resolveSendDraftId("draft-1", identity)).resolves.toBe(
-    "draft-1",
-  );
+  await expect(resolveSendDraftId("draft-1", identity)).resolves.toEqual({
+    draftId: "draft-1",
+  });
   expect(getReplyDraft).not.toHaveBeenCalled();
 });
 
@@ -43,26 +43,29 @@ it("recovers the provider reference persisted by a previous composer", async () 
     updatedAt: 0,
     content: { ...content, providerDraftId: "draft-1" },
   });
-  await expect(resolveSendDraftId(undefined, identity)).resolves.toBe(
-    "draft-1",
-  );
+  await expect(resolveSendDraftId(undefined, identity)).resolves.toEqual({
+    draftId: "draft-1",
+    replacesUnconfirmedDraft: false,
+  });
 });
 
-it("does not send a new copy when mailbox draft creation was not confirmed", async () => {
+it("sends without blocking when mailbox draft creation was not confirmed, replacing any draft it left", async () => {
   vi.mocked(getReplyDraft).mockResolvedValue({
     ...identity,
     revision: 1,
     updatedAt: 0,
     content: { ...content, providerDraftCreationUnconfirmed: true },
   });
-  await expect(resolveSendDraftId(undefined, identity)).rejects.toThrow(
-    /Check Drafts/,
-  );
+  await expect(resolveSendDraftId(undefined, identity)).resolves.toEqual({
+    draftId: undefined,
+    replacesUnconfirmedDraft: true,
+  });
 });
 
 it("does not invent a provider draft for an ordinary reply", async () => {
   vi.mocked(getReplyDraft).mockResolvedValue(undefined);
-  await expect(
-    resolveSendDraftId(undefined, identity),
-  ).resolves.toBeUndefined();
+  await expect(resolveSendDraftId(undefined, identity)).resolves.toEqual({
+    draftId: undefined,
+    replacesUnconfirmedDraft: false,
+  });
 });

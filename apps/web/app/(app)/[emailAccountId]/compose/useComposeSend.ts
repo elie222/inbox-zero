@@ -306,12 +306,15 @@ export function useComposeSend({
         // Autosave can replace a draft's message ID; its provider draft ID survives.
         if (replacesSavingDraft)
           enrichedData.replacesDraftOfSession = requestId;
-        enrichedData.providerDraftId = replacesSavingDraft
-          ? undefined
-          : await resolveSendDraftId(
-              providerDraftId.current,
-              localDraftIdentity,
-            );
+        else {
+          const resolved = await resolveSendDraftId(
+            providerDraftId.current,
+            localDraftIdentity,
+          );
+          enrichedData.providerDraftId = resolved.draftId;
+          if (resolved.replacesUnconfirmedDraft)
+            enrichedData.replacesDraftOfSession = requestId;
+        }
         // The mailbox draft is what carries the files to the recipient.
         if (attachmentsRef.current.length && !enrichedData.providerDraftId) {
           const description = t`Could not find this draft in your mailbox to send its attachments. Reopen it and try again.`;

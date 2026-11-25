@@ -244,9 +244,7 @@ export function useComposeDraft({
         composeSessionId: requestId,
       });
       if (!created?.data)
-        throw new Error(
-          t`Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.`,
-        );
+        throw new Error(getDraftSyncErrorMessage(created, i18n));
       if (created.data.sessionSent) throw sessionAlreadySent(i18n);
       draftId = created.data.draftId;
       createdMessageId = created.data.messageId;

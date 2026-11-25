@@ -8445,10 +8445,6 @@ msgstr "메일 탐색"
 msgid "Mail setup"
 msgstr "메일 설정"
 
-#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
-msgid "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device."
-msgstr "메일함에서 초안 생성이 확인되지 않았어요. Gmail 또는 Outlook의 임시 보관함을 확인해 주세요. 메시지는 이 기기에 계속 저장돼 있어요."
-
 #: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
 msgid "Make sure your Drive connection contains PDF files or folders."
 msgstr "Drive 연결에 PDF 파일이나 폴더가 있는지 확인해 주세요."
