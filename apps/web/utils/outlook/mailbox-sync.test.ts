@@ -396,11 +396,15 @@ describe("getOutlookMailboxSyncPage", () => {
         "@odata.deltaLink": nextDeltaLink,
       },
       "/me/messages/purged-message": Object.assign(
-        new Error("The store ID provided isn't an ID of an item."),
+        new Error(
+          "Access is denied. Check credentials and try again., The store ID provided isn't an ID of an item.",
+        ),
         { statusCode: 403, code: "ErrorAccessDenied" },
       ),
       "/me/messages/purged-partial": Object.assign(
-        new Error("The store ID provided isn't an ID of an item."),
+        new Error(
+          "Access is denied. Check credentials and try again., The store ID provided isn't an ID of an item.",
+        ),
         { statusCode: 403, code: "ErrorAccessDenied" },
       ),
     });
@@ -425,6 +429,35 @@ describe("getOutlookMailboxSyncPage", () => {
     expect(decodeMailboxSyncCursor(page.cursor, "microsoft").deltaLink).toBe(
       nextDeltaLink,
     );
+  });
+
+  it("fails the page when Graph denies access to a message that still exists", async () => {
+    using _warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { client } = createGraphClient({
+      [DELTA_LINK]: {
+        value: [{ id: "partial-message", isRead: true }],
+        "@odata.deltaLink": DELTA_LINK.replace("=abc", "=next"),
+      },
+      "/me/messages/partial-message": Object.assign(
+        new Error("Access is denied. Check credentials and try again."),
+        { statusCode: 403, code: "ErrorAccessDenied" },
+      ),
+    });
+
+    await expect(
+      getOutlookMailboxSyncPage({
+        client,
+        logger,
+        cursor: encodeMailboxSyncCursor({
+          version: 1,
+          provider: "microsoft",
+          deltaLink: DELTA_LINK,
+          after: "2026-07-01T00:00:00.000Z",
+          snapshot: false,
+        }),
+        limit: 50,
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 });
   });
 
   it("refetches delta messages that omit their conversation", async () => {

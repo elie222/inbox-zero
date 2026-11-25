@@ -26,6 +26,7 @@ import {
   OutlookSyncFolderUnavailableError,
 } from "@/utils/outlook/errors";
 import { mapWithConcurrency } from "@/utils/async";
+import { isOutlookItemNotFoundError } from "@/utils/error";
 
 const MESSAGE_SELECT_FIELDS =
   "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,flag,categories,parentFolderId,hasAttachments,webLink,inferenceClassification";
@@ -366,16 +367,14 @@ async function getSyncMessage({
       signal,
     );
   } catch (error) {
-    if (isNotFoundError(error) || isUnreadableSyncMessage(error)) return null;
+    // Graph answers some purged items with a 403 ErrorAccessDenied whose
+    // message says the store ID isn't an item; rethrowing it would replay the
+    // same delta page forever.
+    if (isNotFoundError(error) || isOutlookItemNotFoundError(error)) {
+      return null;
+    }
     throw error;
   }
-}
-
-// Graph answers some purged items with ErrorAccessDenied instead of a 404.
-// Failing the page on it would replay the same delta page forever.
-function isUnreadableSyncMessage(error: unknown) {
-  const { status, code } = extractErrorInfo(error);
-  return status === 403 && code === "ErrorAccessDenied";
 }
 
 async function readInitialPage(input: Parameters<typeof getInitialPage>[0]) {
