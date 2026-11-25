@@ -293,6 +293,41 @@ describe("createEmailProviderOperationExecutor", () => {
     ]);
   });
 
+  it("does not confirm inspected restore when the message is missing the inbox role", async () => {
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: `t-${id}`,
+            headers: { from: "ada@example.com", to: "me@example.com" },
+            labelIds: [],
+            snippet: id,
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const operation = metadataOperation([
+      { accountId: "acc-1", messageId: "m1" },
+    ]);
+
+    const result = await executor.inspect({
+      operation: {
+        ...operation,
+        intent: {
+          ...operation.intent,
+          change: { kind: "restore_from_trash" },
+        },
+      },
+      receiptId: "bulk-1",
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toEqual({ status: "uncertain", receiptId: "bulk-1" });
+  });
+
   it("uses the provider not-spam boundary for set_spam false", async () => {
     const markNotSpam = vi.fn();
     const executor = createEmailProviderOperationExecutor({

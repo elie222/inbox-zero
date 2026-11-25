@@ -968,7 +968,9 @@ function metadataChangeSatisfied(
     case "trash":
       return metadata.roles.includes("trash");
     case "restore_from_trash":
-      return !metadata.roles.includes("trash");
+      return (
+        !metadata.roles.includes("trash") && metadata.roles.includes("inbox")
+      );
     case "set_spam":
       return change.spam
         ? metadata.roles.includes("spam")

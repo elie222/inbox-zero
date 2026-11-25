@@ -285,6 +285,23 @@ describe("GmailProvider.bulkArchiveFromSenders", () => {
 });
 
 describe("GmailProvider snapshot mutations", () => {
+  it("restores a trashed thread to the inbox", async () => {
+    const untrash = vi.fn().mockResolvedValue({ data: {} });
+    const modify = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider({
+      users: { threads: { modify, untrash } },
+    } as any);
+
+    await provider.untrashThread("thread-1");
+
+    expect(untrash).toHaveBeenCalledWith({ userId: "me", id: "thread-1" });
+    expect(modify).toHaveBeenCalledWith({
+      userId: "me",
+      id: "thread-1",
+      requestBody: { addLabelIds: [GmailLabel.INBOX] },
+    });
+  });
+
   it("adds an archive label in the same Gmail batch modification", async () => {
     const batchModify = vi.fn().mockResolvedValue({ data: {} });
     const provider = new GmailProvider(createGmailClient({ batchModify }));
@@ -353,21 +370,73 @@ describe("GmailProvider snapshot mutations", () => {
     expect(peakActive).toBe(5);
   });
 
-  it("restores captured archive and trash snapshots", async () => {
+  it("restores captured archive snapshots to the inbox", async () => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider(createGmailClient({ batchModify }));
+
+    await provider.unarchiveMessages(["one", "one", "two"]);
+
+    expect(batchModify).toHaveBeenCalledWith({
+      userId: "me",
+      requestBody: { ids: ["one", "two"], addLabelIds: [GmailLabel.INBOX] },
+    });
+  });
+
+  it("restores captured trash snapshots to the inbox", async () => {
     const batchModify = vi.fn().mockResolvedValue({ data: {} });
     const untrash = vi.fn().mockResolvedValue({ data: {} });
     const provider = new GmailProvider(
       createGmailClient({ batchModify, untrash }),
     );
 
-    await provider.unarchiveMessages(["one", "one", "two"]);
     await provider.untrashMessages(["one", "one", "two"]);
+
+    expect(untrash).toHaveBeenCalledTimes(2);
+    expect(batchModify).toHaveBeenCalledWith({
+      userId: "me",
+      requestBody: { ids: ["one", "two"], addLabelIds: [GmailLabel.INBOX] },
+    });
+  });
+
+  it("does not update the inbox label for a missing trash snapshot", async () => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const untrash = vi
+      .fn()
+      .mockResolvedValueOnce({ data: {} })
+      .mockRejectedValueOnce(
+        Object.assign(new Error("Not found"), { status: 404 }),
+      );
+    const provider = new GmailProvider(
+      createGmailClient({ batchModify, untrash }),
+    );
+
+    await provider.untrashMessages(["present", "missing"]);
+
+    expect(batchModify).toHaveBeenCalledWith({
+      userId: "me",
+      requestBody: { ids: ["present"], addLabelIds: [GmailLabel.INBOX] },
+    });
+  });
+
+  it("updates restored messages before rethrowing an untrash error", async () => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const untrash = vi
+      .fn()
+      .mockResolvedValueOnce({ data: {} })
+      .mockRejectedValueOnce(new Error("Gmail unavailable"))
+      .mockResolvedValueOnce({ data: {} });
+    const provider = new GmailProvider(
+      createGmailClient({ batchModify, untrash }),
+    );
+
+    await expect(
+      provider.untrashMessages(["one", "failed", "two"]),
+    ).rejects.toThrow("Gmail unavailable");
 
     expect(batchModify).toHaveBeenCalledWith({
       userId: "me",
       requestBody: { ids: ["one", "two"], addLabelIds: [GmailLabel.INBOX] },
     });
-    expect(untrash).toHaveBeenCalledTimes(2);
   });
 
   it.each([
