@@ -452,3 +452,18 @@ it("creates a new draft when the session's earlier draft is gone from the mailbo
   expect(provider.createDraft).toHaveBeenCalledOnce();
   expect(result.draftId).toBe("draft-1");
 });
+it("does not create a second draft when the session lookup fails", async () => {
+  vi.mocked(getComposeSessionDraftIds).mockRejectedValue(new Error("down"));
+  await expect(
+    saveComposeDraft({
+      provider,
+      content,
+      composeSession: {
+        id: "session-1",
+        emailAccountId: "account-1",
+        logger: createScopedLogger("test"),
+      },
+    }),
+  ).rejects.toThrow("down");
+  expect(provider.createDraft).not.toHaveBeenCalled();
+});

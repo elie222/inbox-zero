@@ -45,7 +45,7 @@ export async function recordComposeSessionDraft({
   return sent !== null;
 }
 
-/** Every mailbox draft the compose session has saved, oldest first. */
+/** Every mailbox draft the compose session has saved, in no set order. */
 export async function getComposeSessionDraftIds({
   emailAccountId,
   sessionId,

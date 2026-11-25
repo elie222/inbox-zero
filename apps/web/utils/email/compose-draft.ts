@@ -156,22 +156,18 @@ function composeDraftTextUpdate(content: SendEmailBody) {
   };
 }
 
+// A failed lookup throws rather than reading as "no draft", which would
+// create a second one; the composer keeps the text and retries.
 async function findSessionDraft(
-  composeSession: { id: string; emailAccountId: string; logger: Logger },
+  composeSession: { id: string; emailAccountId: string },
   provider: EmailProvider,
 ) {
-  try {
-    const draftIds = await getComposeSessionDraftIds({
-      emailAccountId: composeSession.emailAccountId,
-      sessionId: composeSession.id,
-    });
-    for (const draftId of draftIds.reverse())
-      if (await provider.getDraft(draftId)) return draftId;
-  } catch (error) {
-    composeSession.logger.warn("Could not look up the compose session draft", {
-      error,
-    });
-  }
+  const draftIds = await getComposeSessionDraftIds({
+    emailAccountId: composeSession.emailAccountId,
+    sessionId: composeSession.id,
+  });
+  for (const draftId of draftIds)
+    if (await provider.getDraft(draftId)) return draftId;
 }
 
 async function recordSessionDraft(
