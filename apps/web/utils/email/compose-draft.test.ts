@@ -2,6 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import type { EmailProvider } from "@/utils/email/types";
 import { createScopedLogger } from "@/utils/logger";
 import {
+  getComposeSessionDraftIds,
   markComposeSessionSent,
   recordComposeSessionDraft,
 } from "@/utils/redis/compose-session-draft";
@@ -13,6 +14,7 @@ import {
 } from "./compose-draft";
 
 vi.mock("@/utils/redis/compose-session-draft", () => ({
+  getComposeSessionDraftIds: vi.fn(),
   recordComposeSessionDraft: vi.fn(),
   markComposeSessionSent: vi.fn(),
 }));
@@ -41,6 +43,7 @@ beforeEach(() => {
     version: "v1",
   });
   vi.mocked(provider.deleteDraft).mockResolvedValue(true);
+  vi.mocked(getComposeSessionDraftIds).mockResolvedValue([]);
 });
 
 it("returns the provider reference before attempting attachment updates", async () => {
@@ -410,4 +413,42 @@ it("retries recording a session draft once", async () => {
 
   expect(recordComposeSessionDraft).toHaveBeenCalledTimes(2);
   expect(provider.deleteDraft).toHaveBeenCalledWith("draft-1", "v1");
+});
+
+it("reuses the draft a lost create left instead of making a second one", async () => {
+  vi.mocked(getComposeSessionDraftIds).mockResolvedValue(["draft-lost"]);
+  vi.mocked(recordComposeSessionDraft).mockResolvedValue(false);
+  const result = await saveComposeDraft({
+    provider,
+    content,
+    composeSession: {
+      id: "session-1",
+      emailAccountId: "account-1",
+      logger: createScopedLogger("test"),
+    },
+  });
+  expect(provider.createDraft).not.toHaveBeenCalled();
+  expect(provider.updateDraft).toHaveBeenCalledWith(
+    "draft-lost",
+    expect.objectContaining({ messageHtml: content.messageHtml }),
+  );
+  expect(result.draftId).toBe("draft-lost");
+});
+it("creates a new draft when the session's earlier draft is gone from the mailbox", async () => {
+  vi.mocked(getComposeSessionDraftIds).mockResolvedValue(["draft-deleted"]);
+  vi.mocked(provider.getDraft).mockImplementation(async (id) =>
+    id === "draft-deleted" ? null : ({ id: "message-1" } as never),
+  );
+  vi.mocked(recordComposeSessionDraft).mockResolvedValue(false);
+  const result = await saveComposeDraft({
+    provider,
+    content,
+    composeSession: {
+      id: "session-1",
+      emailAccountId: "account-1",
+      logger: createScopedLogger("test"),
+    },
+  });
+  expect(provider.createDraft).toHaveBeenCalledOnce();
+  expect(result.draftId).toBe("draft-1");
 });

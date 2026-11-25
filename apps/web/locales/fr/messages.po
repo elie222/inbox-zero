@@ -8445,10 +8445,6 @@ msgstr "Navigation de la messagerie"
 msgid "Mail setup"
 msgstr "Configuration de la messagerie"
 
-#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
-msgid "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device."
-msgstr "Impossible de confirmer la création du brouillon dans la boîte aux lettres. Vérifie les brouillons dans Gmail ou Outlook ; ton message est toujours enregistré sur cet appareil."
-
 #: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
 msgid "Make sure your Drive connection contains PDF files or folders."
 msgstr "Assure-toi que ta connexion Drive contient des fichiers ou des dossiers PDF."

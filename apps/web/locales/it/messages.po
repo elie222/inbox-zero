@@ -8445,10 +8445,6 @@ msgstr "Navigazione della posta"
 msgid "Mail setup"
 msgstr "Configurazione della posta"
 
-#: app/(app)/[emailAccountId]/compose/useComposeDraft.ts
-msgid "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device."
-msgstr "Non è stato possibile confermare la creazione della bozza nella casella di posta. Controlla le bozze in Gmail o Outlook: il messaggio è ancora salvato su questo dispositivo."
-
 #: app/(app)/[emailAccountId]/assistant/ActionAttachmentsField.tsx
 msgid "Make sure your Drive connection contains PDF files or folders."
 msgstr "Assicurati che la tua connessione a Drive contenga file PDF o cartelle."

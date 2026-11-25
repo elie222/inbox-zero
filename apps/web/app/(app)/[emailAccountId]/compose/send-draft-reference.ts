@@ -7,12 +7,14 @@ export async function resolveSendDraftId(
   providerDraftId: string | undefined,
   identity: ReplyDraftIdentity | undefined,
 ) {
-  if (providerDraftId) return providerDraftId;
+  if (providerDraftId) return { draftId: providerDraftId };
   const local = identity ? await getReplyDraft(identity) : undefined;
   const draftId = local?.content?.providerDraftId;
-  if (!draftId && local?.content?.providerDraftCreationUnconfirmed)
-    throw new Error(
-      "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook before sending.",
-    );
-  return draftId;
+  return {
+    draftId,
+    // A create whose response was lost may have left a draft in the mailbox.
+    // The send carries its own content and removes that draft once delivered.
+    replacesUnconfirmedDraft:
+      !draftId && Boolean(local?.content?.providerDraftCreationUnconfirmed),
+  };
 }

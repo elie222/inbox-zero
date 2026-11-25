@@ -363,11 +363,6 @@ export async function updateReplyDraftProviderState(
     throw new Error("This draft changed. Reopen the composer.");
   }
   if (current.content.providerDraftId) return current.content.providerDraftId;
-  if (!draftId && current.content.providerDraftCreationUnconfirmed) {
-    throw new Error(
-      "Mailbox draft creation could not be confirmed. Check Drafts in Gmail or Outlook; your message is still saved on this device.",
-    );
-  }
   const nextContent = {
     ...current.content,
     providerDraftId: draftId,
