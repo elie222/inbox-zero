@@ -947,6 +947,29 @@ describe("getFilableAttachments", () => {
     expect(getFilableAttachments(message)).toEqual([documentAttachment]);
   });
 
+  it("keeps inline-disposition documents without a Content-ID", () => {
+    const documentAttachment = {
+      ...createAttachment({
+        attachmentId: "attachment-1",
+        filename: "invoice.pdf",
+        mimeType: "application/pdf",
+      }),
+      headers: {
+        "content-description": "",
+        "content-disposition": 'inline; filename="invoice.pdf"',
+        "content-id": "",
+        "content-transfer-encoding": "base64",
+        "content-type": 'application/pdf; name="invoice.pdf"',
+      },
+    };
+
+    const message = getMockParsedMessage({
+      attachments: [documentAttachment],
+    });
+
+    expect(getFilableAttachments(message)).toEqual([documentAttachment]);
+  });
+
   it("keeps attachments when inline appears only in a disposition parameter", () => {
     const documentAttachment = {
       ...createAttachment({

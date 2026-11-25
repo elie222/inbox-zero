@@ -5,6 +5,7 @@ import type { ParsedMessage, Attachment } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
+import { isInlineAttachment } from "@/utils/attachments/inline";
 import {
   createAndSaveFilingFolder,
   type FolderPathParent,
@@ -400,17 +401,11 @@ export async function processAttachment({
  * itself rather than user documents.
  */
 export function getFilableAttachments(message: ParsedMessage): Attachment[] {
-  return (message.attachments || []).filter((attachment) => {
-    const contentDispositionType = attachment.headers?.["content-disposition"]
-      ?.split(";", 1)[0]
-      ?.trim()
-      .toLowerCase();
-
-    return (
-      contentDispositionType !== "inline" &&
-      !isCalendarInviteAttachment(attachment)
-    );
-  });
+  return (message.attachments || []).filter(
+    (attachment) =>
+      !isInlineAttachment(attachment) &&
+      !isCalendarInviteAttachment(attachment),
+  );
 }
 
 // ============================================================================
