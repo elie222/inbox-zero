@@ -48,6 +48,7 @@ export function createMenuBarHandoff({
     `${HELPER_NAME}.app`,
   );
   const executable = path.join(bundle, "Contents", "MacOS", HELPER_NAME);
+  const handoffUrl = new URL("/api/mobile-auth/handoff", origin);
   let queue = Promise.resolve();
   let handledSession: string | undefined;
 
@@ -59,7 +60,7 @@ export function createMenuBarHandoff({
   async function reconcile(signingOut: boolean) {
     let stage = "reading desktop session";
     try {
-      if (new URL(origin).protocol !== "https:") return;
+      if (handoffUrl.protocol !== "https:") return;
       if (
         !(await access(executable, constants.X_OK).then(
           () => true,
@@ -73,9 +74,9 @@ export function createMenuBarHandoff({
         : await readDesktopSession();
       if (desktopSession && handledSession === desktopSession.fingerprint)
         return;
+      handledSession = undefined;
 
       if (!desktopSession) {
-        handledSession = undefined;
         stage = "disconnecting helper session";
         if ((await runCommand("--auth-disconnect", "")) !== 0)
           throw new Error("Helper disconnect failed");
@@ -102,18 +103,16 @@ export function createMenuBarHandoff({
         .update(codeVerifier)
         .digest("base64url");
       stage = "requesting handoff code";
-      const response = await session.fetch(
-        new URL("/api/mobile-auth/handoff", origin).href,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json", cookie: cookieHeader },
-          body: JSON.stringify({ state, codeChallenge }),
-          credentials: "omit",
-          redirect: "error",
-          signal: AbortSignal.timeout(10_000),
-        },
-      );
+      const response = await session.fetch(handoffUrl.href, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: cookieHeader },
+        body: JSON.stringify({ state, codeChallenge }),
+        credentials: "omit",
+        redirect: "error",
+        signal: AbortSignal.timeout(10_000),
+      });
       if (response.status === 401 || response.status === 403) {
+        if ((await readDesktopSession())?.fingerprint !== fingerprint) return;
         stage = "disconnecting helper session";
         if ((await runCommand("--auth-disconnect", "")) !== 0)
           throw new Error("Helper disconnect failed");
@@ -154,8 +153,6 @@ export function createMenuBarHandoff({
         )) !== 0
       )
         throw new Error("Helper rejected handoff");
-      if ((await readDesktopSession())?.fingerprint !== fingerprint) return;
-
       stage = "opening helper";
       await openHelper(fingerprint);
     } catch (error) {
@@ -169,17 +166,18 @@ export function createMenuBarHandoff({
   }
 
   async function openHelper(fingerprint: string) {
+    if ((await readDesktopSession())?.fingerprint !== fingerprint) return;
     if (await openPath(bundle)) throw new Error("Could not open helper");
     handledSession = fingerprint;
   }
 
   async function readDesktopSession() {
-    const cookies = await session.cookies.get({ url: origin });
-    const cookie = cookies.find(
-      ({ name, value }) => isMenuBarSessionCookie(name) && value,
-    );
-    if (!cookie) return;
-    const cookieHeader = `${cookie.name}=${cookie.value}`;
+    const cookies = await session.cookies.get({ url: handoffUrl.href });
+    const cookieHeader = cookies
+      .filter(({ name, value }) => isMenuBarSessionCookie(name) && value)
+      .map(({ name, value }) => `${name}=${value}`)
+      .join("; ");
+    if (!cookieHeader) return;
     return {
       cookieHeader,
       fingerprint: createHash("sha256")

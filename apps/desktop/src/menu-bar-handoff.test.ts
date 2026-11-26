@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { Session } from "electron";
+import type { Cookie, Session } from "electron";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMenuBarHandoff } from "./menu-bar-handoff";
 
@@ -84,6 +84,56 @@ describe.skipIf(process.platform === "win32")(
       );
     });
 
+    it("repairs the helper when the desktop switches back during redemption", async () => {
+      const fixture = await makeFixture();
+      await fixture.connect();
+      const originalSession = await readFile(fixture.sessionPath, "utf8");
+      fixture.setSession("second-session");
+      fixture.verifyHelper
+        .mockResolvedValueOnce(undefined)
+        .mockImplementationOnce(async () =>
+          fixture.setSession("first-session"),
+        );
+
+      await fixture.connect();
+      expect(await readFile(fixture.sessionPath, "utf8")).not.toBe(
+        originalSession,
+      );
+      await fixture.connect();
+      expect(await readFile(fixture.sessionPath, "utf8")).toBe(originalSession);
+    });
+
+    it("forwards both supported session cookies when they coexist", async () => {
+      const fixture = await makeFixture();
+      fixture.setCookies([
+        { name: "better-auth.session_token", sameSite: "lax", value: "old" },
+        {
+          name: "__Secure-better-auth.session_token",
+          sameSite: "lax",
+          value: "current",
+        },
+        { name: "other_cookie", sameSite: "lax", value: "unrelated" },
+      ]);
+      await fixture.connect();
+      expect(fixture.fetch.mock.calls[0][1]?.headers).toMatchObject({
+        cookie:
+          "better-auth.session_token=old; __Secure-better-auth.session_token=current",
+      });
+    });
+
+    it("ignores an auth rejection for a session the desktop has switched away from", async () => {
+      const fixture = await makeFixture();
+      await fixture.connect();
+      const linkedSession = await readFile(fixture.sessionPath, "utf8");
+      fixture.setSession("second-session");
+      fixture.fetch.mockImplementationOnce(async () => {
+        fixture.setSession("first-session");
+        return new Response(null, { status: 401 });
+      });
+      await fixture.connect();
+      expect(await readFile(fixture.sessionPath, "utf8")).toBe(linkedSession);
+    });
+
     it("retries on the next connection attempt when the helper rejects the code", async () => {
       const fixture = await makeFixture();
       await writeFile(
@@ -132,7 +182,7 @@ describe.skipIf(process.platform === "win32")(
     });
 
     it("terminates a stuck helper command and lets the next operation proceed", async () => {
-      const fixture = await makeFixture(500);
+      const fixture = await makeFixture(2500);
       await writeFile(
         fixture.executable,
         '#!/bin/sh\ntrap "" TERM\nexec sleep 30\n',
@@ -206,7 +256,13 @@ esac
     );
   await installHelper();
 
-  let sessionValue = "first-session";
+  let cookies: Cookie[] = [];
+  function setSession(value: string) {
+    cookies = value
+      ? [{ name: "__Secure-better-auth.session_token", sameSite: "lax", value }]
+      : [];
+  }
+  setSession("first-session");
   const fetch = vi.fn<Session["fetch"]>(async () =>
     Response.json({ code: "fixture-code" }),
   );
@@ -221,16 +277,7 @@ esac
       commandTimeoutMs,
       session: {
         cookies: {
-          get: async () =>
-            sessionValue
-              ? [
-                  {
-                    name: "__Secure-better-auth.session_token",
-                    sameSite: "lax",
-                    value: sessionValue,
-                  },
-                ]
-              : [],
+          get: async () => cookies,
         },
         fetch,
       },
@@ -253,8 +300,9 @@ esac
     verifyHelper,
     newConnection,
     connect: newConnection(),
-    setSession: (value: string) => {
-      sessionValue = value;
+    setSession,
+    setCookies: (values: Cookie[]) => {
+      cookies = values;
     },
   };
 }
