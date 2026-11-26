@@ -20,7 +20,7 @@ afterEach(async () => {
 describe.skipIf(process.platform === "win32")(
   "desktop menu bar handoff",
   () => {
-    it("redeems a fresh PKCE handoff via stdin and connects each desktop session once", async () => {
+    it("redeems via stdin once per session and opens a linked helper after restart", async () => {
       const fixture = await makeFixture();
       await Promise.all([fixture.connect(), fixture.connect()]);
       await fixture.newConnection()();
@@ -31,7 +31,8 @@ describe.skipIf(process.platform === "win32")(
       expect(url).toBe(`${origin}/api/mobile-auth/handoff`);
       expect(request).toMatchObject({
         method: "POST",
-        credentials: "include",
+        credentials: "omit",
+        headers: { cookie: "__Secure-better-auth.session_token=first-session" },
         redirect: "error",
       });
       expect(redeemed).toEqual({
@@ -39,17 +40,21 @@ describe.skipIf(process.platform === "win32")(
         code: "fixture-code",
         state: posted.state,
         codeVerifier: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/u),
+        desktopSessionId: expect.stringMatching(/^[a-f0-9]{64}$/u),
       });
       expect(posted.codeChallenge).toBe(
         createHash("sha256").update(redeemed.codeVerifier).digest("base64url"),
       );
       expect(fixture.fetch).toHaveBeenCalledTimes(1);
-      expect(fixture.openPath).toHaveBeenCalledExactlyOnceWith(fixture.bundle);
+      expect(fixture.openPath.mock.calls).toEqual([
+        [fixture.bundle],
+        [fixture.bundle],
+      ]);
 
       fixture.setSession("second-session");
       await fixture.connect();
       expect(fixture.fetch).toHaveBeenCalledTimes(2);
-      expect(fixture.openPath).toHaveBeenCalledTimes(2);
+      expect(fixture.openPath).toHaveBeenCalledTimes(3);
       expect(fixture.onFailure).not.toHaveBeenCalled();
     });
 
@@ -81,10 +86,61 @@ describe.skipIf(process.platform === "win32")(
 
     it("retries on the next connection attempt when the helper rejects the code", async () => {
       const fixture = await makeFixture();
-      await writeFile(fixture.executable, "#!/bin/sh\nexit 1\n");
+      await writeFile(
+        fixture.executable,
+        '#!/bin/sh\n[ "$1" = "--auth-status" ] && exit 2\nexit 1\n',
+      );
       await fixture.connect();
-      expect(fixture.onFailure).toHaveBeenCalledOnce();
+      expect(fixture.onFailure).toHaveBeenCalledExactlyOnceWith(
+        "redeeming handoff",
+      );
       expect(fixture.openPath).not.toHaveBeenCalled();
+      await fixture.installHelper();
+      await fixture.connect();
+      expect(fixture.openPath).toHaveBeenCalledOnce();
+    });
+
+    it("disconnects after a pending handoff and preserves standalone sign-in", async () => {
+      const fixture = await makeFixture();
+      await Promise.all([fixture.connect(), fixture.connect(true)]);
+      await expect(readFile(fixture.sessionPath)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      await writeFile(fixture.sessionPath, "standalone");
+      fixture.setSession("");
+      await fixture.connect();
+      expect(await readFile(fixture.sessionPath, "utf8")).toBe("standalone");
+    });
+
+    it("reconnects an expired helper session on a later desktop startup", async () => {
+      const fixture = await makeFixture();
+      await fixture.connect();
+      await rm(fixture.sessionPath);
+      await fixture.newConnection()();
+      expect(fixture.fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("offers standalone sign-in once for an ineligible desktop session", async () => {
+      const fixture = await makeFixture();
+      fixture.fetch.mockResolvedValueOnce(new Response(null, { status: 403 }));
+      await fixture.connect();
+      await fixture.connect();
+      expect(fixture.onIneligibleSession).toHaveBeenCalledExactlyOnceWith(
+        fixture.bundle,
+      );
+      expect(fixture.openPath).not.toHaveBeenCalled();
+    });
+
+    it("terminates a stuck helper command and lets the next operation proceed", async () => {
+      const fixture = await makeFixture(500);
+      await writeFile(
+        fixture.executable,
+        '#!/bin/sh\ntrap "" TERM\nexec sleep 30\n',
+      );
+      await fixture.connect();
+      expect(fixture.onFailure).toHaveBeenCalledExactlyOnceWith(
+        "checking helper session",
+      );
       await fixture.installHelper();
       await fixture.connect();
       expect(fixture.openPath).toHaveBeenCalledOnce();
@@ -92,7 +148,7 @@ describe.skipIf(process.platform === "win32")(
   },
 );
 
-async function makeFixture() {
+async function makeFixture(commandTimeoutMs?: number) {
   const contentsPath = await mkdtemp(path.join(tmpdir(), "desktop-menubar-"));
   tempDirectories.push(contentsPath);
   const bundle = path.join(
@@ -103,12 +159,29 @@ async function makeFixture() {
   );
   const executable = path.join(bundle, "Contents", "MacOS", "InboxZeroMenuBar");
   const payloadPath = `${executable}.input`;
+  const sessionPath = `${executable}.session`;
   await mkdir(path.dirname(executable), { recursive: true });
 
   const installHelper = () =>
     writeFile(
       executable,
-      '#!/bin/sh\n[ "$#" -eq 1 ] && [ "$1" = "--auth-handoff" ] || exit 2\nIFS= read -r line || exit 3\nprintf "%s" "$line" > "$0.input"\n',
+      `#!/bin/sh
+case "$1" in
+  --auth-status)
+    IFS= read -r line || exit 1
+    saved=$(cat "$0.session" 2>/dev/null)
+    [ "$saved" = standalone ] && exit 3
+    [ "$saved" = "$line" ] && exit 0
+    exit 2 ;;
+  --auth-handoff)
+    IFS= read -r line || exit 1
+    printf "%s" "$line" > "$0.input"
+    printf "%s" "$line" | sed -E 's/.*"desktopSessionId":"([0-9a-f]+)".*/\\1/' > "$0.session" ;;
+  --auth-disconnect)
+    [ "$(cat "$0.session" 2>/dev/null)" = standalone ] || rm -f "$0.session" ;;
+  *) exit 1 ;;
+esac
+`,
       { mode: 0o700 },
     );
   await installHelper();
@@ -119,11 +192,12 @@ async function makeFixture() {
   );
   const openPath = vi.fn<(bundle: string) => Promise<string>>(async () => "");
   const onFailure = vi.fn();
+  const onIneligibleSession = vi.fn();
   const newConnection = () =>
     createMenuBarHandoff({
       origin,
       contentsPath,
-      markerPath: path.join(contentsPath, "handoff-marker"),
+      commandTimeoutMs,
       session: {
         cookies: {
           get: async () =>
@@ -141,16 +215,19 @@ async function makeFixture() {
       },
       openPath,
       onFailure,
+      onIneligibleSession,
     });
 
   return {
     bundle,
     executable,
     payloadPath,
+    sessionPath,
     installHelper,
     fetch,
     openPath,
     onFailure,
+    onIneligibleSession,
     newConnection,
     connect: newConnection(),
     setSession: (value: string) => {

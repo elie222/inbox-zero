@@ -58,12 +58,14 @@ from its `ios/` directory. Copy the signed `InboxZeroMenuBar.app` from `ios/buil
 to `apps/desktop/build/menubar/` before running the macOS packaging command. The
 packager places it in `Inbox Zero.app/Contents/Library/LoginItems/` and preserves
 the helper signature and entitlements so the outer app's notarization can cover both.
-With no staged helper, the macOS package omits it.
+The hosted Desktop Release workflow currently omits the helper because it does not stage the signed bundle.
 
-On startup or after sign-in, the Mac desktop app uses its existing session to make
-a single-use PKCE code through `POST /api/mobile-auth/handoff` and sends the code
-to the helper over stdin. The helper opens automatically after a successful handoff.
-It keeps its own session in the Keychain and can run after the desktop app closes.
+On startup or after sign-in, the Mac desktop app checks the helper's Keychain
+session and sends it a single-use PKCE code over stdin when it needs to reconnect.
+The helper can run after the desktop app closes. Signing out of desktop disconnects
+a session created by desktop handoff. A session created by signing in directly in
+the helper stays independent. If the backend rejects handoff for an email-code
+session, desktop offers to open the helper for Google or Microsoft sign-in.
 
 ## Release
 

@@ -61,7 +61,10 @@ import {
 } from "./desktop";
 import { installDesktopWindowFocus } from "./window-focus";
 import { createMailNotifier } from "./mail-notifications";
-import { createMenuBarHandoff } from "./menu-bar-handoff";
+import {
+  createMenuBarHandoff,
+  isMenuBarSessionCookie,
+} from "./menu-bar-handoff";
 import { captureDesktopError, initDesktopSentry } from "./sentry";
 import { startEventLoopDelayMonitor } from "./health";
 import { readDesktopAttachment } from "./mail-engine/attachment";
@@ -142,7 +145,6 @@ const updateStatusSubscribers = new Map<WebContents, () => void>();
 let mailEngineOpening = false;
 const mailEngineOpeningSubscribers = new Set<WebContents>();
 let refreshDesktopMenu: (() => void) | undefined;
-let connectMenuBarHelper: ReturnType<typeof createMenuBarHandoff> | undefined;
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -304,6 +306,7 @@ function startDesktopApp() {
   });
 
   app.whenReady().then(async () => {
+    let syncMenuBarHelper: ReturnType<typeof createMenuBarHandoff> | undefined;
     let desktopUpdateReady = false;
     const applyDesktopMenu = () => {
       configureDesktopApplicationMenu({
@@ -362,16 +365,28 @@ function startDesktopApp() {
       app.isPackaged &&
       !shouldSmokeLocalMail()
     ) {
-      connectMenuBarHelper = createMenuBarHandoff({
+      const desktopSession = session.fromPartition(PARTITION);
+      const originHost = new URL(appOrigin).hostname;
+      const sync = createMenuBarHandoff({
         origin: appOrigin,
         contentsPath: path.dirname(process.resourcesPath),
-        markerPath: userDataFile("menu-bar-handoff"),
-        session: session.fromPartition(PARTITION),
+        session: desktopSession,
         openPath: (bundle) => shell.openPath(bundle),
-        onFailure: () =>
-          captureDesktopError(new Error("Menu bar handoff failed"), {
-            area: "sign-in",
-          }),
+        onFailure: reportMenuBarFailure,
+        onIneligibleSession: offerMenuBarSignIn,
+      });
+      syncMenuBarHelper = sync;
+      desktopSession.cookies.on("changed", (_event, cookie, cause, removed) => {
+        if (!isMenuBarSessionCookie(cookie.name) || cause === "overwrite")
+          return;
+        const domain = cookie.domain?.replace(/^\./u, "");
+        if (
+          domain &&
+          domain !== originHost &&
+          !originHost.endsWith(`.${domain}`)
+        )
+          return;
+        sync(removed);
       });
     }
     restoreAppWindows();
@@ -380,9 +395,8 @@ function startDesktopApp() {
     pendingAuthUrl = null;
     if (startupAuthUrl) {
       await handleAuthCallbackUrl(startupAuthUrl);
-    } else {
-      connectMenuBarHelper?.();
     }
+    syncMenuBarHelper?.();
     if (!shouldSmokeLocalMail()) {
       startDesktopAutoUpdate(undefined, {
         onUpdateReady: (version) => {
@@ -858,7 +872,6 @@ async function handleAuthCallbackUrl(url: string) {
       proof.verifier,
     );
     if (pendingAuthProof === proof) pendingAuthProof = null;
-    connectMenuBarHelper?.();
     await contents.loadURL(consumePostAuthUrl()).catch(() => {});
   } catch (error) {
     handledAuthStates.delete(callback.state);
@@ -946,6 +959,30 @@ function showSignInError(error: unknown) {
     "Sign in failed",
     error instanceof Error ? error.message : "Could not finish signing in",
   );
+}
+
+function offerMenuBarSignIn(bundle: string) {
+  dialog
+    .showMessageBox({
+      type: "info",
+      message: "Connect Inbox Zero Menu Bar",
+      detail:
+        "Open the helper and sign in with Google or Microsoft to receive verification codes.",
+      buttons: ["Open Menu Bar Helper", "Later"],
+      cancelId: 1,
+    })
+    .then(async ({ response }) => {
+      if (response === 0 && (await shell.openPath(bundle))) {
+        reportMenuBarFailure("opening helper");
+      }
+    })
+    .catch(() => reportMenuBarFailure("offering helper sign-in"));
+}
+
+function reportMenuBarFailure(stage: string) {
+  const error = new Error(`Menu bar handoff failed while ${stage}`);
+  process.stderr.write(`${error.message}\n`);
+  captureDesktopError(error, { area: "sign-in" });
 }
 
 let desktopMailOwner: DesktopMailProcessOwner | undefined;
