@@ -1,16 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 
-vi.mock("@/env", () => ({
-  env: {
+const { apnsEnv } = vi.hoisted(() => ({
+  apnsEnv: {
     APNS_ENVIRONMENT: "sandbox",
+    APNS_KEY_ID: "test-key",
+    APNS_PRIVATE_KEY: "invalid private key",
     APNS_TOPIC: "com.getinboxzero.app",
     APNS_TRANSPORT: "fake",
     NODE_ENV: "test",
   },
 }));
 
+vi.mock("@/env", () => ({ env: apnsEnv }));
+
 import {
+  apnsMacosTopic,
   deliverApnsNotifications,
   isStaleApnsToken,
   takeRecordedApnsSends,
@@ -20,7 +25,21 @@ const logger = createTestLogger();
 
 describe("deliverApnsNotifications", () => {
   beforeEach(() => {
+    apnsEnv.APNS_TRANSPORT = "fake";
     takeRecordedApnsSends();
+  });
+
+  it("returns all tokens for retry if APNs authorization fails", async () => {
+    apnsEnv.APNS_TRANSPORT = "real";
+    const tokens = ["ios-device", "macos-device"];
+
+    await expect(
+      deliverApnsNotifications({
+        tokens,
+        notification: { title: "Verification code", body: "123456" },
+        logger,
+      }),
+    ).resolves.toEqual({ unregisteredTokens: [], retryTokens: tokens });
   });
 
   it("maps the subtitle to the APNs alert", async () => {
@@ -87,6 +106,22 @@ describe("deliverApnsNotifications", () => {
           url: "/thread/1",
         },
       },
+    ]);
+  });
+
+  it("sends to the macOS helper's topic when asked", async () => {
+    await deliverApnsNotifications({
+      tokens: ["c".repeat(64)],
+      notification: { title: "Verification code", body: "123456" },
+      logger,
+      topic: apnsMacosTopic(),
+    });
+
+    expect(takeRecordedApnsSends()).toEqual([
+      expect.objectContaining({
+        token: "c".repeat(64),
+        topic: "com.getinboxzero.desktop.menubar",
+      }),
     ]);
   });
 

@@ -490,6 +490,34 @@ describe("Provider Edge Cases", () => {
       });
     });
 
+    it("sends OTP notifications for pre-fetched Outlook inbox arrivals", async () => {
+      const message = getMockParsedMessage({
+        labelIds: ["INBOX"],
+        subject: "Your verification code is 123456",
+        internalDate: String(Date.now()),
+      });
+      const provider = createMockEmailProvider({
+        isSentMessage: vi.fn().mockReturnValue(false),
+      });
+      const emailAccount = {
+        ...baseOptions.emailAccount,
+        account: { provider: "microsoft" },
+      };
+
+      await processHistoryItem(
+        { messageId: message.id, message },
+        { ...baseOptions, provider, emailAccount, isNewMessage: true },
+      );
+
+      expect(provider.getMessage).not.toHaveBeenCalled();
+      expect(sendOtpPushNotification).toHaveBeenCalledWith({
+        emailAccountId: emailAccount.id,
+        userId: emailAccount.userId,
+        message,
+        logger,
+      });
+    });
+
     it("does not store an address-only header as the sender display name", async () => {
       const provider = createMockEmailProvider({
         getMessage: vi.fn().mockResolvedValue(

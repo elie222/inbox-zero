@@ -287,6 +287,7 @@ const parsedEnv = createEnv({
     APNS_TEAM_ID: z.string().min(1).optional(),
     APNS_PRIVATE_KEY: z.string().min(1).optional(),
     APNS_TOPIC: z.string().min(1).optional(),
+    APNS_MACOS_TOPIC: z.string().min(1).optional(),
     APNS_ENVIRONMENT: z.enum(["sandbox", "production"]).optional(),
     // `fake` records sends in memory instead of contacting Apple. Emulator only.
     APNS_TRANSPORT: z.enum(["apns", "fake"]).optional(),

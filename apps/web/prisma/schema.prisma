@@ -2264,6 +2264,7 @@ model MobilePushDelivery {
 enum MobilePushPlatform {
   ANDROID @map("android")
   IOS     @map("ios")
+  MACOS   @map("macos")
 }
 
 enum MobilePushTokenType {

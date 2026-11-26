@@ -1,6 +1,10 @@
 import chunk from "lodash/chunk";
-import { MobilePushTokenType } from "@/generated/prisma/enums";
 import {
+  MobilePushPlatform,
+  MobilePushTokenType,
+} from "@/generated/prisma/enums";
+import {
+  apnsMacosTopic,
   deliverApnsNotifications,
   isFakeApnsTransport,
   takeRecordedApnsSends,
@@ -26,6 +30,7 @@ type MobilePushToken = {
   id: string;
   token: string;
   tokenType: MobilePushTokenType | null;
+  platform: MobilePushPlatform;
 };
 
 type MobilePushNotification = {
@@ -46,15 +51,21 @@ export async function sendMobilePushNotification({
   deduplicationKey,
   notification,
   logger,
+  includeMacos = false,
 }: {
   userId: string;
   deduplicationKey: string;
   notification: MobilePushNotification;
   logger: Logger;
+  /** The macOS menu bar helper only shows one-time codes, so callers opt in. */
+  includeMacos?: boolean;
 }) {
   const pushTokens = await prisma.mobilePushToken.findMany({
-    where: { userId },
-    select: { id: true, token: true, tokenType: true },
+    where: {
+      userId,
+      ...(includeMacos ? {} : { platform: { not: MobilePushPlatform.MACOS } }),
+    },
+    select: { id: true, token: true, tokenType: true, platform: true },
   });
   if (pushTokens.length === 0) return;
 
@@ -79,7 +90,14 @@ export async function sendMobilePushNotification({
       pushToken.tokenType !== MobilePushTokenType.FCM,
   );
   const apnsTokens = claimedPushTokens.filter(
-    (pushToken) => pushToken.tokenType === MobilePushTokenType.APNS,
+    (pushToken) =>
+      pushToken.tokenType === MobilePushTokenType.APNS &&
+      pushToken.platform !== MobilePushPlatform.MACOS,
+  );
+  const macosApnsTokens = claimedPushTokens.filter(
+    (pushToken) =>
+      pushToken.tokenType === MobilePushTokenType.APNS &&
+      pushToken.platform === MobilePushPlatform.MACOS,
   );
   const fcmTokens = claimedPushTokens.filter(
     (pushToken) => pushToken.tokenType === MobilePushTokenType.FCM,
@@ -100,6 +118,20 @@ export async function sendMobilePushNotification({
       deduplicationKey,
       deliver: (tokens) =>
         deliverApnsNotifications({ tokens, notification, logger }),
+    });
+  }
+
+  if (macosApnsTokens.length > 0) {
+    await sendNativeBatch({
+      pushTokens: macosApnsTokens,
+      deduplicationKey,
+      deliver: (tokens) =>
+        deliverApnsNotifications({
+          tokens,
+          notification,
+          logger,
+          topic: apnsMacosTopic(),
+        }),
     });
   }
 

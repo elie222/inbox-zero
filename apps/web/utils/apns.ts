@@ -7,6 +7,7 @@ const APNS_PRODUCTION_HOST = "https://api.push.apple.com";
 const APNS_SANDBOX_HOST = "https://api.sandbox.push.apple.com";
 const APNS_JWT_TTL_SECONDS = 50 * 60;
 const DEFAULT_TOPIC = "com.getinboxzero.app";
+const DEFAULT_MACOS_TOPIC = "com.getinboxzero.desktop.menubar";
 const DEFAULT_TEAM_ID = "Z46U4K6CNL";
 
 export type ApnsAlert = {
@@ -65,6 +66,10 @@ export function apnsTopic() {
   return env.APNS_TOPIC || DEFAULT_TOPIC;
 }
 
+export function apnsMacosTopic() {
+  return env.APNS_MACOS_TOPIC || DEFAULT_MACOS_TOPIC;
+}
+
 export function isApnsConfigured() {
   if (isFakeApnsTransport()) return true;
   return Boolean(env.APNS_KEY_ID && env.APNS_PRIVATE_KEY);
@@ -75,15 +80,16 @@ export async function deliverApnsNotifications({
   notification,
   logger,
   sandbox = apnsUsesSandbox(),
+  topic = apnsTopic(),
 }: {
   tokens: string[];
   notification: ApnsNotification;
   logger: Logger;
   sandbox?: boolean;
+  topic?: string;
 }): Promise<{ unregisteredTokens: string[]; retryTokens: string[] }> {
   if (tokens.length === 0) return { unregisteredTokens: [], retryTokens: [] };
 
-  const topic = apnsTopic();
   const payload = apnsPayload(notification);
   const pushType = isBackgroundNotification(notification)
     ? "background"
@@ -96,7 +102,13 @@ export async function deliverApnsNotifications({
     return { unregisteredTokens: [], retryTokens: [] };
   }
 
-  const authorization = apnsAuthorization();
+  let authorization: ReturnType<typeof apnsAuthorization>;
+  try {
+    authorization = apnsAuthorization();
+  } catch (error) {
+    logger.warn("APNs authorization failed", { error });
+    return { unregisteredTokens: [], retryTokens: tokens };
+  }
   if (!authorization) {
     logger.warn("APNs credentials are not configured");
     return { unregisteredTokens: [], retryTokens: tokens };

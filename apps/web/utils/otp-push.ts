@@ -42,5 +42,6 @@ export async function sendOtpPushNotification({
       },
     },
     logger,
+    includeMacos: true,
   });
 }

@@ -1,5 +1,8 @@
 import "server-only";
-import { MobilePushTokenType } from "@/generated/prisma/enums";
+import {
+  MobilePushPlatform,
+  MobilePushTokenType,
+} from "@/generated/prisma/enums";
 import { isApnsConfigured, deliverApnsNotifications } from "@/utils/apns";
 import { deliverFcmNotifications, isFcmConfigured } from "@/utils/fcm";
 import type { Logger } from "@/utils/logger";
@@ -46,7 +49,11 @@ async function sendMailboxPushes({
       user: {
         select: {
           mobilePushTokens: {
-            where: { tokenType: { in: tokenTypes } },
+            where: {
+              tokenType: { in: tokenTypes },
+              // The macOS menu bar helper only receives one-time code pushes.
+              platform: { not: MobilePushPlatform.MACOS },
+            },
             select: { token: true, tokenType: true },
           },
         },

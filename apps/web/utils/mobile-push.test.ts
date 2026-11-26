@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
-import { MobilePushTokenType } from "@/generated/prisma/enums";
+import {
+  MobilePushPlatform,
+  MobilePushTokenType,
+} from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import { deliverApnsNotifications } from "@/utils/apns";
 import { deliverFcmNotifications } from "@/utils/fcm";
@@ -8,6 +11,7 @@ import { sendMobilePushNotification } from "./mobile-push";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/apns", () => ({
+  apnsMacosTopic: () => "com.example.menubar",
   deliverApnsNotifications: vi.fn(async () => ({
     unregisteredTokens: [],
     retryTokens: [],
@@ -294,6 +298,76 @@ describe("sendMobilePushNotification", () => {
     });
   });
 
+  it("leaves macOS devices out unless the caller opts in", async () => {
+    mockClaimedTokens([
+      {
+        id: "ios",
+        token: "a".repeat(64),
+        tokenType: MobilePushTokenType.APNS,
+        platform: MobilePushPlatform.IOS,
+      },
+    ]);
+
+    await sendNotification();
+
+    expect(prisma.mobilePushToken.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId: "user-1",
+          platform: { not: MobilePushPlatform.MACOS },
+        },
+      }),
+    );
+    expect(deliverApnsNotifications).toHaveBeenCalledOnce();
+    expect(deliverApnsNotifications).toHaveBeenCalledWith(
+      expect.not.objectContaining({ topic: expect.anything() }),
+    );
+  });
+
+  it("sends opted-in macOS devices through APNs with the macOS topic", async () => {
+    mockClaimedTokens([
+      {
+        id: "ios",
+        token: "a".repeat(64),
+        tokenType: MobilePushTokenType.APNS,
+        platform: MobilePushPlatform.IOS,
+      },
+      {
+        id: "mac",
+        token: "b".repeat(64),
+        tokenType: MobilePushTokenType.APNS,
+        platform: MobilePushPlatform.MACOS,
+      },
+    ]);
+    vi.mocked(deliverApnsNotifications)
+      .mockResolvedValueOnce({ unregisteredTokens: [], retryTokens: [] })
+      .mockResolvedValueOnce({
+        unregisteredTokens: ["b".repeat(64)],
+        retryTokens: [],
+      });
+
+    await sendNotification({ includeMacos: true });
+
+    expect(prisma.mobilePushToken.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: "user-1" } }),
+    );
+    expect(deliverApnsNotifications).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ tokens: ["a".repeat(64)] }),
+    );
+    expect(deliverApnsNotifications).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        tokens: ["b".repeat(64)],
+        topic: "com.example.menubar",
+        notification: expect.objectContaining({ title: "Verification code" }),
+      }),
+    );
+    expect(prisma.mobilePushToken.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["mac"] } },
+    });
+  });
+
   it("keeps claims when Expo returns fewer tickets than requested", async () => {
     mockClaimedTokens([
       { id: "token-1", token: "ExponentPushToken[first]" },
@@ -316,8 +390,9 @@ describe("sendMobilePushNotification", () => {
   });
 });
 
-function sendNotification() {
+function sendNotification({ includeMacos }: { includeMacos?: boolean } = {}) {
   return sendMobilePushNotification({
+    includeMacos,
     userId: "user-1",
     deduplicationKey: "otp:account-1:message-1",
     notification: {
@@ -337,7 +412,12 @@ function sendNotification() {
 }
 
 function mockClaimedTokens(
-  tokens: Array<{ id: string; token: string; tokenType?: string }>,
+  tokens: Array<{
+    id: string;
+    token: string;
+    tokenType?: string;
+    platform?: string;
+  }>,
 ) {
   prisma.mobilePushToken.findMany.mockResolvedValue(tokens as never);
   prisma.mobilePushDelivery.createManyAndReturn.mockResolvedValue(
