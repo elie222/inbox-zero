@@ -487,6 +487,20 @@ I'm a partner at FundCo. We've been tracking the email productivity space and Ac
     }),
   },
   {
+    // The investment was agreed off email, so this is the first email between them.
+    name: "founder chasing a SAFE wire the user agreed to",
+    category: "existing deal",
+    expected: false,
+    email: getEmail({
+      from: "Jonas Whitfield <jonas@northpine.example>",
+      subject: "Re: Northpine SAFE",
+      content: `hi! hope all is well. Just checking on the $5k wire for the SAFE, we haven't seen it come in yet. Do you know when it'll go out? If it's already on the way, ignore this. Here's the payment link again if that's simpler: https://pay.northpine.example/safe
+
+Jonas`,
+      date,
+    }),
+  },
+  {
     name: "warm introduction",
     category: "intro",
     expected: false,

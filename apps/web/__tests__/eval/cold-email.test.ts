@@ -171,7 +171,9 @@ function summarizeOutcomes(outcomes: Outcome[]) {
       `${key}: ${correct}/${group.length} correct, ${falseCold.length} wrongly cold, ${missedCold.length} missed cold`,
     );
     for (const o of [...falseCold, ...missedCold]) {
-      lines.push(`  - ${o.actual ? "wrongly cold" : "missed cold"}: ${o.name}`);
+      lines.push(
+        `  - ${o.actual ? "wrongly cold" : "missed cold"}: ${o.name} (${o.reason ?? "no reason"})`,
+      );
     }
   }
 
