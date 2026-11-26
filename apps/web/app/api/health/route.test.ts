@@ -80,6 +80,18 @@ describe("health route", () => {
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
   });
 
+  it("rejects deep health checks with a wrong API key of the same length", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/health", {
+        headers: { "x-health-api-key": "health-secrex" },
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
   it("returns unhealthy when the database query fails", async () => {
     const error = new Error("db unavailable");
     prisma.$queryRaw.mockRejectedValue(error);

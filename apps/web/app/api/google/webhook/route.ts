@@ -2,6 +2,7 @@ import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
+import { secureCompare } from "@/utils/crypto-compare";
 import { processHistoryForUser } from "@/utils/webhook/google/process-history";
 import type { Logger } from "@/utils/logger";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
@@ -37,7 +38,7 @@ export const POST = withError("google/webhook", async (request) => {
 
   // Empty string intentionally disables query-param verification when
   // requests are authenticated upstream, such as via the OIDC gateway.
-  if (verificationToken !== "" && token !== verificationToken) {
+  if (verificationToken !== "" && !secureCompare(token, verificationToken)) {
     logger.error("Invalid verification token");
     return NextResponse.json(
       { message: "Invalid verification token" },
