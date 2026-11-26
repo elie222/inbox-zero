@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MobilePushTokenType } from "@/generated/prisma/enums";
+import {
+  MobilePushPlatform,
+  MobilePushTokenType,
+} from "@/generated/prisma/enums";
 import { deliverApnsNotifications } from "@/utils/apns";
 import { deliverFcmNotifications } from "@/utils/fcm";
 import type { Logger } from "@/utils/logger";
@@ -84,7 +87,10 @@ describe("notifyMailboxChanged", () => {
         user: {
           select: {
             mobilePushTokens: {
-              where: { tokenType: { in: [MobilePushTokenType.APNS] } },
+              where: {
+                tokenType: { in: [MobilePushTokenType.APNS] },
+                platform: { not: MobilePushPlatform.MACOS },
+              },
               select: { token: true, tokenType: true },
             },
           },
@@ -154,6 +160,7 @@ describe("notifyMailboxChanged", () => {
                   tokenType: {
                     in: [MobilePushTokenType.APNS, MobilePushTokenType.FCM],
                   },
+                  platform: { not: MobilePushPlatform.MACOS },
                 },
                 select: { token: true, tokenType: true },
               },

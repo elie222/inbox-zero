@@ -11,6 +11,7 @@ vi.mock("@/env", () => ({
 }));
 
 import {
+  apnsMacosTopic,
   deliverApnsNotifications,
   isStaleApnsToken,
   takeRecordedApnsSends,
@@ -87,6 +88,22 @@ describe("deliverApnsNotifications", () => {
           url: "/thread/1",
         },
       },
+    ]);
+  });
+
+  it("sends to the macOS helper's topic when asked", async () => {
+    await deliverApnsNotifications({
+      tokens: ["c".repeat(64)],
+      notification: { title: "Verification code", body: "123456" },
+      logger,
+      topic: apnsMacosTopic(),
+    });
+
+    expect(takeRecordedApnsSends()).toEqual([
+      expect.objectContaining({
+        token: "c".repeat(64),
+        topic: "com.getinboxzero.desktop.menubar",
+      }),
     ]);
   });
 

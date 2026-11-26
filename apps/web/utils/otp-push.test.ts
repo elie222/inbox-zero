@@ -47,6 +47,7 @@ describe("sendOtpPushNotification", () => {
         },
       },
       logger,
+      includeMacos: true,
     });
   });
 

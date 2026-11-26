@@ -11,6 +11,7 @@ import prisma from "@/utils/prisma";
 const MOBILE_PUSH_PLATFORMS = {
   android: MobilePushPlatform.ANDROID,
   ios: MobilePushPlatform.IOS,
+  macos: MobilePushPlatform.MACOS,
 } as const;
 
 const MOBILE_PUSH_TOKEN_TYPES = {
@@ -25,7 +26,7 @@ const APNS_DEVICE_TOKEN = /^[A-Fa-f0-9]{64,200}$/;
 const pushTokenSchema = z
   .object({
     token: z.string().trim().min(1).max(4096),
-    platform: z.enum(["android", "ios"]),
+    platform: z.enum(["android", "ios", "macos"]),
     tokenType: z.enum(["expo", "apns", "fcm"]).optional(),
     previousToken: z.string().trim().min(1).max(4096).optional(),
   })
@@ -41,6 +42,13 @@ const pushTokenSchema = z
       });
       return;
     }
+    if (value.platform === "macos" && tokenType !== "apns") {
+      ctx.addIssue({
+        code: "custom",
+        message: "macOS registers raw APNs tokens only",
+        path: ["tokenType"],
+      });
+    }
     if (tokenType === "expo" && !EXPO_PUSH_TOKEN.test(value.token)) {
       ctx.addIssue({
         code: "custom",
@@ -49,10 +57,10 @@ const pushTokenSchema = z
       });
     }
     if (tokenType === "apns") {
-      if (value.platform !== "ios") {
+      if (value.platform === "android") {
         ctx.addIssue({
           code: "custom",
-          message: "APNs tokens are iOS only",
+          message: "APNs tokens are iOS or macOS only",
           path: ["platform"],
         });
       }

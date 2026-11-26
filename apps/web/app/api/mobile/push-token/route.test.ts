@@ -98,6 +98,45 @@ describe("/api/mobile/push-token", () => {
     expect(prisma.mobilePushToken.upsert).not.toHaveBeenCalled();
   });
 
+  it("registers a macOS APNs device token", async () => {
+    const token = "c".repeat(64);
+    const response = await POST(
+      request("POST", { token, platform: "macos", tokenType: "apns" }),
+      {} as never,
+    );
+
+    expect(prisma.mobilePushToken.upsert).toHaveBeenCalledWith({
+      where: { token },
+      create: {
+        token,
+        platform: MobilePushPlatform.MACOS,
+        tokenType: MobilePushTokenType.APNS,
+        userId: "user-1",
+      },
+      update: {
+        platform: MobilePushPlatform.MACOS,
+        tokenType: MobilePushTokenType.APNS,
+        userId: "user-1",
+      },
+    });
+    expect(response.status).toBe(200);
+  });
+
+  it.each([
+    { token: "ExpoPushToken[mac-token]", platform: "macos" },
+    { token: "ExpoPushToken[mac-token]", platform: "macos", tokenType: "expo" },
+    {
+      token: `dK3x9Q:APA91b${"Fz_x-9".repeat(24)}`,
+      platform: "macos",
+      tokenType: "fcm",
+    },
+    { token: "not-hex", platform: "macos", tokenType: "apns" },
+  ])("rejects a macOS registration that is not a raw APNs token %j", async (body) => {
+    await expect(POST(request("POST", body), {} as never)).rejects.toThrow();
+
+    expect(prisma.mobilePushToken.upsert).not.toHaveBeenCalled();
+  });
+
   it("registers an Android FCM token, replacing the previous one", async () => {
     const token = `dK3x9Q:APA91b${"Fz_x-9".repeat(24)}`;
     const response = await POST(
