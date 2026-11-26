@@ -52,12 +52,12 @@ export function createMenuBarHandoff({
   let queue = Promise.resolve();
   let handledSession: string | undefined;
 
-  return (signingOut = false) => {
-    queue = queue.then(() => reconcile(signingOut));
+  return () => {
+    queue = queue.then(reconcile);
     return queue;
   };
 
-  async function reconcile(signingOut: boolean) {
+  async function reconcile() {
     let stage = "reading desktop session";
     try {
       if (handoffUrl.protocol !== "https:") return;
@@ -69,9 +69,7 @@ export function createMenuBarHandoff({
       )
         return;
 
-      const desktopSession = signingOut
-        ? undefined
-        : await readDesktopSession();
+      const desktopSession = await readDesktopSession();
       if (desktopSession && handledSession === desktopSession.fingerprint)
         return;
       handledSession = undefined;

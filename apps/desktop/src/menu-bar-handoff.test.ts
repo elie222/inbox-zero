@@ -152,7 +152,15 @@ describe.skipIf(process.platform === "win32")(
 
     it("disconnects after a pending handoff and preserves standalone sign-in", async () => {
       const fixture = await makeFixture();
-      await Promise.all([fixture.connect(), fixture.connect(true)]);
+      let disconnect = Promise.resolve();
+      fixture.verifyHelper
+        .mockResolvedValueOnce(undefined)
+        .mockImplementationOnce(async () => {
+          fixture.setSession("");
+          disconnect = fixture.connect();
+        });
+      await fixture.connect();
+      await disconnect;
       await expect(readFile(fixture.sessionPath)).rejects.toMatchObject({
         code: "ENOENT",
       });
@@ -160,6 +168,31 @@ describe.skipIf(process.platform === "win32")(
       fixture.setSession("");
       await fixture.connect();
       expect(await readFile(fixture.sessionPath, "utf8")).toBe("standalone");
+    });
+
+    it("keeps the helper connected when an obsolete session cookie disappears", async () => {
+      const fixture = await makeFixture();
+      fixture.setCookies([
+        {
+          name: "better-auth.session_token",
+          sameSite: "lax",
+          value: "obsolete",
+        },
+        {
+          name: "__Secure-better-auth.session_token",
+          sameSite: "lax",
+          value: "current",
+        },
+      ]);
+      await fixture.connect();
+      fixture.setSession("current");
+      await fixture.connect();
+      expect(await readFile(fixture.sessionPath, "utf8")).toMatch(
+        /^[a-f0-9]{64}$/u,
+      );
+      expect(fixture.fetch.mock.calls[1][1]?.headers).toMatchObject({
+        cookie: "__Secure-better-auth.session_token=current",
+      });
     });
 
     it("reconnects an expired helper session on a later desktop startup", async () => {
