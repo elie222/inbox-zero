@@ -62,6 +62,8 @@ The hosted Desktop Release workflow currently omits the helper because it does n
 
 On startup or after sign-in, the Mac desktop app checks the helper's Keychain
 session and sends it a single-use PKCE code over stdin when it needs to reconnect.
+Desktop verifies that the helper has the expected bundle identifier and a
+Developer ID signature from the desktop app's signing team.
 The helper can run after the desktop app closes. Signing out of desktop disconnects
 a session created by desktop handoff. A session created by signing in directly in
 the helper stays independent. If the backend rejects handoff for an email-code

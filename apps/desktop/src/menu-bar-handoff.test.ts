@@ -145,6 +145,26 @@ describe.skipIf(process.platform === "win32")(
       await fixture.connect();
       expect(fixture.openPath).toHaveBeenCalledOnce();
     });
+
+    it("requires the helper signature before requesting or delivering a handoff", async () => {
+      const fixture = await makeFixture();
+      fixture.verifyHelper.mockRejectedValueOnce(new Error("Unsigned helper"));
+      await fixture.connect();
+      expect(fixture.fetch).not.toHaveBeenCalled();
+      fixture.verifyHelper
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error("Helper signature changed"));
+      await fixture.connect();
+      expect(fixture.fetch).toHaveBeenCalledOnce();
+      expect(fixture.openPath).not.toHaveBeenCalled();
+      await expect(readFile(fixture.payloadPath)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      expect(fixture.onFailure.mock.calls).toEqual([
+        ["verifying helper signature"],
+        ["verifying helper signature"],
+      ]);
+    });
   },
 );
 
@@ -193,6 +213,7 @@ esac
   const openPath = vi.fn<(bundle: string) => Promise<string>>(async () => "");
   const onFailure = vi.fn();
   const onIneligibleSession = vi.fn();
+  const verifyHelper = vi.fn<(bundle: string) => Promise<void>>(async () => {});
   const newConnection = () =>
     createMenuBarHandoff({
       origin,
@@ -216,6 +237,7 @@ esac
       openPath,
       onFailure,
       onIneligibleSession,
+      verifyHelper,
     });
 
   return {
@@ -228,6 +250,7 @@ esac
     openPath,
     onFailure,
     onIneligibleSession,
+    verifyHelper,
     newConnection,
     connect: newConnection(),
     setSession: (value: string) => {

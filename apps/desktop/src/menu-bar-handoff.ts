@@ -1,12 +1,15 @@
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { once } from "node:events";
 import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 import type { Session } from "electron";
 
 const HELPER_NAME = "InboxZeroMenuBar";
+const HELPER_BUNDLE_ID = "com.getinboxzero.desktop.menubar";
+const codesign = promisify(execFile);
 const SESSION_COOKIE_NAMES = new Set([
   "__Secure-better-auth.session_token",
   "better-auth.session_token",
@@ -23,6 +26,7 @@ export function createMenuBarHandoff({
   openPath,
   onFailure,
   onIneligibleSession,
+  verifyHelper = verifyMenuBarSignature,
   commandTimeoutMs = 65_000,
 }: {
   origin: string;
@@ -34,6 +38,7 @@ export function createMenuBarHandoff({
   openPath: (path: string) => Promise<string>;
   onFailure: (stage: string) => void;
   onIneligibleSession: (bundle: string) => void;
+  verifyHelper?: (bundle: string) => Promise<void>;
   commandTimeoutMs?: number;
 }) {
   const bundle = path.join(
@@ -66,6 +71,9 @@ export function createMenuBarHandoff({
       const desktopSession = signingOut
         ? undefined
         : await readDesktopSession();
+      if (desktopSession && handledSession === desktopSession.fingerprint)
+        return;
+
       if (!desktopSession) {
         handledSession = undefined;
         stage = "disconnecting helper session";
@@ -74,7 +82,6 @@ export function createMenuBarHandoff({
         return;
       }
       const { fingerprint, cookieHeader } = desktopSession;
-      if (handledSession === fingerprint) return;
 
       stage = "checking helper session";
       const status = await runCommand("--auth-status", fingerprint);
@@ -151,9 +158,13 @@ export function createMenuBarHandoff({
 
       stage = "opening helper";
       await openHelper(fingerprint);
-    } catch {
+    } catch (error) {
       // HTTP bodies, paths, and subprocess output may contain private data.
-      onFailure(stage);
+      onFailure(
+        error instanceof InvalidHelperSignature
+          ? "verifying helper signature"
+          : stage,
+      );
     }
   }
 
@@ -180,6 +191,11 @@ export function createMenuBarHandoff({
   }
 
   async function runCommand(argument: string, input: string) {
+    try {
+      await verifyHelper(bundle);
+    } catch {
+      throw new InvalidHelperSignature();
+    }
     const child = spawn(executable, [argument], {
       stdio: ["pipe", "ignore", "ignore"],
     });
@@ -200,4 +216,30 @@ export function createMenuBarHandoff({
       throw error;
     }
   }
+}
+
+class InvalidHelperSignature extends Error {}
+
+async function verifyMenuBarSignature(bundle: string) {
+  const options = { timeout: 5000, killSignal: "SIGKILL" as const };
+  const { stderr } = await codesign(
+    "/usr/bin/codesign",
+    ["--display", "--verbose=4", process.execPath],
+    options,
+  );
+  const team = /^TeamIdentifier=([A-Z0-9]{10})$/mu.exec(stderr)?.[1];
+  if (!team) throw new Error("Desktop signing team is missing");
+
+  const requirement = [
+    "anchor apple generic",
+    `identifier "${HELPER_BUNDLE_ID}"`,
+    "certificate 1[field.1.2.840.113635.100.6.2.6] exists",
+    "certificate leaf[field.1.2.840.113635.100.6.1.13] exists",
+    `certificate leaf[subject.OU] = "${team}"`,
+  ].join(" and ");
+  await codesign(
+    "/usr/bin/codesign",
+    ["--verify", "--strict", `-R=${requirement}`, bundle],
+    options,
+  );
 }
