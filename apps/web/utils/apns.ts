@@ -102,7 +102,13 @@ export async function deliverApnsNotifications({
     return { unregisteredTokens: [], retryTokens: [] };
   }
 
-  const authorization = apnsAuthorization();
+  let authorization: ReturnType<typeof apnsAuthorization>;
+  try {
+    authorization = apnsAuthorization();
+  } catch (error) {
+    logger.warn("APNs authorization failed", { error });
+    return { unregisteredTokens: [], retryTokens: tokens };
+  }
   if (!authorization) {
     logger.warn("APNs credentials are not configured");
     return { unregisteredTokens: [], retryTokens: tokens };
