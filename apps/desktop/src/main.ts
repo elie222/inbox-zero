@@ -377,8 +377,7 @@ function startDesktopApp() {
       });
       syncMenuBarHelper = sync;
       desktopSession.cookies.on("changed", (_event, cookie, cause) => {
-        if (!isMenuBarSessionCookie(cookie.name) || cause === "overwrite")
-          return;
+        if (!isMenuBarSessionCookie(cookie) || cause === "overwrite") return;
         const domain = cookie.domain?.replace(/^\./u, "");
         if (
           domain &&

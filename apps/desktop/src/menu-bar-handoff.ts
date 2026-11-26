@@ -5,7 +5,7 @@ import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import type { Session } from "electron";
+import type { Cookie, Session } from "electron";
 
 const HELPER_NAME = "InboxZeroMenuBar";
 const HELPER_BUNDLE_ID = "com.getinboxzero.desktop.menubar";
@@ -15,8 +15,10 @@ const SESSION_COOKIE_NAMES = new Set([
   "better-auth.session_token",
 ]);
 
-export function isMenuBarSessionCookie(name: string) {
-  return SESSION_COOKIE_NAMES.has(name);
+export function isMenuBarSessionCookie(
+  cookie: Pick<Cookie, "name" | "httpOnly">,
+) {
+  return cookie.httpOnly === true && SESSION_COOKIE_NAMES.has(cookie.name);
 }
 
 export function createMenuBarHandoff({
@@ -38,7 +40,7 @@ export function createMenuBarHandoff({
   openPath: (path: string) => Promise<string>;
   onFailure: (stage: string) => void;
   onIneligibleSession: (bundle: string) => void;
-  verifyHelper?: (bundle: string) => Promise<void>;
+  verifyHelper?: (target: string | number) => Promise<void>;
   commandTimeoutMs?: number;
 }) {
   const bundle = path.join(
@@ -172,7 +174,7 @@ export function createMenuBarHandoff({
   async function readDesktopSession() {
     const cookies = await session.cookies.get({ url: handoffUrl.href });
     const cookieHeader = cookies
-      .filter(({ name, value }) => isMenuBarSessionCookie(name) && value)
+      .filter((cookie) => isMenuBarSessionCookie(cookie) && cookie.value)
       .map(({ name, value }) => `${name}=${value}`)
       .join("; ");
     if (!cookieHeader) return;
@@ -187,11 +189,7 @@ export function createMenuBarHandoff({
   }
 
   async function runCommand(argument: string, input: string) {
-    try {
-      await verifyHelper(bundle);
-    } catch {
-      throw new InvalidHelperSignature();
-    }
+    await verifySignature(bundle);
     const child = spawn(executable, [argument], {
       stdio: ["pipe", "ignore", "ignore"],
     });
@@ -199,28 +197,41 @@ export function createMenuBarHandoff({
     child.stdin.on("error", () => {});
     const signal = AbortSignal.timeout(commandTimeoutMs);
     const completion = once(child, "close", { signal });
-    child.stdin.end(`${input}\n`);
+    const delivery = async () => {
+      if (argument === "--auth-handoff") {
+        // The verified bundle path may have changed between verification and spawn.
+        if (!child.pid) throw new InvalidHelperSignature();
+        await verifySignature(child.pid);
+      }
+      if (!signal.aborted) child.stdin.end(`${input}\n`);
+    };
     try {
-      const [status] = await completion;
+      const [[status]] = await Promise.all([completion, delivery()]);
       return status;
     } catch (error) {
-      if (signal.aborted) {
-        child.kill("SIGKILL");
-        child.stdin.destroy();
-        child.unref();
-      }
+      child.kill("SIGKILL");
+      child.stdin.destroy();
+      child.unref();
       throw error;
+    }
+  }
+
+  async function verifySignature(target: string | number) {
+    try {
+      await verifyHelper(target);
+    } catch {
+      throw new InvalidHelperSignature();
     }
   }
 }
 
 class InvalidHelperSignature extends Error {}
 
-async function verifyMenuBarSignature(bundle: string) {
+async function verifyMenuBarSignature(target: string | number) {
   const options = { timeout: 5000, killSignal: "SIGKILL" as const };
   const { stderr } = await codesign(
     "/usr/bin/codesign",
-    ["--display", "--verbose=4", process.execPath],
+    ["--display", "--verbose=4", String(process.pid)],
     options,
   );
   const team = /^TeamIdentifier=([A-Z0-9]{10})$/mu.exec(stderr)?.[1];
@@ -235,7 +246,7 @@ async function verifyMenuBarSignature(bundle: string) {
   ].join(" and ");
   await codesign(
     "/usr/bin/codesign",
-    ["--verify", "--strict", `-R=${requirement}`, bundle],
+    ["--verify", "--strict", `-R=${requirement}`, String(target)],
     options,
   );
 }

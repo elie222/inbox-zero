@@ -103,14 +103,26 @@ describe.skipIf(process.platform === "win32")(
       expect(await readFile(fixture.sessionPath, "utf8")).toBe(originalSession);
     });
 
-    it("forwards both supported session cookies when they coexist", async () => {
+    it("forwards both HttpOnly session cookies and ignores script-writable cookies", async () => {
       const fixture = await makeFixture();
       fixture.setCookies([
-        { name: "better-auth.session_token", sameSite: "lax", value: "old" },
+        {
+          name: "better-auth.session_token",
+          httpOnly: true,
+          sameSite: "lax",
+          value: "old",
+        },
         {
           name: "__Secure-better-auth.session_token",
+          httpOnly: true,
           sameSite: "lax",
           value: "current",
+        },
+        {
+          name: "__Secure-better-auth.session_token",
+          httpOnly: false,
+          sameSite: "lax",
+          value: "script-writable",
         },
         { name: "other_cookie", sameSite: "lax", value: "unrelated" },
       ]);
@@ -175,11 +187,13 @@ describe.skipIf(process.platform === "win32")(
       fixture.setCookies([
         {
           name: "better-auth.session_token",
+          httpOnly: true,
           sameSite: "lax",
           value: "obsolete",
         },
         {
           name: "__Secure-better-auth.session_token",
+          httpOnly: true,
           sameSite: "lax",
           value: "current",
         },
@@ -248,6 +262,22 @@ describe.skipIf(process.platform === "win32")(
         ["verifying helper signature"],
       ]);
     });
+
+    it("withholds stdin when the running helper fails signature validation", async () => {
+      const fixture = await makeFixture();
+      fixture.verifyHelper.mockImplementation(async (target) => {
+        if (typeof target === "number") throw new Error("Unexpected process");
+      });
+      await fixture.connect();
+      expect(fixture.verifyHelper).toHaveBeenCalledWith(expect.any(Number));
+      expect(fixture.fetch).toHaveBeenCalledOnce();
+      await expect(readFile(fixture.payloadPath)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      expect(fixture.onFailure).toHaveBeenCalledExactlyOnceWith(
+        "verifying helper signature",
+      );
+    });
   },
 );
 
@@ -292,7 +322,14 @@ esac
   let cookies: Cookie[] = [];
   function setSession(value: string) {
     cookies = value
-      ? [{ name: "__Secure-better-auth.session_token", sameSite: "lax", value }]
+      ? [
+          {
+            name: "__Secure-better-auth.session_token",
+            httpOnly: true,
+            sameSite: "lax",
+            value,
+          },
+        ]
       : [];
   }
   setSession("first-session");
@@ -302,7 +339,9 @@ esac
   const openPath = vi.fn<(bundle: string) => Promise<string>>(async () => "");
   const onFailure = vi.fn();
   const onIneligibleSession = vi.fn();
-  const verifyHelper = vi.fn<(bundle: string) => Promise<void>>(async () => {});
+  const verifyHelper = vi.fn<(target: string | number) => Promise<void>>(
+    async () => {},
+  );
   const newConnection = () =>
     createMenuBarHandoff({
       origin,
