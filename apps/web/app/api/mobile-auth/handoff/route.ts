@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import type { Logger } from "@/utils/logger";
 import { withAuth } from "@/utils/middleware";
 import {
   createMobileAuthCode,
@@ -8,7 +7,7 @@ import {
   isValidMobileAuthState,
 } from "@/utils/mobile-auth/oauth-code";
 import { mobileAuthCodeChallengeSchema } from "@/utils/mobile-auth/pkce";
-import { redis } from "@/utils/redis";
+import { checkRateLimit } from "@/utils/rate-limit";
 
 const HANDOFF_LIMIT = 10;
 const HANDOFF_WINDOW_SECONDS = 10 * 60;
@@ -45,7 +44,15 @@ export const POST = withAuth("mobile-auth/handoff", async (request) => {
 
   const body = handoffSchema.parse(await request.json());
 
-  if (await isHandoffRateLimited(request.auth.userId, request.logger)) {
+  const rateLimit = await checkRateLimit({
+    rule: {
+      key: `rate-limit:mobile-auth-handoff:${request.auth.userId}`,
+      limit: HANDOFF_LIMIT,
+      windowSeconds: HANDOFF_WINDOW_SECONDS,
+    },
+    logger: request.logger,
+  });
+  if (rateLimit.limited) {
     return errorResponse(
       "Too many sign-in attempts. Please try again later.",
       429,
@@ -74,22 +81,6 @@ function errorResponse(error: string, status: number) {
     { error, isKnownError: true },
     { status, headers: { "Cache-Control": "no-store" } },
   );
-}
-
-async function isHandoffRateLimited(userId: string, logger: Logger) {
-  const key = `mobile-auth-handoff:${userId}`;
-  try {
-    const count = Number(await redis.incr(key));
-    if (count === 1) await redis.expire(key, HANDOFF_WINDOW_SECONDS);
-    if (count <= HANDOFF_LIMIT) return false;
-    logger.warn("Mobile auth handoff rejected", { reason: "rate_limited" });
-    return true;
-  } catch (error) {
-    // Each code still needs the caller's session and PKCE verifier, so a
-    // Redis outage should not block desktop sign-in.
-    logger.warn("Mobile auth handoff rate limit check failed", { error });
-    return false;
-  }
 }
 
 function isJsonRequest(request: Request) {

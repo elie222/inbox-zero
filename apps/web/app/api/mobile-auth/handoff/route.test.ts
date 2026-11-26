@@ -4,7 +4,7 @@ import { consumeMobileAuthCode } from "@/utils/mobile-auth/oauth-code";
 import { getMobileAuthCodeChallenge } from "@/utils/mobile-auth/pkce";
 
 const { records, prismaMock, authState, redisMock } = vi.hoisted(() => ({
-  redisMock: { incr: vi.fn(), expire: vi.fn() },
+  redisMock: { eval: vi.fn() },
   records: new Map<
     string,
     { token: string; identifier: string; expires: Date }
@@ -23,6 +23,7 @@ const { records, prismaMock, authState, redisMock } = vi.hoisted(() => ({
 
 vi.mock("@/env", () => ({
   env: {
+    NODE_ENV: "test",
     AUTH_SECRET: "test-secret",
     NEXT_PUBLIC_BASE_URL: "https://app.example",
   },
@@ -52,7 +53,7 @@ describe("POST /api/mobile-auth/handoff", () => {
     vi.resetAllMocks();
     records.clear();
     authState.auth = { userId: "user-1" };
-    redisMock.incr.mockResolvedValue(1);
+    redisMock.eval.mockResolvedValue(1);
     prismaMock.verificationToken.create.mockImplementation(async ({ data }) => {
       records.set(data.token, data);
       return data;
@@ -129,7 +130,7 @@ describe("POST /api/mobile-auth/handoff", () => {
   });
 
   it("stops minting codes once a user hits the handoff limit", async () => {
-    redisMock.incr.mockResolvedValue(11);
+    redisMock.eval.mockResolvedValue(11);
 
     const response = await POST(request({ codeChallenge, state }), {} as never);
 
