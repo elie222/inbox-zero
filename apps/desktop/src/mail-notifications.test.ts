@@ -118,7 +118,7 @@ describe("mail notifications", () => {
     );
   });
 
-  it("shows a verification code and copies it only when the notification is clicked", () => {
+  it("shows a verification code with its sender and copies it only when clicked", () => {
     const { notify, shown, openWindow, copyText } = notifier();
     notify(
       payload([message({ subject: "482901 is your Acme verification code" })]),
@@ -126,7 +126,7 @@ describe("mail notifications", () => {
     );
     expect(shown[0].options).toEqual({
       title: "Verification code: 482901",
-      body: "482901 is your Acme verification code",
+      body: "Ada: 482901 is your Acme verification code",
       actions: [{ type: "button", text: "Copy code" }],
     });
     expect(copyText).not.toHaveBeenCalled();
@@ -147,7 +147,7 @@ describe("mail notifications", () => {
     );
     expect(shown[0].options).toEqual({
       title: "Verification code",
-      body: "Your Acme verification code",
+      body: "Ada: Your Acme verification code",
     });
     shown[0].listeners.get("click")?.();
     expect(copyText).not.toHaveBeenCalled();

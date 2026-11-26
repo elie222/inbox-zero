@@ -73,8 +73,10 @@ export function createMailNotificationTracker(startedAt = Date.now()) {
       };
       if (isOtpSubject(subject)) {
         const otpCode = extractOtpCode([subject]);
+        // Anyone can send a code-shaped subject, so the alert keeps the sender.
         notifications.push({
           ...mail,
+          body: `${senderName(message.from)}: ${mail.body}`,
           title: otpCode
             ? `Verification code: ${otpCode}`
             : "Verification code",
