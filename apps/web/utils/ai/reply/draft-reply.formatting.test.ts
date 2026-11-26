@@ -3,6 +3,7 @@ import { getEmail, getEmailAccount } from "@/__tests__/helpers";
 import {
   aiDraftReply,
   aiDraftReplyWithConfidence,
+  buildDraftReplyModelEvidence,
   normalizeDraftReplyFormatting,
 } from "@/utils/ai/reply/draft-reply";
 import { DRAFT_PIPELINE_VERSION } from "@/utils/ai/reply/draft-attribution";
@@ -531,6 +532,39 @@ Representative edits:
       modelName: "gpt-5-mini",
       pipelineVersion: DRAFT_PIPELINE_VERSION,
     });
+  });
+});
+
+describe("draft reply recipient", () => {
+  it.each([
+    { replyTo: undefined, expected: "Pat &lt;pat@example.com&gt;" },
+    {
+      replyTo: "Team & Support <team@example.com>",
+      expected: "Team &amp; Support &lt;team@example.com&gt;",
+    },
+  ])("uses the latest message headers (Reply-To: $replyTo)", ({
+    replyTo,
+    expected,
+  }) => {
+    const input = getDraftParams();
+    const { temporalAndIdentityContext } = buildDraftReplyModelEvidence({
+      ...input,
+      messages: [
+        ...input.messages,
+        getEmail({
+          from: "Pat <pat@example.com>",
+          to: input.emailAccount.email,
+          replyTo,
+          subject: "Fwd: Question",
+          content:
+            "---------- Forwarded message ---------\nFrom: Sam <sam@example.com>\n\nCan you help?",
+        }),
+      ],
+    });
+
+    expect(temporalAndIdentityContext).toContain(
+      `<reply_recipient>${expected}</reply_recipient>`,
+    );
   });
 });
 
