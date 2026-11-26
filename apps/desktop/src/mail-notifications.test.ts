@@ -24,6 +24,7 @@ describe("mail notifications", () => {
         threadId: "thread/?",
         title: "Ada",
         body: "Hello",
+        otpCode: null,
       },
       {
         emailAccountId: "account",
@@ -31,6 +32,7 @@ describe("mail notifications", () => {
         threadId: "thread/?",
         title: "ada@example.com",
         body: "(no subject)",
+        otpCode: null,
       },
     ]);
   });
@@ -116,6 +118,42 @@ describe("mail notifications", () => {
     );
   });
 
+  it("shows a verification code and copies it only when the notification is clicked", () => {
+    const { notify, shown, openWindow, copyText } = notifier();
+    notify(
+      payload([message({ subject: "482901 is your Acme verification code" })]),
+      1200,
+    );
+    expect(shown[0].options).toEqual({
+      title: "Verification code: 482901",
+      body: "482901 is your Acme verification code",
+      actions: [{ type: "button", text: "Copy code" }],
+    });
+    expect(copyText).not.toHaveBeenCalled();
+
+    shown[0].listeners.get("click")?.();
+    expect(copyText).toHaveBeenCalledWith("482901");
+    expect(openWindow).not.toHaveBeenCalled();
+
+    shown[0].listeners.get("action")?.();
+    expect(copyText).toHaveBeenCalledTimes(2);
+  });
+
+  it("opens a verification email whose code is not in the subject", () => {
+    const { notify, shown, openWindow, copyText } = notifier();
+    notify(
+      payload([message({ subject: "Your Acme verification code" })]),
+      1200,
+    );
+    expect(shown[0].options).toEqual({
+      title: "Verification code",
+      body: "Your Acme verification code",
+    });
+    shown[0].listeners.get("click")?.();
+    expect(copyText).not.toHaveBeenCalled();
+    expect(openWindow).toHaveBeenCalledOnce();
+  });
+
   it("consumes focused arrivals without replaying them when focus is lost", () => {
     let focused = true;
     const { notify, shown } = notifier(() => focused);
@@ -172,16 +210,18 @@ function syncPage(): SyncPage {
 }
 function notifier(isFocused = () => false) {
   const shown: {
-    options: { title: string; body: string };
+    options: { title: string; body: string; actions?: unknown[] };
     listeners: Map<string, () => void>;
   }[] = [];
   const openWindow = vi.fn();
+  const copyText = vi.fn();
   const { notify } = createMailNotifier({
     origin: "https://app.example.com",
     startedAt: 1000,
     isFocused,
     isSupported: () => true,
     openWindow,
+    copyText,
     createNotification: (options) => {
       const listeners = new Map<string, () => void>();
       return {
@@ -195,5 +235,5 @@ function notifier(isFocused = () => false) {
       };
     },
   });
-  return { notify, shown, openWindow };
+  return { notify, shown, openWindow, copyText };
 }

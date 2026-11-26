@@ -4,7 +4,7 @@ import { getLatestNonDraftMessage } from "@/utils/email/latest-message";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { GmailLabel } from "@/utils/gmail/label";
-import { extractOtpCode, isOtpSubject } from "@/utils/otp";
+import { extractOtpCode, isOtpSubject } from "@inboxzero/mail-core/otp";
 import { getRuleLabel } from "@/utils/rule/consts";
 
 const OTP_LABEL = getRuleLabel(SystemType.OTP).toLowerCase();

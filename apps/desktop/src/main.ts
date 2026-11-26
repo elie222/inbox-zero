@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   app,
   BaseWindow,
+  clipboard,
   dialog,
   ipcMain,
   nativeTheme,
@@ -127,6 +128,7 @@ const mailNotifier = createMailNotifier({
   isSupported: () => Notification.isSupported(),
   createNotification: (options) => new Notification(options),
   openWindow: openAppWindow,
+  copyText: (text) => clipboard.writeText(text),
 });
 type DesktopUpdateStatus =
   | ({ state: "downloading" } & DesktopDownloadProgress)
