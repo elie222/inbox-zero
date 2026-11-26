@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { consumeMobileAuthCode } from "@/utils/mobile-auth/oauth-code";
 import { getMobileAuthCodeChallenge } from "@/utils/mobile-auth/pkce";
 
-const { records, prismaMock, authState } = vi.hoisted(() => ({
+const { records, prismaMock, authState, redisMock } = vi.hoisted(() => ({
+  redisMock: { incr: vi.fn(), expire: vi.fn() },
   records: new Map<
     string,
     { token: string; identifier: string; expires: Date }
@@ -27,6 +28,7 @@ vi.mock("@/env", () => ({
   },
 }));
 vi.mock("@/utils/prisma", () => ({ default: prismaMock }));
+vi.mock("@/utils/redis", () => ({ redis: redisMock }));
 vi.mock("@/utils/middleware", async () => {
   const { addTestAuth } = await vi.importActual<
     typeof import("@/__tests__/helpers")
@@ -50,6 +52,7 @@ describe("POST /api/mobile-auth/handoff", () => {
     vi.resetAllMocks();
     records.clear();
     authState.auth = { userId: "user-1" };
+    redisMock.incr.mockResolvedValue(1);
     prismaMock.verificationToken.create.mockImplementation(async ({ data }) => {
       records.set(data.token, data);
       return data;
@@ -110,6 +113,30 @@ describe("POST /api/mobile-auth/handoff", () => {
     expect(prismaMock.verificationToken.create).not.toHaveBeenCalled();
   });
 
+  it.each([
+    "same-site",
+    "cross-site",
+  ])("rejects a %s browser request", async (fetchSite) => {
+    const response = await POST(
+      request({ codeChallenge, state }, "application/json", {
+        "sec-fetch-site": fetchSite,
+      }),
+      {} as never,
+    );
+
+    expect(response.status).toBe(403);
+    expect(prismaMock.verificationToken.create).not.toHaveBeenCalled();
+  });
+
+  it("stops minting codes once a user hits the handoff limit", async () => {
+    redisMock.incr.mockResolvedValue(11);
+
+    const response = await POST(request({ codeChallenge, state }), {} as never);
+
+    expect(response.status).toBe(429);
+    expect(prismaMock.verificationToken.create).not.toHaveBeenCalled();
+  });
+
   it("rejects email one-time-code sessions", async () => {
     authState.auth = { userId: "user-1", emailOtp: true };
 
@@ -120,10 +147,14 @@ describe("POST /api/mobile-auth/handoff", () => {
   });
 });
 
-function request(body: unknown, contentType = "application/json") {
+function request(
+  body: unknown,
+  contentType = "application/json",
+  headers: Record<string, string> = {},
+) {
   return new NextRequest("http://localhost:3000/api/mobile-auth/handoff", {
     method: "POST",
-    headers: { "content-type": contentType },
+    headers: { "content-type": contentType, ...headers },
     body: JSON.stringify(body),
   });
 }
