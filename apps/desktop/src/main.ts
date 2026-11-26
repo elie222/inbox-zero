@@ -61,6 +61,7 @@ import {
 } from "./desktop";
 import { installDesktopWindowFocus } from "./window-focus";
 import { createMailNotifier } from "./mail-notifications";
+import { createMenuBarHandoff } from "./menu-bar-handoff";
 import { captureDesktopError, initDesktopSentry } from "./sentry";
 import { startEventLoopDelayMonitor } from "./health";
 import { readDesktopAttachment } from "./mail-engine/attachment";
@@ -141,6 +142,7 @@ const updateStatusSubscribers = new Map<WebContents, () => void>();
 let mailEngineOpening = false;
 const mailEngineOpeningSubscribers = new Set<WebContents>();
 let refreshDesktopMenu: (() => void) | undefined;
+let connectMenuBarHelper: ReturnType<typeof createMenuBarHandoff> | undefined;
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -355,12 +357,31 @@ function startDesktopApp() {
         recovery.retryIfNotBooted();
       }
     });
+    if (
+      process.platform === "darwin" &&
+      app.isPackaged &&
+      !shouldSmokeLocalMail()
+    ) {
+      connectMenuBarHelper = createMenuBarHandoff({
+        origin: appOrigin,
+        contentsPath: path.dirname(process.resourcesPath),
+        markerPath: userDataFile("menu-bar-handoff"),
+        session: session.fromPartition(PARTITION),
+        openPath: (bundle) => shell.openPath(bundle),
+        onFailure: () =>
+          captureDesktopError(new Error("Menu bar handoff failed"), {
+            area: "sign-in",
+          }),
+      });
+    }
     restoreAppWindows();
     const startupAuthUrl =
       pendingAuthUrl ?? findDesktopProtocolUrl(process.argv);
     pendingAuthUrl = null;
     if (startupAuthUrl) {
       await handleAuthCallbackUrl(startupAuthUrl);
+    } else {
+      connectMenuBarHelper?.();
     }
     if (!shouldSmokeLocalMail()) {
       startDesktopAutoUpdate(undefined, {
@@ -837,6 +858,7 @@ async function handleAuthCallbackUrl(url: string) {
       proof.verifier,
     );
     if (pendingAuthProof === proof) pendingAuthProof = null;
+    connectMenuBarHelper?.();
     await contents.loadURL(consumePostAuthUrl()).catch(() => {});
   } catch (error) {
     handledAuthStates.delete(callback.state);

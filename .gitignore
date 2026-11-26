@@ -19,6 +19,7 @@ node_modules
 /build
 /apps/desktop/release
 /apps/desktop/build/*.provisionprofile
+/apps/desktop/build/menubar/
 
 # misc
 .DS_Store

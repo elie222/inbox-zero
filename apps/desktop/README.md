@@ -50,6 +50,21 @@ pnpm --filter @inboxzero/desktop dist:win
 
 Installers land in `apps/desktop/release/`. macOS packaging requires a Developer ID certificate and notarization credentials.
 
+### Bundle the macOS menu bar helper
+
+Build the universal helper in the Swift workspace with
+`MENUBAR_PROVISIONING_PROFILE=/path/to/profile.provisionprofile scripts/build-menubar-helper.sh`
+from its `ios/` directory. Copy the signed `InboxZeroMenuBar.app` from `ios/build/menubar/`
+to `apps/desktop/build/menubar/` before running the macOS packaging command. The
+packager places it in `Inbox Zero.app/Contents/Library/LoginItems/` and preserves
+the helper signature and entitlements so the outer app's notarization can cover both.
+With no staged helper, the macOS package omits it.
+
+On startup or after sign-in, the Mac desktop app uses its existing session to make
+a single-use PKCE code through `POST /api/mobile-auth/handoff` and sends the code
+to the helper over stdin. The helper opens automatically after a successful handoff.
+It keeps its own session in the Keychain and can run after the desktop app closes.
+
 ## Release
 
 Push a `desktop-v*` tag to build and publish a release, or run the [Desktop Release workflow](../../.github/workflows/desktop-release.yml) manually with optional publishing. It packages macOS (DMG/ZIP) and Windows (NSIS) for arm64 and x64.
