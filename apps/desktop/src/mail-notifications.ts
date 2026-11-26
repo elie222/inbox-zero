@@ -1,3 +1,4 @@
+import { extractOtpCode, isOtpSubject } from "@inboxzero/mail-core/otp";
 import type { SyncPage } from "@inboxzero/mail-core/sync";
 
 const MAX_MESSAGE_AGE_MS = 5 * 60_000;
@@ -8,10 +9,14 @@ type MailNotification = {
   threadId: string;
   title: string;
   body: string;
+  otpCode: string | null;
 };
 
 type NativeNotification = {
-  on(event: "click" | "close" | "failed", listener: () => void): unknown;
+  on(
+    event: "click" | "action" | "close" | "failed",
+    listener: () => void,
+  ): unknown;
   show(): void;
   close(): void;
 };
@@ -59,13 +64,31 @@ export function createMailNotificationTracker(startedAt = Date.now()) {
       const key = JSON.stringify([emailAccountId, message.id]);
       if (seen.has(key)) continue;
       seen.set(key, message.receivedAt);
-      notifications.push({
+      const subject = cleanText(message.subject);
+      const mail = {
         emailAccountId,
         id: message.id,
         threadId: message.threadId,
-        title: senderName(message.from),
-        body: cleanText(message.subject) || "(no subject)",
-      });
+        body: subject || "(no subject)",
+      };
+      if (isOtpSubject(subject)) {
+        const otpCode = extractOtpCode([subject]);
+        // Anyone can send a code-shaped subject, so the alert keeps the sender.
+        notifications.push({
+          ...mail,
+          body: `${senderName(message.from)}: ${mail.body}`,
+          title: otpCode
+            ? `Verification code: ${otpCode}`
+            : "Verification code",
+          otpCode,
+        });
+      } else {
+        notifications.push({
+          ...mail,
+          title: senderName(message.from),
+          otpCode: null,
+        });
+      }
     }
     return notifications;
   };
@@ -112,8 +135,10 @@ export function createMailNotifier(input: {
   createNotification: (options: {
     title: string;
     body: string;
+    actions?: { type: "button"; text: string }[];
   }) => NativeNotification;
   openWindow: (url: string, options: { navigate: boolean }) => unknown;
+  copyText: (text: string) => void;
 }) {
   const track = createMailNotificationTracker(input.startedAt);
   const active = new Set<NativeNotification>();
@@ -122,16 +147,28 @@ export function createMailNotifier(input: {
       const messages = track(payload, now);
       if (input.isFocused() || !input.isSupported()) return;
       for (const mail of messages) {
+        const { otpCode } = mail;
         const notification = input.createNotification({
           title: mail.title,
           body: mail.body,
+          ...(otpCode
+            ? { actions: [{ type: "button", text: "Copy code" }] }
+            : {}),
         });
         active.add(notification);
-        notification.on("click", () => {
-          const url = new URL(`/${mail.emailAccountId}/mail`, input.origin);
-          url.searchParams.set("thread-id", mail.threadId);
-          input.openWindow(url.toString(), { navigate: true });
-        });
+        if (otpCode) {
+          // Copying on click, not on arrival, keeps whatever the user had on
+          // the clipboard until they ask for the code.
+          const copy = () => input.copyText(otpCode);
+          notification.on("click", copy);
+          notification.on("action", copy);
+        } else {
+          notification.on("click", () => {
+            const url = new URL(`/${mail.emailAccountId}/mail`, input.origin);
+            url.searchParams.set("thread-id", mail.threadId);
+            input.openWindow(url.toString(), { navigate: true });
+          });
+        }
         const release = () => {
           active.delete(notification);
         };

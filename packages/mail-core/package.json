@@ -24,6 +24,7 @@
     "./query-semantics": "./src/query-semantics.ts",
     "./operations": "./src/operations.ts",
     "./effective-state": "./src/effective-state.ts",
+    "./otp": "./src/otp.ts",
     "./sync": "./src/sync.ts",
     "./engine": "./src/engine.ts",
     "./optimistic-client": "./src/optimistic-client.ts",

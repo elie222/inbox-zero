@@ -1,11 +1,8 @@
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import type { Logger } from "@/utils/logger";
 import { sendMobilePushNotification } from "@/utils/mobile-push";
-import {
-  extractOtpCode,
-  isRecentOtpMessage,
-  OTP_MAX_AGE_MS,
-} from "@/utils/otp";
+import { isRecentOtpMessage, OTP_MAX_AGE_MS } from "@/utils/otp";
+import { extractOtpCode } from "@inboxzero/mail-core/otp";
 import type { ParsedMessage } from "@/utils/types";
 
 export async function sendOtpPushNotification({
