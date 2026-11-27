@@ -2246,9 +2246,16 @@ describe("createEmailProviderOperationExecutor", () => {
   });
 
   it.each([
-    "PREPARING",
-    "CANCELLED",
-  ])("retains unrestored targets after a partial rollback settles on a %s receipt", async (status) => {
+    { status: "PREPARING", pendingArchive: false, unreadable: false },
+    { status: "CANCELLED", pendingArchive: false, unreadable: false },
+    { status: "CANCELLED", pendingArchive: true, unreadable: false },
+    { status: "CANCELLED", pendingArchive: false, unreadable: true },
+  ])("resumes partial rollback on a $status receipt (pending archive: $pendingArchive, unreadable: $unreadable)", async ({
+    status,
+    pendingArchive,
+    unreadable,
+  }) => {
+    const rollbackDispatchedAt = new Date();
     const receipt = {
       id: "partial-rollback",
       emailAccountId: "acc-1",
@@ -2256,15 +2263,24 @@ describe("createEmailProviderOperationExecutor", () => {
       status,
       archiveStarted: true,
       archiveClaimedAt: null,
-      pendingArchiveMessageId: null,
+      pendingArchiveMessageId: pendingArchive ? "m1" : null,
+      pendingArchiveDispatchedAt: pendingArchive ? rollbackDispatchedAt : null,
       restoreMessageIds: ["m1", "m2"],
       pendingRollbackMessageIds: ["m1"],
-      rollbackDispatchedAt: new Date() as Date | null,
+      rollbackDispatchedAt,
       rollbackArchiveObservedIds: ["m1"],
     };
     const prepare = async () =>
       ({ created: false, snoozedThread: { ...receipt } }) as never;
-    vi.mocked(prepareSnoozedThread).mockImplementationOnce(prepare);
+    let unreadableFirst = unreadable;
+    if (unreadable) {
+      vi.mocked(getSnoozedThreadByClientMutationId).mockResolvedValueOnce({
+        ...receipt,
+        clientMutationPayloadHash: createHash("sha256")
+          .update(JSON.stringify({ untilMs: 1, messageIds: ["m1", "m2"] }))
+          .digest("hex"),
+      } as never);
+    } else vi.mocked(prepareSnoozedThread).mockImplementationOnce(prepare);
     prisma.snoozedThread.findMany.mockResolvedValue([]);
     const archived = new Set(["m2"]);
     const unarchiveMessages = vi.fn(async (ids: string[]) => {
@@ -2276,6 +2292,8 @@ describe("createEmailProviderOperationExecutor", () => {
         name: "google",
         unarchiveMessages,
         async getMessage(id: string) {
+          if (id === "m1" && unreadableFirst)
+            throw new Error("Provider unavailable");
           return {
             id,
             threadId: "thread-1",
@@ -2307,18 +2325,37 @@ describe("createEmailProviderOperationExecutor", () => {
       });
 
     expect(await inspect()).toMatchObject({ status: "not_dispatched" });
-    expect(unarchiveMessages).not.toHaveBeenCalled();
+    if (unreadable) {
+      expect(unarchiveMessages).toHaveBeenCalledExactlyOnceWith(["m2"]);
+      expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            pendingRollbackMessageIds: ["m1", "m2"],
+            rollbackDispatchedAt: expect.any(Date),
+            rollbackArchiveObservedIds: ["m1", "m2"],
+          },
+        }),
+      );
+      expect(prisma.snoozedThread.updateMany).toHaveBeenCalledBefore(
+        unarchiveMessages,
+      );
+    } else expect(unarchiveMessages).not.toHaveBeenCalled();
     expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
     const remaining = {
-      restoreMessageIds: ["m2"],
-      pendingRollbackMessageIds: [],
-      rollbackDispatchedAt: null,
-      rollbackArchiveObservedIds: [],
+      restoreMessageIds: [unreadable ? "m1" : "m2"],
+      pendingRollbackMessageIds: unreadable ? ["m1"] : [],
+      rollbackDispatchedAt: unreadable ? rollbackDispatchedAt : null,
+      rollbackArchiveObservedIds: unreadable ? ["m1"] : [],
+      ...(pendingArchive && {
+        pendingArchiveMessageId: null,
+        pendingArchiveDispatchedAt: null,
+      }),
     };
     expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: remaining }),
     );
     Object.assign(receipt, remaining);
+    unreadableFirst = false;
 
     vi.mocked(prepareSnoozedThread).mockImplementationOnce(prepare);
     expect(await inspect()).toMatchObject({
@@ -2329,9 +2366,12 @@ describe("createEmailProviderOperationExecutor", () => {
     expect(archived.size).toBe(0);
   });
 
-  it("keeps a pending archive when the Inbox lookup started before the observation cutoff", async () => {
+  it.each([
+    "archive",
+    "rollback",
+  ])("keeps a pending %s when the Inbox lookup started before the observation cutoff", async (pending) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
     const now = Date.now();
-    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
     try {
       const receipt = {
         id: "archive-near-cutoff",
@@ -2340,8 +2380,15 @@ describe("createEmailProviderOperationExecutor", () => {
         status: "PREPARING",
         archiveStarted: true,
         archiveClaimedAt: null,
-        pendingArchiveMessageId: "m1",
-        pendingArchiveDispatchedAt: new Date(now - 30 * 60 * 1000 + 1),
+        pendingArchiveMessageId: pending === "archive" ? "m1" : null,
+        pendingArchiveDispatchedAt:
+          pending === "archive" ? new Date(now - 30 * 60 * 1000 + 1) : null,
+        pendingRollbackMessageIds: pending === "rollback" ? ["m1"] : [],
+        rollbackDispatchedAt:
+          pending === "rollback"
+            ? new Date(now - SNOOZE_EXECUTION_LEASE_MS + 1)
+            : null,
+        rollbackArchiveObservedIds: [],
         restoreMessageIds: ["m1"],
       };
       const prepare = async () =>
@@ -2367,7 +2414,7 @@ describe("createEmailProviderOperationExecutor", () => {
           async getMessage(id: string) {
             if (id === "m2") {
               archiveCommitted = true;
-              clock.mockReturnValue(now + 2);
+              vi.setSystemTime(now + 2);
             }
             return readMessage(id);
           },
@@ -2401,7 +2448,7 @@ describe("createEmailProviderOperationExecutor", () => {
       });
       expect(unarchiveMessages).toHaveBeenCalledExactlyOnceWith(["m1"]);
     } finally {
-      clock.mockRestore();
+      vi.useRealTimers();
     }
   });
 
