@@ -28,7 +28,7 @@ import {
   holdEmailForUndo,
   releaseHeldEmail,
 } from "@/utils/scheduled-email/service";
-import type { ScheduledEmail } from "@/generated/prisma/client";
+import type { ScheduledEmail, SnoozedThread } from "@/generated/prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import {
   activatePreparedSnoozedThread,
@@ -551,28 +551,51 @@ async function executeSnooze(
     code: "snooze_failed",
     targets: [],
   };
+  const missingTarget = {
+    status: "rejected" as const,
+    code: "not_found",
+    targets: [],
+  };
+  const requestedIds = new Set(
+    operation.intent.targets.map(({ messageId }) => messageId),
+  );
+  const messageIds = [...requestedIds];
 
   let threadId: string;
+  let messages: ParsedMessage[];
   try {
-    ({ threadId } = await provider.getMessage(firstTarget.messageId));
-    if (!threadId) return snoozeUnavailable();
+    messages =
+      messageIds.length === 1
+        ? [await provider.getMessage(firstTarget.messageId)]
+        : await provider.getMessagesBatch(messageIds);
+    const byId = new Map(messages.map((message) => [message.id, message]));
+    const first = byId.get(firstTarget.messageId);
+    if (!first || messageIds.some((id) => !byId.has(id))) {
+      return reconcileSnoozeAfterLookupFailure(
+        provider,
+        operation,
+        mutation,
+        missingTarget,
+      );
+    }
+    threadId = first.threadId;
     // The scheduler tracks one conversation per snooze, including older receipts
     // that predate target fingerprints.
-    for (const target of operation.intent.targets.slice(1)) {
-      const message = await provider.getMessage(target.messageId);
-      if (message.threadId !== threadId) {
-        return reconcileSnoozeAfterLookupFailure(
-          provider,
-          operation,
-          mutation,
-          invalidConversation,
-        );
-      }
+    if (
+      !threadId ||
+      messageIds.some((id) => byId.get(id)?.threadId !== threadId)
+    ) {
+      return reconcileSnoozeAfterLookupFailure(
+        provider,
+        operation,
+        mutation,
+        invalidConversation,
+      );
     }
   } catch (error) {
     const failure =
       failedTargetOutcome(firstTarget, error).code === "not_found"
-        ? { status: "rejected" as const, code: "not_found", targets: [] }
+        ? missingTarget
         : snoozeProviderUnavailable(error);
     return reconcileSnoozeAfterLookupFailure(
       provider,
@@ -603,16 +626,7 @@ async function executeSnooze(
     };
   }
   if (prepared.snoozedThread.status === "CANCELLED") {
-    const restored = await restoreSnoozeTargets(
-      provider,
-      operation.intent.targets,
-    );
-    if (!restored) return snoozeUnavailable();
-    return {
-      status: "rejected" as const,
-      code: "snooze_cancelled",
-      targets: [],
-    };
+    return resumeCancelledSnooze(provider, prepared.snoozedThread);
   }
   if (prepared.snoozedThread.status !== "PREPARING") {
     return confirmedSnooze(operation);
@@ -634,7 +648,19 @@ async function executeSnooze(
     return confirmedSnooze(operation);
   }
 
-  if (!(await markSnoozeArchiveStarted(prepared.snoozedThread.id))) {
+  const inboxMessageIds = messages
+    .filter(
+      (message) =>
+        requestedIds.has(message.id) &&
+        parsedMessageMetadata(message).roles.includes("inbox"),
+    )
+    .map((message) => message.id);
+  if (
+    !(await markSnoozeArchiveStarted(
+      prepared.snoozedThread.id,
+      inboxMessageIds,
+    ))
+  ) {
     return snoozeUnavailable();
   }
 
@@ -687,11 +713,24 @@ async function executeSnooze(
   }
   const activated = await activatePreparedSnoozedThread(snoozeMutation);
   if (activated.status === "CANCELLED") {
-    const restored = await restoreSnoozeTargets(
-      provider,
-      applied.map((target) => target.key),
-    );
-    if (!restored) return snoozeUnavailable();
+    const originalInboxIds = new Set([
+      ...inboxMessageIds,
+      ...prepared.snoozedThread.restoreMessageIds,
+    ]);
+    const restoreMessageIds = applied
+      .map(({ key }) => key.messageId)
+      .filter((id) => originalInboxIds.has(id));
+    if (!restoreMessageIds.length)
+      return resumeCancelledSnooze(provider, activated);
+    // Re-arm rollback after the archive if an inspector already cleared it
+    // while the provider request was still in flight.
+    const [cancelled] = await prisma.snoozedThread.updateManyAndReturn({
+      where: { id: activated.id, status: "CANCELLED" },
+      data: { restoreMessageIds: { push: restoreMessageIds } },
+    });
+    return cancelled
+      ? resumeCancelledSnooze(provider, cancelled)
+      : snoozeUnavailable();
   }
   return {
     status: "confirmed" as const,
@@ -1056,6 +1095,9 @@ async function reconcileSnoozeAfterLookupFailure(
   ) {
     return confirmedSnooze(operation);
   }
+  if (existing.status === "CANCELLED") {
+    return resumeCancelledSnooze(provider, existing);
+  }
   if (existing.status !== "PREPARING") return failure;
 
   const expired = mutation.scheduledFor.getTime() <= Date.now();
@@ -1102,18 +1144,8 @@ async function reconcileSnoozeAfterLookupFailure(
     };
   }
 
-  const otherSnoozes = await prisma.snoozedThread.findMany({
-    where: {
-      emailAccountId,
-      id: { not: existing.id },
-      threadId: {
-        in: [...new Set(archivedMessages.map((message) => message.threadId))],
-      },
-      status: { in: ["PENDING", "EXECUTING"] },
-    },
-    select: { threadId: true },
-  });
-  if (!expired && !conversationChanged && otherSnoozes.length === 0) {
+  const stillSnoozed = await getOtherSnoozedThreads(existing, archivedMessages);
+  if (!expired && !conversationChanged && stillSnoozed.size === 0) {
     const activated = await activatePreparedSnoozedThread({
       ...mutation,
       threadId: existing.threadId,
@@ -1133,11 +1165,13 @@ async function reconcileSnoozeAfterLookupFailure(
         targets,
       };
     }
+    return resumeCancelledSnooze(provider, activated);
   }
 
-  const stillSnoozed = new Set(otherSnoozes.map((snooze) => snooze.threadId));
+  const restoreIds = new Set(existing.restoreMessageIds);
   const toRestore = archivedMessages.filter(
-    (message) => !stillSnoozed.has(message.threadId),
+    (message) =>
+      restoreIds.has(message.id) && !stillSnoozed.has(message.threadId),
   );
   if (
     !(await restoreSnoozeTargets(
@@ -1153,6 +1187,70 @@ async function reconcileSnoozeAfterLookupFailure(
     code: expired ? "snooze_expired" : "snooze_failed",
     targets: [],
   };
+}
+
+async function resumeCancelledSnooze(
+  provider: EmailProvider,
+  receipt: Pick<SnoozedThread, "id" | "emailAccountId" | "restoreMessageIds">,
+) {
+  if (receipt.restoreMessageIds.length) {
+    const archivedMessages: ParsedMessage[] = [];
+    for (const messageId of new Set(receipt.restoreMessageIds)) {
+      try {
+        const message = await provider.getMessage(messageId);
+        if (!parsedMessageMetadata(message).roles.includes("inbox")) {
+          archivedMessages.push(message);
+        }
+      } catch (error) {
+        if (
+          failedTargetOutcome(
+            { accountId: receipt.emailAccountId, messageId },
+            error,
+          ).code !== "not_found"
+        ) {
+          return snoozeProviderUnavailable(error);
+        }
+      }
+    }
+    const stillSnoozed = await getOtherSnoozedThreads(
+      receipt,
+      archivedMessages,
+    );
+    const toRestore = archivedMessages
+      .filter((message) => !stillSnoozed.has(message.threadId))
+      .map(({ id }) => ({ messageId: id }));
+    if (!(await restoreSnoozeTargets(provider, toRestore)))
+      return snoozeUnavailable();
+    const cleared = await prisma.snoozedThread.updateMany({
+      where: {
+        id: receipt.id,
+        status: "CANCELLED",
+        restoreMessageIds: { equals: receipt.restoreMessageIds },
+      },
+      data: { restoreMessageIds: [] },
+    });
+    if (!cleared.count) return snoozeUnavailable();
+  }
+  return { status: "rejected" as const, code: "snooze_cancelled", targets: [] };
+}
+
+async function getOtherSnoozedThreads(
+  receipt: Pick<SnoozedThread, "id" | "emailAccountId">,
+  messages: ParsedMessage[],
+) {
+  if (!messages.length) return new Set<string>();
+  const snoozes = await prisma.snoozedThread.findMany({
+    where: {
+      emailAccountId: receipt.emailAccountId,
+      id: { not: receipt.id },
+      threadId: {
+        in: [...new Set(messages.map((message) => message.threadId))],
+      },
+      status: { in: ["PENDING", "EXECUTING"] },
+    },
+    select: { threadId: true },
+  });
+  return new Set(snoozes.map((snooze) => snooze.threadId));
 }
 
 async function restoreSnoozeTargets(

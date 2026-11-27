@@ -107,12 +107,25 @@ export async function activatePreparedSnoozedThread(input: SnoozeMutation) {
   return activated;
 }
 
-export async function markSnoozeArchiveStarted(id: string) {
+export async function markSnoozeArchiveStarted(
+  id: string,
+  restoreMessageIds: string[],
+) {
   const result = await prisma.snoozedThread.updateMany({
-    where: { id, status: SnoozedThreadStatus.PREPARING },
-    data: { archiveStarted: true },
+    where: { id, status: SnoozedThreadStatus.PREPARING, archiveStarted: false },
+    data: { archiveStarted: true, restoreMessageIds },
   });
-  return result.count === 1;
+  if (result.count === 1) return true;
+  return Boolean(
+    await prisma.snoozedThread.findUnique({
+      where: {
+        id,
+        status: SnoozedThreadStatus.PREPARING,
+        archiveStarted: true,
+      },
+      select: { id: true },
+    }),
+  );
 }
 
 async function activateWithConflictRetry({
@@ -153,7 +166,7 @@ async function activateWithConflictRetry({
             clientMutationId,
             status: SnoozedThreadStatus.PREPARING,
           },
-          data: { status: SnoozedThreadStatus.PENDING },
+          data: { status: SnoozedThreadStatus.PENDING, restoreMessageIds: [] },
         }),
         prisma.snoozedThread.findUniqueOrThrow({
           where: {
@@ -295,7 +308,7 @@ export async function cancelSnoozedThreadByClientMutationId({
       emailAccountId,
       status: SnoozedThreadStatus.PREPARING,
     },
-    data: { status: SnoozedThreadStatus.CANCELLED },
+    data: { status: SnoozedThreadStatus.CANCELLED, restoreMessageIds: [] },
   });
 }
 

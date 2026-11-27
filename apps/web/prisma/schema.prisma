@@ -969,6 +969,7 @@ model SnoozedThread {
   clientMutationId          String?
   clientMutationPayloadHash String?
   archiveStarted            Boolean             @default(false)
+  restoreMessageIds          String[]            @default([])
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
