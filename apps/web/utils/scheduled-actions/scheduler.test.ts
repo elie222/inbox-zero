@@ -4,6 +4,15 @@ import { cancelScheduledActions, createScheduledAction } from "./scheduler";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import prisma from "@/utils/__mocks__/prisma";
 
+const { getQstashCallbackBaseUrl, getQstashClient, mockPublishJSON } =
+  vi.hoisted(() => ({
+    getQstashCallbackBaseUrl: vi
+      .fn()
+      .mockReturnValue("https://inbox-zero.test"),
+    getQstashClient: vi.fn(),
+    mockPublishJSON: vi.fn(),
+  }));
+
 vi.mock("@/utils/prisma");
 vi.mock("@/env", () => ({
   env: {
@@ -11,6 +20,8 @@ vi.mock("@/env", () => ({
   },
 }));
 vi.mock("@/utils/upstash", () => ({
+  getQstashCallbackBaseUrl,
+  getQstashClient,
   qstash: {
     messages: {
       delete: vi.fn().mockResolvedValue({}),
@@ -21,6 +32,8 @@ vi.mock("@/utils/upstash", () => ({
 describe("scheduler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getQstashCallbackBaseUrl.mockReturnValue("https://inbox-zero.test");
+    getQstashClient.mockReturnValue(null);
   });
 
   describe("canActionBeDelayed", () => {
@@ -191,6 +204,101 @@ describe("scheduler", () => {
           ],
         }),
       });
+    });
+
+    it("falls back to cron when QStash client is unavailable (e.g. unreachable destination)", async () => {
+      prisma.scheduledAction.create.mockResolvedValue({
+        id: "scheduled-action-123",
+      } as any);
+
+      // Callback URL is unreachable/internal so getQstashClient returns null
+      getQstashClient.mockReturnValue(null);
+
+      const result = await createScheduledAction({
+        executedRuleId: "rule-123",
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        scheduledFor: new Date("2026-05-02T10:00:00.000Z"),
+        actionItem: {
+          type: ActionType.ARCHIVE,
+          delayInMinutes: 30,
+        },
+      });
+
+      expect(result).toEqual({ id: "scheduled-action-123" });
+      expect(prisma.scheduledAction.update).not.toHaveBeenCalled();
+    });
+
+    it("falls back to cron when QStash publishing throws an error without crashing rule execution", async () => {
+      prisma.scheduledAction.create.mockResolvedValue({
+        id: "scheduled-action-123",
+      } as any);
+      prisma.scheduledAction.update.mockResolvedValue({} as any);
+
+      getQstashClient.mockReturnValue({
+        publishJSON: mockPublishJSON.mockRejectedValue(
+          new Error("invalid destination url: unable to resolve host"),
+        ),
+      });
+
+      const result = await createScheduledAction({
+        executedRuleId: "rule-123",
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        scheduledFor: new Date("2026-05-02T10:00:00.000Z"),
+        actionItem: {
+          type: ActionType.ARCHIVE,
+          delayInMinutes: 30,
+        },
+      });
+
+      expect(result).toEqual({ id: "scheduled-action-123" });
+      expect(prisma.scheduledAction.update).toHaveBeenCalledWith({
+        where: { id: "scheduled-action-123" },
+        data: { schedulingStatus: "FAILED" },
+      });
+    });
+
+    it("successfully schedules with QStash when client and public destination are available", async () => {
+      prisma.scheduledAction.create.mockResolvedValue({
+        id: "scheduled-action-123",
+      } as any);
+      prisma.scheduledAction.update.mockResolvedValue({} as any);
+
+      mockPublishJSON.mockResolvedValue({ messageId: "qstash-msg-999" });
+      getQstashClient.mockReturnValue({
+        publishJSON: mockPublishJSON,
+      });
+
+      const result = await createScheduledAction({
+        executedRuleId: "rule-123",
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        scheduledFor: new Date("2026-05-02T10:00:00.000Z"),
+        actionItem: {
+          type: ActionType.ARCHIVE,
+          delayInMinutes: 30,
+        },
+      });
+
+      expect(mockPublishJSON).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://inbox-zero.test/api/scheduled-actions/execute",
+          body: { scheduledActionId: "scheduled-action-123" },
+          deduplicationId: "scheduled-action-scheduled-action-123",
+        }),
+      );
+      expect(prisma.scheduledAction.update).toHaveBeenCalledWith({
+        where: { id: "scheduled-action-123" },
+        data: {
+          scheduledId: "qstash-msg-999",
+          schedulingStatus: "SCHEDULED",
+        },
+      });
+      expect(result).toEqual({ id: "scheduled-action-123" });
     });
   });
 });

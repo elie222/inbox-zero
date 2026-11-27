@@ -3,21 +3,15 @@ import prisma from "@/utils/prisma";
 import type { ActionItem } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
-import { env } from "@/env";
 import { getCronSecretHeader } from "@/utils/cron";
-import { getInternalApiUrl } from "@/utils/internal-api";
-import { Client } from "@upstash/qstash";
+import { getQstashCallbackBaseUrl, getQstashClient } from "@/utils/upstash";
+import type { Client } from "@upstash/qstash";
 import { addMinutes, getUnixTime } from "date-fns";
 
 const logger = createScopedLogger("qstash-scheduled-actions");
 
 interface ScheduledActionPayload {
   scheduledActionId: string;
-}
-
-function getQstashClient() {
-  if (!env.QSTASH_TOKEN) return null;
-  return new Client({ token: env.QSTASH_TOKEN });
 }
 
 export async function createScheduledAction({
@@ -266,13 +260,12 @@ async function scheduleMessage({
   delayInMinutes: number;
   deduplicationId: string;
 }) {
-  const client = getQstashClient();
+  const url = `${getQstashCallbackBaseUrl()}/api/scheduled-actions/execute`;
+  const client = getQstashClient(url);
   const notBefore = getUnixTime(addMinutes(new Date(), delayInMinutes));
 
   try {
     if (client) {
-      const url = `${getInternalApiUrl()}/api/scheduled-actions/execute`;
-
       const response = await client.publishJSON({
         url,
         body: payload,
@@ -303,11 +296,14 @@ async function scheduleMessage({
       return null;
     }
   } catch (error) {
-    logger.error("Failed to schedule with QStash", {
-      error,
-      scheduledActionId: payload.scheduledActionId,
-      deduplicationId,
-    });
+    logger.error(
+      "Failed to schedule with QStash; action will be executed by cron fallback",
+      {
+        error,
+        scheduledActionId: payload.scheduledActionId,
+        deduplicationId,
+      },
+    );
 
     await prisma.scheduledAction.update({
       where: { id: payload.scheduledActionId },
@@ -316,7 +312,7 @@ async function scheduleMessage({
       },
     });
 
-    throw error;
+    return null;
   }
 }
 

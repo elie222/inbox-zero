@@ -11,7 +11,9 @@ type PublishToQstashOptions = {
   destinationUrl?: string;
 };
 
-function getQstashClient(callbackUrl: string = getQstashCallbackBaseUrl()) {
+export function getQstashClient(
+  callbackUrl: string = getQstashCallbackBaseUrl(),
+) {
   if (!env.QSTASH_TOKEN) return null;
   if (!isSafeExternalHttpUrl(callbackUrl)) {
     logger.warn(
@@ -225,7 +227,7 @@ function normalizeBaseUrl(url: string) {
   return url.endsWith("/") ? url.slice(0, -1) : url;
 }
 
-function getQstashCallbackBaseUrl() {
+export function getQstashCallbackBaseUrl() {
   const candidateUrls = [
     env.INTERNAL_API_URL,
     env.WEBHOOK_URL,
