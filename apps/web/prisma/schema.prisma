@@ -970,6 +970,8 @@ model SnoozedThread {
   clientMutationPayloadHash String?
   archiveStarted            Boolean             @default(false)
   archiveClaimedAt          DateTime?
+  archiveFolderId           String?
+  inboxFolderId             String?
   restoreMessageIds          String[]            @default([])
 
   emailAccountId String

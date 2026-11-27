@@ -975,8 +975,8 @@ describe("createEmailProviderOperationExecutor", () => {
     if (!beforeArchive && !alreadyArchived)
       expect(archiveMessages).toHaveBeenCalledWith(["m2"]);
     const [mutation] = vi.mocked(prepareSnoozedThread).mock.calls[0];
-    const [, restoreMessageIds] = vi.mocked(claimSnoozePreparation).mock
-      .calls[0];
+    const [, dispatch] = vi.mocked(claimSnoozePreparation).mock.calls[0];
+    const restoreMessageIds = dispatch?.inboxMessageIds;
     expect(restoreMessageIds).toEqual(
       alreadyArchived || beforeArchive ? [] : ["m2"],
     );
@@ -1484,9 +1484,9 @@ describe("createEmailProviderOperationExecutor", () => {
         .mockImplementationOnce(readReceipt)
         .mockImplementationOnce(readReceipt);
       vi.mocked(claimSnoozePreparation)
-        .mockImplementationOnce(async (_, ids = []) => {
+        .mockImplementationOnce(async (_, dispatch) => {
           receipt.archiveStarted = true;
-          receipt.restoreMessageIds = ids;
+          receipt.restoreMessageIds = dispatch?.inboxMessageIds ?? [];
           receipt.archiveClaimedAt = new Date();
           return receipt.archiveClaimedAt;
         })
@@ -1555,14 +1555,84 @@ describe("createEmailProviderOperationExecutor", () => {
     }
   });
 
+  it("verifies Outlook's archive destination before dispatch and saves it for verification", async () => {
+    const receipt = {
+      id: "snooze-row",
+      status: "PREPARING",
+      restoreMessageIds: [],
+    };
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: false,
+      snoozedThread: receipt,
+    } as never);
+    vi.mocked(activatePreparedSnoozedThread).mockResolvedValueOnce({
+      status: "PENDING",
+    } as never);
+    const folders = {
+      archiveFolderId: "archive-folder",
+      inboxFolderId: "inbox-folder",
+    };
+    const getSnoozeFolderIds = vi
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(folders);
+    let archived = false;
+    const archiveMessages = vi.fn(async () => {
+      archived = true;
+    });
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "microsoft",
+        archiveMessages,
+        getSnoozeFolderIds,
+        async getMessage(id: string) {
+          return convertMessage(
+            {
+              id,
+              conversationId: "thread-1",
+              parentFolderId: archived
+                ? folders.archiveFolderId
+                : folders.inboxFolderId,
+            },
+            { inbox: folders.inboxFolderId },
+          );
+        },
+      } as unknown as EmailProvider,
+    });
+    const operation = snoozeOperation(Date.now() + 60_000);
+    const execute = (attemptId: string) =>
+      executor.execute({
+        operation,
+        attemptId,
+        signal: new AbortController().signal,
+      });
+    expect(await execute("unresolved")).toMatchObject({
+      status: "not_dispatched",
+    });
+    expect(archiveMessages).not.toHaveBeenCalled();
+    expect(claimSnoozePreparation).not.toHaveBeenCalled();
+
+    expect(await execute("resolved")).toMatchObject({ status: "confirmed" });
+    expect(archiveMessages).toHaveBeenCalledExactlyOnceWith(["m1"]);
+    expect(claimSnoozePreparation).toHaveBeenCalledExactlyOnceWith(receipt, {
+      inboxMessageIds: ["m1"],
+      folders,
+    });
+    expect(claimSnoozePreparation).toHaveBeenCalledBefore(archiveMessages);
+  });
+
   it.each([
-    { status: "PREPARING", name: "google" },
-    { status: "CANCELLED", name: "google" },
-    { status: "PREPARING", name: "microsoft" },
-    { status: "CANCELLED", name: "microsoft" },
+    { status: "PREPARING", name: "google", savedFolders: false },
+    { status: "CANCELLED", name: "google", savedFolders: false },
+    { status: "PREPARING", name: "microsoft", savedFolders: false },
+    { status: "CANCELLED", name: "microsoft", savedFolders: false },
+    { status: "PREPARING", name: "microsoft", savedFolders: true },
+    { status: "CANCELLED", name: "microsoft", savedFolders: true },
   ] as const)("preserves later mailbox moves during $status snooze rollback on $name", async ({
     status,
     name,
+    savedFolders,
   }) => {
     const folderIds = {
       archive: "archive-folder",
@@ -1604,6 +1674,10 @@ describe("createEmailProviderOperationExecutor", () => {
         archiveStarted: true,
         clientMutationPayloadHash: null,
         restoreMessageIds: messageIds,
+        ...(savedFolders && {
+          archiveFolderId: folderIds.archive,
+          inboxFolderId: folderIds.inbox,
+        }),
       },
     } as never;
     vi.mocked(prepareSnoozedThread).mockResolvedValueOnce(prepared);
@@ -1642,7 +1716,7 @@ describe("createEmailProviderOperationExecutor", () => {
         receiptId: null,
         signal: new AbortController().signal,
       });
-    if (name === "microsoft") {
+    if (name === "microsoft" && !savedFolders) {
       expect(await inspect()).toMatchObject({ status: "not_dispatched" });
       expect(unarchiveMessages).not.toHaveBeenCalled();
       expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
@@ -1735,7 +1809,7 @@ describe("createEmailProviderOperationExecutor", () => {
     });
     expect(claimSnoozePreparation).toHaveBeenCalledWith(
       expect.objectContaining({ id: receipt.id }),
-      ["m1", "m2"],
+      { inboxMessageIds: ["m1", "m2"] },
     );
     expect(unarchiveMessages).toHaveBeenNthCalledWith(1, ["m1", "m2"]);
     expect(prisma.snoozedThread.updateMany).not.toHaveBeenCalled();

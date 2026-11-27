@@ -3,6 +3,7 @@ import { env } from "@/env";
 import { SnoozedThreadStatus } from "@/generated/prisma/enums";
 import { Prisma, type SnoozedThread } from "@/generated/prisma/client";
 import { getCronSecretHeader } from "@/utils/cron";
+import type { SnoozeFolderIds } from "@/utils/email/types";
 import { SafeError } from "@/utils/error";
 import { getInternalApiUrl } from "@/utils/internal-api";
 import { createScopedLogger } from "@/utils/logger";
@@ -112,7 +113,7 @@ export async function claimSnoozePreparation(
     SnoozedThread,
     "id" | "archiveClaimedAt" | "restoreMessageIds" | "updatedAt"
   >,
-  inboxMessageIds?: string[],
+  dispatch?: { inboxMessageIds: string[]; folders?: SnoozeFolderIds },
   now = new Date(),
 ) {
   const { id, archiveClaimedAt, restoreMessageIds, updatedAt } = receipt;
@@ -123,14 +124,15 @@ export async function claimSnoozePreparation(
       status: SnoozedThreadStatus.PREPARING,
       updatedAt,
       archiveClaimedAt,
-      ...(inboxMessageIds && { scheduledFor: { gt: now } }),
+      ...(dispatch && { scheduledFor: { gt: now } }),
     },
     data: {
       archiveClaimedAt: now,
-      ...(inboxMessageIds && {
+      ...(dispatch && {
         archiveStarted: true,
+        ...dispatch.folders,
         restoreMessageIds: [
-          ...new Set([...restoreMessageIds, ...inboxMessageIds]),
+          ...new Set([...restoreMessageIds, ...dispatch.inboxMessageIds]),
         ],
       }),
     },

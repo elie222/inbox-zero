@@ -13,7 +13,7 @@ import type {
   BodyObservation,
   ProviderChange,
 } from "@inboxzero/mail-core/sync";
-import type { EmailProvider } from "@/utils/email/types";
+import type { EmailProvider, SnoozeFolderIds } from "@/utils/email/types";
 import { mapWithConcurrency } from "@/utils/async";
 import { SafeError } from "@/utils/error";
 import {
@@ -55,6 +55,7 @@ type SendIntent = Extract<PreparedOperation["intent"], { kind: "send" }>;
 type PreparedMetadataOperation = PreparedOperation & {
   intent: Extract<PreparedOperation["intent"], { kind: "metadata" }>;
 };
+type SnoozeFolders = Pick<SnoozedThread, "archiveFolderId" | "inboxFolderId">;
 
 export function createEmailProviderOperationExecutor(input: {
   provider: EmailProvider;
@@ -630,16 +631,37 @@ async function executeSnooze(
     );
   }
 
+  const receipt = prepared.snoozedThread;
+  let folders: SnoozeFolderIds | undefined;
+  if (receipt.archiveFolderId && receipt.inboxFolderId) {
+    folders = {
+      archiveFolderId: receipt.archiveFolderId,
+      inboxFolderId: receipt.inboxFolderId,
+    };
+  } else if (provider.getSnoozeFolderIds) {
+    try {
+      const resolved = await provider.getSnoozeFolderIds();
+      if (!resolved) return snoozeUnavailable();
+      folders = resolved;
+    } catch (error) {
+      return snoozeProviderUnavailable(error);
+    }
+  }
   const locations = new Map(
-    [...byId].map(([id, message]) => [id, snoozeMessageLocation(message)]),
+    [...byId].map(([id, message]) => [
+      id,
+      snoozeMessageLocation(message, folders),
+    ]),
   );
   if (messageIds.some((id) => locations.get(id) === "unknown"))
     return snoozeUnavailable();
   const inboxMessageIds = messageIds.filter(
     (id) => locations.get(id) === "inbox",
   );
-  const receipt = prepared.snoozedThread;
-  const claim = await claimSnoozePreparation(receipt, inboxMessageIds);
+  const claim = await claimSnoozePreparation(receipt, {
+    inboxMessageIds,
+    folders,
+  });
   if (!claim) return snoozePreparationUnavailable(receipt);
 
   let archiveUncertain = false;
@@ -679,7 +701,7 @@ async function executeSnooze(
           .catch(() => undefined);
         if (
           archivedMessage &&
-          snoozeMessageLocation(archivedMessage) !== "archive"
+          snoozeMessageLocation(archivedMessage, folders) !== "archive"
         )
           return snoozeUnavailable();
       }
@@ -1116,7 +1138,7 @@ async function reconcileSnooze(
       if (restoreIds.has(message.id)) rollbackMessages.push(message);
       const sameThread = message.threadId === existing.threadId;
       conversationChanged ||= !sameThread;
-      const location = snoozeMessageLocation(message);
+      const location = snoozeMessageLocation(message, existing);
       if (location === "unknown") return snoozeUnavailable();
       stillInInbox ||= location === "inbox";
       const archived = location === "archive";
@@ -1174,7 +1196,12 @@ async function reconcileSnooze(
     }
 
     if (
-      !(await restoreSnoozeTargets(provider, rollbackMessages, stillSnoozed))
+      !(await restoreSnoozeTargets(
+        provider,
+        rollbackMessages,
+        stillSnoozed,
+        existing,
+      ))
     ) {
       return snoozeUnavailable();
     }
@@ -1197,7 +1224,11 @@ async function resumeCancelledSnooze(
   provider: EmailProvider,
   receipt: Pick<
     SnoozedThread,
-    "id" | "emailAccountId" | "restoreMessageIds" | "archiveClaimedAt"
+    | "id"
+    | "emailAccountId"
+    | "restoreMessageIds"
+    | "archiveClaimedAt"
+    | keyof SnoozeFolders
   >,
 ) {
   if (snoozeArchiveRetryAfterMs(receipt.archiveClaimedAt))
@@ -1219,7 +1250,14 @@ async function resumeCancelledSnooze(
       receipt,
       rollbackMessages,
     );
-    if (!(await restoreSnoozeTargets(provider, rollbackMessages, stillSnoozed)))
+    if (
+      !(await restoreSnoozeTargets(
+        provider,
+        rollbackMessages,
+        stillSnoozed,
+        receipt,
+      ))
+    )
       return snoozeUnavailable();
     const cleared = await prisma.snoozedThread.updateMany({
       where: {
@@ -1285,8 +1323,13 @@ async function restoreSnoozeTargets(
   provider: EmailProvider,
   targets: ParsedMessage[],
   stillSnoozed: Set<string>,
+  folders: SnoozeFolders,
 ) {
-  if (targets.some((message) => snoozeMessageLocation(message) === "unknown"))
+  if (
+    targets.some(
+      (message) => snoozeMessageLocation(message, folders) === "unknown",
+    )
+  )
     return false;
   // Inbox reads can lag behind the archive write. A different folder or a
   // trash/spam marker is evidence of a separate mailbox change.
@@ -1294,7 +1337,7 @@ async function restoreSnoozeTargets(
     .filter(
       (message) =>
         !stillSnoozed.has(message.threadId) &&
-        snoozeMessageLocation(message) !== "other",
+        snoozeMessageLocation(message, folders) !== "other",
     )
     .map(({ id }) => id);
   if (messageIds.length === 0) return true;
@@ -1306,9 +1349,24 @@ async function restoreSnoozeTargets(
   }
 }
 
-function snoozeMessageLocation(message: ParsedMessage) {
+function snoozeMessageLocation(
+  message: ParsedMessage,
+  folders?: SnoozeFolders,
+) {
   if (message.parentFolderType !== undefined) {
-    if (message.parentFolderType === "unknown") return "unknown";
+    if (message.parentFolderType === "unknown") {
+      // The provider can report a message's folder ID even when its system folder lookup fails.
+      if (
+        !message.parentFolderId ||
+        !folders?.archiveFolderId ||
+        !folders.inboxFolderId
+      )
+        return "unknown";
+      if (message.parentFolderId === folders.archiveFolderId) return "archive";
+      return message.parentFolderId === folders.inboxFolderId
+        ? "inbox"
+        : "other";
+    }
     if (message.parentFolderType === "INBOX") return "inbox";
     return message.parentFolderType === "ARCHIVE" ? "archive" : "other";
   }

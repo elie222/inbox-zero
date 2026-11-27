@@ -578,10 +578,14 @@ export class OutlookProvider implements EmailProvider {
     });
   }
 
-  async unarchiveThread(threadId: string): Promise<void> {
+  async unarchiveThread(
+    threadId: string,
+    options?: { archiveFolderId: string },
+  ): Promise<void> {
     await unarchiveThread({
       client: this.client,
       threadId,
+      archiveFolderId: options?.archiveFolderId,
       logger: this.logger,
     });
   }
@@ -2600,6 +2604,15 @@ export class OutlookProvider implements EmailProvider {
     _labelId?: string,
   ): Promise<void> {
     await this.moveMessageSnapshots(messageIds, "archive");
+  }
+
+  async getSnoozeFolderIds() {
+    const { archive, inbox } = await getFolderIds(this.client, this.logger, {
+      includeDrafts: false,
+    });
+    return archive && inbox
+      ? { archiveFolderId: archive, inboxFolderId: inbox }
+      : null;
   }
 
   async unarchiveMessages(messageIds: string[]): Promise<void> {

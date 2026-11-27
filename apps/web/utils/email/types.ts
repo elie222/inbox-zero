@@ -112,6 +112,11 @@ export type EmailFolderCount = {
   systemType?: OutlookSystemFolder;
 };
 
+export type SnoozeFolderIds = {
+  archiveFolderId: string;
+  inboxFolderId: string;
+};
+
 export interface EmailFilter {
   action?: {
     addLabelIds?: string[];
@@ -373,6 +378,7 @@ export interface EmailProvider {
     maxResults?: number;
   }): Promise<EmailThread[]>;
   getSignatures(): Promise<EmailSignature[]>;
+  getSnoozeFolderIds?(): Promise<SnoozeFolderIds | null>;
   // Thread messages are returned in chronological order with drafts excluded unless requested.
   getThread(threadId: string, options?: GetThreadOptions): Promise<EmailThread>;
   getThreadMessages(threadId: string): Promise<ParsedMessage[]>;
@@ -516,7 +522,10 @@ export interface EmailProvider {
     actionSource: "user" | "automation",
   ): Promise<void>;
   unarchiveMessages(messageIds: string[]): Promise<void>;
-  unarchiveThread(threadId: string): Promise<void>;
+  unarchiveThread(
+    threadId: string,
+    options?: { archiveFolderId: string },
+  ): Promise<void>;
   /**
    * Restores a trashed thread, to undo `trashThread`. Gmail puts it back under
    * its pre-trash labels; Outlook has no such record and moves it to the inbox.

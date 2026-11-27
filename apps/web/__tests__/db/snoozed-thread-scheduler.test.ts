@@ -143,9 +143,11 @@ describe.skipIf(!RUN_DB_TESTS)(
         prisma.snoozedThread.findUniqueOrThrow({
           where: { id: snoozedThread.id },
         });
+      const folders = { archiveFolderId: "archive", inboxFolderId: "inbox" };
+      const dispatch = { inboxMessageIds: ["first"], folders };
       const claims = await Promise.all([
-        claimSnoozePreparation(snoozedThread, ["first"], now),
-        claimSnoozePreparation(snoozedThread, ["first"], now),
+        claimSnoozePreparation(snoozedThread, dispatch, now),
+        claimSnoozePreparation(snoozedThread, dispatch, now),
       ]);
       expect(claims.filter(Boolean)).toEqual([now]);
       const retryAt = new Date(now.getTime() + 1);
@@ -157,7 +159,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(
         await claimSnoozePreparation(
           await readReceipt(),
-          ["first", "newly-inbox"],
+          { inboxMessageIds: ["first", "newly-inbox"] },
           retryAt,
         ),
       ).toEqual(retryAt);
@@ -165,6 +167,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       await expect(readReceipt()).resolves.toMatchObject({
         archiveClaimedAt: retryAt,
         restoreMessageIds: ["first", "newly-inbox"],
+        ...folders,
       });
     });
 
