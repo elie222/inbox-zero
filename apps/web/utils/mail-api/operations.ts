@@ -41,6 +41,7 @@ import {
   prepareSnoozedThread,
   releaseSnoozePreparation,
   snoozeArchiveRetryAfterMs,
+  updateSnoozeArchiveWrite,
 } from "@/utils/snooze/scheduler";
 import { withSnoozeMutationLease } from "@/utils/snooze/mutation-lease";
 import prisma from "@/utils/prisma";
@@ -648,6 +649,15 @@ async function executeSnoozeWithLease(
   }
 
   const receipt = prepared.snoozedThread;
+  if (receipt.pendingArchiveMessageId) {
+    return reconcileSnooze(
+      provider,
+      operation,
+      mutation,
+      snoozeUnavailable(),
+      receipt,
+    );
+  }
   let folders: SnoozeFolderIds | undefined;
   if (receipt.archiveFolderId && receipt.inboxFolderId) {
     folders = {
@@ -694,22 +704,40 @@ async function executeSnoozeWithLease(
       }
       let archivedMessage = byId.get(messageId);
       if (location === "inbox") {
+        if (
+          !(await updateSnoozeArchiveWrite({
+            id: receipt.id,
+            claim,
+            previousMessageId: null,
+            messageId,
+          }))
+        )
+          return snoozeUnavailable();
+        archiveUncertain = true;
+        let notFound = false;
         try {
           await provider.archiveMessages([messageId]);
         } catch (error) {
-          if (failedTargetOutcome(target, error).code === "not_found") {
-            targets.push({
-              key: target,
-              outcome: "rejected",
-              code: "not_found",
-            });
-            continue;
-          }
+          notFound = failedTargetOutcome(target, error).code === "not_found";
           // A transport failure can arrive before the provider commits the write.
-          archiveUncertain = true;
-          return isAuthError(error)
-            ? snoozeProviderUnavailable(error)
-            : snoozePreparationUnavailable({ archiveClaimedAt: claim });
+          if (!notFound)
+            return isAuthError(error)
+              ? snoozeProviderUnavailable(error)
+              : snoozePreparationUnavailable({ archiveClaimedAt: claim });
+        }
+        if (
+          !(await updateSnoozeArchiveWrite({
+            id: receipt.id,
+            claim,
+            previousMessageId: messageId,
+            messageId: null,
+          }))
+        )
+          return snoozeUnavailable();
+        archiveUncertain = false;
+        if (notFound) {
+          targets.push({ key: target, outcome: "rejected", code: "not_found" });
+          continue;
         }
         // Catch-up can fill the observation if this read fails after the write.
         archivedMessage = await provider
@@ -1165,6 +1193,19 @@ async function reconcileSnooze(
     );
     if (reads.status === "unavailable")
       return snoozeProviderUnavailable(reads.error);
+    if (existing.pendingArchiveMessageId) {
+      if (!snoozeArchiveWriteObserved(existing, reads.messages))
+        return snoozeUnavailable(30_000);
+      if (
+        !(await updateSnoozeArchiveWrite({
+          id: existing.id,
+          claim,
+          previousMessageId: existing.pendingArchiveMessageId,
+          messageId: null,
+        }))
+      )
+        return snoozeUnavailable();
+    }
     for (const { target, message } of reads.messages) {
       if (!message) {
         targets.push({ key: target, outcome: "rejected", code: "not_found" });
@@ -1266,6 +1307,7 @@ async function resumeCancelledSnooze(
     | "emailAccountId"
     | "restoreMessageIds"
     | "archiveClaimedAt"
+    | "pendingArchiveMessageId"
     | keyof SnoozeFolders
   >,
 ) {
@@ -1281,6 +1323,8 @@ async function resumeCancelledSnooze(
     const reads = await readSnoozeRecoveryTargets(provider, targets);
     if (reads.status === "unavailable")
       return snoozeProviderUnavailable(reads.error);
+    if (!snoozeArchiveWriteObserved(receipt, reads.messages))
+      return snoozeUnavailable(30_000);
     const rollbackMessages = reads.messages.flatMap(({ message }) =>
       message ? [message] : [],
     );
@@ -1302,9 +1346,14 @@ async function resumeCancelledSnooze(
         id: receipt.id,
         status: "CANCELLED",
         archiveClaimedAt: receipt.archiveClaimedAt ?? null,
+        pendingArchiveMessageId: receipt.pendingArchiveMessageId ?? null,
         restoreMessageIds: { equals: receipt.restoreMessageIds },
       },
-      data: { restoreMessageIds: [], archiveClaimedAt: null },
+      data: {
+        restoreMessageIds: [],
+        archiveClaimedAt: null,
+        pendingArchiveMessageId: null,
+      },
     });
     if (!cleared.count) return snoozeUnavailable();
   }
@@ -1336,6 +1385,25 @@ async function readSnoozeRecoveryTargets(
   } catch (error) {
     return { status: "unavailable" as const, error };
   }
+}
+
+function snoozeArchiveWriteObserved(
+  receipt: SnoozeFolders & Pick<SnoozedThread, "pendingArchiveMessageId">,
+  reads: Array<{
+    target: { messageId: string };
+    message: ParsedMessage | null;
+  }>,
+) {
+  if (!receipt.pendingArchiveMessageId) return true;
+  const read = reads.find(
+    ({ target }) => target.messageId === receipt.pendingArchiveMessageId,
+  );
+  // An Inbox read after a timeout does not prove the provider stopped processing.
+  return Boolean(
+    read &&
+      (!read.message ||
+        snoozeMessageLocation(read.message, receipt) === "archive"),
+  );
 }
 
 async function getOtherSnoozedThreads(

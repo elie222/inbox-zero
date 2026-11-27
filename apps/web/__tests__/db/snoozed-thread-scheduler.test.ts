@@ -28,6 +28,7 @@ describe.skipIf(!RUN_DB_TESTS)(
     let markSnoozedThreadAsExecuting: typeof import("@/utils/snooze/scheduler").markSnoozedThreadAsExecuting;
     let prepareSnoozedThread: typeof import("@/utils/snooze/scheduler").prepareSnoozedThread;
     let releaseSnoozePreparation: typeof import("@/utils/snooze/scheduler").releaseSnoozePreparation;
+    let updateSnoozeArchiveWrite: typeof import("@/utils/snooze/scheduler").updateSnoozeArchiveWrite;
     let withSnoozeMutationLease: typeof import("@/utils/snooze/mutation-lease").withSnoozeMutationLease;
     let emailAccountId: string;
 
@@ -41,6 +42,7 @@ describe.skipIf(!RUN_DB_TESTS)(
         markSnoozedThreadAsExecuting,
         prepareSnoozedThread,
         releaseSnoozePreparation,
+        updateSnoozeArchiveWrite,
       } = await import("@/utils/snooze/scheduler"));
       ({ withSnoozeMutationLease } = await import(
         "@/utils/snooze/mutation-lease"
@@ -177,6 +179,25 @@ describe.skipIf(!RUN_DB_TESTS)(
           code: "not_found",
         },
       ];
+      const pendingWrite = {
+        id: snoozedThread.id,
+        claim: retryAt,
+        previousMessageId: null,
+        messageId: "first",
+      };
+      await expect(updateSnoozeArchiveWrite(pendingWrite)).resolves.toBe(true);
+      const settlement = {
+        ...pendingWrite,
+        previousMessageId: "first",
+        messageId: null,
+      };
+      await expect(
+        updateSnoozeArchiveWrite({ ...settlement, claim: now }),
+      ).resolves.toBe(false);
+      await expect(
+        activatePreparedSnoozedThread(input, retryAt, targetOutcomes),
+      ).resolves.toBeNull();
+      await expect(updateSnoozeArchiveWrite(settlement)).resolves.toBe(true);
       await activatePreparedSnoozedThread(input, retryAt, targetOutcomes);
       await expect(readReceipt()).resolves.toMatchObject({
         status: SnoozedThreadStatus.PENDING,

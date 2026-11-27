@@ -168,6 +168,29 @@ export async function releaseSnoozePreparation(
   });
 }
 
+export async function updateSnoozeArchiveWrite({
+  id,
+  claim,
+  previousMessageId,
+  messageId,
+}: {
+  id: string;
+  claim: Date;
+  previousMessageId: string | null;
+  messageId: string | null;
+}) {
+  const changed = await prisma.snoozedThread.updateMany({
+    where: {
+      id,
+      archiveClaimedAt: claim,
+      pendingArchiveMessageId: previousMessageId,
+      ...(messageId && { status: SnoozedThreadStatus.PREPARING }),
+    },
+    data: { pendingArchiveMessageId: messageId },
+  });
+  return changed.count === 1;
+}
+
 export function snoozeArchiveRetryAfterMs(
   archiveClaimedAt: Date | null,
   now = new Date(),
@@ -223,6 +246,7 @@ async function activateWithConflictRetry({
             id,
             status: SnoozedThreadStatus.PREPARING,
             archiveClaimedAt,
+            pendingArchiveMessageId: null,
           },
           data: {
             status: SnoozedThreadStatus.PENDING,

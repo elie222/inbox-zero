@@ -13,6 +13,7 @@ import {
   prepareSnoozedThread,
   releaseSnoozePreparation,
   SNOOZE_EXECUTION_LEASE_MS,
+  updateSnoozeArchiveWrite,
 } from "@/utils/snooze/scheduler";
 import {
   findScheduledEmail,
@@ -41,6 +42,7 @@ vi.mock(import("@/utils/snooze/scheduler"), async (importOriginal) => ({
   getSnoozedThreadByClientMutationId: vi.fn(),
   claimSnoozePreparation: vi.fn(async () => new Date()),
   releaseSnoozePreparation: vi.fn(),
+  updateSnoozeArchiveWrite: vi.fn().mockResolvedValue(true),
 }));
 
 describe("createEmailProviderOperationExecutor", () => {
@@ -1607,7 +1609,10 @@ describe("createEmailProviderOperationExecutor", () => {
     expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
   });
 
-  it("retains rollback through an ambiguous archive write after expiration", async () => {
+  it.each([
+    false,
+    true,
+  ])("retains rollback when an ambiguous archive commits after the lease expires (cancelled: %s)", async (cancelled) => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       const now = Date.now();
@@ -1619,11 +1624,13 @@ describe("createEmailProviderOperationExecutor", () => {
         status: "PREPARING",
         archiveStarted: false,
         archiveClaimedAt: null as Date | null,
+        pendingArchiveMessageId: null as string | null,
         restoreMessageIds: [] as string[],
       };
       const readReceipt = async () =>
         ({ created: false, snoozedThread: { ...receipt } }) as never;
       vi.mocked(prepareSnoozedThread)
+        .mockImplementationOnce(readReceipt)
         .mockImplementationOnce(readReceipt)
         .mockImplementationOnce(readReceipt)
         .mockImplementationOnce(readReceipt);
@@ -1635,6 +1642,12 @@ describe("createEmailProviderOperationExecutor", () => {
           return receipt.archiveClaimedAt;
         })
         .mockResolvedValueOnce(null);
+      vi.mocked(updateSnoozeArchiveWrite).mockImplementationOnce(
+        async ({ messageId }) => {
+          receipt.pendingArchiveMessageId = messageId;
+          return true;
+        },
+      );
       prisma.snoozedThread.findMany.mockResolvedValue([]);
       const archiveDispatched = Promise.withResolvers<void>();
       const archiveSettled = Promise.withResolvers<void>();
@@ -1650,8 +1663,9 @@ describe("createEmailProviderOperationExecutor", () => {
           async archiveMessages() {
             archiveDispatched.resolve();
             await archiveSettled.promise;
-            inInbox = false;
-            throw new Error("Provider timed out after committing the write");
+            throw new Error(
+              "Provider timed out before acknowledging the write",
+            );
           },
           async getMessage(id: string) {
             return {
@@ -1685,12 +1699,19 @@ describe("createEmailProviderOperationExecutor", () => {
         });
       }
       expect(releaseSnoozePreparation).not.toHaveBeenCalled();
-      expect(inInbox).toBe(false);
+      expect(receipt.pendingArchiveMessageId).toBe("m1");
+      if (cancelled) receipt.status = "CANCELLED";
 
       vi.setSystemTime(now + SNOOZE_EXECUTION_LEASE_MS + 1);
+      expect(await inspect()).toMatchObject({ status: "not_dispatched" });
+      expect(unarchiveMessages).not.toHaveBeenCalled();
+      expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
+      inInbox = false;
+      if (cancelled)
+        prisma.snoozedThread.updateMany.mockResolvedValueOnce({ count: 1 });
       expect(await inspect()).toMatchObject({
         status: "rejected",
-        code: "snooze_expired",
+        code: cancelled ? "snooze_cancelled" : "snooze_expired",
       });
       expect(unarchiveMessages).toHaveBeenCalledExactlyOnceWith(["m1"]);
       expect(inInbox).toBe(true);
@@ -1980,9 +2001,14 @@ describe("createEmailProviderOperationExecutor", () => {
         id: receipt.id,
         status: "CANCELLED",
         archiveClaimedAt: null,
+        pendingArchiveMessageId: null,
         restoreMessageIds: { equals: ["m1", "m2"] },
       },
-      data: { restoreMessageIds: [], archiveClaimedAt: null },
+      data: {
+        restoreMessageIds: [],
+        archiveClaimedAt: null,
+        pendingArchiveMessageId: null,
+      },
     });
   });
 });
