@@ -712,6 +712,78 @@ describe("createEmailProviderOperationExecutor", () => {
     });
   });
 
+  it.each([
+    { outcome: "found", status: "confirmed" },
+    { outcome: "missing", status: "rejected" },
+    { outcome: "unavailable", status: "not_dispatched" },
+  ])("verifies an omitted batch target individually ($outcome)", async ({
+    outcome,
+    status,
+  }) => {
+    const inbox = new Set(["m1", "m2"]);
+    const message = (id: string) => ({
+      id,
+      threadId: "thread-1",
+      headers: {},
+      labelIds: inbox.has(id) ? ["INBOX"] : [],
+    });
+    const getMessage = vi.fn(async (id: string) => {
+      if (id === "m2" && outcome === "missing")
+        throw new Error("Requested entity was not found");
+      if (id === "m2" && outcome === "unavailable")
+        throw new Error("Provider unavailable");
+      return message(id);
+    });
+    const archiveMessages = vi.fn(async (ids: string[]) => {
+      for (const id of ids) inbox.delete(id);
+    });
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        getMessage,
+        archiveMessages,
+        async getMessagesBatch() {
+          return [message("m1")];
+        },
+      } as unknown as EmailProvider,
+    });
+    if (outcome === "found") {
+      vi.mocked(prepareSnoozedThread).mockResolvedValueOnce({
+        created: true,
+        snoozedThread: { id: "snooze", status: "PREPARING" },
+      } as never);
+      vi.mocked(activatePreparedSnoozedThread).mockResolvedValueOnce({
+        status: "PENDING",
+      } as never);
+    } else {
+      vi.mocked(getSnoozedThreadByClientMutationId).mockResolvedValueOnce(null);
+    }
+    const targets = ["m1", "m2"].map((messageId) => ({
+      accountId: "acc-1",
+      messageId,
+    }));
+    const result = await executor.execute({
+      operation: {
+        ...metadataOperation(targets),
+        intent: {
+          kind: "metadata",
+          targets,
+          change: { kind: "snooze", untilMs: Date.now() + 60_000 },
+        },
+      },
+      attemptId: "batch-lookup",
+      signal: new AbortController().signal,
+    });
+    expect(getMessage).toHaveBeenCalledWith("m2");
+    expect(result.status).toBe(status);
+    if (outcome === "missing")
+      expect(result).toMatchObject({ code: "not_found" });
+    if (outcome === "found")
+      expect(archiveMessages).toHaveBeenCalledWith(["m2"]);
+    else expect(archiveMessages).not.toHaveBeenCalled();
+  });
+
   it("waits for a conversation ID before archiving or scheduling a snooze", async () => {
     const getMessage = vi
       .fn()
@@ -1218,6 +1290,100 @@ describe("createEmailProviderOperationExecutor", () => {
     );
     expect(activatePreparedSnoozedThread).toHaveBeenCalled();
     expect(claimSnoozePreparation).toHaveBeenCalled();
+  });
+
+  it.each([
+    "readback",
+    "marker",
+  ] as const)("stops sending archives when the wake deadline passes during %s", async (expiresDuring) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const untilMs = Date.now() + 5000;
+      const inbox = new Set(["m1", "m2"]);
+      const message = (id: string) => ({
+        id,
+        threadId: "thread-1",
+        headers: {},
+        labelIds: inbox.has(id) ? ["INBOX"] : [],
+      });
+      const archiveMessages = vi.fn(async (ids: string[]) => {
+        for (const id of ids) inbox.delete(id);
+      });
+      const unarchiveMessages = vi.fn(async (ids: string[]) => {
+        for (const id of ids) inbox.add(id);
+      });
+      const receipt = {
+        id: "snooze-row",
+        emailAccountId: "acc-1",
+        threadId: "thread-1",
+        status: "PREPARING",
+        restoreMessageIds: ["m1", "m2"],
+      };
+      vi.mocked(prepareSnoozedThread).mockResolvedValueOnce({
+        created: true,
+        snoozedThread: receipt,
+      } as never);
+      vi.mocked(getSnoozedThreadByClientMutationId).mockResolvedValueOnce({
+        ...receipt,
+        archiveStarted: true,
+        clientMutationPayloadHash: createHash("sha256")
+          .update(JSON.stringify({ untilMs, messageIds: ["m1", "m2"] }))
+          .digest("hex"),
+      } as never);
+      prisma.snoozedThread.findMany.mockResolvedValue([]);
+      if (expiresDuring === "marker") {
+        vi.mocked(updateSnoozeArchiveWrite)
+          .mockResolvedValueOnce(true)
+          .mockResolvedValueOnce(true)
+          .mockImplementationOnce(async () => {
+            vi.setSystemTime(untilMs + 1);
+            return true;
+          });
+      }
+      const executor = createEmailProviderOperationExecutor({
+        accountId: "acc-1",
+        provider: {
+          name: "google",
+          archiveMessages,
+          unarchiveMessages,
+          async getMessagesBatch(ids: string[]) {
+            return ids.map(message);
+          },
+          async getMessage(id: string) {
+            if (expiresDuring === "readback" && id === "m1" && !inbox.has(id))
+              vi.setSystemTime(untilMs + 1);
+            return message(id);
+          },
+        } as unknown as EmailProvider,
+      });
+      const targets = ["m1", "m2"].map((messageId) => ({
+        accountId: "acc-1",
+        messageId,
+      }));
+      await expect(
+        executor.execute({
+          operation: {
+            ...metadataOperation(targets),
+            intent: {
+              kind: "metadata",
+              targets,
+              change: { kind: "snooze", untilMs },
+            },
+          },
+          attemptId: "archive-before-wake",
+          signal: new AbortController().signal,
+        }),
+      ).resolves.toMatchObject({ status: "rejected", code: "snooze_expired" });
+      expect(archiveMessages).toHaveBeenCalledExactlyOnceWith(["m1"]);
+      expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
+      expect(inbox).toEqual(new Set(["m1", "m2"]));
+      if (expiresDuring === "marker")
+        expect(updateSnoozeArchiveWrite).toHaveBeenCalledWith(
+          expect.objectContaining({ previousMessageId: "m2", messageId: null }),
+        );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps the snooze retryable while the provider still shows the archived message in the inbox", async () => {
@@ -1885,9 +2051,14 @@ describe("createEmailProviderOperationExecutor", () => {
   });
 
   it.each([
-    "PREPARING",
-    "CANCELLED",
-  ] as const)("restores earlier archived targets while the last write is unobservable on a %s receipt", async (status) => {
+    { status: "PREPARING", pendingCommits: true },
+    { status: "CANCELLED", pendingCommits: true },
+    { status: "PREPARING", pendingCommits: false },
+    { status: "CANCELLED", pendingCommits: false },
+  ] as const)("recovers earlier archives on a $status receipt with a pending write (commits: $pendingCommits)", async ({
+    status,
+    pendingCommits,
+  }) => {
     const receipt = {
       id: "snooze-row",
       emailAccountId: "acc-1",
@@ -1896,6 +2067,7 @@ describe("createEmailProviderOperationExecutor", () => {
       archiveStarted: true,
       archiveClaimedAt: null,
       pendingArchiveMessageId: "pending",
+      pendingArchiveDispatchedAt: new Date(),
       restoreMessageIds: ["archived", "pending"],
     };
     const prepare = async () =>
@@ -1965,13 +2137,19 @@ describe("createEmailProviderOperationExecutor", () => {
     expect(unarchiveMessages).toHaveBeenCalledTimes(1);
     expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
 
-    archived.add("pending");
+    if (pendingCommits) archived.add("pending");
+    else
+      receipt.pendingArchiveDispatchedAt = new Date(
+        Date.now() - 2 * SNOOZE_EXECUTION_LEASE_MS - 1000,
+      );
     vi.mocked(prepareSnoozedThread).mockImplementationOnce(prepare);
     expect(await inspect()).toMatchObject({
       status: "rejected",
       code: status === "CANCELLED" ? "snooze_cancelled" : "snooze_expired",
     });
-    expect(unarchiveMessages).toHaveBeenNthCalledWith(2, ["pending"]);
+    if (pendingCommits)
+      expect(unarchiveMessages).toHaveBeenNthCalledWith(2, ["pending"]);
+    else expect(unarchiveMessages).toHaveBeenCalledTimes(1);
   });
 
   it("verifies Outlook's archive destination before dispatch and saves it for verification", async () => {
@@ -2269,6 +2447,7 @@ describe("createEmailProviderOperationExecutor", () => {
         rollbackArchiveObservedIds: [],
         archiveClaimedAt: null,
         pendingArchiveMessageId: null,
+        pendingArchiveDispatchedAt: null,
       },
     });
   });

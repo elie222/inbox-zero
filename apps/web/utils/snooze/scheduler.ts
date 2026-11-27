@@ -186,7 +186,10 @@ export async function updateSnoozeArchiveWrite({
       pendingArchiveMessageId: previousMessageId,
       ...(messageId && { status: SnoozedThreadStatus.PREPARING }),
     },
-    data: { pendingArchiveMessageId: messageId },
+    data: {
+      pendingArchiveMessageId: messageId,
+      pendingArchiveDispatchedAt: messageId ? new Date() : null,
+    },
   });
   return changed.count === 1;
 }

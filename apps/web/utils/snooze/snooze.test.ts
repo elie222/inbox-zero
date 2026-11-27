@@ -81,6 +81,28 @@ describe("snoozeThreads", () => {
     expect(provider.archiveThreadWithLabel).not.toHaveBeenCalled();
   });
 
+  it("reports per-thread failures if acquiring the mailbox lease throws", async () => {
+    vi.mocked(withSnoozeMutationLease).mockRejectedValueOnce(
+      new Error("Database unavailable"),
+    );
+    const provider = createMockEmailProvider();
+    await expect(
+      snoozeThreads({
+        emailAccountId: "account",
+        logger,
+        ownerEmail: "owner@example.com",
+        provider,
+        snoozedUntil,
+        threadIds: ["one", "one", "two"],
+      }),
+    ).resolves.toEqual({
+      failedThreadIds: ["one", "two"],
+      succeededThreadIds: [],
+    });
+    expect(provider.archiveThreadWithLabel).not.toHaveBeenCalled();
+    expect(scheduleSnoozedThread).not.toHaveBeenCalled();
+  });
+
   it("skips only threads containing a message with an unresolved rollback", async () => {
     vi.mocked(getPendingSnoozeRollbackMessageIds).mockResolvedValueOnce(
       new Set(["pending-message"]),

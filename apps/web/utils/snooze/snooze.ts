@@ -56,6 +56,9 @@ export async function snoozeThreads({
         }
       },
     );
+  }).catch((error) => {
+    logger.error("Failed to start snoozing threads", { error });
+    return null;
   });
 
   const succeededThreadIds = uniqueThreadIds.filter(

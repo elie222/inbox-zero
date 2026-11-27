@@ -972,6 +972,7 @@ model SnoozedThread {
   archiveStarted            Boolean             @default(false)
   archiveClaimedAt          DateTime?
   pendingArchiveMessageId   String?
+  pendingArchiveDispatchedAt DateTime?
   archiveFolderId           String?
   inboxFolderId             String?
   restoreMessageIds          String[]            @default([])

@@ -1,3 +1,4 @@
+import chunk from "lodash/chunk";
 import type { ProviderMailboxSearch } from "@/utils/email/types";
 import type { LocalMailSyncRequest } from "@/utils/actions/local-mail-sync.validation";
 import type { LocalMailSyncResponse } from "@/utils/email/local-mail-sync-types";
@@ -2670,20 +2671,27 @@ export class OutlookProvider implements EmailProvider {
     messageIds: string[],
     destinationId: "archive" | "deleteditems" | "inbox",
   ) {
-    await mapWithConcurrency([...new Set(messageIds)], 4, async (messageId) => {
-      try {
-        await withMicrosoftGraphWriteRetry(
-          () =>
-            this.client
-              .getClient()
-              .api(`/me/messages/${messageId}/move`)
-              .post({ destinationId }),
-          this.logger,
-        );
-      } catch (error) {
-        if (extractErrorInfo(error).status !== 404) throw error;
-      }
-    });
+    for (const batch of chunk([...new Set(messageIds)], 4)) {
+      const moves = await Promise.allSettled(
+        batch.map(async (messageId) => {
+          try {
+            await withMicrosoftGraphWriteRetry(
+              () =>
+                this.client
+                  .getClient()
+                  .api(`/me/messages/${messageId}/move`)
+                  .post({ destinationId }),
+              this.logger,
+            );
+          } catch (error) {
+            if (extractErrorInfo(error).status !== 404) throw error;
+          }
+        }),
+      );
+      // Let the caller release its mailbox lease only after the started moves settle.
+      const failure = moves.find((move) => move.status === "rejected");
+      if (failure) throw failure.reason;
+    }
   }
 
   async bulkArchiveFromSenders(
