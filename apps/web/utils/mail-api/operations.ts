@@ -15,7 +15,7 @@ import type {
   ProviderChange,
 } from "@inboxzero/mail-core/sync";
 import type { EmailProvider, SnoozeFolderIds } from "@/utils/email/types";
-import { mapWithConcurrency } from "@/utils/async";
+import { runWithBoundedConcurrency } from "@/utils/async";
 import { SafeError } from "@/utils/error";
 import {
   parsedMessageBodyObservation,
@@ -721,11 +721,8 @@ async function executeSnoozeWithLease(
   );
   if (messageIds.some((id) => locations.get(id) === "unknown"))
     return snoozeUnavailable();
-  const inboxMessageIds = messageIds.filter(
-    (id) => locations.get(id) === "inbox",
-  );
   const claim = await claimSnoozePreparation(receipt, {
-    inboxMessageIds,
+    clientMutationPayloadHash,
     folders,
   });
   if (!claim) return snoozePreparationUnavailable(receipt);
@@ -733,6 +730,7 @@ async function executeSnoozeWithLease(
   let archiveUncertain = false;
   let activated: SnoozedThread | undefined;
   let expired = false;
+  const restoreIds = new Set(receipt.restoreMessageIds);
   try {
     const targets: TargetOutcome[] = [];
     const observations: ProviderChange[] = [];
@@ -749,12 +747,14 @@ async function executeSnoozeWithLease(
           expired = true;
           break;
         }
+        const writeRestoreIds = new Set(restoreIds).add(messageId);
         if (
           !(await updateSnoozeArchiveWrite({
             id: receipt.id,
             claim,
             previousMessageId: null,
             messageId,
+            restoreMessageIds: [...writeRestoreIds],
           }))
         )
           return snoozeUnavailable();
@@ -779,6 +779,9 @@ async function executeSnoozeWithLease(
             claim,
             previousMessageId: messageId,
             messageId: null,
+            ...((expired || notFound) && {
+              restoreMessageIds: [...restoreIds],
+            }),
           }))
         )
           return snoozeUnavailable();
@@ -788,6 +791,7 @@ async function executeSnoozeWithLease(
           targets.push({ key: target, outcome: "rejected", code: "not_found" });
           continue;
         }
+        restoreIds.add(messageId);
         // Catch-up can fill the observation if this read fails after the write.
         archivedMessage = await provider
           .getMessage(messageId)
@@ -1242,9 +1246,6 @@ async function reconcileSnooze(
 
     const targets: TargetOutcome[] = [];
     const archivedMessages: ParsedMessage[] = [];
-    // Older receipts can lack the original Inbox state. Current archive state
-    // alone can't establish that this snooze moved a message.
-    const restoreIds = new Set(existing.restoreMessageIds);
     const rollbackMessages: ParsedMessage[] = [];
     const recoveringRollback = Boolean(
       existing.pendingRollbackMessageIds?.length,
@@ -1255,12 +1256,30 @@ async function reconcileSnooze(
       provider,
       operation.intent.targets,
     );
-    if (reads.status === "unavailable")
+    if (reads.status === "unavailable") {
+      if (
+        existing.pendingArchiveMessageId ||
+        recoveringRollback ||
+        wakeTime <= Date.now()
+      )
+        await restoreObservedSnoozeArchives(
+          provider,
+          existing,
+          reads.messages,
+          claim,
+        );
       return snoozeProviderUnavailable(reads.error);
+    }
     const archiveObservation = snoozeArchiveObservation(
       existing,
       reads.messages,
     );
+    const restoreMessageIds =
+      archiveObservation === "unobserved"
+        ? existing.restoreMessageIds.filter(
+            (id) => id !== existing.pendingArchiveMessageId,
+          )
+        : existing.restoreMessageIds;
     if (existing.pendingArchiveMessageId) {
       if (
         archiveObservation === "waiting" ||
@@ -1280,10 +1299,12 @@ async function reconcileSnooze(
           claim,
           previousMessageId: existing.pendingArchiveMessageId,
           messageId: null,
+          ...(archiveObservation === "unobserved" && { restoreMessageIds }),
         }))
       )
         return snoozeUnavailable();
     }
+    const restoreIds = new Set(restoreMessageIds);
     for (const { target, message } of reads.messages) {
       if (!message) {
         targets.push({ key: target, outcome: "rejected", code: "not_found" });
@@ -1377,7 +1398,7 @@ async function reconcileSnooze(
             )
           : reads.messages,
         stillSnoozed,
-        existing,
+        { ...existing, restoreMessageIds },
       ))
     ) {
       return snoozeUnavailable();
@@ -1385,7 +1406,7 @@ async function reconcileSnooze(
     await cancelPreparedSnooze(
       emailAccountId,
       clientMutationId,
-      existing.restoreMessageIds,
+      restoreMessageIds,
       claim,
     );
     return {
@@ -1424,8 +1445,15 @@ async function resumeCancelledSnooze(
       }),
     );
     const reads = await readSnoozeRecoveryTargets(provider, targets);
-    if (reads.status === "unavailable")
+    if (reads.status === "unavailable") {
+      await restoreObservedSnoozeArchives(
+        provider,
+        receipt,
+        reads.messages,
+        receipt.archiveClaimedAt ?? null,
+      );
       return snoozeProviderUnavailable(reads.error);
+    }
     const archiveObservation =
       receipt.pendingArchiveMessageId &&
       receipt.pendingRollbackMessageIds?.includes(
@@ -1493,27 +1521,32 @@ async function readSnoozeRecoveryTargets(
   provider: EmailProvider,
   targets: TargetOutcome["key"][],
 ) {
-  try {
-    const messages = await mapWithConcurrency(
-      targets,
-      SNOOZE_RECOVERY_READ_CONCURRENCY,
-      async (target) => {
-        try {
-          return {
-            target,
-            message: await provider.getMessage(target.messageId),
-          };
-        } catch (error) {
-          if (failedTargetOutcome(target, error).code !== "not_found")
-            throw error;
-          return { target, message: null };
-        }
-      },
-    );
-    return { status: "read" as const, messages };
-  } catch (error) {
-    return { status: "unavailable" as const, error };
-  }
+  const results = await runWithBoundedConcurrency({
+    items: targets,
+    concurrency: SNOOZE_RECOVERY_READ_CONCURRENCY,
+    async run(target) {
+      try {
+        return await provider.getMessage(target.messageId);
+      } catch (error) {
+        if (failedTargetOutcome(target, error).code !== "not_found")
+          throw error;
+        return null;
+      }
+    },
+  });
+  const messages = results.flatMap(({ item: target, result }) =>
+    result.status === "fulfilled" ? [{ target, message: result.value }] : [],
+  );
+  const unavailable = results.find(
+    ({ result }) => result.status === "rejected",
+  );
+  return unavailable?.result.status === "rejected"
+    ? {
+        status: "unavailable" as const,
+        error: unavailable.result.reason,
+        messages,
+      }
+    : { status: "read" as const, messages };
 }
 
 function snoozeArchiveObservation(
@@ -1672,7 +1705,6 @@ async function restoreSnoozeTargets(
     let settled = true;
     for (const id of pendingIds) {
       const message = byId.get(id);
-      if (message === null) continue;
       const location = message
         ? snoozeMessageLocation(message, receipt)
         : "unknown";

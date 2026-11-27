@@ -140,7 +140,10 @@ describe.skipIf(!RUN_DB_TESTS)(
           where: { id: snoozedThread.id },
         });
       const folders = { archiveFolderId: "archive", inboxFolderId: "inbox" };
-      const dispatch = { inboxMessageIds: ["first"], folders };
+      const dispatch = {
+        clientMutationPayloadHash: "archive-payload",
+        folders,
+      };
       const claims = await Promise.all([
         claimSnoozePreparation(snoozedThread, dispatch, now),
         claimSnoozePreparation(snoozedThread, dispatch, now),
@@ -153,20 +156,17 @@ describe.skipIf(!RUN_DB_TESTS)(
       await releaseSnoozePreparation(snoozedThread.id, now);
 
       expect(
-        await claimSnoozePreparation(
-          await readReceipt(),
-          { inboxMessageIds: ["first", "newly-inbox"] },
-          retryAt,
-        ),
+        await claimSnoozePreparation(await readReceipt(), dispatch, retryAt),
       ).toEqual(retryAt);
       await releaseSnoozePreparation(snoozedThread.id, now);
       await expect(
-        activatePreparedSnoozedThread(input, now, []),
+        activatePreparedSnoozedThread({ ...input, ...dispatch }, now, []),
       ).resolves.toBeNull();
       await expect(readReceipt()).resolves.toMatchObject({
         status: SnoozedThreadStatus.PREPARING,
         archiveClaimedAt: retryAt,
-        restoreMessageIds: ["first", "newly-inbox"],
+        clientMutationPayloadHash: dispatch.clientMutationPayloadHash,
+        restoreMessageIds: [],
         ...folders,
       });
       const targetOutcomes = [
@@ -186,10 +186,17 @@ describe.skipIf(!RUN_DB_TESTS)(
         claim: retryAt,
         previousMessageId: null,
         messageId: "first",
+        restoreMessageIds: ["first"],
       };
       await expect(updateSnoozeArchiveWrite(pendingWrite)).resolves.toBe(true);
+      await expect(readReceipt()).resolves.toMatchObject({
+        pendingArchiveMessageId: "first",
+        pendingArchiveDispatchedAt: expect.any(Date),
+        restoreMessageIds: ["first"],
+      });
       const settlement = {
-        ...pendingWrite,
+        id: snoozedThread.id,
+        claim: retryAt,
         previousMessageId: "first",
         messageId: null,
       };
@@ -197,10 +204,18 @@ describe.skipIf(!RUN_DB_TESTS)(
         updateSnoozeArchiveWrite({ ...settlement, claim: now }),
       ).resolves.toBe(false);
       await expect(
-        activatePreparedSnoozedThread(input, retryAt, targetOutcomes),
+        activatePreparedSnoozedThread(
+          { ...input, ...dispatch },
+          retryAt,
+          targetOutcomes,
+        ),
       ).resolves.toBeNull();
       await expect(updateSnoozeArchiveWrite(settlement)).resolves.toBe(true);
-      await activatePreparedSnoozedThread(input, retryAt, targetOutcomes);
+      await activatePreparedSnoozedThread(
+        { ...input, ...dispatch },
+        retryAt,
+        targetOutcomes,
+      );
       await expect(readReceipt()).resolves.toMatchObject({
         status: SnoozedThreadStatus.PENDING,
         archiveClaimedAt: null,

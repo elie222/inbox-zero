@@ -121,14 +121,14 @@ export async function activatePreparedSnoozedThread(
 }
 
 export async function claimSnoozePreparation(
-  receipt: Pick<
-    SnoozedThread,
-    "id" | "archiveClaimedAt" | "restoreMessageIds" | "updatedAt"
-  >,
-  dispatch?: { inboxMessageIds: string[]; folders?: SnoozeFolderIds },
+  receipt: Pick<SnoozedThread, "id" | "archiveClaimedAt" | "updatedAt">,
+  dispatch?: {
+    clientMutationPayloadHash: string;
+    folders?: SnoozeFolderIds;
+  },
   now = new Date(),
 ) {
-  const { id, archiveClaimedAt, restoreMessageIds, updatedAt } = receipt;
+  const { id, archiveClaimedAt, updatedAt } = receipt;
   if (snoozeArchiveRetryAfterMs(archiveClaimedAt, now)) return null;
   const result = await prisma.snoozedThread.updateMany({
     where: {
@@ -142,10 +142,8 @@ export async function claimSnoozePreparation(
       archiveClaimedAt: now,
       ...(dispatch && {
         archiveStarted: true,
+        clientMutationPayloadHash: dispatch.clientMutationPayloadHash,
         ...dispatch.folders,
-        restoreMessageIds: [
-          ...new Set([...restoreMessageIds, ...dispatch.inboxMessageIds]),
-        ],
       }),
     },
   });
@@ -173,11 +171,13 @@ export async function updateSnoozeArchiveWrite({
   claim,
   previousMessageId,
   messageId,
+  restoreMessageIds,
 }: {
   id: string;
   claim: Date;
   previousMessageId: string | null;
   messageId: string | null;
+  restoreMessageIds?: string[];
 }) {
   const changed = await prisma.snoozedThread.updateMany({
     where: {
@@ -189,6 +189,7 @@ export async function updateSnoozeArchiveWrite({
     data: {
       pendingArchiveMessageId: messageId,
       pendingArchiveDispatchedAt: messageId ? new Date() : null,
+      ...(restoreMessageIds && { restoreMessageIds }),
     },
   });
   return changed.count === 1;

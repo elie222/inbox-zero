@@ -1070,8 +1070,9 @@ describe("createEmailProviderOperationExecutor", () => {
     if (!beforeArchive && !alreadyArchived)
       expect(archiveMessages).toHaveBeenCalledWith(["m2"]);
     const [mutation] = vi.mocked(prepareSnoozedThread).mock.calls[0];
-    const [, dispatch] = vi.mocked(claimSnoozePreparation).mock.calls[0];
-    const restoreMessageIds = dispatch?.inboxMessageIds;
+    const restoreMessageIds = vi
+      .mocked(updateSnoozeArchiveWrite)
+      .mock.calls.flatMap(([write]) => write.restoreMessageIds ?? []);
     expect(restoreMessageIds).toEqual(
       alreadyArchived || beforeArchive ? [] : ["m2"],
     );
@@ -1293,9 +1294,13 @@ describe("createEmailProviderOperationExecutor", () => {
   });
 
   it.each([
-    "readback",
-    "marker",
-  ] as const)("stops sending archives when the wake deadline passes during %s", async (expiresDuring) => {
+    { expiresDuring: "readback", legacy: false },
+    { expiresDuring: "marker", legacy: false },
+    { expiresDuring: "readback", legacy: true },
+  ])("restores only dispatched archives when the wake deadline passes during $expiresDuring (legacy: $legacy)", async ({
+    expiresDuring,
+    legacy,
+  }) => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       const untilMs = Date.now() + 5000;
@@ -1317,29 +1322,52 @@ describe("createEmailProviderOperationExecutor", () => {
         emailAccountId: "acc-1",
         threadId: "thread-1",
         status: "PREPARING",
-        restoreMessageIds: ["m1", "m2"],
+        restoreMessageIds: [],
       };
       vi.mocked(prepareSnoozedThread).mockResolvedValueOnce({
-        created: true,
+        created: !legacy,
         snoozedThread: receipt,
       } as never);
-      vi.mocked(getSnoozedThreadByClientMutationId).mockResolvedValueOnce({
-        ...receipt,
-        archiveStarted: true,
-        clientMutationPayloadHash: createHash("sha256")
-          .update(JSON.stringify({ untilMs, messageIds: ["m1", "m2"] }))
-          .digest("hex"),
-      } as never);
+      let persistedHash = legacy
+        ? null
+        : createHash("sha256")
+            .update(JSON.stringify({ untilMs, messageIds: ["m1", "m2"] }))
+            .digest("hex");
+      let persistedRestoreIds: string[] = [];
+      vi.mocked(claimSnoozePreparation).mockImplementationOnce(
+        async (_, dispatch) => {
+          persistedHash ??= dispatch?.clientMutationPayloadHash ?? null;
+          return new Date();
+        },
+      );
+      vi.mocked(getSnoozedThreadByClientMutationId).mockImplementationOnce(
+        () =>
+          Promise.resolve({
+            ...receipt,
+            archiveStarted: true,
+            clientMutationPayloadHash: persistedHash,
+            restoreMessageIds: persistedRestoreIds,
+          }) as never,
+      );
       prisma.snoozedThread.findMany.mockResolvedValue([]);
-      if (expiresDuring === "marker") {
+      const saveArchiveWrite = async ({
+        messageId,
+        restoreMessageIds,
+      }: Parameters<typeof updateSnoozeArchiveWrite>[0]) => {
+        if (restoreMessageIds) persistedRestoreIds = restoreMessageIds;
+        if (expiresDuring === "marker" && messageId === "m2") {
+          inbox.delete("m2");
+          vi.setSystemTime(untilMs + 1);
+        }
+        return true;
+      };
+      vi.mocked(updateSnoozeArchiveWrite)
+        .mockImplementationOnce(saveArchiveWrite)
+        .mockImplementationOnce(saveArchiveWrite);
+      if (expiresDuring === "marker")
         vi.mocked(updateSnoozeArchiveWrite)
-          .mockResolvedValueOnce(true)
-          .mockResolvedValueOnce(true)
-          .mockImplementationOnce(async () => {
-            vi.setSystemTime(untilMs + 1);
-            return true;
-          });
-      }
+          .mockImplementationOnce(saveArchiveWrite)
+          .mockImplementationOnce(saveArchiveWrite);
       const executor = createEmailProviderOperationExecutor({
         accountId: "acc-1",
         provider: {
@@ -1350,8 +1378,10 @@ describe("createEmailProviderOperationExecutor", () => {
             return ids.map(message);
           },
           async getMessage(id: string) {
-            if (expiresDuring === "readback" && id === "m1" && !inbox.has(id))
+            if (expiresDuring === "readback" && id === "m1" && !inbox.has(id)) {
+              inbox.delete("m2");
               vi.setSystemTime(untilMs + 1);
+            }
             return message(id);
           },
         } as unknown as EmailProvider,
@@ -1376,7 +1406,8 @@ describe("createEmailProviderOperationExecutor", () => {
       ).resolves.toMatchObject({ status: "rejected", code: "snooze_expired" });
       expect(archiveMessages).toHaveBeenCalledExactlyOnceWith(["m1"]);
       expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
-      expect(inbox).toEqual(new Set(["m1", "m2"]));
+      expect(unarchiveMessages).toHaveBeenCalledExactlyOnceWith(["m1"]);
+      expect(inbox).toEqual(new Set(["m1"]));
       if (expiresDuring === "marker")
         expect(updateSnoozeArchiveWrite).toHaveBeenCalledWith(
           expect.objectContaining({ previousMessageId: "m2", messageId: null }),
@@ -1992,17 +2023,17 @@ describe("createEmailProviderOperationExecutor", () => {
       if (read === "inbox")
         vi.mocked(prepareSnoozedThread).mockImplementationOnce(readReceipt);
       vi.mocked(claimSnoozePreparation)
-        .mockImplementationOnce(async (_, dispatch) => {
+        .mockImplementationOnce(async () => {
           receipt.archiveStarted = true;
-          receipt.restoreMessageIds = dispatch?.inboxMessageIds ?? [];
           receipt.archiveClaimedAt = new Date();
           return receipt.archiveClaimedAt;
         })
         .mockResolvedValueOnce(null);
       vi.mocked(updateSnoozeArchiveWrite).mockImplementationOnce(
-        async ({ messageId }) => {
+        async ({ messageId, restoreMessageIds }) => {
           receipt.pendingArchiveMessageId = messageId;
           receipt.pendingArchiveDispatchedAt = messageId ? new Date() : null;
+          if (restoreMessageIds) receipt.restoreMessageIds = restoreMessageIds;
           return true;
         },
       );
@@ -2090,13 +2121,16 @@ describe("createEmailProviderOperationExecutor", () => {
   });
 
   it.each([
-    { status: "PREPARING", pendingCommits: true },
-    { status: "CANCELLED", pendingCommits: true },
-    { status: "PREPARING", pendingCommits: false },
-    { status: "CANCELLED", pendingCommits: false },
-  ] as const)("recovers earlier archives on a $status receipt with a pending write (commits: $pendingCommits)", async ({
+    { status: "PREPARING", pendingCommits: true, readError: false },
+    { status: "CANCELLED", pendingCommits: true, readError: false },
+    { status: "PREPARING", pendingCommits: false, readError: false },
+    { status: "CANCELLED", pendingCommits: false, readError: false },
+    { status: "PREPARING", pendingCommits: true, readError: true },
+    { status: "CANCELLED", pendingCommits: true, readError: true },
+  ])("recovers earlier archives on a $status receipt with a pending write (commits: $pendingCommits, initial read error: $readError)", async ({
     status,
     pendingCommits,
+    readError,
   }) => {
     const receipt = {
       id: "snooze-row",
@@ -2111,11 +2145,13 @@ describe("createEmailProviderOperationExecutor", () => {
     };
     const prepare = async () =>
       ({ created: false, snoozedThread: { ...receipt } }) as never;
-    vi.mocked(prepareSnoozedThread)
-      .mockImplementationOnce(prepare)
-      .mockImplementationOnce(prepare);
+    if (!readError)
+      vi.mocked(prepareSnoozedThread)
+        .mockImplementationOnce(prepare)
+        .mockImplementationOnce(prepare);
     prisma.snoozedThread.findMany.mockResolvedValue([]);
     const archived = new Set(["archived"]);
+    let pendingUnavailable = readError;
     const unarchiveMessages = vi.fn(async (ids: string[]) => {
       for (const id of ids) archived.delete(id);
     });
@@ -2125,6 +2161,8 @@ describe("createEmailProviderOperationExecutor", () => {
         name: "google",
         unarchiveMessages,
         async getMessage(id: string) {
+          if (id === "pending" && pendingUnavailable)
+            throw new Error("Provider unavailable");
           return {
             id,
             threadId: "thread-1",
@@ -2155,6 +2193,21 @@ describe("createEmailProviderOperationExecutor", () => {
         signal: new AbortController().signal,
       });
 
+    if (pendingUnavailable) {
+      const untilMs = 1;
+      const pendingReceipt = () =>
+        Promise.resolve({
+          ...receipt,
+          clientMutationPayloadHash: createHash("sha256")
+            .update(
+              JSON.stringify({ untilMs, messageIds: ["archived", "pending"] }),
+            )
+            .digest("hex"),
+        }) as never;
+      vi.mocked(getSnoozedThreadByClientMutationId)
+        .mockImplementationOnce(pendingReceipt)
+        .mockImplementationOnce(pendingReceipt);
+    }
     expect(await inspect()).toMatchObject({ status: "not_dispatched" });
     expect(unarchiveMessages).toHaveBeenCalledExactlyOnceWith(["archived"]);
     expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith(
@@ -2176,6 +2229,7 @@ describe("createEmailProviderOperationExecutor", () => {
     expect(unarchiveMessages).toHaveBeenCalledTimes(1);
     expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
 
+    pendingUnavailable = false;
     if (pendingCommits) archived.add("pending");
     else
       receipt.pendingArchiveDispatchedAt = new Date(
@@ -2252,7 +2306,7 @@ describe("createEmailProviderOperationExecutor", () => {
     expect(await execute("resolved")).toMatchObject({ status: "confirmed" });
     expect(archiveMessages).toHaveBeenCalledExactlyOnceWith(["m1"]);
     expect(claimSnoozePreparation).toHaveBeenCalledExactlyOnceWith(receipt, {
-      inboxMessageIds: ["m1"],
+      clientMutationPayloadHash: expect.any(String),
       folders,
     });
     expect(claimSnoozePreparation).toHaveBeenCalledBefore(archiveMessages);
@@ -2368,7 +2422,7 @@ describe("createEmailProviderOperationExecutor", () => {
     });
   });
 
-  it("settles a cancelled snooze rollback when the original message disappears", async () => {
+  it("keeps a cancelled snooze rollback pending through a temporary 404", async () => {
     const receipt = {
       id: "cancelled-snooze",
       emailAccountId: "acc-1",
@@ -2392,7 +2446,7 @@ describe("createEmailProviderOperationExecutor", () => {
       .fn()
       .mockRejectedValueOnce(new Error("Provider unavailable"));
     const archived = new Set<string>();
-    let firstMessageDeleted = false;
+    let firstMessageUnreadable = false;
     const executor = createEmailProviderOperationExecutor({
       accountId: "acc-1",
       provider: {
@@ -2404,12 +2458,12 @@ describe("createEmailProviderOperationExecutor", () => {
         getMessagesBatch(this: EmailProvider, ids: string[]) {
           return Promise.all(
             ids
-              .filter((id) => !firstMessageDeleted || id !== "m1")
+              .filter((id) => !firstMessageUnreadable || id !== "m1")
               .map((id) => this.getMessage(id)),
           );
         },
         async getMessage(id: string) {
-          if (firstMessageDeleted && id === "m1")
+          if (firstMessageUnreadable && id === "m1")
             throw new Error("Requested entity was not found");
           return {
             id,
@@ -2445,28 +2499,43 @@ describe("createEmailProviderOperationExecutor", () => {
     });
     expect(claimSnoozePreparation).toHaveBeenCalledWith(
       expect.objectContaining({ id: receipt.id }),
-      { inboxMessageIds: ["m1", "m2"] },
+      { clientMutationPayloadHash: expect.any(String) },
     );
     expect(unarchiveMessages).toHaveBeenNthCalledWith(1, ["m1", "m2"]);
     expect(prisma.snoozedThread.updateMany).toHaveBeenCalledTimes(1);
 
     const [mutation] = vi.mocked(prepareSnoozedThread).mock.calls[0];
-    firstMessageDeleted = true;
+    firstMessageUnreadable = true;
     archived.delete("m2");
-    vi.mocked(getSnoozedThreadByClientMutationId).mockResolvedValueOnce({
+    const pendingRollback = {
       ...mutation,
       ...receipt,
       pendingRollbackMessageIds: ["m1", "m2"],
       rollbackDispatchedAt: new Date(),
       rollbackArchiveObservedIds: ["m1", "m2"],
-    } as never);
+    };
+    vi.mocked(getSnoozedThreadByClientMutationId).mockResolvedValueOnce(
+      pendingRollback as never,
+    );
 
     const retry = await executor.inspect({
       operation,
       receiptId: null,
       signal,
     });
-    expect(retry).toMatchObject({
+    expect(retry).toMatchObject({ status: "not_dispatched" });
+    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledTimes(1);
+    expect(unarchiveMessages).toHaveBeenCalledExactlyOnceWith(["m1", "m2"]);
+
+    firstMessageUnreadable = false;
+    archived.delete("m1");
+    vi.mocked(prepareSnoozedThread).mockResolvedValueOnce({
+      created: false,
+      snoozedThread: pendingRollback,
+    } as never);
+    expect(
+      await executor.inspect({ operation, receiptId: null, signal }),
+    ).toMatchObject({
       status: "rejected",
       code: "snooze_cancelled",
     });
