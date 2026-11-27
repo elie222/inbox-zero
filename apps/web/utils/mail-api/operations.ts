@@ -1613,19 +1613,33 @@ async function restoreObservedSnoozeArchives(
     const location = snoozeMessageLocation(message, receipt);
     return location === "unknown" ? [] : [{ message, location, startedAtMs }];
   });
-  const readable = new Set(observed.map(({ message }) => message.id));
+  const rollbackStillInFlight = (startedAtMs: number) =>
+    snoozeArchiveRetryAfterMs(
+      receipt.rollbackDispatchedAt ?? null,
+      new Date(startedAtMs),
+    ) > 0;
+  const observedArchive = new Set(receipt.rollbackArchiveObservedIds);
+  const settledInInbox = new Set(
+    observed
+      .filter(
+        ({ message, location, startedAtMs }) =>
+          location === "inbox" &&
+          (observedArchive.has(message.id) ||
+            !rollbackStillInFlight(startedAtMs)),
+      )
+      .map(({ message }) => message.id),
+  );
   const independentlyRestorable = observed
     .filter(({ message, location, startedAtMs }) => {
       if (location !== "archive") return false;
       if (!pendingIds.has(message.id))
-        return message.id !== receipt.pendingArchiveMessageId;
-      return !snoozeArchiveRetryAfterMs(
-        receipt.rollbackDispatchedAt ?? null,
-        new Date(startedAtMs),
-      );
+        return (
+          pendingIds.size > 0 || message.id !== receipt.pendingArchiveMessageId
+        );
+      return !rollbackStillInFlight(startedAtMs);
     })
     .map(({ message }) => message);
-  if ([...pendingIds].some((id) => !readable.has(id))) {
+  if ([...pendingIds].some((id) => !settledInInbox.has(id))) {
     const stillSnoozed = await getOtherSnoozedThreads(
       receipt,
       independentlyRestorable,

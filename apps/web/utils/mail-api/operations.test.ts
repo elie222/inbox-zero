@@ -2246,15 +2246,43 @@ describe("createEmailProviderOperationExecutor", () => {
   });
 
   it.each([
-    { status: "PREPARING", pendingArchive: false, unreadable: false },
-    { status: "CANCELLED", pendingArchive: false, unreadable: false },
-    { status: "CANCELLED", pendingArchive: true, unreadable: false },
-    { status: "CANCELLED", pendingArchive: false, unreadable: true },
-  ])("resumes partial rollback on a $status receipt (pending archive: $pendingArchive, unreadable: $unreadable)", async ({
+    {
+      status: "PREPARING",
+      pendingArchiveMessageId: null,
+      pendingLocation: "inbox",
+    },
+    {
+      status: "CANCELLED",
+      pendingArchiveMessageId: null,
+      pendingLocation: "inbox",
+    },
+    {
+      status: "CANCELLED",
+      pendingArchiveMessageId: "m1",
+      pendingLocation: "inbox",
+    },
+    {
+      status: "CANCELLED",
+      pendingArchiveMessageId: null,
+      pendingLocation: "unreadable",
+    },
+    {
+      status: "CANCELLED",
+      pendingArchiveMessageId: "m2",
+      pendingLocation: "unreadable",
+    },
+    {
+      status: "CANCELLED",
+      pendingArchiveMessageId: "m2",
+      pendingLocation: "archive",
+    },
+  ])("resumes partial rollback on a $status receipt (pending archive: $pendingArchiveMessageId, location: $pendingLocation)", async ({
     status,
-    pendingArchive,
-    unreadable,
+    pendingArchiveMessageId,
+    pendingLocation,
   }) => {
+    const unreadable = pendingLocation === "unreadable";
+    const independent = pendingLocation !== "inbox";
     const rollbackDispatchedAt = new Date();
     const receipt = {
       id: "partial-rollback",
@@ -2263,8 +2291,10 @@ describe("createEmailProviderOperationExecutor", () => {
       status,
       archiveStarted: true,
       archiveClaimedAt: null,
-      pendingArchiveMessageId: pendingArchive ? "m1" : null,
-      pendingArchiveDispatchedAt: pendingArchive ? rollbackDispatchedAt : null,
+      pendingArchiveMessageId,
+      pendingArchiveDispatchedAt: pendingArchiveMessageId
+        ? rollbackDispatchedAt
+        : null,
       restoreMessageIds: ["m1", "m2"],
       pendingRollbackMessageIds: ["m1"],
       rollbackDispatchedAt,
@@ -2283,6 +2313,7 @@ describe("createEmailProviderOperationExecutor", () => {
     } else vi.mocked(prepareSnoozedThread).mockImplementationOnce(prepare);
     prisma.snoozedThread.findMany.mockResolvedValue([]);
     const archived = new Set(["m2"]);
+    if (pendingLocation === "archive") archived.add("m1");
     const unarchiveMessages = vi.fn(async (ids: string[]) => {
       for (const id of ids) archived.delete(id);
     });
@@ -2325,7 +2356,7 @@ describe("createEmailProviderOperationExecutor", () => {
       });
 
     expect(await inspect()).toMatchObject({ status: "not_dispatched" });
-    if (unreadable) {
+    if (independent) {
       expect(unarchiveMessages).toHaveBeenCalledExactlyOnceWith(["m2"]);
       expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -2342,11 +2373,11 @@ describe("createEmailProviderOperationExecutor", () => {
     } else expect(unarchiveMessages).not.toHaveBeenCalled();
     expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
     const remaining = {
-      restoreMessageIds: [unreadable ? "m1" : "m2"],
-      pendingRollbackMessageIds: unreadable ? ["m1"] : [],
-      rollbackDispatchedAt: unreadable ? rollbackDispatchedAt : null,
-      rollbackArchiveObservedIds: unreadable ? ["m1"] : [],
-      ...(pendingArchive && {
+      restoreMessageIds: [independent ? "m1" : "m2"],
+      pendingRollbackMessageIds: independent ? ["m1"] : [],
+      rollbackDispatchedAt: independent ? rollbackDispatchedAt : null,
+      rollbackArchiveObservedIds: independent ? ["m1"] : [],
+      ...(pendingArchiveMessageId && {
         pendingArchiveMessageId: null,
         pendingArchiveDispatchedAt: null,
       }),
@@ -2356,6 +2387,7 @@ describe("createEmailProviderOperationExecutor", () => {
     );
     Object.assign(receipt, remaining);
     unreadableFirst = false;
+    archived.delete("m1");
 
     vi.mocked(prepareSnoozedThread).mockImplementationOnce(prepare);
     expect(await inspect()).toMatchObject({
