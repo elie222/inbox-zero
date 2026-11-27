@@ -1951,9 +1951,14 @@ describe("createEmailProviderOperationExecutor", () => {
   });
 
   it.each([
-    false,
-    true,
-  ])("retains rollback when an ambiguous archive commits after the lease expires (cancelled: %s)", async (cancelled) => {
+    { cancelled: false, temporaryNotFound: false },
+    { cancelled: true, temporaryNotFound: false },
+    { cancelled: false, temporaryNotFound: true },
+    { cancelled: true, temporaryNotFound: true },
+  ])("retains rollback for a late archive after lease expiry (cancelled: $cancelled, temporary 404: $temporaryNotFound)", async ({
+    cancelled,
+    temporaryNotFound,
+  }) => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       const now = Date.now();
@@ -1966,6 +1971,7 @@ describe("createEmailProviderOperationExecutor", () => {
         archiveStarted: false,
         archiveClaimedAt: null as Date | null,
         pendingArchiveMessageId: null as string | null,
+        pendingArchiveDispatchedAt: null as Date | null,
         restoreMessageIds: [] as string[],
       };
       const readReceipt = async () =>
@@ -1973,8 +1979,9 @@ describe("createEmailProviderOperationExecutor", () => {
       vi.mocked(prepareSnoozedThread)
         .mockImplementationOnce(readReceipt)
         .mockImplementationOnce(readReceipt)
-        .mockImplementationOnce(readReceipt)
         .mockImplementationOnce(readReceipt);
+      if (!temporaryNotFound)
+        vi.mocked(prepareSnoozedThread).mockImplementationOnce(readReceipt);
       vi.mocked(claimSnoozePreparation)
         .mockImplementationOnce(async (_, dispatch) => {
           receipt.archiveStarted = true;
@@ -1986,6 +1993,7 @@ describe("createEmailProviderOperationExecutor", () => {
       vi.mocked(updateSnoozeArchiveWrite).mockImplementationOnce(
         async ({ messageId }) => {
           receipt.pendingArchiveMessageId = messageId;
+          receipt.pendingArchiveDispatchedAt = messageId ? new Date() : null;
           return true;
         },
       );
@@ -1993,6 +2001,7 @@ describe("createEmailProviderOperationExecutor", () => {
       const archiveDispatched = Promise.withResolvers<void>();
       const archiveSettled = Promise.withResolvers<void>();
       let inInbox = true;
+      let missing = false;
       const unarchiveMessages = vi.fn(async () => {
         inInbox = true;
       });
@@ -2009,6 +2018,7 @@ describe("createEmailProviderOperationExecutor", () => {
             );
           },
           async getMessage(id: string) {
+            if (missing) throw new Error("Requested entity was not found");
             return {
               id,
               threadId: receipt.threadId,
@@ -2044,10 +2054,19 @@ describe("createEmailProviderOperationExecutor", () => {
       if (cancelled) receipt.status = "CANCELLED";
 
       vi.setSystemTime(now + SNOOZE_EXECUTION_LEASE_MS + 1);
+      if (temporaryNotFound) {
+        missing = true;
+        const [mutation] = vi.mocked(prepareSnoozedThread).mock.calls[0];
+        vi.mocked(getSnoozedThreadByClientMutationId).mockResolvedValueOnce({
+          ...mutation,
+          ...receipt,
+        } as never);
+      }
       expect(await inspect()).toMatchObject({ status: "not_dispatched" });
       expect(unarchiveMessages).not.toHaveBeenCalled();
       expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
       inInbox = false;
+      missing = false;
       if (cancelled)
         prisma.snoozedThread.updateMany.mockResolvedValueOnce({ count: 1 });
       expect(await inspect()).toMatchObject({

@@ -1531,13 +1531,12 @@ function snoozeArchiveObservation(
     ({ target }) => target.messageId === receipt.pendingArchiveMessageId,
   );
   if (!read) return "waiting";
-  if (!read.message) return "settled";
-  const location = snoozeMessageLocation(read.message, receipt);
+  const location = read.message && snoozeMessageLocation(read.message, receipt);
   if (location === "archive") return "settled";
   const dispatchedAt =
     receipt.pendingArchiveDispatchedAt ?? receipt.archiveClaimedAt;
   // The observation window outlasts a single claim. It bounds the retry wait,
-  // since the provider does not report whether a timed-out write is still queued.
+  // since a missing read does not prove the provider dropped a timed-out write.
   if (
     location === "unknown" ||
     (dispatchedAt &&
