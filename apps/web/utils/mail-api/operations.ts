@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import chunk from "lodash/chunk";
-import { z } from "zod";
 import type {
   ExecutionResult,
   OperationExecutor,
@@ -8,7 +7,7 @@ import type {
 import {
   type PreparedOperation,
   type TargetOutcome,
-  targetOutcomeSchema,
+  targetOutcomesSchema,
 } from "@inboxzero/mail-core/operations";
 import type { MetadataChange } from "@inboxzero/mail-core/commands";
 import type {
@@ -56,7 +55,6 @@ const HELD_SEND_POLL_MS = 2000;
 const BLOCKED_HELD_SEND_RETRY_MS = 60_000;
 const METADATA_OBSERVATION_BATCH_SIZE = 20;
 const SNOOZE_RECOVERY_READ_CONCURRENCY = 4;
-const snoozeTargetOutcomesSchema = z.array(targetOutcomeSchema);
 type SendIntent = Extract<PreparedOperation["intent"], { kind: "send" }>;
 type PreparedMetadataOperation = PreparedOperation & {
   intent: Extract<PreparedOperation["intent"], { kind: "metadata" }>;
@@ -1137,7 +1135,7 @@ function confirmedSnooze(
   operation: PreparedMetadataOperation,
   receipt: Pick<SnoozedThread, "targetOutcomes">,
 ) {
-  const saved = snoozeTargetOutcomesSchema.safeParse(receipt.targetOutcomes);
+  const saved = targetOutcomesSchema.safeParse(receipt.targetOutcomes);
   return {
     status: "confirmed" as const,
     receiptId: operation.key.operationId,
@@ -1219,8 +1217,18 @@ async function reconcileSnooze(
     if (reads.status === "unavailable")
       return snoozeProviderUnavailable(reads.error);
     if (existing.pendingArchiveMessageId) {
-      if (!snoozeArchiveWriteObserved(existing, reads.messages))
+      if (
+        !snoozeArchiveWriteObserved(existing, reads.messages) ||
+        hasPartialSnoozeRollback(existing)
+      ) {
+        await restoreObservedSnoozeArchives(
+          provider,
+          existing,
+          reads.messages,
+          claim,
+        );
         return snoozeUnavailable(30_000);
+      }
       if (
         !(await updateSnoozeArchiveWrite({
           id: existing.id,
@@ -1357,8 +1365,22 @@ async function resumeCancelledSnooze(
     const reads = await readSnoozeRecoveryTargets(provider, targets);
     if (reads.status === "unavailable")
       return snoozeProviderUnavailable(reads.error);
-    if (!snoozeArchiveWriteObserved(receipt, reads.messages))
+    if (
+      receipt.pendingArchiveMessageId &&
+      (hasPartialSnoozeRollback(receipt) ||
+        (!receipt.pendingRollbackMessageIds?.includes(
+          receipt.pendingArchiveMessageId,
+        ) &&
+          !snoozeArchiveWriteObserved(receipt, reads.messages)))
+    ) {
+      await restoreObservedSnoozeArchives(
+        provider,
+        receipt,
+        reads.messages,
+        receipt.archiveClaimedAt ?? null,
+      );
       return snoozeUnavailable(30_000);
+    }
     const rollbackMessages = reads.messages.flatMap(({ message }) =>
       message ? [message] : [],
     );
@@ -1437,6 +1459,71 @@ function snoozeArchiveWriteObserved(
       (!read.message ||
         snoozeMessageLocation(read.message, receipt) === "archive"),
   );
+}
+
+function hasPartialSnoozeRollback(
+  receipt: Pick<
+    SnoozedThread,
+    "pendingArchiveMessageId" | "pendingRollbackMessageIds"
+  >,
+) {
+  return Boolean(
+    receipt.pendingArchiveMessageId &&
+      receipt.pendingRollbackMessageIds?.length &&
+      !receipt.pendingRollbackMessageIds.includes(
+        receipt.pendingArchiveMessageId,
+      ),
+  );
+}
+
+async function restoreObservedSnoozeArchives(
+  provider: EmailProvider,
+  receipt: SnoozeRollbackReceipt &
+    Pick<SnoozedThread, "emailAccountId" | "pendingArchiveMessageId">,
+  reads: SnoozeRecoveryObservation[],
+  archiveClaimedAt: Date | null,
+) {
+  // A single unacknowledged archive must not hold up rollback of earlier writes.
+  const originalInbox = new Set(receipt.restoreMessageIds);
+  const candidates = new Set(
+    receipt.pendingRollbackMessageIds?.length
+      ? receipt.pendingRollbackMessageIds
+      : reads.flatMap(({ message }) =>
+          message &&
+          message.id !== receipt.pendingArchiveMessageId &&
+          originalInbox.has(message.id) &&
+          snoozeMessageLocation(message, receipt) === "archive"
+            ? [message.id]
+            : [],
+        ),
+  );
+  if (!candidates.size) return;
+  const settledReads = reads.filter(({ target }) =>
+    candidates.has(target.messageId),
+  );
+  const messages = settledReads.flatMap(({ message }) =>
+    message ? [message] : [],
+  );
+  const stillSnoozed = await getOtherSnoozedThreads(receipt, messages);
+  if (
+    !(await restoreSnoozeTargets(provider, settledReads, stillSnoozed, receipt))
+  )
+    return;
+  await prisma.snoozedThread.updateMany({
+    where: {
+      id: receipt.id,
+      archiveClaimedAt,
+      pendingArchiveMessageId: receipt.pendingArchiveMessageId,
+      restoreMessageIds: { equals: receipt.restoreMessageIds },
+    },
+    data: {
+      restoreMessageIds: receipt.restoreMessageIds.filter(
+        (id) => !candidates.has(id),
+      ),
+      pendingRollbackMessageIds: [],
+      rollbackArchiveObservedIds: [],
+    },
+  });
 }
 
 async function getOtherSnoozedThreads(
