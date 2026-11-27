@@ -1259,7 +1259,6 @@ function publicBookingInput(
     guestName: "Guest User",
     guestEmail: "guest@example.com",
     idempotencyToken: "token-1",
-    rescheduleClaimedAt: null as Date | null,
     ...overrides,
   };
 }
@@ -1329,6 +1328,7 @@ function bookingRecordBase() {
     cancelTokenHash: hashToken("cancel-token"),
     cancellationReason: null,
     idempotencyToken: "token-1",
+    rescheduleClaimedAt: null as Date | null,
     createdAt: new Date("2026-05-01T00:00:00.000Z"),
     updatedAt: new Date("2026-05-01T00:00:00.000Z"),
     bookingLink: {

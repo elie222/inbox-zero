@@ -1,5 +1,6 @@
 "use server";
 
+import isEqual from "lodash/isEqual";
 import { toggleRule } from "@/utils/rule/toggle-rule";
 import { getDefaultMailSplitDrafts } from "@/utils/split-inbox/default-splits";
 import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
@@ -22,11 +23,13 @@ import {
   toggleAllRulesBody,
   copyRulesFromAccountBody,
   importRulesBody,
+  type ImportedRule,
 } from "@/utils/actions/rule.validation";
 import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
 import { flattenConditions } from "@/utils/condition";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
+import type { Action, Rule } from "@/generated/prisma/client";
 import { sanitizeActionFields } from "@/utils/action-item";
 import {
   deleteRule,
@@ -978,16 +981,16 @@ export const importRulesAction = actionClient
 
       const existingRules = await prisma.rule.findMany({
         where: { emailAccountId, organizationRuleId: null },
-        select: { id: true, name: true, systemType: true },
+        include: { actions: true },
       });
 
       const rulesByName = new Map(
-        existingRules.map((r) => [r.name.toLowerCase(), r.id]),
+        existingRules.map((r) => [r.name.toLowerCase(), r]),
       );
       const rulesBySystemType = new Map(
         existingRules
           .filter((r) => r.systemType)
-          .map((r) => [r.systemType!, r.id]),
+          .map((r) => [r.systemType!, r]),
       );
 
       let createdCount = 0;
@@ -997,7 +1000,7 @@ export const importRulesAction = actionClient
       for (const rule of rules) {
         try {
           // Match by systemType first, then by name
-          const existingRuleId = rule.systemType
+          const existingRule = rule.systemType
             ? rulesBySystemType.get(rule.systemType)
             : rulesByName.get(rule.name.toLowerCase());
 
@@ -1025,10 +1028,18 @@ export const importRulesAction = actionClient
             emailAccountId,
           );
 
-          if (existingRuleId) {
+          if (existingRule) {
+            const keepLearnedPatterns = importKeepsLearnedPatterns(
+              existingRule,
+              rule,
+              mappedActions,
+            );
             await replaceRuleWithResolvedActions({
-              ruleId: existingRuleId,
+              ruleId: existingRule.id,
               emailAccountId,
+              expectedUpdatedAt: keepLearnedPatterns
+                ? existingRule.updatedAt
+                : undefined,
               data: {
                 instructions: rule.instructions,
                 enabled: rule.enabled ?? true,
@@ -1040,6 +1051,7 @@ export const importRulesAction = actionClient
                 to: rule.to,
                 subject: rule.subject,
                 body: rule.body,
+                ...(!keepLearnedPatterns && { groupId: null }),
               },
               actions: mappedActions,
             });
@@ -1081,3 +1093,67 @@ export const importRulesAction = actionClient
       return { createdCount, updatedCount, skippedCount };
     },
   );
+
+function importKeepsLearnedPatterns(
+  existingRule: Rule & { actions: Action[] },
+  importedRule: ImportedRule,
+  importedActions: RuleActionCreateData[],
+) {
+  if (
+    !existingRule.groupId ||
+    existingRule.actions.length !== importedActions.length
+  )
+    return false;
+
+  const conditionFields = [
+    "instructions",
+    "runOnThreads",
+    "conditionalOperator",
+    "categoryFilterType",
+    "from",
+    "to",
+    "subject",
+    "body",
+  ] as const;
+  if (
+    conditionFields.some(
+      (field) =>
+        importedRule[field] !== undefined &&
+        existingRule[field] !== importedRule[field],
+    )
+  ) {
+    return false;
+  }
+
+  const actionFields = [
+    "type",
+    "label",
+    "to",
+    "cc",
+    "bcc",
+    "subject",
+    "content",
+    "folderName",
+    "url",
+    "delayInMinutes",
+    "integrationName",
+    "integrationToolName",
+    "integrationArgs",
+    "messagingChannelId",
+    "staticAttachments",
+  ] as const;
+  const unmatched = [...existingRule.actions];
+  return importedActions.every((action) => {
+    const index = unmatched.findIndex(
+      (existing) =>
+        (!existing.labelId || existing.label) &&
+        (!existing.folderId || existing.folderName) &&
+        actionFields.every((field) =>
+          isEqual(existing[field] ?? null, action[field] ?? null),
+        ),
+    );
+    if (index === -1) return false;
+    unmatched.splice(index, 1);
+    return true;
+  });
+}

@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ActionType, SystemType } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  LogicalOperator,
+  SystemType,
+} from "@/generated/prisma/enums";
 import { trackRuleEvent } from "@/utils/analytics/rule-events.server";
 import { ConditionType } from "@/utils/config";
 
@@ -172,20 +176,41 @@ describe("deleteRuleAction", () => {
   });
 });
 
-it("preserves existing learned patterns when importing a matching rule", async () => {
+it.each([
+  { label: "an unchanged definition", changes: {}, keepPatterns: true },
+  {
+    label: "changed conditions",
+    changes: { instructions: "Archive travel updates" },
+    keepPatterns: false,
+  },
+  {
+    label: "a new forwarding action",
+    changes: {
+      actions: [{ type: ActionType.FORWARD, to: "recipient@example.com" }],
+    },
+    keepPatterns: false,
+  },
+])("handles learned patterns when importing $label", async ({
+  changes,
+  keepPatterns,
+}) => {
   vi.clearAllMocks();
   prisma.emailAccount.findUnique.mockResolvedValue({
     email: "owner@example.com",
     account: { userId: "u1", provider: "google" },
   } as never);
-  prisma.rule.findMany.mockResolvedValue([
-    { id: "rule-1", name: "Archive updates", systemType: null },
-  ] as never);
   const existingRule = {
     id: "rule-1",
+    name: "Archive updates",
+    systemType: null,
+    instructions: "Archive routine updates",
+    runOnThreads: false,
+    conditionalOperator: LogicalOperator.AND,
     groupId: "learned-patterns-1",
     actions: [{ type: ActionType.ARCHIVE }],
+    updatedAt: new Date(),
   };
+  prisma.rule.findMany.mockResolvedValue([existingRule] as never);
   prisma.rule.findUnique.mockResolvedValue(existingRule as never);
   prisma.rule.update.mockImplementation(
     async ({ data }) =>
@@ -205,13 +230,30 @@ it("preserves existing learned patterns when importing a matching rule", async (
           name: "Archive updates",
           instructions: "Archive routine updates",
           actions: [{ type: ActionType.ARCHIVE }],
+          ...changes,
         },
       ],
     } as never,
   );
 
   expect(result?.data).toMatchObject({ updatedCount: 1, skippedCount: 0 });
-  expect(prisma.group.deleteMany).not.toHaveBeenCalled();
+  if (keepPatterns) {
+    expect(prisma.group.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.rule.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "rule-1",
+          emailAccountId: "ea_1",
+          updatedAt: existingRule.updatedAt,
+        },
+        data: expect.objectContaining({ groupId: undefined }),
+      }),
+    );
+  } else {
+    expect(prisma.group.deleteMany).toHaveBeenCalledWith({
+      where: { id: "learned-patterns-1", emailAccountId: "ea_1" },
+    });
+  }
 });
 
 describe("updateRuleAction", () => {

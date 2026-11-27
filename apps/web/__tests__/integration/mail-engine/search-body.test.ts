@@ -71,7 +71,7 @@ import { POST as postHydration } from "@/app/api/mail/v1/accounts/[accountId]/hy
 import { POST as postMembership } from "@/app/api/mail/v1/accounts/[accountId]/conversation-membership/route";
 import { POST as postSearch } from "@/app/api/mail/v1/accounts/[accountId]/search/route";
 import {
-  GET as getOperation,
+  POST as inspectOperation,
   PUT as putOperation,
 } from "@/app/api/mail/v1/accounts/[accountId]/operations/[commandId]/route";
 
@@ -368,10 +368,12 @@ async function dispatchMailV1(request: NextRequest, accountId: string) {
     return postSearch(request, context);
   }
   if (resource.startsWith("operations/")) {
-    if (request.method === "GET" || request.method === "POST") {
-      return getOperation(request, context);
+    if (request.method === "POST") {
+      return inspectOperation(request, context);
     }
-    return putOperation(request, context);
+    if (request.method === "PUT") {
+      return putOperation(request, context);
+    }
   }
   return new Response(JSON.stringify({ error: { code: "not_found" } }), {
     status: 404,

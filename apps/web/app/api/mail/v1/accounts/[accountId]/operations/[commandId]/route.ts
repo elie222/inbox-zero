@@ -84,7 +84,8 @@ export const PUT = withEmailProvider(
   },
 );
 
-const inspectOperation = withEmailProvider(
+// Reconciling an interrupted operation can finish provider writes.
+export const POST = withEmailProvider(
   "mail/v1/operations/inspect",
   async (request, context) => {
     const params = await context.params;
@@ -144,9 +145,6 @@ const inspectOperation = withEmailProvider(
     );
   },
 );
-
-export const POST = inspectOperation;
-export const GET = inspectOperation;
 
 // Undo for a send the server is holding. It needs no mailbox access, so it
 // still works while the account waits to be reconnected.
