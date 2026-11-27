@@ -1559,9 +1559,11 @@ export function MailShell() {
     if (!targetsArchived) {
       archiveShortcut = archiveTargets;
     } else if (
+      !isMailOverlayOpen &&
       isReaderTarget &&
       !selection.hasSelection &&
-      orderedIds.every((id) => id === openThreadKey)
+      orderedIds.length === 1 &&
+      orderedIds[0] === openThreadKey
     ) {
       archiveShortcut = closeReader;
     }

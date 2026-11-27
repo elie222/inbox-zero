@@ -73,6 +73,16 @@ test("returns to the same list when E has no other conversation to open", async 
     await expect(
       reader.getByRole("button", { name: /^Move to inbox/i }),
     ).toBeVisible();
+    const threadUrl = page.url();
+    await page.keyboard.press("Shift+Slash");
+    const help = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+    await expect(help).toBeVisible();
+    await page.keyboard.press("e");
+    await expect(page).toHaveURL(threadUrl);
+    await page.keyboard.press("Escape");
+    await expect(help).toBeHidden();
+    await expect(reader).toBeVisible();
+
     await page.keyboard.press("e");
     await expect(page).toHaveURL(listUrl);
     await expect(reader).toBeHidden();
