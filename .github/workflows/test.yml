@@ -103,7 +103,7 @@ jobs:
           docker run -d --name postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:15
           until docker exec postgres pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
           pnpm -F inbox-zero-ai exec prisma migrate deploy
-          pnpm -F inbox-zero-ai test-db __tests__/db/shared-conversations.test.ts
+          pnpm -F inbox-zero-ai test-db __tests__/db/shared-conversations.test.ts __tests__/db/snoozed-thread-scheduler.test.ts
         env:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
           DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/postgres"

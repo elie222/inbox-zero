@@ -1040,7 +1040,6 @@ export const importRulesAction = actionClient
                 to: rule.to,
                 subject: rule.subject,
                 body: rule.body,
-                groupId: null,
               },
               actions: mappedActions,
             });

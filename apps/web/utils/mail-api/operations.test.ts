@@ -694,6 +694,73 @@ describe("createEmailProviderOperationExecutor", () => {
     });
   });
 
+  it("waits for a conversation ID before archiving or scheduling a snooze", async () => {
+    const getMessage = vi
+      .fn()
+      .mockRejectedValue(new Error("Temporary lookup failure"));
+    const archiveThreadWithLabel = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        getMessage,
+        archiveThreadWithLabel,
+      } as unknown as EmailProvider,
+    });
+
+    const result = await executor.execute({
+      operation: snoozeOperation(Date.now() + 60_000),
+      attemptId: "attempt-1",
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toMatchObject({
+      status: "not_dispatched",
+      reason: "unavailable",
+    });
+    expect(prepareSnoozedThread).not.toHaveBeenCalled();
+    expect(archiveThreadWithLabel).not.toHaveBeenCalled();
+  });
+
+  it("finishes scheduling a preparing snooze during recovery", async () => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+      created: false,
+      snoozedThread: { status: "PREPARING" },
+    } as never);
+    vi.mocked(activatePreparedSnoozedThread).mockResolvedValue({
+      status: "PENDING",
+    } as never);
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveThreadWithLabel: vi.fn(),
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: { from: "ada@example.com" },
+            labelIds: [],
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    const untilMs = Date.now() + 60_000;
+    const result = await executor.inspect({
+      operation: snoozeOperation(untilMs),
+      receiptId: null,
+      signal: new AbortController().signal,
+    });
+
+    expect(result.status).toBe("confirmed");
+    expect(activatePreparedSnoozedThread).toHaveBeenCalledWith({
+      clientMutationId: "bulk-1",
+      emailAccountId: "acc-1",
+      threadId: "thread-1",
+      scheduledFor: new Date(untilMs),
+    });
+  });
+
   it("transfers snooze ownership to the server scheduler after archive", async () => {
     vi.mocked(prepareSnoozedThread).mockResolvedValue({
       created: true,

@@ -41,6 +41,7 @@ import {
   createRulesOnboardingAction,
   deleteRuleAction,
   enableDraftRepliesAction,
+  importRulesAction,
   toggleRuleAction,
   toggleAllRulesAction,
   updateRuleAction,
@@ -169,6 +170,48 @@ describe("deleteRuleAction", () => {
     expect(prisma.rule.delete).not.toHaveBeenCalled();
     expect(prisma.group.deleteMany).not.toHaveBeenCalled();
   });
+});
+
+it("preserves existing learned patterns when importing a matching rule", async () => {
+  vi.clearAllMocks();
+  prisma.emailAccount.findUnique.mockResolvedValue({
+    email: "owner@example.com",
+    account: { userId: "u1", provider: "google" },
+  } as never);
+  prisma.rule.findMany.mockResolvedValue([
+    { id: "rule-1", name: "Archive updates", systemType: null },
+  ] as never);
+  const existingRule = {
+    id: "rule-1",
+    groupId: "learned-patterns-1",
+    actions: [{ type: ActionType.ARCHIVE }],
+  };
+  prisma.rule.findUnique.mockResolvedValue(existingRule as never);
+  prisma.rule.update.mockImplementation(
+    async ({ data }) =>
+      ({
+        ...existingRule,
+        ...data,
+        groupId:
+          data.groupId === undefined ? existingRule.groupId : data.groupId,
+      }) as never,
+  );
+
+  const result = await importRulesAction(
+    "ea_1" as never,
+    {
+      rules: [
+        {
+          name: "Archive updates",
+          instructions: "Archive routine updates",
+          actions: [{ type: ActionType.ARCHIVE }],
+        },
+      ],
+    } as never,
+  );
+
+  expect(result?.data).toMatchObject({ updatedCount: 1, skippedCount: 0 });
+  expect(prisma.group.deleteMany).not.toHaveBeenCalled();
 });
 
 describe("updateRuleAction", () => {

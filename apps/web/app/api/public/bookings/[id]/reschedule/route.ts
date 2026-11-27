@@ -5,6 +5,8 @@ import { reschedulePublicBooking } from "@/utils/booking/public";
 import { enforcePublicBookingRescheduleRateLimit } from "@/utils/booking/public-rate-limit";
 import { getClientIp } from "@/utils/rate-limit";
 
+export const maxDuration = 300;
+
 export type PostPublicRescheduleBookingResponse = Awaited<
   ReturnType<typeof reschedulePublicBooking>
 >;

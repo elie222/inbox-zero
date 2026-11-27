@@ -1737,6 +1737,7 @@ model Booking {
   cancelTokenHash      String
   cancellationReason   String?
   idempotencyToken     String?
+  rescheduleClaimedAt  DateTime?
 
   bookingLinkId  String
   bookingLink    BookingLink  @relation(fields: [bookingLinkId], references: [id], onDelete: Cascade)
@@ -1983,6 +1984,7 @@ model AutomationJobRun {
   status       AutomationJobRunStatus @default(PENDING)
   scheduledFor DateTime
   processedAt  DateTime?
+  attempts     Int                    @default(0)
 
   outboundMessage   String? @db.Text
   providerMessageId String? // Provider message ID (e.g. Slack `ts`)

@@ -62,17 +62,15 @@ export function createEmailProviderOperationExecutor(input: {
       if (operation.intent.kind !== "metadata") {
         return { status: "rejected", code: "unsupported", targets: [] };
       }
-      if (operation.intent.change.kind === "snooze") {
-        return executeSnooze(provider, accountId, {
-          key: operation.key,
-          intent: {
-            kind: "metadata",
-            targets: operation.intent.targets,
-            change: operation.intent.change,
-          },
-        });
-      }
       const metadataOperation = { ...operation, intent: operation.intent };
+      if (operation.intent.change.kind === "snooze") {
+        return executeSnooze(
+          provider,
+          accountId,
+          metadataOperation,
+          operation.intent.change.untilMs,
+        );
+      }
       if (operation.intent.change.kind === "discard_draft") {
         return executeDiscardDraft(provider, accountId, metadataOperation);
       }
@@ -102,6 +100,15 @@ export function createEmailProviderOperationExecutor(input: {
       }
       if (operation.intent.kind !== "metadata") {
         return { status: "uncertain", receiptId: operation.key.operationId };
+      }
+      if (operation.intent.change.kind === "snooze") {
+        // An archived message can still be waiting for its wake-up to be scheduled.
+        return executeSnooze(
+          provider,
+          accountId,
+          { ...operation, intent: operation.intent },
+          operation.intent.change.untilMs,
+        );
       }
       // Discarding is idempotent: a draft that is already gone settles as
       // applied. Its version is read just before deleting, so draft_changed
@@ -508,24 +515,40 @@ async function applyChange(
 async function executeSnooze(
   provider: EmailProvider,
   accountId: string,
-  operation: {
-    key: { operationId: string };
-    intent: {
-      kind: "metadata";
-      targets: Array<{ accountId: string; messageId: string }>;
-      change: { kind: "snooze"; untilMs: number };
-    };
-  },
+  operation: PreparedMetadataOperation,
+  untilMs: number,
 ) {
-  const scheduledFor = new Date(operation.intent.change.untilMs);
-  const threadId = await threadIdForSnooze(provider, operation.intent.targets);
-  if (!threadId) {
+  const scheduledFor = new Date(untilMs);
+  const firstTarget = operation.intent.targets[0];
+  if (!firstTarget || !Number.isFinite(scheduledFor.getTime())) {
     return {
       status: "rejected" as const,
       code: "snooze_failed",
       targets: [],
     };
   }
+  let threadId: string;
+  try {
+    ({ threadId } = await provider.getMessage(firstTarget.messageId));
+  } catch (error) {
+    if (failedTargetOutcome(firstTarget, error).code === "not_found") {
+      return {
+        status: "rejected" as const,
+        code: "not_found",
+        targets: [],
+      };
+    }
+    if (isAuthError(error)) {
+      return {
+        status: "not_dispatched" as const,
+        reason: "blocked_auth" as const,
+        retryAfterMs: null,
+      };
+    }
+    return snoozeUnavailable();
+  }
+  if (!threadId) return snoozeUnavailable();
+
   const prepared = await prepareSnoozedThread({
     clientMutationId: operation.key.operationId,
     emailAccountId: accountId,
@@ -545,7 +568,7 @@ async function executeSnooze(
       provider,
       operation.intent.targets,
     );
-    if (!restored) return restoreFailed();
+    if (!restored) return snoozeUnavailable();
     return {
       status: "rejected" as const,
       code: "snooze_cancelled",
@@ -565,7 +588,7 @@ async function executeSnooze(
       provider,
       operation.intent.targets,
     );
-    if (!restored) return restoreFailed();
+    if (!restored) return snoozeUnavailable();
     await cancelPreparedSnooze(accountId, operation.key.operationId);
     return {
       status: "confirmed" as const,
@@ -667,7 +690,7 @@ async function executeSnooze(
       provider,
       applied.map((target) => target.key),
     );
-    if (!restored) return restoreFailed();
+    if (!restored) return snoozeUnavailable();
   }
   return {
     status: "confirmed" as const,
@@ -1016,7 +1039,7 @@ async function restoreSnoozeTargets(
   }
 }
 
-function restoreFailed() {
+function snoozeUnavailable() {
   return {
     status: "not_dispatched" as const,
     reason: "unavailable" as const,
@@ -1032,20 +1055,6 @@ async function cancelPreparedSnooze(accountId: string, operationId: string) {
     });
   } catch {
     // The prepare row is optional once we are already rejecting.
-  }
-}
-
-async function threadIdForSnooze(
-  provider: EmailProvider,
-  targets: Array<{ messageId: string }>,
-) {
-  const first = targets[0];
-  if (!first) return null;
-  try {
-    const message = await provider.getMessage(first.messageId);
-    return message.threadId;
-  } catch {
-    return first.messageId;
   }
 }
 

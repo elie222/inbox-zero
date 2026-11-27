@@ -85,6 +85,66 @@ describe("executeAutomationJobRun", () => {
     });
   });
 
+  it("sends on redelivery after a transient pre-delivery failure", async () => {
+    const run = createRun({ routes: [createScheduledRoute()] });
+    prisma.automationJobRun.findUnique.mockImplementation(async () => ({
+      ...run,
+    }));
+    prisma.automationJobRun.updateMany.mockImplementation(async () => {
+      run.status = AutomationJobRunStatus.RUNNING;
+      run.attempts++;
+      return { count: 1 };
+    });
+    prisma.automationJobRun.update.mockImplementation(async ({ data }) => {
+      run.status = data.status;
+      return run;
+    });
+    mockGetAutomationJobMessage.mockRejectedValueOnce(
+      new Error("Temporary provider error"),
+    );
+
+    const first = await executeAutomationJobRun({
+      automationJobRunId: run.id,
+      logger,
+    });
+    expect(first.status).toBe(500);
+    expect(run.status).toBe(AutomationJobRunStatus.PENDING);
+    expect(mockSendAutomationMessage).not.toHaveBeenCalled();
+
+    const retry = await executeAutomationJobRun({
+      automationJobRunId: run.id,
+      logger,
+    });
+    expect(retry.status).toBe(200);
+    expect(run.status).toBe(AutomationJobRunStatus.SENT);
+    expect(mockSendAutomationMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    "delivery started",
+    "retry limit reached",
+  ])("keeps the run failed when %s", async (reason) => {
+    const run = createRun({ routes: [createScheduledRoute()] });
+    if (reason === "delivery started") {
+      mockSendAutomationMessage.mockRejectedValueOnce(
+        new Error("Delivery timed out"),
+      );
+    } else {
+      run.attempts = 2;
+      mockGetAutomationJobMessage.mockRejectedValueOnce(
+        new Error("Provider unavailable"),
+      );
+    }
+    prisma.automationJobRun.findUnique.mockResolvedValue(run);
+
+    await executeAutomationJobRun({ automationJobRunId: run.id, logger });
+
+    expect(prisma.automationJobRun.update).toHaveBeenCalledWith({
+      where: { id: run.id },
+      data: expect.objectContaining({ status: AutomationJobRunStatus.FAILED }),
+    });
+  });
+
   it("skips as a configuration error when the scheduled route is missing", async () => {
     prisma.automationJobRun.findUnique.mockResolvedValue(
       createRun({
@@ -148,6 +208,7 @@ function createRun({
     id: "run-1",
     automationJobId: "automation-job-1",
     status: AutomationJobRunStatus.PENDING,
+    attempts: 0,
     scheduledFor: new Date(),
     createdAt: new Date(),
     automationJob: {

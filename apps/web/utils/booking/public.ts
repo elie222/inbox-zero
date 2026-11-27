@@ -32,6 +32,8 @@ import { secureCompareBuffers } from "@/utils/crypto-compare";
 
 const MAX_AVAILABILITY_RANGE_MS = 32 * 24 * 60 * 60 * 1000;
 const PENDING_BOOKING_TIMEOUT_MS = 15 * 60 * 1000;
+// Give any request that timed out a chance to finish its provider write.
+const RESCHEDULE_CLAIM_MS = 10 * 60 * 1000;
 const CALENDAR_AVAILABILITY_UNAVAILABLE =
   "Calendar availability is temporarily unavailable";
 const INVALID_CANCELLATION_LINK_MESSAGE = "Invalid cancellation link";
@@ -307,14 +309,19 @@ export async function cancelPublicBooking({
   // Atomic CONFIRMED -> CANCELED transition so concurrent cancel requests
   // don't both trigger provider cancellation and duplicate host emails.
   const transition = await prisma.booking.updateMany({
-    where: { id: booking.id, status: BookingStatus.CONFIRMED },
+    where: {
+      id: booking.id,
+      status: BookingStatus.CONFIRMED,
+      startTime: { gt: new Date() },
+      ...withoutActiveReschedule(new Date()),
+    },
     data: {
       status: BookingStatus.CANCELED,
       cancellationReason: reason || null,
     },
   });
   if (transition.count === 0) {
-    throw new SafeError("Booking is already canceled");
+    throw new SafeError("Booking changed. Refresh and try again.", 409);
   }
 
   if (
@@ -409,6 +416,7 @@ export async function reschedulePublicBooking({
 
   const previousStartTime = booking.startTime;
   const previousEndTime = booking.endTime;
+  const rescheduleClaimedAt = new Date();
 
   // Claim the new slot atomically before touching the provider. The partial
   // EXCLUDE constraint blocks overlapping CONFIRMED/PENDING bookings, so if
@@ -420,11 +428,16 @@ export async function reschedulePublicBooking({
         status: BookingStatus.CONFIRMED,
         startTime: previousStartTime,
         endTime: previousEndTime,
+        ...withoutActiveReschedule(rescheduleClaimedAt),
       },
-      data: { startTime: newStartTime, endTime: newEndTime },
+      data: {
+        startTime: newStartTime,
+        endTime: newEndTime,
+        rescheduleClaimedAt,
+      },
     });
     if (transition.count === 0) {
-      throw new SafeError("Booking cannot be rescheduled");
+      throw new SafeError("Booking cannot be rescheduled", 409);
     }
   } catch (error) {
     if (isSlotConflictError(error)) {
@@ -460,10 +473,14 @@ export async function reschedulePublicBooking({
         const rollback = await prisma.booking.updateMany({
           where: {
             id: booking.id,
-            startTime: newStartTime,
-            endTime: newEndTime,
+            status: BookingStatus.CONFIRMED,
+            rescheduleClaimedAt,
           },
-          data: { startTime: previousStartTime, endTime: previousEndTime },
+          data: {
+            startTime: previousStartTime,
+            endTime: previousEndTime,
+            rescheduleClaimedAt: null,
+          },
         });
         if (rollback.count === 0) {
           logger.error("Failed to roll back reschedule slot claim", {
@@ -490,14 +507,28 @@ export async function reschedulePublicBooking({
   const cancelUrl = getCancelUrl({ id: booking.id, token });
   const rescheduleUrl = getRescheduleUrl({ id: booking.id, token });
 
-  await sendBookingRescheduledEmails({
-    booking: rescheduledBooking,
-    previousStartTime,
-    guestTimezone,
-    cancelUrl,
-    rescheduleUrl,
-    logger,
-  });
+  try {
+    await sendBookingRescheduledEmails({
+      booking: rescheduledBooking,
+      previousStartTime,
+      guestTimezone,
+      cancelUrl,
+      rescheduleUrl,
+      logger,
+    });
+  } finally {
+    await prisma.booking
+      .updateMany({
+        where: { id: booking.id, rescheduleClaimedAt },
+        data: { rescheduleClaimedAt: null },
+      })
+      .catch((error) => {
+        logger.error("Failed to release booking reschedule claim", {
+          bookingId: booking.id,
+          error,
+        });
+      });
+  }
 
   return {
     ...toPublicBookingResult(rescheduledBooking),
@@ -1013,6 +1044,19 @@ function isStalePendingBooking(booking: {
     booking.status === BookingStatus.PENDING_PROVIDER_EVENT &&
     Date.now() - booking.createdAt.getTime() > PENDING_BOOKING_TIMEOUT_MS
   );
+}
+
+function withoutActiveReschedule(now: Date) {
+  return {
+    OR: [
+      { rescheduleClaimedAt: null },
+      {
+        rescheduleClaimedAt: {
+          lte: new Date(now.getTime() - RESCHEDULE_CLAIM_MS),
+        },
+      },
+    ],
+  };
 }
 
 function assertAvailabilityRange(start: Date, end: Date) {
