@@ -1613,7 +1613,10 @@ describe("createEmailProviderOperationExecutor", () => {
     }
   });
 
-  it("blocks an overlapping snooze after a rollback timeout until the restore is observed", async () => {
+  it.each([
+    "m1",
+    "m2",
+  ])("blocks a new snooze for %s in the conversation of a pending restore", async (messageId) => {
     const receipt = {
       id: "expired-snooze",
       status: "PREPARING",
@@ -1629,6 +1632,9 @@ describe("createEmailProviderOperationExecutor", () => {
     const pendingRollbackMessageIds = ["m1"];
     let inInbox = false;
     const archiveMessages = vi.fn();
+    const getThread = vi
+      .fn()
+      .mockResolvedValue({ messages: [{ id: "m1" }, { id: "m2" }] });
     const unarchiveMessages = vi.fn(async () => {
       throw new Error("Timed out before acknowledging the restore");
     });
@@ -1638,12 +1644,13 @@ describe("createEmailProviderOperationExecutor", () => {
         name: "google",
         archiveMessages,
         unarchiveMessages,
+        getThread,
         async getMessage(id: string) {
           return {
             id,
             threadId: "thread-1",
             headers: {},
-            labelIds: inInbox ? ["INBOX"] : [],
+            labelIds: id === "m2" || inInbox ? ["INBOX"] : [],
           };
         },
       } as unknown as EmailProvider,
@@ -1675,7 +1682,7 @@ describe("createEmailProviderOperationExecutor", () => {
       created: true,
       snoozedThread: { status: "PREPARING" },
     } as never);
-    const next = snoozeOperation(Date.now() + 60_000);
+    const next = snoozeOperation(Date.now() + 60_000, messageId);
     expect(
       await executor.execute({
         operation: {
@@ -1687,6 +1694,10 @@ describe("createEmailProviderOperationExecutor", () => {
       }),
     ).toMatchObject({ status: "not_dispatched" });
     expect(archiveMessages).not.toHaveBeenCalled();
+    if (messageId === "m2")
+      expect(getThread).toHaveBeenCalledExactlyOnceWith("thread-1", {
+        complete: true,
+      });
     expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
     expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
 

@@ -35,13 +35,14 @@ export async function snoozeThreads({
       SNOOZE_CONCURRENCY,
       async (threadId) => {
         try {
-          if (pendingRollback.size) {
-            const thread = await provider.getThread(threadId, {
-              complete: true,
-            });
-            if (thread.messages.some(({ id }) => pendingRollback.has(id)))
-              return false;
-          }
+          if (
+            await hasPendingSnoozeRollbackInThread(
+              provider,
+              threadId,
+              pendingRollback,
+            )
+          )
+            return false;
           await snoozeThread({
             emailAccountId,
             ownerEmail,
@@ -69,6 +70,16 @@ export async function snoozeThreads({
   );
 
   return { failedThreadIds, succeededThreadIds };
+}
+
+export async function hasPendingSnoozeRollbackInThread(
+  provider: EmailProvider,
+  threadId: string,
+  pendingMessageIds: ReadonlySet<string>,
+) {
+  if (!pendingMessageIds.size) return false;
+  const thread = await provider.getThread(threadId, { complete: true });
+  return thread.messages.some(({ id }) => pendingMessageIds.has(id));
 }
 
 async function snoozeThread({

@@ -44,6 +44,7 @@ import {
   updateSnoozeArchiveWrite,
 } from "@/utils/snooze/scheduler";
 import { withSnoozeMutationLease } from "@/utils/snooze/mutation-lease";
+import { hasPendingSnoozeRollbackInThread } from "@/utils/snooze/snooze";
 import prisma from "@/utils/prisma";
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
@@ -690,8 +691,13 @@ async function executeSnoozeWithLease(
       receipt,
     );
   }
-  if (await hasCompetingSnoozeRollback(accountId, operation))
-    return snoozeUnavailable(30_000);
+  const competingRollback = await snoozeRollbackConflict(
+    provider,
+    accountId,
+    threadId,
+    operation,
+  );
+  if (competingRollback) return competingRollback;
   let folders: SnoozeFolderIds | undefined;
   if (receipt.archiveFolderId && receipt.inboxFolderId) {
     folders = {
@@ -1329,10 +1335,15 @@ async function reconcileSnooze(
     const competingRollback =
       canActivate &&
       wakeTime > Date.now() &&
-      (await hasCompetingSnoozeRollback(emailAccountId, operation));
+      (await snoozeRollbackConflict(
+        provider,
+        emailAccountId,
+        existing.threadId,
+        operation,
+      ));
     const expired = wakeTime <= Date.now();
     if (canActivate && !expired) {
-      if (competingRollback) return snoozeUnavailable(30_000);
+      if (competingRollback) return competingRollback;
       const activated = await activatePreparedSnoozedThread(
         { ...mutation, threadId: existing.threadId },
         claim,
@@ -1621,17 +1632,26 @@ async function getOtherSnoozedThreads(
   return new Set(snoozes.map((snooze) => snooze.threadId));
 }
 
-async function hasCompetingSnoozeRollback(
+async function snoozeRollbackConflict(
+  provider: EmailProvider,
   accountId: string,
+  threadId: string,
   operation: PreparedMetadataOperation,
 ) {
-  const pending = await getPendingSnoozeRollbackMessageIds(
-    accountId,
-    operation.key.operationId,
-  );
-  return operation.intent.targets.some(({ messageId }) =>
-    pending.has(messageId),
-  );
+  try {
+    const pending = await getPendingSnoozeRollbackMessageIds(
+      accountId,
+      operation.key.operationId,
+    );
+    const blocked =
+      operation.intent.targets.some(({ messageId }) =>
+        pending.has(messageId),
+      ) ||
+      (await hasPendingSnoozeRollbackInThread(provider, threadId, pending));
+    return blocked ? snoozeUnavailable(30_000) : null;
+  } catch (error) {
+    return snoozeProviderUnavailable(error);
+  }
 }
 
 async function restoreSnoozeTargets(
