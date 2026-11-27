@@ -1286,11 +1286,23 @@ describe("createEmailProviderOperationExecutor", () => {
     expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
   });
 
-  it("restores mail when replaying a preparing snooze after its wake time", async () => {
-    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+  it.each([
+    { label: "recorded Inbox targets", restoreMessageIds: ["m1"] },
+    { label: "no recorded Inbox targets", restoreMessageIds: [] },
+  ])("expires a legacy snooze with $label", async ({ restoreMessageIds }) => {
+    vi.mocked(prepareSnoozedThread).mockResolvedValueOnce({
       created: false,
-      snoozedThread: { status: "PREPARING" },
+      snoozedThread: {
+        id: "legacy-snooze",
+        emailAccountId: "acc-1",
+        threadId: "thread-1",
+        status: "PREPARING",
+        clientMutationPayloadHash: null,
+        archiveStarted: restoreMessageIds.length > 0,
+        restoreMessageIds,
+      },
     } as never);
+    prisma.snoozedThread.findMany.mockResolvedValue([]);
     const archiveMessages = vi.fn();
     const unarchiveMessages = vi.fn();
     const executor = createEmailProviderOperationExecutor({
@@ -1299,36 +1311,67 @@ describe("createEmailProviderOperationExecutor", () => {
         name: "google",
         archiveMessages,
         unarchiveMessages,
+        getMessagesBatch(ids: string[]) {
+          return Promise.all(ids.map((id) => this.getMessage(id)));
+        },
         async getMessage(id: string) {
           return {
             id,
             threadId: "thread-1",
             headers: { from: "ada@example.com" },
-            labelIds: ["INBOX"],
+            labelIds: [],
             snippet: id,
           };
         },
       } as unknown as EmailProvider,
     });
+    const targets = ["m1", "m2"].map((messageId) => ({
+      accountId: "acc-1",
+      messageId,
+    }));
     const result = await executor.execute({
-      operation: snoozeOperation(1),
+      operation: {
+        ...metadataOperation(targets),
+        intent: {
+          kind: "metadata",
+          targets,
+          change: { kind: "snooze", untilMs: 1 },
+        },
+      },
       attemptId: "a-snooze-preparing-expired",
       signal: new AbortController().signal,
     });
-    expect(result.status).toBe("confirmed");
     expect(archiveMessages).not.toHaveBeenCalled();
-    expect(unarchiveMessages).toHaveBeenCalledWith(["m1"]);
-    expect(unarchiveMessages).toHaveBeenCalledBefore(
-      cancelSnoozedThreadByClientMutationId,
-    );
+    if (restoreMessageIds.length) {
+      expect(unarchiveMessages).toHaveBeenCalledExactlyOnceWith(["m1"]);
+      expect(unarchiveMessages).toHaveBeenCalledBefore(
+        cancelSnoozedThreadByClientMutationId,
+      );
+    } else {
+      expect(unarchiveMessages).not.toHaveBeenCalled();
+    }
+    expect(result).toMatchObject({
+      status: "rejected",
+      code: "snooze_expired",
+    });
+    expect(cancelSnoozedThreadByClientMutationId).toHaveBeenCalled();
     expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
   });
 
   it("keeps a preparing snooze when restore after wake time fails", async () => {
-    vi.mocked(prepareSnoozedThread).mockResolvedValue({
+    vi.mocked(prepareSnoozedThread).mockResolvedValueOnce({
       created: false,
-      snoozedThread: { status: "PREPARING" },
+      snoozedThread: {
+        id: "legacy-snooze",
+        emailAccountId: "acc-1",
+        threadId: "thread-1",
+        status: "PREPARING",
+        clientMutationPayloadHash: null,
+        archiveStarted: true,
+        restoreMessageIds: ["m1"],
+      },
     } as never);
+    prisma.snoozedThread.findMany.mockResolvedValue([]);
     const executor = createEmailProviderOperationExecutor({
       accountId: "acc-1",
       provider: {

@@ -573,12 +573,7 @@ async function executeSnooze(
     const byId = new Map(messages.map((message) => [message.id, message]));
     const first = byId.get(firstTarget.messageId);
     if (!first || messageIds.some((id) => !byId.has(id))) {
-      return reconcileSnoozeAfterLookupFailure(
-        provider,
-        operation,
-        mutation,
-        missingTarget,
-      );
+      return reconcileSnooze(provider, operation, mutation, missingTarget);
     }
     threadId = first.threadId;
     // The scheduler tracks one conversation per snooze, including older receipts
@@ -587,7 +582,7 @@ async function executeSnooze(
       !threadId ||
       messageIds.some((id) => byId.get(id)?.threadId !== threadId)
     ) {
-      return reconcileSnoozeAfterLookupFailure(
+      return reconcileSnooze(
         provider,
         operation,
         mutation,
@@ -599,12 +594,7 @@ async function executeSnooze(
       failedTargetOutcome(firstTarget, error).code === "not_found"
         ? missingTarget
         : snoozeProviderUnavailable(error);
-    return reconcileSnoozeAfterLookupFailure(
-      provider,
-      operation,
-      mutation,
-      failure,
-    );
+    return reconcileSnooze(provider, operation, mutation, failure);
   }
   const snoozeMutation = { ...mutation, threadId };
   const prepared = await prepareSnoozedThread(snoozeMutation).catch((error) => {
@@ -612,12 +602,7 @@ async function executeSnooze(
     throw error;
   });
   if (!prepared) {
-    return reconcileSnoozeAfterLookupFailure(
-      provider,
-      operation,
-      mutation,
-      invalidConversation,
-    );
+    return reconcileSnooze(provider, operation, mutation, invalidConversation);
   }
   if (prepared.created && scheduledFor.getTime() <= Date.now()) {
     await cancelPreparedSnooze(accountId, operation.key.operationId);
@@ -634,20 +619,13 @@ async function executeSnooze(
     return confirmedSnooze(operation);
   }
   if (scheduledFor.getTime() <= Date.now()) {
-    if (prepared.snoozedThread.clientMutationPayloadHash) {
-      return reconcileSnoozeAfterLookupFailure(provider, operation, mutation, {
-        status: "rejected",
-        code: "snooze_expired",
-        targets: [],
-      });
-    }
-    const restored = await restoreSnoozeTargets(
+    return reconcileSnooze(
       provider,
-      operation.intent.targets,
+      operation,
+      mutation,
+      { status: "rejected", code: "snooze_expired", targets: [] },
+      prepared.snoozedThread,
     );
-    if (!restored) return snoozeUnavailable();
-    await cancelPreparedSnooze(accountId, operation.key.operationId);
-    return confirmedSnooze(operation);
   }
 
   const inboxMessageIds = messages
@@ -1074,7 +1052,7 @@ function confirmedSnooze(operation: PreparedMetadataOperation) {
   };
 }
 
-async function reconcileSnoozeAfterLookupFailure(
+async function reconcileSnooze(
   provider: EmailProvider,
   operation: PreparedMetadataOperation,
   mutation: Omit<
@@ -1082,15 +1060,19 @@ async function reconcileSnoozeAfterLookupFailure(
     "threadId"
   >,
   failure: ExecutionResult,
+  verifiedReceipt?: SnoozedThread,
 ) {
   const { emailAccountId, clientMutationId } = mutation;
-  const existing = await getSnoozedThreadByClientMutationId({
-    clientMutationId,
-    emailAccountId,
-  });
+  const existing =
+    verifiedReceipt ??
+    (await getSnoozedThreadByClientMutationId({
+      clientMutationId,
+      emailAccountId,
+    }));
   if (
     !existing ||
-    existing.clientMutationPayloadHash !== mutation.clientMutationPayloadHash
+    (!verifiedReceipt &&
+      existing.clientMutationPayloadHash !== mutation.clientMutationPayloadHash)
   ) {
     return failure;
   }
@@ -1116,6 +1098,8 @@ async function reconcileSnoozeAfterLookupFailure(
 
   const targets: TargetOutcome[] = [];
   const archivedMessages: ParsedMessage[] = [];
+  // Older receipts can lack the original Inbox state. Current archive state
+  // alone can't establish that this snooze moved a message.
   const restoreIds = new Set(existing.restoreMessageIds);
   const rollbackMessages: ParsedMessage[] = [];
   let conversationChanged = false;
