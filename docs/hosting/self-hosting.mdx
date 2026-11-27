@@ -103,7 +103,7 @@ The `docker-compose.yml` supports different deployment modes using profiles:
 | Profile | Description | Use when |
 |---------|-------------|----------|
 | `--profile all` | Includes Postgres and Redis containers | Default, simplest setup |
-| `--profile local-redis` | Local Redis only | Using managed Postgres (RDS, Neon, Supabase) |
+| `--profile local-redis` | Local Redis only | Using managed Postgres (RDS, Neon, Supabase, [Prisma Postgres](https://www.prisma.io/postgres)) |
 | `--profile local-db` | Local Postgres only | Using managed Redis (Upstash, ElastiCache) |
 | *(no profile)* | No local databases | Using managed services for both (production recommended) |
 
