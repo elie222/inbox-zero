@@ -1117,7 +1117,7 @@ async function reconcileSnooze(
     if (restoreIds.has(message.id)) rollbackMessages.push(message);
     const sameThread = message.threadId === existing.threadId;
     conversationChanged ||= !sameThread;
-    const archived = metadataChangeSatisfied(message, operation.intent.change);
+    const archived = snoozeMessageLocation(message) === "archive";
     if (archived) archivedMessages.push(message);
     const applied = sameThread && archived;
     targets.push({
@@ -1168,15 +1168,7 @@ async function reconcileSnooze(
     return resumeCancelledSnooze(provider, activated);
   }
 
-  const toRestore = rollbackMessages.filter(
-    (message) => !stillSnoozed.has(message.threadId),
-  );
-  if (
-    !(await restoreSnoozeTargets(
-      provider,
-      toRestore.map(({ id }) => ({ messageId: id })),
-    ))
-  ) {
+  if (!(await restoreSnoozeTargets(provider, rollbackMessages, stillSnoozed))) {
     return snoozeUnavailable();
   }
   await cancelPreparedSnooze(
@@ -1212,10 +1204,7 @@ async function resumeCancelledSnooze(
       receipt,
       rollbackMessages,
     );
-    const toRestore = rollbackMessages
-      .filter((message) => !stillSnoozed.has(message.threadId))
-      .map(({ id }) => ({ messageId: id }));
-    if (!(await restoreSnoozeTargets(provider, toRestore)))
+    if (!(await restoreSnoozeTargets(provider, rollbackMessages, stillSnoozed)))
       return snoozeUnavailable();
     const cleared = await prisma.snoozedThread.updateMany({
       where: {
@@ -1278,9 +1267,18 @@ async function getOtherSnoozedThreads(
 
 async function restoreSnoozeTargets(
   provider: EmailProvider,
-  targets: Array<{ messageId: string }>,
+  targets: ParsedMessage[],
+  stillSnoozed: Set<string>,
 ) {
-  const messageIds = targets.map((target) => target.messageId);
+  // Inbox reads can lag behind the archive write. A different folder or a
+  // trash/spam marker is evidence of a separate mailbox change.
+  const messageIds = targets
+    .filter(
+      (message) =>
+        !stillSnoozed.has(message.threadId) &&
+        snoozeMessageLocation(message) !== "other",
+    )
+    .map(({ id }) => id);
   if (messageIds.length === 0) return true;
   try {
     await provider.unarchiveMessages(messageIds);
@@ -1288,6 +1286,21 @@ async function restoreSnoozeTargets(
   } catch {
     return false;
   }
+}
+
+function snoozeMessageLocation(message: ParsedMessage) {
+  if (message.parentFolderType !== undefined) {
+    if (message.parentFolderType === "INBOX") return "inbox";
+    return message.parentFolderType === "ARCHIVE" ? "archive" : "other";
+  }
+  const { roles } = parsedMessageMetadata(message);
+  if (
+    roles.includes("trash") ||
+    roles.includes("spam") ||
+    roles.includes("draft")
+  )
+    return "other";
+  return roles.includes("inbox") ? "inbox" : "archive";
 }
 
 function snoozeUnavailable() {

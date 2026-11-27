@@ -17,6 +17,7 @@ import {
 } from "@/utils/scheduled-email/service";
 import type { ScheduledEmail } from "@/generated/prisma/client";
 import { SafeError } from "@/utils/error";
+import { convertMessage } from "@/utils/outlook/message";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -1401,6 +1402,95 @@ describe("createEmailProviderOperationExecutor", () => {
       reason: "unavailable",
     });
     expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { status: "PREPARING", name: "google" },
+    { status: "CANCELLED", name: "google" },
+    { status: "PREPARING", name: "microsoft" },
+    { status: "CANCELLED", name: "microsoft" },
+  ] as const)("preserves later mailbox moves during $status snooze rollback on $name", async ({
+    status,
+    name,
+  }) => {
+    const folderIds = {
+      archive: "archive-folder",
+      deleteditems: "trash-folder",
+      junkemail: "spam-folder",
+    };
+    const messages = ["archive", "trash", "spam", "custom"]
+      .map((id) => {
+        if (name === "microsoft") {
+          return convertMessage(
+            {
+              id,
+              conversationId: "thread-1",
+              parentFolderId: `${id}-folder`,
+              categories: id === "custom" ? ["ARCHIVE"] : [],
+            },
+            folderIds,
+          );
+        }
+        return {
+          id,
+          threadId: "thread-1",
+          headers: { from: "ada@example.com" },
+          labelIds: ["trash", "spam"].includes(id) ? [id.toUpperCase()] : [],
+        };
+      })
+      .filter(({ id }) => name === "microsoft" || id !== "custom");
+    const messageIds = messages.map(({ id }) => id);
+    vi.mocked(prepareSnoozedThread).mockResolvedValueOnce({
+      created: false,
+      snoozedThread: {
+        id: "snooze-row",
+        emailAccountId: "acc-1",
+        threadId: "thread-1",
+        status,
+        archiveStarted: true,
+        clientMutationPayloadHash: null,
+        restoreMessageIds: messageIds,
+      },
+    } as never);
+    prisma.snoozedThread.findMany.mockResolvedValue([]);
+    if (status === "CANCELLED") {
+      prisma.snoozedThread.updateMany.mockResolvedValueOnce({ count: 1 });
+    }
+    const unarchiveMessages = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name,
+        unarchiveMessages,
+        async getMessagesBatch() {
+          return messages;
+        },
+        async getMessage(id: string) {
+          return messages.find((message) => message.id === id);
+        },
+      } as unknown as EmailProvider,
+    });
+    const targets = messageIds.map((messageId) => ({
+      accountId: "acc-1",
+      messageId,
+    }));
+    const result = await executor.inspect({
+      operation: {
+        ...metadataOperation(targets),
+        intent: {
+          kind: "metadata",
+          targets,
+          change: { kind: "snooze", untilMs: 1 },
+        },
+      },
+      receiptId: null,
+      signal: new AbortController().signal,
+    });
+    expect(unarchiveMessages).toHaveBeenCalledExactlyOnceWith(["archive"]);
+    expect(result).toMatchObject({
+      status: "rejected",
+      code: status === "CANCELLED" ? "snooze_cancelled" : "snooze_expired",
+    });
   });
 
   it("retries a cancelled snooze rollback when the original message disappears", async () => {
