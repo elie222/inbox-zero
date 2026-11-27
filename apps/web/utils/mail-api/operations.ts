@@ -14,6 +14,7 @@ import type {
   ProviderChange,
 } from "@inboxzero/mail-core/sync";
 import type { EmailProvider } from "@/utils/email/types";
+import { mapWithConcurrency } from "@/utils/async";
 import { SafeError } from "@/utils/error";
 import {
   parsedMessageBodyObservation,
@@ -47,6 +48,7 @@ const logger = createScopedLogger("mail-api/operations");
 const HELD_SEND_POLL_MS = 2000;
 const BLOCKED_HELD_SEND_RETRY_MS = 60_000;
 const METADATA_OBSERVATION_BATCH_SIZE = 20;
+const SNOOZE_RECOVERY_READ_CONCURRENCY = 4;
 type SendIntent = Extract<PreparedOperation["intent"], { kind: "send" }>;
 type PreparedMetadataOperation = PreparedOperation & {
   intent: Extract<PreparedOperation["intent"], { kind: "metadata" }>;
@@ -1117,27 +1119,28 @@ async function reconcileSnoozeAfterLookupFailure(
   const restoreIds = new Set(existing.restoreMessageIds);
   const rollbackMessages: ParsedMessage[] = [];
   let conversationChanged = false;
-  for (const target of operation.intent.targets) {
-    try {
-      const message = await provider.getMessage(target.messageId);
-      if (restoreIds.has(message.id)) rollbackMessages.push(message);
-      const sameThread = message.threadId === existing.threadId;
-      conversationChanged ||= !sameThread;
-      const archived = metadataChangeSatisfied(
-        message,
-        operation.intent.change,
-      );
-      if (archived) archivedMessages.push(message);
-      targets.push({
-        key: target,
-        outcome: sameThread && archived ? "applied" : "rejected",
-        code: sameThread && archived ? null : "not_applied",
-      });
-    } catch (error) {
-      const outcome = failedTargetOutcome(target, error);
-      if (outcome.code !== "not_found") return snoozeProviderUnavailable(error);
-      targets.push(outcome);
+  const reads = await readSnoozeRecoveryTargets(
+    provider,
+    operation.intent.targets,
+  );
+  if (reads.status === "unavailable")
+    return snoozeProviderUnavailable(reads.error);
+  for (const { target, message } of reads.messages) {
+    if (!message) {
+      targets.push({ key: target, outcome: "rejected", code: "not_found" });
+      continue;
     }
+    if (restoreIds.has(message.id)) rollbackMessages.push(message);
+    const sameThread = message.threadId === existing.threadId;
+    conversationChanged ||= !sameThread;
+    const archived = metadataChangeSatisfied(message, operation.intent.change);
+    if (archived) archivedMessages.push(message);
+    const applied = sameThread && archived;
+    targets.push({
+      key: target,
+      outcome: applied ? "applied" : "rejected",
+      code: applied ? null : "not_applied",
+    });
   }
 
   if (
@@ -1209,21 +1212,18 @@ async function resumeCancelledSnooze(
   receipt: Pick<SnoozedThread, "id" | "emailAccountId" | "restoreMessageIds">,
 ) {
   if (receipt.restoreMessageIds.length) {
-    const rollbackMessages: ParsedMessage[] = [];
-    for (const messageId of new Set(receipt.restoreMessageIds)) {
-      try {
-        rollbackMessages.push(await provider.getMessage(messageId));
-      } catch (error) {
-        if (
-          failedTargetOutcome(
-            { accountId: receipt.emailAccountId, messageId },
-            error,
-          ).code !== "not_found"
-        ) {
-          return snoozeProviderUnavailable(error);
-        }
-      }
-    }
+    const targets = [...new Set(receipt.restoreMessageIds)].map(
+      (messageId) => ({
+        accountId: receipt.emailAccountId,
+        messageId,
+      }),
+    );
+    const reads = await readSnoozeRecoveryTargets(provider, targets);
+    if (reads.status === "unavailable")
+      return snoozeProviderUnavailable(reads.error);
+    const rollbackMessages = reads.messages.flatMap(({ message }) =>
+      message ? [message] : [],
+    );
     const stillSnoozed = await getOtherSnoozedThreads(
       receipt,
       rollbackMessages,
@@ -1244,6 +1244,33 @@ async function resumeCancelledSnooze(
     if (!cleared.count) return snoozeUnavailable();
   }
   return { status: "rejected" as const, code: "snooze_cancelled", targets: [] };
+}
+
+async function readSnoozeRecoveryTargets(
+  provider: EmailProvider,
+  targets: TargetOutcome["key"][],
+) {
+  try {
+    const messages = await mapWithConcurrency(
+      targets,
+      SNOOZE_RECOVERY_READ_CONCURRENCY,
+      async (target) => {
+        try {
+          return {
+            target,
+            message: await provider.getMessage(target.messageId),
+          };
+        } catch (error) {
+          if (failedTargetOutcome(target, error).code !== "not_found")
+            throw error;
+          return { target, message: null };
+        }
+      },
+    );
+    return { status: "read" as const, messages };
+  } catch (error) {
+    return { status: "unavailable" as const, error };
+  }
 }
 
 async function getOtherSnoozedThreads(
