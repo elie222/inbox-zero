@@ -7,12 +7,6 @@ import prisma from "@/utils/prisma";
 import { snoozeThreads } from "@/utils/snooze/snooze";
 import { unsnoozeThreads } from "@/utils/snooze/unsnooze";
 
-const ACTIVE_SNOOZE_STATUSES = [
-  SnoozedThreadStatus.PREPARING,
-  SnoozedThreadStatus.PENDING,
-  SnoozedThreadStatus.EXECUTING,
-];
-
 const unsnoozeThreadsBody = z.object({
   threadIds: z.array(z.string().min(1).max(512)).min(1).max(100),
 });
@@ -63,7 +57,14 @@ async function listSnoozedThreads(emailAccountId: string) {
   const rows = await prisma.snoozedThread.findMany({
     where: {
       emailAccountId,
-      status: { in: ACTIVE_SNOOZE_STATUSES },
+      OR: [
+        {
+          status: {
+            in: [SnoozedThreadStatus.PENDING, SnoozedThreadStatus.EXECUTING],
+          },
+        },
+        { status: SnoozedThreadStatus.PREPARING, archiveStarted: true },
+      ],
     },
     orderBy: { scheduledFor: "asc" },
     select: {
