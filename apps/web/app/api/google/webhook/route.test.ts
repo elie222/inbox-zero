@@ -112,6 +112,20 @@ describe("Google webhook route", () => {
     expect(publishLocalMailHint).not.toHaveBeenCalled();
   });
 
+  it("rejects requests with a wrong token of the same length", async () => {
+    const request = createRequest({
+      token: "test-google-webhook-tokex",
+    });
+
+    const response = await POST(request as any, {} as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ message: "Invalid verification token" });
+    expect(processHistoryForUserMock).not.toHaveBeenCalled();
+    expect(publishLocalMailHint).not.toHaveBeenCalled();
+  });
+
   it("allows requests without a token when verification is intentionally disabled", async () => {
     envMock.GOOGLE_PUBSUB_VERIFICATION_TOKEN = "";
     const request = createRequest({
