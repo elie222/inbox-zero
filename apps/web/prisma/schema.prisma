@@ -968,6 +968,7 @@ model SnoozedThread {
   status                    SnoozedThreadStatus @default(PENDING)
   clientMutationId          String?
   clientMutationPayloadHash String?
+  archiveStarted            Boolean             @default(false)
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)

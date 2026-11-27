@@ -3,6 +3,7 @@ import { env } from "@/env";
 import { SnoozedThreadStatus } from "@/generated/prisma/enums";
 import { Prisma, type SnoozedThread } from "@/generated/prisma/client";
 import { getCronSecretHeader } from "@/utils/cron";
+import { SafeError } from "@/utils/error";
 import { getInternalApiUrl } from "@/utils/internal-api";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -104,6 +105,14 @@ export async function activatePreparedSnoozedThread(input: SnoozeMutation) {
 
   await publishSnoozedThread({ replacedSnoozes, snoozedThread: activated });
   return activated;
+}
+
+export async function markSnoozeArchiveStarted(id: string) {
+  const result = await prisma.snoozedThread.updateMany({
+    where: { id, status: SnoozedThreadStatus.PREPARING },
+    data: { archiveStarted: true },
+  });
+  return result.count === 1;
 }
 
 async function activateWithConflictRetry({
@@ -280,28 +289,14 @@ export async function cancelSnoozedThreadByClientMutationId({
   clientMutationId: string;
   emailAccountId: string;
 }) {
-  const snoozedThread = await prisma.snoozedThread.findUnique({
-    where: {
-      emailAccountId_clientMutationId: { emailAccountId, clientMutationId },
-    },
-    select: { id: true },
-  });
-  if (!snoozedThread) return;
   await prisma.snoozedThread.updateMany({
     where: {
-      id: snoozedThread.id,
-      status: {
-        in: [
-          SnoozedThreadStatus.PREPARING,
-          SnoozedThreadStatus.PENDING,
-          SnoozedThreadStatus.EXECUTING,
-        ],
-      },
+      clientMutationId,
+      emailAccountId,
+      status: SnoozedThreadStatus.PREPARING,
     },
     data: { status: SnoozedThreadStatus.CANCELLED },
   });
-  const client = getQstashClient();
-  if (client) await cancelQstashMessages(client, [snoozedThread.id]);
 }
 
 export async function markSnoozedThreadAsExecuting(
@@ -389,7 +384,10 @@ function assertSnoozePayload(
       expected.clientMutationPayloadHash
     : snoozedThread.scheduledFor.getTime() === expected.scheduledFor.getTime();
   if (snoozedThread.threadId !== expected.threadId || !payloadMatches) {
-    throw new Error("Snooze mutation ID was reused with different input");
+    throw new SafeError(
+      "Snooze mutation ID was reused with different input",
+      409,
+    );
   }
 }
 
