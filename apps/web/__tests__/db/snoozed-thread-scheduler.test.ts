@@ -28,6 +28,7 @@ describe.skipIf(!RUN_DB_TESTS)(
     let markSnoozedThreadAsExecuting: typeof import("@/utils/snooze/scheduler").markSnoozedThreadAsExecuting;
     let prepareSnoozedThread: typeof import("@/utils/snooze/scheduler").prepareSnoozedThread;
     let releaseSnoozePreparation: typeof import("@/utils/snooze/scheduler").releaseSnoozePreparation;
+    let withSnoozeMutationLease: typeof import("@/utils/snooze/mutation-lease").withSnoozeMutationLease;
     let emailAccountId: string;
 
     const accountEmail = "snoozed-thread-scheduler-test@example.com";
@@ -41,6 +42,9 @@ describe.skipIf(!RUN_DB_TESTS)(
         prepareSnoozedThread,
         releaseSnoozePreparation,
       } = await import("@/utils/snooze/scheduler"));
+      ({ withSnoozeMutationLease } = await import(
+        "@/utils/snooze/mutation-lease"
+      ));
     });
 
     beforeEach(async () => {
@@ -84,34 +88,21 @@ describe.skipIf(!RUN_DB_TESTS)(
     test("keeps one active restore when the same thread is scheduled concurrently", async () => {
       const scheduledFor = new Date("2026-08-17T09:00:00.000Z");
 
-      await Promise.all([
-        prepareSnoozedThread({
-          clientMutationId: "mutation-one",
-          emailAccountId,
-          scheduledFor,
-          threadId: "concurrent-thread",
+      const results = await Promise.allSettled(
+        ["mutation-one", "mutation-two"].map(async (clientMutationId) => {
+          const input = {
+            clientMutationId,
+            emailAccountId,
+            scheduledFor,
+            threadId: "concurrent-thread",
+          };
+          const { snoozedThread } = await prepareSnoozedThread(input);
+          const claim = await claimSnoozePreparation(snoozedThread);
+          if (!claim)
+            throw new Error("The preparation was unexpectedly claimed");
+          return activatePreparedSnoozedThread(input, claim, []);
         }),
-        prepareSnoozedThread({
-          clientMutationId: "mutation-two",
-          emailAccountId,
-          scheduledFor,
-          threadId: "concurrent-thread",
-        }),
-      ]);
-      const results = await Promise.allSettled([
-        activatePreparedSnoozedThread({
-          clientMutationId: "mutation-one",
-          emailAccountId,
-          scheduledFor,
-          threadId: "concurrent-thread",
-        }),
-        activatePreparedSnoozedThread({
-          clientMutationId: "mutation-two",
-          emailAccountId,
-          scheduledFor,
-          threadId: "concurrent-thread",
-        }),
-      ]);
+      );
 
       expect(results.every((result) => result.status === "fulfilled")).toBe(
         true,
@@ -133,12 +124,13 @@ describe.skipIf(!RUN_DB_TESTS)(
 
     test("serializes archive claims and records newly eligible rollback targets on retry", async () => {
       const now = new Date("2026-08-17T09:00:00.000Z");
-      const { snoozedThread } = await prepareSnoozedThread({
+      const input = {
         clientMutationId: "archive-claim",
         emailAccountId,
         scheduledFor: new Date("2026-08-17T10:00:00.000Z"),
         threadId: "archive-claim-thread",
-      });
+      };
+      const { snoozedThread } = await prepareSnoozedThread(input);
       const readReceipt = () =>
         prisma.snoozedThread.findUniqueOrThrow({
           where: { id: snoozedThread.id },
@@ -164,11 +156,55 @@ describe.skipIf(!RUN_DB_TESTS)(
         ),
       ).toEqual(retryAt);
       await releaseSnoozePreparation(snoozedThread.id, now);
+      await expect(
+        activatePreparedSnoozedThread(input, now, []),
+      ).resolves.toBeNull();
       await expect(readReceipt()).resolves.toMatchObject({
+        status: SnoozedThreadStatus.PREPARING,
         archiveClaimedAt: retryAt,
         restoreMessageIds: ["first", "newly-inbox"],
         ...folders,
       });
+      const targetOutcomes = [
+        {
+          key: { accountId: emailAccountId, messageId: "first" },
+          outcome: "applied" as const,
+          code: null,
+        },
+        {
+          key: { accountId: emailAccountId, messageId: "newly-inbox" },
+          outcome: "rejected" as const,
+          code: "not_found",
+        },
+      ];
+      await activatePreparedSnoozedThread(input, retryAt, targetOutcomes);
+      await expect(readReceipt()).resolves.toMatchObject({
+        status: SnoozedThreadStatus.PENDING,
+        archiveClaimedAt: null,
+        targetOutcomes,
+      });
+    });
+
+    test("serializes mailbox snooze mutations until the owner finishes", async () => {
+      const claimed = Promise.withResolvers<void>();
+      const finish = Promise.withResolvers<void>();
+      const first = withSnoozeMutationLease(emailAccountId, async () => {
+        claimed.resolve();
+        await finish.promise;
+        return "restored";
+      });
+      await claimed.promise;
+      try {
+        await expect(
+          withSnoozeMutationLease(emailAccountId, async () => "competing"),
+        ).resolves.toBeNull();
+      } finally {
+        finish.resolve();
+        await expect(first).resolves.toBe("restored");
+      }
+      await expect(
+        withSnoozeMutationLease(emailAccountId, async () => "next"),
+      ).resolves.toBe("next");
     });
 
     test("allows only one pending or executing restore per thread", async () => {
@@ -229,19 +265,16 @@ describe.skipIf(!RUN_DB_TESTS)(
         },
       });
       const scheduledFor = new Date("2026-08-17T10:00:00.000Z");
-      await prepareSnoozedThread({
+      const input = {
         clientMutationId: "replacement",
         emailAccountId,
         scheduledFor,
         threadId,
-      });
-
-      await activatePreparedSnoozedThread({
-        clientMutationId: "replacement",
-        emailAccountId,
-        scheduledFor,
-        threadId,
-      });
+      };
+      const { snoozedThread } = await prepareSnoozedThread(input);
+      const claim = await claimSnoozePreparation(snoozedThread);
+      if (!claim) throw new Error("The preparation was unexpectedly claimed");
+      await activatePreparedSnoozedThread(input, claim, []);
 
       await expect(
         prisma.snoozedThread.findUnique({ where: { id: legacy.id } }),

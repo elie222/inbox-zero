@@ -1,12 +1,14 @@
 import { createHash } from "node:crypto";
 import chunk from "lodash/chunk";
+import { z } from "zod";
 import type {
   ExecutionResult,
   OperationExecutor,
 } from "@inboxzero/mail-core/ports/operation-executor";
-import type {
-  PreparedOperation,
-  TargetOutcome,
+import {
+  type PreparedOperation,
+  type TargetOutcome,
+  targetOutcomeSchema,
 } from "@inboxzero/mail-core/operations";
 import type { MetadataChange } from "@inboxzero/mail-core/commands";
 import type {
@@ -40,6 +42,7 @@ import {
   releaseSnoozePreparation,
   snoozeArchiveRetryAfterMs,
 } from "@/utils/snooze/scheduler";
+import { withSnoozeMutationLease } from "@/utils/snooze/mutation-lease";
 import prisma from "@/utils/prisma";
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
@@ -51,6 +54,7 @@ const HELD_SEND_POLL_MS = 2000;
 const BLOCKED_HELD_SEND_RETRY_MS = 60_000;
 const METADATA_OBSERVATION_BATCH_SIZE = 20;
 const SNOOZE_RECOVERY_READ_CONCURRENCY = 4;
+const snoozeTargetOutcomesSchema = z.array(targetOutcomeSchema);
 type SendIntent = Extract<PreparedOperation["intent"], { kind: "send" }>;
 type PreparedMetadataOperation = PreparedOperation & {
   intent: Extract<PreparedOperation["intent"], { kind: "metadata" }>;
@@ -526,6 +530,18 @@ async function executeSnooze(
   operation: PreparedMetadataOperation,
   untilMs: number,
 ) {
+  const result = await withSnoozeMutationLease(accountId, () =>
+    executeSnoozeWithLease(provider, accountId, operation, untilMs),
+  );
+  return result ?? snoozeUnavailable();
+}
+
+async function executeSnoozeWithLease(
+  provider: EmailProvider,
+  accountId: string,
+  operation: PreparedMetadataOperation,
+  untilMs: number,
+) {
   const scheduledFor = new Date(untilMs);
   const firstTarget = operation.intent.targets[0];
   if (!firstTarget || !Number.isFinite(scheduledFor.getTime())) {
@@ -619,7 +635,7 @@ async function executeSnooze(
     return resumeCancelledSnooze(provider, prepared.snoozedThread);
   }
   if (prepared.snoozedThread.status !== "PREPARING") {
-    return confirmedSnooze(operation);
+    return confirmedSnooze(operation, prepared.snoozedThread);
   }
   if (scheduledFor.getTime() <= Date.now()) {
     return reconcileSnooze(
@@ -720,10 +736,21 @@ async function executeSnooze(
       });
     }
     if (!targets.some(({ outcome }) => outcome === "applied")) {
-      await cancelPreparedSnooze(accountId, operation.key.operationId);
+      await cancelPreparedSnooze(
+        accountId,
+        operation.key.operationId,
+        undefined,
+        claim,
+      );
       return { status: "rejected" as const, code: "snooze_failed", targets };
     }
-    activated = await activatePreparedSnoozedThread(snoozeMutation);
+    const activation = await activatePreparedSnoozedThread(
+      snoozeMutation,
+      claim,
+      targets,
+    );
+    if (!activation) return snoozeUnavailable();
+    activated = activation;
     if (activated.status !== "CANCELLED") {
       return {
         status: "confirmed" as const,
@@ -1056,26 +1083,29 @@ function metadataChangeSatisfied(
   }
 }
 
-function confirmedSnooze(operation: PreparedMetadataOperation) {
+function confirmedSnooze(
+  operation: PreparedMetadataOperation,
+  receipt: Pick<SnoozedThread, "targetOutcomes">,
+) {
+  const saved = snoozeTargetOutcomesSchema.safeParse(receipt.targetOutcomes);
   return {
     status: "confirmed" as const,
     receiptId: operation.key.operationId,
     observations: [],
-    targets: operation.intent.targets.map((target) => ({
-      key: target,
-      outcome: "applied" as const,
-      code: null,
-    })),
+    targets: saved.success
+      ? saved.data
+      : operation.intent.targets.map((target) => ({
+          key: target,
+          outcome: "applied" as const,
+          code: null,
+        })),
   };
 }
 
 async function reconcileSnooze(
   provider: EmailProvider,
   operation: PreparedMetadataOperation,
-  mutation: Omit<
-    Parameters<typeof activatePreparedSnoozedThread>[0],
-    "threadId"
-  >,
+  mutation: Omit<Parameters<typeof prepareSnoozedThread>[0], "threadId">,
   failure: ExecutionResult,
   verifiedReceipt?: SnoozedThread,
 ) {
@@ -1098,20 +1128,25 @@ async function reconcileSnooze(
     existing.status === "EXECUTING" ||
     existing.status === "COMPLETED"
   ) {
-    return confirmedSnooze(operation);
+    return confirmedSnooze(operation, existing);
   }
   if (existing.status === "CANCELLED") {
     return resumeCancelledSnooze(provider, existing);
   }
   if (existing.status !== "PREPARING") return failure;
 
-  const expired = mutation.scheduledFor.getTime() <= Date.now();
+  const wakeTime = mutation.scheduledFor.getTime();
   const claim = await claimSnoozePreparation(existing);
   if (!claim) return snoozePreparationUnavailable(existing);
   try {
     if (!existing.archiveStarted) {
-      if (expired || failure.status === "rejected") {
-        await cancelPreparedSnooze(emailAccountId, clientMutationId);
+      if (wakeTime <= Date.now() || failure.status === "rejected") {
+        await cancelPreparedSnooze(
+          emailAccountId,
+          clientMutationId,
+          undefined,
+          claim,
+        );
       }
       return failure;
     }
@@ -1151,12 +1186,12 @@ async function reconcileSnooze(
       });
     }
 
-    if (stillInInbox && !expired && !conversationChanged) {
+    if (stillInInbox && wakeTime > Date.now() && !conversationChanged) {
       return snoozeUnavailable();
     }
     if (
       !archivedMessages.length &&
-      !expired &&
+      wakeTime > Date.now() &&
       !conversationChanged &&
       failure.status === "not_dispatched"
     ) {
@@ -1167,17 +1202,19 @@ async function reconcileSnooze(
       ...archivedMessages,
       ...rollbackMessages,
     ]);
+    const expired = wakeTime <= Date.now();
     if (
       archivedMessages.length &&
       !expired &&
       !conversationChanged &&
       stillSnoozed.size === 0
     ) {
-      const activated = await activatePreparedSnoozedThread({
-        ...mutation,
-        threadId: existing.threadId,
-      });
-      if (activated.status !== "CANCELLED") {
+      const activated = await activatePreparedSnoozedThread(
+        { ...mutation, threadId: existing.threadId },
+        claim,
+        targets,
+      );
+      if (activated && activated.status !== "CANCELLED") {
         return {
           status: "confirmed" as const,
           receiptId: operation.key.operationId,
@@ -1209,6 +1246,7 @@ async function reconcileSnooze(
       emailAccountId,
       clientMutationId,
       existing.restoreMessageIds,
+      claim,
     );
     return {
       status: "rejected" as const,
@@ -1411,12 +1449,14 @@ async function cancelPreparedSnooze(
   accountId: string,
   operationId: string,
   restoredMessageIds?: string[],
+  archiveClaimedAt?: Date,
 ) {
   try {
     await cancelSnoozedThreadByClientMutationId({
       clientMutationId: operationId,
       emailAccountId: accountId,
       ...(restoredMessageIds && { restoredMessageIds }),
+      ...(archiveClaimedAt && { archiveClaimedAt }),
     });
   } catch {
     // The prepare row is optional once we are already rejecting.

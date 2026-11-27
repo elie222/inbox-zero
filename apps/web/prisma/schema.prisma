@@ -169,6 +169,7 @@ model EmailAccount {
   includeSentWithSignature       Boolean   @default(true) // "Sent with <brand>" footer on emails sent from the mail client
   sentMessageOpenTrackingEnabled Boolean   @default(true) // show when sent mail-client emails are opened
   watchEmailsExpirationDate      DateTime?
+  snoozeMutationLeaseUntil       DateTime?
   watchEmailsSubscriptionId      String? // For Outlook subscription ID
   watchEmailsSubscriptionHistory Json? // Historical Outlook subscription IDs: [{ subscriptionId, createdAt, replacedAt }]
   lastSyncedHistoryId            String?
@@ -973,6 +974,7 @@ model SnoozedThread {
   archiveFolderId           String?
   inboxFolderId             String?
   restoreMessageIds          String[]            @default([])
+  targetOutcomes             Json?
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)

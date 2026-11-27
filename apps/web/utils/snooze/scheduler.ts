@@ -1,4 +1,5 @@
 import { Client } from "@upstash/qstash";
+import type { TargetOutcome } from "@inboxzero/mail-core/operations";
 import { env } from "@/env";
 import { SnoozedThreadStatus } from "@/generated/prisma/enums";
 import { Prisma, type SnoozedThread } from "@/generated/prisma/client";
@@ -84,7 +85,11 @@ export async function prepareSnoozedThread(input: SnoozeMutation) {
   }
 }
 
-export async function activatePreparedSnoozedThread(input: SnoozeMutation) {
+export async function activatePreparedSnoozedThread(
+  input: SnoozeMutation,
+  archiveClaimedAt: Date,
+  targets: TargetOutcome[],
+) {
   const { clientMutationId, emailAccountId, threadId } = input;
   const snoozedThread = await getSnoozedThreadByClientMutationId({
     clientMutationId,
@@ -92,15 +97,22 @@ export async function activatePreparedSnoozedThread(input: SnoozeMutation) {
   });
   if (!snoozedThread) throw new Error("Prepared snooze was not found");
   assertSnoozePayload(snoozedThread, input);
-  if (snoozedThread.status !== SnoozedThreadStatus.PREPARING) {
+  if (snoozedThread.status === SnoozedThreadStatus.CANCELLED)
     return snoozedThread;
-  }
+  if (snoozedThread.status !== SnoozedThreadStatus.PREPARING) return null;
+  if (snoozedThread.archiveClaimedAt?.getTime() !== archiveClaimedAt.getTime())
+    return null;
 
-  const { activated, replacedSnoozes } = await activateWithConflictRetry({
+  const activation = await activateWithConflictRetry({
+    id: snoozedThread.id,
     clientMutationId,
     emailAccountId,
     threadId,
+    archiveClaimedAt,
+    targets,
   });
+  if (!activation) return null;
+  const { activated, replacedSnoozes } = activation;
   assertSnoozePayload(activated, input);
   if (activated.status !== SnoozedThreadStatus.PENDING) return activated;
 
@@ -169,13 +181,19 @@ export function snoozeArchiveRetryAfterMs(
 }
 
 async function activateWithConflictRetry({
+  id,
   clientMutationId,
   emailAccountId,
   threadId,
+  archiveClaimedAt,
+  targets,
 }: {
+  id: string;
   clientMutationId: string;
   emailAccountId: string;
   threadId: string;
+  archiveClaimedAt: Date;
+  targets: TargetOutcome[];
 }) {
   const pendingSnooze = {
     emailAccountId,
@@ -191,7 +209,7 @@ async function activateWithConflictRetry({
   };
   for (let attempt = 0; ; attempt += 1) {
     try {
-      const [replacedSnoozes, , , activated] = await prisma.$transaction([
+      const [replacedSnoozes, , activated] = await prisma.$transaction([
         prisma.snoozedThread.findMany({
           where: replaceablePendingSnooze,
           select: { id: true },
@@ -200,29 +218,28 @@ async function activateWithConflictRetry({
           where: replaceablePendingSnooze,
           data: { status: SnoozedThreadStatus.CANCELLED },
         }),
-        prisma.snoozedThread.updateMany({
+        prisma.snoozedThread.update({
           where: {
-            emailAccountId,
-            clientMutationId,
+            id,
             status: SnoozedThreadStatus.PREPARING,
+            archiveClaimedAt,
           },
           data: {
             status: SnoozedThreadStatus.PENDING,
             archiveClaimedAt: null,
             restoreMessageIds: [],
-          },
-        }),
-        prisma.snoozedThread.findUniqueOrThrow({
-          where: {
-            emailAccountId_clientMutationId: {
-              emailAccountId,
-              clientMutationId,
-            },
+            targetOutcomes: targets,
           },
         }),
       ]);
       return { activated, replacedSnoozes };
     } catch (error) {
+      // A failed fenced update rolls back replacement of the active snooze too.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      )
+        return null;
       if (attempt >= 2 || !isSnoozeActivationConflict(error)) throw error;
     }
   }
@@ -343,16 +360,19 @@ export async function cancelSnoozedThreadByClientMutationId({
   clientMutationId,
   emailAccountId,
   restoredMessageIds,
+  archiveClaimedAt,
 }: {
   clientMutationId: string;
   emailAccountId: string;
   restoredMessageIds?: string[];
+  archiveClaimedAt?: Date;
 }) {
   await prisma.snoozedThread.updateMany({
     where: {
       clientMutationId,
       emailAccountId,
       status: SnoozedThreadStatus.PREPARING,
+      ...(archiveClaimedAt && { archiveClaimedAt }),
       ...(restoredMessageIds && {
         restoreMessageIds: { equals: restoredMessageIds },
       }),

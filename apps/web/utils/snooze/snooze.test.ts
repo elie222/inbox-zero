@@ -2,10 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import { scheduleSnoozedThread } from "@/utils/snooze/scheduler";
+import { withSnoozeMutationLease } from "@/utils/snooze/mutation-lease";
 import { snoozeThreads } from "./snooze";
 
 vi.mock("@/utils/snooze/scheduler", () => ({
   scheduleSnoozedThread: vi.fn(),
+}));
+vi.mock("@/utils/snooze/mutation-lease", () => ({
+  withSnoozeMutationLease: vi.fn(async (_accountId, run) => run()),
 }));
 
 const logger = createTestLogger();
@@ -54,6 +58,23 @@ describe("snoozeThreads", () => {
       "one",
       "owner@example.com",
     );
+  });
+
+  it("does not schedule a snooze while another mutation holds the mailbox lease", async () => {
+    vi.mocked(withSnoozeMutationLease).mockResolvedValueOnce(null);
+    const provider = createMockEmailProvider();
+    await expect(
+      snoozeThreads({
+        emailAccountId: "account",
+        logger,
+        ownerEmail: "owner@example.com",
+        provider,
+        snoozedUntil,
+        threadIds: ["one"],
+      }),
+    ).resolves.toEqual({ failedThreadIds: ["one"], succeededThreadIds: [] });
+    expect(scheduleSnoozedThread).not.toHaveBeenCalled();
+    expect(provider.archiveThreadWithLabel).not.toHaveBeenCalled();
   });
 
   it("keeps restoration scheduled when the archive outcome is uncertain", async () => {
