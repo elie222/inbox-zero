@@ -8,6 +8,7 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
+import { cx } from "./utils";
 
 export const MAILBOX_PREFETCH_REMAINING = 8;
 export const MAILBOX_SCROLL_PADDING_PX = 8;
@@ -62,6 +63,9 @@ export type MailboxThreadListProps<T> = {
   /** The group label that gets no heading, since the newest mail needs none. */
   todayGroupLabel?: string;
   listLabel?: string;
+  /** Restores DOM focus to this row key on mount/update, or to the list if absent. */
+  restoreFocusKey?: string | null;
+  onFocusRestored?: () => void;
 };
 
 export function MailboxThreadList<T>({
@@ -97,9 +101,13 @@ export function MailboxThreadList<T>({
   emptyStyle,
   loadingMoreIndicator = "Loading more",
   loadMoreButton,
+  restoreFocusKey = null,
+  onFocusRestored,
 }: MailboxThreadListProps<T>) {
   const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
+  const listboxRef = useRef<HTMLDivElement | null>(null);
   const focusedRowRef = useRef<HTMLDivElement | null>(null);
+  const restoreFocusRowRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const prefetchForCount = useRef<number | null>(null);
   const prefetchListKey = useRef(listKey);
@@ -108,10 +116,15 @@ export function MailboxThreadList<T>({
   const scrolledRef = useRef(false);
   const onScrolledChangeRef = useRef(onScrolledChange);
   onScrolledChangeRef.current = onScrolledChange;
+  const onFocusRestoredRef = useRef(onFocusRestored);
+  onFocusRestoredRef.current = onFocusRestored;
 
   const focusedKey = items[focusedIndex]
     ? getKey(items[focusedIndex])
     : undefined;
+  const restoreTargetPresent =
+    Boolean(restoreFocusKey) &&
+    items.some((item) => getKey(item) === restoreFocusKey);
   const groups = useMemo(
     () => groupItemsByLabel(items, getGroupLabel),
     [items, getGroupLabel],
@@ -123,6 +136,24 @@ export function MailboxThreadList<T>({
     if (!row) return;
     scrollElementIntoContainer(scrollRoot, row);
   }, [focusedIndex, focusedKey, scrollRoot]);
+
+  useLayoutEffect(() => {
+    if (!restoreFocusKey || !scrollRoot) return;
+    let targetRow: HTMLDivElement | null = null;
+    if (restoreTargetPresent) {
+      targetRow =
+        focusedKey === restoreFocusKey
+          ? focusedRowRef.current
+          : restoreFocusRowRef.current;
+    }
+    if (targetRow && targetRow !== focusedRowRef.current) {
+      scrollElementIntoContainer(scrollRoot, targetRow);
+    }
+    const target = targetRow ?? listboxRef.current ?? scrollRoot;
+    target.focus({ preventScroll: true });
+    if (document.activeElement !== target) return;
+    onFocusRestoredRef.current?.();
+  }, [focusedKey, restoreFocusKey, restoreTargetPresent, scrollRoot]);
 
   useEffect(() => {
     if (prefetchListKey.current !== listKey) {
@@ -171,7 +202,7 @@ export function MailboxThreadList<T>({
   return (
     <div className={className} style={style}>
       <div
-        className={scrollClassName}
+        className={cx("outline-none", scrollClassName)}
         onScroll={(event) => {
           const scrolled = event.currentTarget.scrollTop > 0;
           if (scrolled === scrolledRef.current) return;
@@ -180,6 +211,7 @@ export function MailboxThreadList<T>({
         }}
         ref={setScrollRoot}
         style={scrollStyle}
+        tabIndex={-1}
       >
         {items.length === 0 && !showLoadMore ? (
           <div className={emptyClassName} style={emptyStyle}>
@@ -190,9 +222,11 @@ export function MailboxThreadList<T>({
             <div
               aria-label={listLabel}
               aria-multiselectable={selectionEnabled || undefined}
-              className={listClassName}
+              className={cx("outline-none", listClassName)}
+              ref={listboxRef}
               role="listbox"
               style={listStyle}
+              tabIndex={-1}
             >
               {groups.map((group) => (
                 <div
@@ -208,6 +242,12 @@ export function MailboxThreadList<T>({
                   {group.items.map((item, offset) => {
                     const index = group.startIndex + offset;
                     const rowKey = getKey(item);
+                    let rowRef: Ref<HTMLDivElement> | undefined;
+                    if (index === focusedIndex) {
+                      rowRef = focusedRowRef;
+                    } else if (restoreFocusKey && rowKey === restoreFocusKey) {
+                      rowRef = restoreFocusRowRef;
+                    }
                     return renderItem({
                       item,
                       index,
@@ -216,8 +256,7 @@ export function MailboxThreadList<T>({
                       isSelected: selectionEnabled && isSelected(rowKey),
                       hasAnySelection: selectionEnabled && selectedCount > 0,
                       selectionEnabled,
-                      rowRef:
-                        index === focusedIndex ? focusedRowRef : undefined,
+                      rowRef,
                       onOpen,
                       onToggleSelect,
                       onSelectRangeTo,

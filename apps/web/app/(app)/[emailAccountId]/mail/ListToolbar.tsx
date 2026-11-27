@@ -82,7 +82,8 @@ export type ListToolbarProps = {
   searchLabels?: { name: string }[];
   searchFolders?: { name: string }[];
   searchVariant?: "gmail" | "outlook" | "common";
-  onToggleLayout: () => void;
+  /** Omitted on mobile viewports, where the split layout isn't used. */
+  onToggleLayout?: () => void;
   onTogglePreview: () => void;
   bundleInbox: boolean;
   /** Omitted outside the single-account inbox, where bundling never applies. */
@@ -679,15 +680,17 @@ function ViewOptionsMenu({
             {getShortcutHint("togglePreview")}
           </DropdownMenuShortcut>
         </DropdownMenuCheckboxItem>
-        <DropdownMenuCheckboxItem
-          checked={layout === "split"}
-          onCheckedChange={onToggleLayout}
-        >
-          <Trans>Split view</Trans>
-          <DropdownMenuShortcut>
-            {getShortcutHint("toggleLayout")}
-          </DropdownMenuShortcut>
-        </DropdownMenuCheckboxItem>
+        {onToggleLayout ? (
+          <DropdownMenuCheckboxItem
+            checked={layout === "split"}
+            onCheckedChange={onToggleLayout}
+          >
+            <Trans>Split view</Trans>
+            <DropdownMenuShortcut>
+              {getShortcutHint("toggleLayout")}
+            </DropdownMenuShortcut>
+          </DropdownMenuCheckboxItem>
+        ) : null}
         {(onOpenAllSettings || onOpenSetup) && <DropdownMenuSeparator />}
         {onOpenAllSettings && (
           <DropdownMenuItem onSelect={onOpenAllSettings} inset>

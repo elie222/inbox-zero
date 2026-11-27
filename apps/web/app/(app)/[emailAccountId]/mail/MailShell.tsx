@@ -133,6 +133,7 @@ import { useLabels } from "@/hooks/useLabels";
 import { useFolders } from "@/hooks/useFolders";
 import { useMailSettings } from "@/hooks/useMailSettings";
 import { useAccounts } from "@/hooks/useAccounts";
+import { useIsMobileState } from "@/hooks/use-mobile";
 import { useThread } from "@/hooks/useThread";
 import { cn } from "@/utils";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
@@ -186,6 +187,7 @@ export function MailShell() {
   const { userLabels: allLabels } = useLabels();
   const { folders } = useFolders(provider);
   const { data: settings, mutate: mutateSettings } = useMailSettings();
+  const isMobile = useIsMobileState();
   const { toggleSidebar, state: sidebarState } = useSidebar();
   const isPaletteOpen = useAtomValue(commandPaletteOpenAtom);
   const isHelpOpen = useAtomValue(shortcutsDialogOpenAtom);
@@ -237,6 +239,14 @@ export function MailShell() {
   } | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pendingSearchFocusRef = useRef(false);
+  const [pendingListFocus, setPendingListFocus] = useState<{
+    key: string;
+    searchQuery: string | null;
+  } | null>(null);
+  const clearPendingListFocus = useCallback(
+    () => setPendingListFocus(null),
+    [],
+  );
 
   useEffect(() => {
     setIsDesktopApp(Boolean(getInboxZeroDesktopApp()));
@@ -252,6 +262,7 @@ export function MailShell() {
       { history = "push" }: { history?: "push" | "replace" } = {},
     ) => {
       setIsMenuOpen(false);
+      if (selection) setPendingListFocus(null);
       const threadId = selection?.threadId ?? null;
       const threadAccountId =
         isAllAccounts && selection ? selection.emailAccountId : null;
@@ -280,8 +291,12 @@ export function MailShell() {
         })),
     [accountsData?.emailAccounts],
   );
-  const layout: MailLayoutMode =
+  const preferredLayout: MailLayoutMode =
     settings?.layout === MailLayout.SPLIT ? "split" : "list";
+  // Wait for viewport detection before using split mode so mobile never flashes
+  // side-by-side panes and SSR/hydration markup stays identical.
+  const canUseSplitLayout = isMobile === false;
+  const layout: MailLayoutMode = canUseSplitLayout ? preferredLayout : "list";
   const expandedPreview = settings?.expandedPreview ?? false;
   const bundleInbox = settings?.bundleInbox ?? false;
   const groupBySender = settings?.groupBySender ?? true;
@@ -325,9 +340,10 @@ export function MailShell() {
   const toggleLayout = useCallback(
     () =>
       updatePreferences({
-        layout: layout === "split" ? MailLayout.LIST : MailLayout.SPLIT,
+        layout:
+          preferredLayout === "split" ? MailLayout.LIST : MailLayout.SPLIT,
       }),
-    [layout, updatePreferences],
+    [preferredLayout, updatePreferences],
   );
 
   const togglePreview = useCallback(
@@ -380,6 +396,10 @@ export function MailShell() {
       ? searchDraft.value
       : searchParam) ?? "";
   const searchQuery = searchValue.trim() || null;
+  if (pendingListFocus && pendingListFocus.searchQuery !== searchQuery)
+    setPendingListFocus(null);
+  const pendingListFocusKey =
+    pendingListFocus?.searchQuery === searchQuery ? pendingListFocus.key : null;
   // Scheduled sends live in our own database, so this view has no thread
   // list to fetch.
   const isScheduledView =
@@ -392,6 +412,7 @@ export function MailShell() {
   const searchSettled = !searchQuery || searchQuery === settledSearch;
   const setSearch = useCallback(
     (value: string) => {
+      setPendingListFocus(null);
       setSearchDraft(undefined);
       setSettledSearch(value.trim() || null);
       return setSearchParam(value.trim() || null);
@@ -399,7 +420,10 @@ export function MailShell() {
     [setSearchParam],
   );
   const onSearchChange = useCallback(
-    (value: string) => setSearchDraft({ identity: searchEditIdentity, value }),
+    (value: string) => {
+      setPendingListFocus(null);
+      setSearchDraft({ identity: searchEditIdentity, value });
+    },
     [searchEditIdentity],
   );
   // Picking the view that's already open leaves the URL unchanged, so an
@@ -1441,6 +1465,7 @@ export function MailShell() {
 
   const selectAllAccounts = useCallback(() => {
     setSearchDraft(undefined);
+    setPendingListFocus(null);
     selection.clear();
     setFocusedIndex(0);
     setOpenThread(null);
@@ -1486,11 +1511,17 @@ export function MailShell() {
     input.select();
   }, []);
 
-  const closeReader = useCallback(() => {
+  const closeReader = useStableCallback(() => {
+    if (layout === "list" && openThreadKey) {
+      const index = orderedIds.indexOf(openThreadKey);
+      if (index >= 0) setFocusedIndex(index);
+      setPendingListFocus({ key: openThreadKey, searchQuery });
+    }
     setOpenThread(null);
-  }, [setOpenThread]);
+  });
 
   const goToInbox = useCallback(() => {
+    setPendingListFocus(null);
     selection.clear();
     setOpenThread(null);
     setScopeType("inbox");
@@ -1526,6 +1557,22 @@ export function MailShell() {
   }
   const showList =
     layout === "split" || !openThreadSelection || readerPreparing;
+  const listError = searchQuery && threads.length ? undefined : error;
+  const restoreFocusKey =
+    showList &&
+    !openThreadSelection &&
+    !readerPreparing &&
+    !previewThreadId &&
+    !isScheduledView
+      ? pendingListFocusKey
+      : null;
+  // When the reader closes while the list is still loading, closeReader cannot
+  // resolve the row index yet; sync focusedIndex once the target row arrives.
+  useLayoutEffect(() => {
+    if (!restoreFocusKey || listError) return;
+    const index = orderedIds.indexOf(restoreFocusKey);
+    if (index >= 0) setFocusedIndex(index);
+  }, [listError, orderedIds, restoreFocusKey]);
   const closeSetup = () => {
     setSetupParam(null);
     if (!editAllOnly && settings?.setup !== MailSetupState.DONE)
@@ -1661,7 +1708,7 @@ export function MailShell() {
         if (await undoLatestToast()) return;
         await undo();
       },
-      toggleLayout,
+      toggleLayout: canUseSplitLayout ? toggleLayout : undefined,
       togglePreview,
       toggleAssistant: onToggleAssistant,
       help: () => setIsHelpOpen(true),
@@ -1669,7 +1716,8 @@ export function MailShell() {
         ? undefined
         : () => {
             if (selection.hasSelection) selection.clear();
-            if (layout === "list" && openThreadId) closeReader();
+            setPendingListFocus(null);
+            if (layout === "list" && openThreadId) setOpenThread(null);
             pendingSearchFocusRef.current = true;
             focusPendingSearch();
           },
@@ -2118,7 +2166,7 @@ export function MailShell() {
               splits={splitTabs}
               allSplitId={allSplitId}
               editAllOnly={editAllOnly}
-              layout={layout}
+              layout={preferredLayout}
               bundleInbox={bundleInbox}
               defaultSplitId={settings.defaultSplitId}
               onUpdatePreferences={updatePreferences}
@@ -2170,7 +2218,7 @@ export function MailShell() {
                   isAllAccounts,
                   isOutlook,
                 })}
-                onToggleLayout={toggleLayout}
+                onToggleLayout={canUseSplitLayout ? toggleLayout : undefined}
                 expandedPreview={expandedPreview}
                 onTogglePreview={togglePreview}
                 bundleInbox={bundleInbox}
@@ -2292,9 +2340,7 @@ export function MailShell() {
                         loading={
                           !threads.length && (isLoading || !searchSettled)
                         }
-                        error={
-                          searchQuery && threads.length ? undefined : error
-                        }
+                        error={listError}
                         errorComponent={
                           searchQuery && error && !threads.length ? (
                             <div className="flex flex-col items-center pb-8">
@@ -2352,6 +2398,8 @@ export function MailShell() {
                           onScrolledChange={setIsListScrolled}
                           rowBundles={rowBundles}
                           onToggleBundle={collapseBundle}
+                          restoreFocusKey={restoreFocusKey}
+                          onFocusRestored={clearPendingListFocus}
                           listKey={
                             isAllAccounts
                               ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`

@@ -72,6 +72,8 @@ export type ThreadListProps = {
   /** Rows that stand for, or belong to, an inbox bundle, by thread key. */
   rowBundles?: Map<string, InboxBundleRowInfo>;
   onToggleBundle?: (bundleId: string) => void;
+  restoreFocusKey?: string | null;
+  onFocusRestored?: () => void;
 };
 
 export const ThreadList = memo(function ThreadList({
@@ -98,6 +100,8 @@ export const ThreadList = memo(function ThreadList({
   onScrolledChange,
   rowBundles = NO_BUNDLES,
   onToggleBundle,
+  restoreFocusKey,
+  onFocusRestored,
 }: ThreadListProps) {
   const { i18n } = useLingui();
   const isMobile = useIsMobile();
@@ -182,11 +186,13 @@ export const ThreadList = memo(function ThreadList({
           <Trans>Loading more</Trans>
         </div>
       }
+      onFocusRestored={onFocusRestored}
       onLoadMore={onLoadMore}
       onOpen={onOpenThread}
       onScrolledChange={onScrolledChange}
       onSelectRangeTo={onSelectRangeTo}
       onToggleSelect={onToggleSelect}
+      restoreFocusKey={restoreFocusKey}
       renderItem={(row) => {
         const bundleRow = rowBundles.get(row.rowKey);
         if (bundleRow?.kind === "collapsed") {
