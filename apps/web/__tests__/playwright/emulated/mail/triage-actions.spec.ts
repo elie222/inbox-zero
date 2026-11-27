@@ -41,6 +41,54 @@ test("archives a selected conversation and restores it with undo", async ({
   await expectEngineMutation(page, emailAccountId, "unarchive", ARCHIVE_THREAD);
 });
 
+test("returns to the same list when E has no other conversation to open", async ({
+  page,
+}, testInfo) => {
+  const { conversations, emailAccountId } = await openMail(page);
+  const reader = page.getByTestId("thread-reader");
+  if (await page.getByText("Nothing selected", { exact: true }).isVisible()) {
+    await toggleMailLayout(page);
+  }
+
+  const search = page.getByPlaceholder("Search mail");
+  await search.fill("Archive Action");
+  await search.press("Enter");
+  const result = conversations.getByRole("option");
+  await expect(result).toHaveCount(1);
+  await expect(result).toContainText("Archive Action Message");
+  const listUrl = page.url();
+
+  await result.click();
+  await expect(
+    reader.getByRole("heading", { name: "Archive Action Message" }),
+  ).toBeVisible();
+  await page.keyboard.press("e");
+  try {
+    await expect(page).toHaveURL(listUrl);
+    await expect(reader).toBeHidden();
+    await expectEngineMutation(page, emailAccountId, "archive", ARCHIVE_THREAD);
+
+    // Search still matches the conversation after it leaves the inbox.
+    await result.click();
+    await expect(
+      reader.getByRole("button", { name: /^Move to inbox/i }),
+    ).toBeVisible();
+    await page.keyboard.press("e");
+    await expect(page).toHaveURL(listUrl);
+    await expect(reader).toBeHidden();
+    await expect(result).toBeVisible();
+    await capturePlaywrightCheckpoint(page, testInfo, "last-conversation-list");
+  } finally {
+    await undoLastTriage(page);
+    await expectEngineMutation(
+      page,
+      emailAccountId,
+      "unarchive",
+      ARCHIVE_THREAD,
+    );
+  }
+});
+
 test("shows a queue_full toast when a second archive cannot be admitted", async ({
   page,
 }, testInfo) => {
