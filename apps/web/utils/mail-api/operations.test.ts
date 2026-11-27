@@ -1951,13 +1951,22 @@ describe("createEmailProviderOperationExecutor", () => {
   });
 
   it.each([
-    { cancelled: false, temporaryNotFound: false },
-    { cancelled: true, temporaryNotFound: false },
-    { cancelled: false, temporaryNotFound: true },
-    { cancelled: true, temporaryNotFound: true },
-  ])("retains rollback for a late archive after lease expiry (cancelled: $cancelled, temporary 404: $temporaryNotFound)", async ({
+    {
+      cancelled: false,
+      read: "inbox",
+      elapsedMs: SNOOZE_EXECUTION_LEASE_MS + 1,
+    },
+    {
+      cancelled: true,
+      read: "inbox",
+      elapsedMs: SNOOZE_EXECUTION_LEASE_MS + 1,
+    },
+    { cancelled: false, read: "404", elapsedMs: 31 * 60 * 1000 },
+    { cancelled: true, read: "404", elapsedMs: 31 * 60 * 1000 },
+  ])("retains rollback for a late archive after $elapsedMs ms (cancelled: $cancelled, read: $read)", async ({
     cancelled,
-    temporaryNotFound,
+    read,
+    elapsedMs,
   }) => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
@@ -1980,7 +1989,7 @@ describe("createEmailProviderOperationExecutor", () => {
         .mockImplementationOnce(readReceipt)
         .mockImplementationOnce(readReceipt)
         .mockImplementationOnce(readReceipt);
-      if (!temporaryNotFound)
+      if (read === "inbox")
         vi.mocked(prepareSnoozedThread).mockImplementationOnce(readReceipt);
       vi.mocked(claimSnoozePreparation)
         .mockImplementationOnce(async (_, dispatch) => {
@@ -2053,8 +2062,8 @@ describe("createEmailProviderOperationExecutor", () => {
       expect(receipt.pendingArchiveMessageId).toBe("m1");
       if (cancelled) receipt.status = "CANCELLED";
 
-      vi.setSystemTime(now + SNOOZE_EXECUTION_LEASE_MS + 1);
-      if (temporaryNotFound) {
+      vi.setSystemTime(now + elapsedMs);
+      if (read === "404") {
         missing = true;
         const [mutation] = vi.mocked(prepareSnoozedThread).mock.calls[0];
         vi.mocked(getSnoozedThreadByClientMutationId).mockResolvedValueOnce({
