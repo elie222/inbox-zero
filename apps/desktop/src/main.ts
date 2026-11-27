@@ -61,6 +61,10 @@ import {
 } from "./desktop";
 import { installDesktopWindowFocus } from "./window-focus";
 import { createMailNotifier } from "./mail-notifications";
+import {
+  createMenuBarHandoff,
+  isMenuBarSessionCookie,
+} from "./menu-bar-handoff";
 import { captureDesktopError, initDesktopSentry } from "./sentry";
 import { startEventLoopDelayMonitor } from "./health";
 import { readDesktopAttachment } from "./mail-engine/attachment";
@@ -302,6 +306,7 @@ function startDesktopApp() {
   });
 
   app.whenReady().then(async () => {
+    let syncMenuBarHelper: ReturnType<typeof createMenuBarHandoff> | undefined;
     let desktopUpdateReady = false;
     const applyDesktopMenu = () => {
       configureDesktopApplicationMenu({
@@ -355,6 +360,34 @@ function startDesktopApp() {
         recovery.retryIfNotBooted();
       }
     });
+    if (
+      process.platform === "darwin" &&
+      app.isPackaged &&
+      !shouldSmokeLocalMail()
+    ) {
+      const desktopSession = session.fromPartition(PARTITION);
+      const originHost = new URL(appOrigin).hostname;
+      const sync = createMenuBarHandoff({
+        origin: appOrigin,
+        contentsPath: path.dirname(process.resourcesPath),
+        session: desktopSession,
+        openPath: (bundle) => shell.openPath(bundle),
+        onFailure: reportMenuBarFailure,
+        onIneligibleSession: offerMenuBarSignIn,
+      });
+      syncMenuBarHelper = sync;
+      desktopSession.cookies.on("changed", (_event, cookie, cause) => {
+        if (!isMenuBarSessionCookie(cookie) || cause === "overwrite") return;
+        const domain = cookie.domain?.replace(/^\./u, "");
+        if (
+          domain &&
+          domain !== originHost &&
+          !originHost.endsWith(`.${domain}`)
+        )
+          return;
+        sync();
+      });
+    }
     restoreAppWindows();
     const startupAuthUrl =
       pendingAuthUrl ?? findDesktopProtocolUrl(process.argv);
@@ -362,6 +395,7 @@ function startDesktopApp() {
     if (startupAuthUrl) {
       await handleAuthCallbackUrl(startupAuthUrl);
     }
+    syncMenuBarHelper?.();
     if (!shouldSmokeLocalMail()) {
       startDesktopAutoUpdate(undefined, {
         onUpdateReady: (version) => {
@@ -924,6 +958,30 @@ function showSignInError(error: unknown) {
     "Sign in failed",
     error instanceof Error ? error.message : "Could not finish signing in",
   );
+}
+
+function offerMenuBarSignIn(bundle: string) {
+  dialog
+    .showMessageBox({
+      type: "info",
+      message: "Connect Inbox Zero Menu Bar",
+      detail:
+        "Open the helper and sign in with Google or Microsoft to receive verification codes.",
+      buttons: ["Open Menu Bar Helper", "Later"],
+      cancelId: 1,
+    })
+    .then(async ({ response }) => {
+      if (response === 0 && (await shell.openPath(bundle))) {
+        reportMenuBarFailure("opening helper");
+      }
+    })
+    .catch(() => reportMenuBarFailure("offering helper sign-in"));
+}
+
+function reportMenuBarFailure(stage: string) {
+  const error = new Error(`Menu bar handoff failed while ${stage}`);
+  process.stderr.write(`${error.message}\n`);
+  captureDesktopError(error, { area: "sign-in" });
 }
 
 let desktopMailOwner: DesktopMailProcessOwner | undefined;

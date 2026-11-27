@@ -27,6 +27,12 @@ mac:
   forceCodeSigning: true
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.inherit.plist
+  extraFiles:
+    - from: build/menubar/InboxZeroMenuBar.app
+      to: Library/LoginItems/InboxZeroMenuBar.app
+  # The helper already has a Developer ID signature and its own APNs and Keychain entitlements.
+  signIgnore:
+    - '/Contents/Library/LoginItems/InboxZeroMenuBar\.app(?:/|$)'
   target:
     - target: dmg
       arch:

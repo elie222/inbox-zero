@@ -50,6 +50,30 @@ pnpm --filter @inboxzero/desktop dist:win
 
 Installers land in `apps/desktop/release/`. macOS packaging requires a Developer ID certificate and notarization credentials.
 
+### Bundle the macOS menu bar helper
+
+Obtain a signed universal `InboxZeroMenuBar.app` from the macOS app maintainer.
+The helper is built in the separate Swift client workspace, which requires
+repository access. If you have access, use a revision that supports
+`--auth-status` and `--auth-disconnect`. From that checkout's `ios/` directory, run
+`MENUBAR_PROVISIONING_PROFILE=/path/to/profile.provisionprofile scripts/build-menubar-helper.sh`
+with a Developer ID provisioning profile for the helper. The script produces
+`ios/build/menubar/InboxZeroMenuBar.app`. Stage the signed bundle in
+`apps/desktop/build/menubar/` before running the macOS packaging command. The
+packager places it in `Inbox Zero.app/Contents/Library/LoginItems/` and preserves
+the helper signature and entitlements so the outer app's notarization can cover both.
+The hosted Desktop Release workflow currently omits the helper because it does not stage the signed bundle.
+
+On startup or after sign-in, the Mac desktop app checks the helper's Keychain
+session and sends it a single-use PKCE code over stdin when it needs to reconnect.
+Desktop verifies that the helper has the expected bundle identifier and a
+Developer ID signature from the desktop app's signing team. It verifies the
+running helper process again before sending the handoff through stdin.
+The helper can run after the desktop app closes. Signing out of desktop disconnects
+a session created by desktop handoff. A session created by signing in directly in
+the helper stays independent. If the backend rejects handoff for an email-code
+session, desktop offers to open the helper for Google or Microsoft sign-in.
+
 ## Release
 
 Push a `desktop-v*` tag to build and publish a release, or run the [Desktop Release workflow](../../.github/workflows/desktop-release.yml) manually with optional publishing. It packages macOS (DMG/ZIP) and Windows (NSIS) for arm64 and x64.
