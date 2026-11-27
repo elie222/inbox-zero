@@ -56,6 +56,9 @@ test("returns to the same list when E has no other conversation to open", async 
   const result = conversations.getByRole("option");
   await expect(result).toHaveCount(1);
   await expect(result).toContainText("Archive Action Message");
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("q"))
+    .toBe("Archive Action");
   const listUrl = page.url();
 
   await result.click();
