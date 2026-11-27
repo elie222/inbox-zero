@@ -961,12 +961,13 @@ model ScheduledAction {
 }
 
 model SnoozedThread {
-  id               String              @id @default(cuid())
-  updatedAt        DateTime            @updatedAt
-  threadId         String
-  scheduledFor     DateTime
-  status           SnoozedThreadStatus @default(PENDING)
-  clientMutationId String?
+  id                        String              @id @default(cuid())
+  updatedAt                 DateTime            @updatedAt
+  threadId                  String
+  scheduledFor              DateTime
+  status                    SnoozedThreadStatus @default(PENDING)
+  clientMutationId          String?
+  clientMutationPayloadHash String?
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)

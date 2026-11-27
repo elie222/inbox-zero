@@ -49,6 +49,34 @@ describe.skipIf(!RUN_DB_TESTS)(
       await prisma.$disconnect();
     });
 
+    test("binds a mutation to its original payload even after the restore is delayed", async () => {
+      const input = {
+        clientMutationId: "payload-bound-snooze",
+        clientMutationPayloadHash: "original-payload",
+        emailAccountId,
+        scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+        threadId: "payload-bound-thread",
+      };
+      const { snoozedThread } = await prepareSnoozedThread(input);
+      const delayedRestore = new Date("2026-08-17T09:05:00.000Z");
+      await prisma.snoozedThread.update({
+        where: { id: snoozedThread.id },
+        data: { scheduledFor: delayedRestore },
+      });
+
+      await expect(prepareSnoozedThread(input)).resolves.toMatchObject({
+        created: false,
+        snoozedThread: { scheduledFor: delayedRestore },
+      });
+      await expect(
+        prepareSnoozedThread({
+          ...input,
+          clientMutationPayloadHash: "different-payload",
+          scheduledFor: delayedRestore,
+        }),
+      ).rejects.toThrow("Snooze mutation ID was reused with different input");
+    });
+
     test("keeps one active restore when the same thread is scheduled concurrently", async () => {
       const scheduledFor = new Date("2026-08-17T09:00:00.000Z");
 

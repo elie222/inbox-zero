@@ -725,13 +725,45 @@ describe("createEmailProviderOperationExecutor", () => {
   });
 
   it.each([
-    "PENDING",
-    "COMPLETED",
-  ])("confirms a %s snooze when its original message can no longer be read", async (status) => {
+    {
+      label: "the original pending snooze",
+      status: "PENDING",
+      expected: "confirmed",
+    },
+    {
+      label: "the original completed snooze",
+      status: "COMPLETED",
+      expected: "confirmed",
+    },
+    {
+      label: "a different target",
+      status: "PENDING",
+      messageId: "m2",
+      expected: "rejected",
+    },
+    {
+      label: "a different wake time",
+      status: "PENDING",
+      wakeTimeDelta: 60_000,
+      expected: "rejected",
+    },
+    {
+      label: "a legacy receipt without a payload hash",
+      status: "PENDING",
+      legacy: true,
+      expected: "rejected",
+    },
+  ])("verifies $label when the provider message lookup fails", async ({
+    status,
+    messageId,
+    wakeTimeDelta,
+    legacy,
+    expected,
+  }) => {
     const untilMs = Date.now() + 60_000;
-    vi.mocked(getSnoozedThreadByClientMutationId).mockResolvedValueOnce({
-      status,
-      scheduledFor: new Date(untilMs),
+    vi.mocked(prepareSnoozedThread).mockResolvedValueOnce({
+      created: false,
+      snoozedThread: { status: "PENDING" },
     } as never);
     const archiveThreadWithLabel = vi.fn();
     const executor = createEmailProviderOperationExecutor({
@@ -741,19 +773,33 @@ describe("createEmailProviderOperationExecutor", () => {
         archiveThreadWithLabel,
         getMessage: vi
           .fn()
-          .mockRejectedValue(new Error("Requested entity was not found")),
+          .mockRejectedValue(new Error("Requested entity was not found"))
+          .mockResolvedValueOnce({ threadId: "thread-1" }),
       } as unknown as EmailProvider,
     });
+    const signal = new AbortController().signal;
+    await executor.execute({
+      operation: snoozeOperation(untilMs),
+      attemptId: "original-snooze",
+      signal,
+    });
+    const [{ clientMutationPayloadHash }] =
+      vi.mocked(prepareSnoozedThread).mock.calls[0];
+    vi.mocked(getSnoozedThreadByClientMutationId).mockResolvedValueOnce({
+      status,
+      scheduledFor: new Date(untilMs + (wakeTimeDelta ?? 0)),
+      clientMutationPayloadHash: legacy ? null : clientMutationPayloadHash,
+    } as never);
 
     const result = await executor.inspect({
-      operation: snoozeOperation(untilMs),
+      operation: snoozeOperation(untilMs + (wakeTimeDelta ?? 0), messageId),
       receiptId: null,
-      signal: new AbortController().signal,
+      signal,
     });
 
-    expect(result).toMatchObject({ status: "confirmed", receiptId: "bulk-1" });
+    expect(result.status).toBe(expected);
     expect(archiveThreadWithLabel).not.toHaveBeenCalled();
-    expect(prepareSnoozedThread).not.toHaveBeenCalled();
+    expect(prepareSnoozedThread).toHaveBeenCalledTimes(1);
   });
 
   it("finishes scheduling a preparing snooze during recovery", async () => {
@@ -789,6 +835,7 @@ describe("createEmailProviderOperationExecutor", () => {
     expect(result.status).toBe("confirmed");
     expect(activatePreparedSnoozedThread).toHaveBeenCalledWith({
       clientMutationId: "bulk-1",
+      clientMutationPayloadHash: expect.any(String),
       emailAccountId: "acc-1",
       threadId: "thread-1",
       scheduledFor: new Date(untilMs),
@@ -1157,12 +1204,13 @@ function discardOperation(
   };
 }
 
-function snoozeOperation(untilMs: number): PreparedOperation {
+function snoozeOperation(untilMs: number, messageId = "m1"): PreparedOperation {
+  const targets = [{ accountId: "acc-1", messageId }];
   return {
-    ...metadataOperation([{ accountId: "acc-1", messageId: "m1" }]),
+    ...metadataOperation(targets),
     intent: {
       kind: "metadata",
-      targets: [{ accountId: "acc-1", messageId: "m1" }],
+      targets,
       change: { kind: "snooze", untilMs },
     },
   };

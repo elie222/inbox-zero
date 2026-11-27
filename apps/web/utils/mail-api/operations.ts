@@ -528,6 +528,17 @@ async function executeSnooze(
       targets: [],
     };
   }
+  const clientMutationPayloadHash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        untilMs,
+        messageIds: operation.intent.targets
+          .map(({ messageId }) => messageId)
+          .sort(),
+      }),
+    )
+    .digest("hex");
+
   let threadId: string;
   try {
     ({ threadId } = await provider.getMessage(firstTarget.messageId));
@@ -537,7 +548,7 @@ async function executeSnooze(
       emailAccountId: accountId,
     });
     if (
-      existing?.scheduledFor.getTime() === scheduledFor.getTime() &&
+      existing?.clientMutationPayloadHash === clientMutationPayloadHash &&
       (existing.status === "PENDING" ||
         existing.status === "EXECUTING" ||
         existing.status === "COMPLETED")
@@ -562,12 +573,14 @@ async function executeSnooze(
   }
   if (!threadId) return snoozeUnavailable();
 
-  const prepared = await prepareSnoozedThread({
+  const snoozeMutation = {
     clientMutationId: operation.key.operationId,
+    clientMutationPayloadHash,
     emailAccountId: accountId,
     scheduledFor,
     threadId,
-  });
+  };
+  const prepared = await prepareSnoozedThread(snoozeMutation);
   if (prepared.created && scheduledFor.getTime() <= Date.now()) {
     await cancelPreparedSnooze(accountId, operation.key.operationId);
     return {
@@ -682,12 +695,7 @@ async function executeSnooze(
       targets,
     };
   }
-  const activated = await activatePreparedSnoozedThread({
-    clientMutationId: operation.key.operationId,
-    emailAccountId: accountId,
-    scheduledFor,
-    threadId,
-  });
+  const activated = await activatePreparedSnoozedThread(snoozeMutation);
   if (activated.status === "CANCELLED") {
     const restored = await restoreSnoozeTargets(
       provider,

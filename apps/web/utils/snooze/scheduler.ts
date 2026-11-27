@@ -12,6 +12,14 @@ const logger = createScopedLogger("snoozed-threads");
 export const SNOOZE_EXECUTION_LEASE_MS = 15 * 60 * 1000;
 const SNOOZE_RETRY_DELAY_MS = 5 * 60 * 1000;
 
+type SnoozeMutation = {
+  clientMutationId: string;
+  clientMutationPayloadHash?: string;
+  emailAccountId: string;
+  scheduledFor: Date;
+  threadId: string;
+};
+
 export async function scheduleSnoozedThread({
   emailAccountId,
   scheduledFor,
@@ -44,34 +52,22 @@ export async function scheduleSnoozedThread({
   return snoozedThread;
 }
 
-export async function prepareSnoozedThread({
-  clientMutationId,
-  emailAccountId,
-  scheduledFor,
-  threadId,
-}: {
-  clientMutationId: string;
-  emailAccountId: string;
-  scheduledFor: Date;
-  threadId: string;
-}) {
+export async function prepareSnoozedThread(input: SnoozeMutation) {
+  const { clientMutationId, emailAccountId } = input;
   const existing = await getSnoozedThreadByClientMutationId({
     clientMutationId,
     emailAccountId,
   });
   if (existing) {
-    assertSnoozePayload(existing, { scheduledFor, threadId });
+    assertSnoozePayload(existing, input);
     return { created: false, snoozedThread: existing };
   }
 
   try {
     const snoozedThread = await prisma.snoozedThread.create({
       data: {
-        clientMutationId,
-        emailAccountId,
-        scheduledFor,
+        ...input,
         status: SnoozedThreadStatus.PREPARING,
-        threadId,
       },
     });
     return { created: true, snoozedThread };
@@ -81,28 +77,19 @@ export async function prepareSnoozedThread({
       emailAccountId,
     });
     if (!concurrent) throw error;
-    assertSnoozePayload(concurrent, { scheduledFor, threadId });
+    assertSnoozePayload(concurrent, input);
     return { created: false, snoozedThread: concurrent };
   }
 }
 
-export async function activatePreparedSnoozedThread({
-  clientMutationId,
-  emailAccountId,
-  scheduledFor,
-  threadId,
-}: {
-  clientMutationId: string;
-  emailAccountId: string;
-  scheduledFor: Date;
-  threadId: string;
-}) {
+export async function activatePreparedSnoozedThread(input: SnoozeMutation) {
+  const { clientMutationId, emailAccountId, threadId } = input;
   const snoozedThread = await getSnoozedThreadByClientMutationId({
     clientMutationId,
     emailAccountId,
   });
   if (!snoozedThread) throw new Error("Prepared snooze was not found");
-  assertSnoozePayload(snoozedThread, { scheduledFor, threadId });
+  assertSnoozePayload(snoozedThread, input);
   if (snoozedThread.status !== SnoozedThreadStatus.PREPARING) {
     return snoozedThread;
   }
@@ -112,7 +99,7 @@ export async function activatePreparedSnoozedThread({
     emailAccountId,
     threadId,
   });
-  assertSnoozePayload(activated, { scheduledFor, threadId });
+  assertSnoozePayload(activated, input);
   if (activated.status !== SnoozedThreadStatus.PENDING) return activated;
 
   await publishSnoozedThread({ replacedSnoozes, snoozedThread: activated });
@@ -393,13 +380,15 @@ function getSchedulerLabel(snoozedThreadId: string) {
 }
 
 function assertSnoozePayload(
-  snoozedThread: Pick<SnoozedThread, "scheduledFor" | "threadId">,
-  expected: { scheduledFor: Date; threadId: string },
+  snoozedThread: SnoozedThread,
+  expected: SnoozeMutation,
 ) {
-  if (
-    snoozedThread.threadId !== expected.threadId ||
-    snoozedThread.scheduledFor.getTime() !== expected.scheduledFor.getTime()
-  ) {
+  // Restore retries can move scheduledFor after the original payload is stored.
+  const payloadMatches = snoozedThread.clientMutationPayloadHash
+    ? snoozedThread.clientMutationPayloadHash ===
+      expected.clientMutationPayloadHash
+    : snoozedThread.scheduledFor.getTime() === expected.scheduledFor.getTime();
+  if (snoozedThread.threadId !== expected.threadId || !payloadMatches) {
     throw new Error("Snooze mutation ID was reused with different input");
   }
 }
