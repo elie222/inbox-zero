@@ -25,6 +25,7 @@ describe.skipIf(!RUN_DB_TESTS)(
     let prisma: typeof import("@/utils/prisma").default;
     let activatePreparedSnoozedThread: typeof import("@/utils/snooze/scheduler").activatePreparedSnoozedThread;
     let claimSnoozePreparation: typeof import("@/utils/snooze/scheduler").claimSnoozePreparation;
+    let getPendingSnoozeRollbackMessageIds: typeof import("@/utils/snooze/scheduler").getPendingSnoozeRollbackMessageIds;
     let markSnoozedThreadAsExecuting: typeof import("@/utils/snooze/scheduler").markSnoozedThreadAsExecuting;
     let prepareSnoozedThread: typeof import("@/utils/snooze/scheduler").prepareSnoozedThread;
     let releaseSnoozePreparation: typeof import("@/utils/snooze/scheduler").releaseSnoozePreparation;
@@ -39,6 +40,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       ({
         activatePreparedSnoozedThread,
         claimSnoozePreparation,
+        getPendingSnoozeRollbackMessageIds,
         markSnoozedThreadAsExecuting,
         prepareSnoozedThread,
         releaseSnoozePreparation,
@@ -226,6 +228,28 @@ describe.skipIf(!RUN_DB_TESTS)(
       await expect(
         withSnoozeMutationLease(emailAccountId, async () => "next"),
       ).resolves.toBe("next");
+    });
+
+    test("scopes pending rollback targets to the mailbox and excludes the receipt being recovered", async () => {
+      await prisma.snoozedThread.create({
+        data: {
+          emailAccountId,
+          threadId: "thread-with-rollback",
+          clientMutationId: "rollback-mutation",
+          scheduledFor: new Date(),
+          status: SnoozedThreadStatus.CANCELLED,
+          pendingRollbackMessageIds: ["pending-message"],
+        },
+      });
+      await expect(
+        getPendingSnoozeRollbackMessageIds(emailAccountId, "new-mutation"),
+      ).resolves.toEqual(new Set(["pending-message"]));
+      await expect(
+        getPendingSnoozeRollbackMessageIds(emailAccountId, "rollback-mutation"),
+      ).resolves.toEqual(new Set());
+      await expect(
+        getPendingSnoozeRollbackMessageIds("other-mailbox"),
+      ).resolves.toEqual(new Set());
     });
 
     test("allows only one pending or executing restore per thread", async () => {

@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
-import { scheduleSnoozedThread } from "@/utils/snooze/scheduler";
+import {
+  getPendingSnoozeRollbackMessageIds,
+  scheduleSnoozedThread,
+} from "@/utils/snooze/scheduler";
 import { withSnoozeMutationLease } from "@/utils/snooze/mutation-lease";
 import { snoozeThreads } from "./snooze";
 
 vi.mock("@/utils/snooze/scheduler", () => ({
   scheduleSnoozedThread: vi.fn(),
+  getPendingSnoozeRollbackMessageIds: vi.fn().mockResolvedValue(new Set()),
 }));
 vi.mock("@/utils/snooze/mutation-lease", () => ({
   withSnoozeMutationLease: vi.fn(async (_accountId, run) => run()),
@@ -75,6 +79,38 @@ describe("snoozeThreads", () => {
     ).resolves.toEqual({ failedThreadIds: ["one"], succeededThreadIds: [] });
     expect(scheduleSnoozedThread).not.toHaveBeenCalled();
     expect(provider.archiveThreadWithLabel).not.toHaveBeenCalled();
+  });
+
+  it("skips only threads containing a message with an unresolved rollback", async () => {
+    vi.mocked(getPendingSnoozeRollbackMessageIds).mockResolvedValueOnce(
+      new Set(["pending-message"]),
+    );
+    const provider = createMockEmailProvider({
+      getThread: vi.fn(
+        async (threadId: string) =>
+          ({
+            id: threadId,
+            messages: [{ id: `${threadId}-message` }],
+          }) as never,
+      ),
+    });
+    await expect(
+      snoozeThreads({
+        emailAccountId: "account",
+        logger,
+        ownerEmail: "owner@example.com",
+        provider,
+        snoozedUntil,
+        threadIds: ["pending", "other"],
+      }),
+    ).resolves.toEqual({
+      failedThreadIds: ["pending"],
+      succeededThreadIds: ["other"],
+    });
+    expect(provider.archiveThreadWithLabel).toHaveBeenCalledExactlyOnceWith(
+      "other",
+      "owner@example.com",
+    );
   });
 
   it("keeps restoration scheduled when the archive outcome is uncertain", async () => {

@@ -266,6 +266,7 @@ describe("snoozed thread scheduler", () => {
         status: SnoozedThreadStatus.PREPARING,
         archiveClaimedAt: claim,
         pendingArchiveMessageId: null,
+        pendingRollbackMessageIds: { isEmpty: true },
       },
       data: {
         status: SnoozedThreadStatus.PENDING,

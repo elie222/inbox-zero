@@ -976,6 +976,8 @@ model SnoozedThread {
   inboxFolderId             String?
   restoreMessageIds          String[]            @default([])
   targetOutcomes             Json?
+  pendingRollbackMessageIds  String[]            @default([])
+  rollbackArchiveObservedIds String[]            @default([])
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)

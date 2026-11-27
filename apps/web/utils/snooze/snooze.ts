@@ -1,7 +1,10 @@
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { mapWithConcurrency } from "@/utils/async";
-import { scheduleSnoozedThread } from "@/utils/snooze/scheduler";
+import {
+  getPendingSnoozeRollbackMessageIds,
+  scheduleSnoozedThread,
+} from "@/utils/snooze/scheduler";
 import { withSnoozeMutationLease } from "@/utils/snooze/mutation-lease";
 
 const SNOOZE_CONCURRENCY = 10;
@@ -24,12 +27,21 @@ export async function snoozeThreads({
   const uniqueThreadIds = [...new Set(threadIds)];
   if (!uniqueThreadIds.length)
     return { failedThreadIds: [], succeededThreadIds: [] };
-  const results = await withSnoozeMutationLease(emailAccountId, () =>
-    mapWithConcurrency(
+  const results = await withSnoozeMutationLease(emailAccountId, async () => {
+    const pendingRollback =
+      await getPendingSnoozeRollbackMessageIds(emailAccountId);
+    return mapWithConcurrency(
       uniqueThreadIds,
       SNOOZE_CONCURRENCY,
       async (threadId) => {
         try {
+          if (pendingRollback.size) {
+            const thread = await provider.getThread(threadId, {
+              complete: true,
+            });
+            if (thread.messages.some(({ id }) => pendingRollback.has(id)))
+              return false;
+          }
           await snoozeThread({
             emailAccountId,
             ownerEmail,
@@ -43,8 +55,8 @@ export async function snoozeThreads({
           return false;
         }
       },
-    ),
-  );
+    );
+  });
 
   const succeededThreadIds = uniqueThreadIds.filter(
     (_, index) => results?.[index],

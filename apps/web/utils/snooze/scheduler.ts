@@ -247,6 +247,7 @@ async function activateWithConflictRetry({
             status: SnoozedThreadStatus.PREPARING,
             archiveClaimedAt,
             pendingArchiveMessageId: null,
+            pendingRollbackMessageIds: { isEmpty: true },
           },
           data: {
             status: SnoozedThreadStatus.PENDING,
@@ -328,6 +329,30 @@ async function publishSnoozedThread({
   }
 }
 
+export async function getPendingSnoozeRollbackMessageIds(
+  emailAccountId: string,
+  excludeMutationId?: string,
+) {
+  const receipts = await prisma.snoozedThread.findMany({
+    where: {
+      emailAccountId,
+      pendingRollbackMessageIds: { isEmpty: false },
+      ...(excludeMutationId && {
+        OR: [
+          { clientMutationId: null },
+          { clientMutationId: { not: excludeMutationId } },
+        ],
+      }),
+    },
+    select: { pendingRollbackMessageIds: true },
+  });
+  return new Set(
+    receipts.flatMap(
+      ({ pendingRollbackMessageIds }) => pendingRollbackMessageIds,
+    ),
+  );
+}
+
 export function getSnoozedThreadByClientMutationId({
   clientMutationId,
   emailAccountId,
@@ -403,7 +428,11 @@ export async function cancelSnoozedThreadByClientMutationId({
     },
     data: {
       status: SnoozedThreadStatus.CANCELLED,
-      ...(restoredMessageIds && { restoreMessageIds: [] }),
+      ...(restoredMessageIds && {
+        restoreMessageIds: [],
+        pendingRollbackMessageIds: [],
+        rollbackArchiveObservedIds: [],
+      }),
     },
   });
 }

@@ -37,6 +37,7 @@ import {
   activatePreparedSnoozedThread,
   cancelSnoozedThreadByClientMutationId,
   claimSnoozePreparation,
+  getPendingSnoozeRollbackMessageIds,
   getSnoozedThreadByClientMutationId,
   prepareSnoozedThread,
   releaseSnoozePreparation,
@@ -61,6 +62,18 @@ type PreparedMetadataOperation = PreparedOperation & {
   intent: Extract<PreparedOperation["intent"], { kind: "metadata" }>;
 };
 type SnoozeFolders = Pick<SnoozedThread, "archiveFolderId" | "inboxFolderId">;
+type SnoozeRollbackReceipt = SnoozeFolders &
+  Pick<
+    SnoozedThread,
+    | "id"
+    | "restoreMessageIds"
+    | "pendingRollbackMessageIds"
+    | "rollbackArchiveObservedIds"
+  >;
+type SnoozeRecoveryObservation = {
+  target: { messageId: string };
+  message: ParsedMessage | null;
+};
 
 export function createEmailProviderOperationExecutor(input: {
   provider: EmailProvider;
@@ -582,6 +595,12 @@ async function executeSnoozeWithLease(
     operation.intent.targets.map(({ messageId }) => messageId),
   );
   const messageIds = [...requestedIds];
+  const pendingRollback = await getPendingSnoozeRollbackMessageIds(
+    accountId,
+    mutation.clientMutationId,
+  );
+  if (messageIds.some((id) => pendingRollback.has(id)))
+    return snoozeUnavailable(30_000);
 
   let threadId: string;
   let byId: Map<string, ParsedMessage>;
@@ -649,7 +668,10 @@ async function executeSnoozeWithLease(
   }
 
   const receipt = prepared.snoozedThread;
-  if (receipt.pendingArchiveMessageId) {
+  if (
+    receipt.pendingArchiveMessageId ||
+    receipt.pendingRollbackMessageIds?.length
+  ) {
     return reconcileSnooze(
       provider,
       operation,
@@ -1185,6 +1207,9 @@ async function reconcileSnooze(
     // alone can't establish that this snooze moved a message.
     const restoreIds = new Set(existing.restoreMessageIds);
     const rollbackMessages: ParsedMessage[] = [];
+    const recoveringRollback = Boolean(
+      existing.pendingRollbackMessageIds?.length,
+    );
     let conversationChanged = false;
     let stillInInbox = false;
     const reads = await readSnoozeRecoveryTargets(
@@ -1227,10 +1252,16 @@ async function reconcileSnooze(
       });
     }
 
-    if (stillInInbox && wakeTime > Date.now() && !conversationChanged) {
+    if (
+      !recoveringRollback &&
+      stillInInbox &&
+      wakeTime > Date.now() &&
+      !conversationChanged
+    ) {
       return snoozeUnavailable();
     }
     if (
+      !recoveringRollback &&
       !archivedMessages.length &&
       wakeTime > Date.now() &&
       !conversationChanged &&
@@ -1246,6 +1277,7 @@ async function reconcileSnooze(
     const expired = wakeTime <= Date.now();
     if (
       archivedMessages.length &&
+      !recoveringRollback &&
       !expired &&
       !conversationChanged &&
       stillSnoozed.size === 0
@@ -1276,7 +1308,7 @@ async function reconcileSnooze(
     if (
       !(await restoreSnoozeTargets(
         provider,
-        rollbackMessages,
+        reads.messages,
         stillSnoozed,
         existing,
       ))
@@ -1308,6 +1340,8 @@ async function resumeCancelledSnooze(
     | "restoreMessageIds"
     | "archiveClaimedAt"
     | "pendingArchiveMessageId"
+    | "pendingRollbackMessageIds"
+    | "rollbackArchiveObservedIds"
     | keyof SnoozeFolders
   >,
 ) {
@@ -1335,7 +1369,7 @@ async function resumeCancelledSnooze(
     if (
       !(await restoreSnoozeTargets(
         provider,
-        rollbackMessages,
+        reads.messages,
         stillSnoozed,
         receipt,
       ))
@@ -1351,6 +1385,8 @@ async function resumeCancelledSnooze(
       },
       data: {
         restoreMessageIds: [],
+        pendingRollbackMessageIds: [],
+        rollbackArchiveObservedIds: [],
         archiveClaimedAt: null,
         pendingArchiveMessageId: null,
       },
@@ -1389,10 +1425,7 @@ async function readSnoozeRecoveryTargets(
 
 function snoozeArchiveWriteObserved(
   receipt: SnoozeFolders & Pick<SnoozedThread, "pendingArchiveMessageId">,
-  reads: Array<{
-    target: { messageId: string };
-    message: ParsedMessage | null;
-  }>,
+  reads: SnoozeRecoveryObservation[],
 ) {
   if (!receipt.pendingArchiveMessageId) return true;
   const read = reads.find(
@@ -1427,26 +1460,78 @@ async function getOtherSnoozedThreads(
 
 async function restoreSnoozeTargets(
   provider: EmailProvider,
-  targets: ParsedMessage[],
+  reads: SnoozeRecoveryObservation[],
   stillSnoozed: Set<string>,
-  folders: SnoozeFolders,
+  receipt: SnoozeRollbackReceipt,
 ) {
+  if (receipt.pendingRollbackMessageIds?.length) {
+    const observedArchive = new Set(receipt.rollbackArchiveObservedIds);
+    const byId = new Map(
+      reads.map(({ target, message }) => [target.messageId, message]),
+    );
+    let settled = true;
+    for (const id of receipt.pendingRollbackMessageIds) {
+      const message = byId.get(id);
+      if (message === null) continue;
+      const location = message
+        ? snoozeMessageLocation(message, receipt)
+        : "unknown";
+      if (location === "archive") observedArchive.add(id);
+      // An Inbox read alone cannot settle a restore that started with a stale Inbox read.
+      if (location !== "inbox" || !observedArchive.has(id)) settled = false;
+    }
+    if (
+      !settled &&
+      observedArchive.size > receipt.rollbackArchiveObservedIds.length
+    ) {
+      await prisma.snoozedThread.updateMany({
+        where: {
+          id: receipt.id,
+          pendingRollbackMessageIds: {
+            equals: receipt.pendingRollbackMessageIds,
+          },
+        },
+        data: { rollbackArchiveObservedIds: [...observedArchive] },
+      });
+    }
+    return settled;
+  }
+  const restoreIds = new Set(receipt.restoreMessageIds);
+  const targets = reads.flatMap(({ message }) =>
+    message && restoreIds.has(message.id) ? [message] : [],
+  );
   if (
     targets.some(
-      (message) => snoozeMessageLocation(message, folders) === "unknown",
+      (message) => snoozeMessageLocation(message, receipt) === "unknown",
     )
   )
     return false;
   // Inbox reads can lag behind the archive write. A different folder or a
   // trash/spam marker is evidence of a separate mailbox change.
-  const messageIds = targets
-    .filter(
-      (message) =>
-        !stillSnoozed.has(message.threadId) &&
-        snoozeMessageLocation(message, folders) !== "other",
-    )
-    .map(({ id }) => id);
+  const toRestore = targets.filter(
+    (message) =>
+      !stillSnoozed.has(message.threadId) &&
+      snoozeMessageLocation(message, receipt) !== "other",
+  );
+  const messageIds = toRestore.map(({ id }) => id);
   if (messageIds.length === 0) return true;
+  const marked = await prisma.snoozedThread.updateMany({
+    where: {
+      id: receipt.id,
+      status: { in: ["PREPARING", "CANCELLED"] },
+      restoreMessageIds: { equals: receipt.restoreMessageIds },
+      pendingRollbackMessageIds: { isEmpty: true },
+    },
+    data: {
+      pendingRollbackMessageIds: messageIds,
+      rollbackArchiveObservedIds: toRestore
+        .filter(
+          (message) => snoozeMessageLocation(message, receipt) === "archive",
+        )
+        .map(({ id }) => id),
+    },
+  });
+  if (!marked.count) return false;
   try {
     await provider.unarchiveMessages(messageIds);
     return true;
