@@ -1,5 +1,6 @@
 import { withError } from "@/utils/middleware";
 import { withQstashOrInternal } from "@/utils/qstash";
+import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import {
   executeAutomationJobBody,
   executeAutomationJobRun,
@@ -25,6 +26,8 @@ export const POST = withError(
     return executeAutomationJobRun({
       automationJobRunId: validation.data.automationJobRunId,
       logger,
+      // The internal fallback does not redeliver unsuccessful requests.
+      retryInRequest: request.headers.has(INTERNAL_API_KEY_HEADER),
     });
   }),
 );

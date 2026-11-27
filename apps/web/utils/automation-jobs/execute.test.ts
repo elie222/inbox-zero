@@ -85,7 +85,10 @@ describe("executeAutomationJobRun", () => {
     });
   });
 
-  it("sends on redelivery after a transient pre-delivery failure", async () => {
+  it.each([
+    "queue redelivery",
+    "internal fallback",
+  ])("sends after a transient pre-delivery failure using %s", async (dispatch) => {
     const run = createRun({ routes: [createScheduledRoute()] });
     prisma.automationJobRun.findUnique.mockImplementation(async () => ({
       ...run,
@@ -102,20 +105,29 @@ describe("executeAutomationJobRun", () => {
     mockGetAutomationJobMessage.mockRejectedValueOnce(
       new Error("Temporary provider error"),
     );
+    const args = { automationJobRunId: run.id, logger };
 
-    const first = await executeAutomationJobRun({
-      automationJobRunId: run.id,
-      logger,
-    });
-    expect(first.status).toBe(500);
-    expect(run.status).toBe(AutomationJobRunStatus.PENDING);
-    expect(mockSendAutomationMessage).not.toHaveBeenCalled();
-
-    const retry = await executeAutomationJobRun({
-      automationJobRunId: run.id,
-      logger,
-    });
-    expect(retry.status).toBe(200);
+    let response: Response;
+    if (dispatch === "queue redelivery") {
+      const first = await executeAutomationJobRun(args);
+      expect(first.status).toBe(503);
+      expect(run.status).toBe(AutomationJobRunStatus.PENDING);
+      expect(mockSendAutomationMessage).not.toHaveBeenCalled();
+      response = await executeAutomationJobRun(args);
+    } else {
+      vi.useFakeTimers();
+      try {
+        const delivery = executeAutomationJobRun({
+          ...args,
+          retryInRequest: true,
+        });
+        await vi.runAllTimersAsync();
+        response = await delivery;
+      } finally {
+        vi.useRealTimers();
+      }
+    }
+    expect(response.status).toBe(200);
     expect(run.status).toBe(AutomationJobRunStatus.SENT);
     expect(mockSendAutomationMessage).toHaveBeenCalledTimes(1);
   });

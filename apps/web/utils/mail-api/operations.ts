@@ -32,6 +32,7 @@ import { createScopedLogger } from "@/utils/logger";
 import {
   activatePreparedSnoozedThread,
   cancelSnoozedThreadByClientMutationId,
+  getSnoozedThreadByClientMutationId,
   prepareSnoozedThread,
 } from "@/utils/snooze/scheduler";
 import prisma from "@/utils/prisma";
@@ -531,6 +532,18 @@ async function executeSnooze(
   try {
     ({ threadId } = await provider.getMessage(firstTarget.messageId));
   } catch (error) {
+    const existing = await getSnoozedThreadByClientMutationId({
+      clientMutationId: operation.key.operationId,
+      emailAccountId: accountId,
+    });
+    if (
+      existing?.scheduledFor.getTime() === scheduledFor.getTime() &&
+      (existing.status === "PENDING" ||
+        existing.status === "EXECUTING" ||
+        existing.status === "COMPLETED")
+    ) {
+      return confirmedSnooze(operation);
+    }
     if (failedTargetOutcome(firstTarget, error).code === "not_found") {
       return {
         status: "rejected" as const,
@@ -576,12 +589,7 @@ async function executeSnooze(
     };
   }
   if (prepared.snoozedThread.status !== "PREPARING") {
-    return {
-      status: "confirmed" as const,
-      receiptId: operation.key.operationId,
-      observations: [],
-      targets: appliedSnoozeTargets(operation.intent.targets),
-    };
+    return confirmedSnooze(operation);
   }
   if (scheduledFor.getTime() <= Date.now()) {
     const restored = await restoreSnoozeTargets(
@@ -590,12 +598,7 @@ async function executeSnooze(
     );
     if (!restored) return snoozeUnavailable();
     await cancelPreparedSnooze(accountId, operation.key.operationId);
-    return {
-      status: "confirmed" as const,
-      receiptId: operation.key.operationId,
-      observations: [],
-      targets: appliedSnoozeTargets(operation.intent.targets),
-    };
+    return confirmedSnooze(operation);
   }
 
   const targets: TargetOutcome[] = [];
@@ -1015,14 +1018,17 @@ function metadataChangeSatisfied(
   }
 }
 
-function appliedSnoozeTargets(
-  targets: Array<{ accountId: string; messageId: string }>,
-) {
-  return targets.map((target) => ({
-    key: target,
-    outcome: "applied" as const,
-    code: null,
-  }));
+function confirmedSnooze(operation: PreparedMetadataOperation) {
+  return {
+    status: "confirmed" as const,
+    receiptId: operation.key.operationId,
+    observations: [],
+    targets: operation.intent.targets.map((target) => ({
+      key: target,
+      outcome: "applied" as const,
+      code: null,
+    })),
+  };
 }
 
 async function restoreSnoozeTargets(

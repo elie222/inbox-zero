@@ -14,6 +14,7 @@ import prisma from "@/utils/prisma";
 import { getUserPremium } from "@/utils/user/get";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import { getMessagingRoute } from "@/utils/messaging/routes";
+import { sleep } from "@/utils/sleep";
 
 const MAX_RUN_ATTEMPTS = 3;
 
@@ -22,6 +23,31 @@ export const executeAutomationJobBody = z.object({
 });
 
 export async function executeAutomationJobRun({
+  automationJobRunId,
+  logger,
+  retryInRequest = false,
+}: {
+  automationJobRunId: string;
+  logger: Logger;
+  retryInRequest?: boolean;
+}) {
+  for (let attempt = 1; ; attempt++) {
+    const response = await attemptAutomationJobRun({
+      automationJobRunId,
+      logger,
+    });
+    if (
+      !retryInRequest ||
+      response.status !== 503 ||
+      attempt >= MAX_RUN_ATTEMPTS
+    ) {
+      return response;
+    }
+    await sleep(1000 * attempt);
+  }
+}
+
+async function attemptAutomationJobRun({
   automationJobRunId,
   logger,
 }: {
@@ -269,12 +295,20 @@ export async function executeAutomationJobRun({
       },
     });
 
-    return new Response(
-      isConfigurationError
-        ? "Automation job skipped due to configuration"
-        : "Automation job execution failed",
-      { status: isConfigurationError ? 200 : 500 },
-    );
+    if (isConfigurationError) {
+      return new Response("Automation job skipped due to configuration", {
+        status: 200,
+      });
+    }
+    if (retryable) {
+      return new Response(
+        "Automation job failed before delivery and can retry",
+        {
+          status: 503,
+        },
+      );
+    }
+    return new Response("Automation job execution failed", { status: 500 });
   }
 }
 

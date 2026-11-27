@@ -7,6 +7,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import {
   activatePreparedSnoozedThread,
   cancelSnoozedThreadByClientMutationId,
+  getSnoozedThreadByClientMutationId,
   prepareSnoozedThread,
 } from "@/utils/snooze/scheduler";
 import {
@@ -30,6 +31,7 @@ vi.mock("@/utils/snooze/scheduler", () => ({
   prepareSnoozedThread: vi.fn(),
   activatePreparedSnoozedThread: vi.fn(),
   cancelSnoozedThreadByClientMutationId: vi.fn(),
+  getSnoozedThreadByClientMutationId: vi.fn(),
 }));
 
 describe("createEmailProviderOperationExecutor", () => {
@@ -720,6 +722,38 @@ describe("createEmailProviderOperationExecutor", () => {
     });
     expect(prepareSnoozedThread).not.toHaveBeenCalled();
     expect(archiveThreadWithLabel).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "PENDING",
+    "COMPLETED",
+  ])("confirms a %s snooze when its original message can no longer be read", async (status) => {
+    const untilMs = Date.now() + 60_000;
+    vi.mocked(getSnoozedThreadByClientMutationId).mockResolvedValueOnce({
+      status,
+      scheduledFor: new Date(untilMs),
+    } as never);
+    const archiveThreadWithLabel = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveThreadWithLabel,
+        getMessage: vi
+          .fn()
+          .mockRejectedValue(new Error("Requested entity was not found")),
+      } as unknown as EmailProvider,
+    });
+
+    const result = await executor.inspect({
+      operation: snoozeOperation(untilMs),
+      receiptId: null,
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toMatchObject({ status: "confirmed", receiptId: "bulk-1" });
+    expect(archiveThreadWithLabel).not.toHaveBeenCalled();
+    expect(prepareSnoozedThread).not.toHaveBeenCalled();
   });
 
   it("finishes scheduling a preparing snooze during recovery", async () => {
