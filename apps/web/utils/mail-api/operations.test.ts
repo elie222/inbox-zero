@@ -52,6 +52,7 @@ describe("createEmailProviderOperationExecutor", () => {
     vi.clearAllMocks();
     prisma.$executeRaw.mockResolvedValue(1);
     prisma.snoozedThread.updateMany.mockResolvedValue({ count: 1 });
+    vi.mocked(getPendingSnoozeRollbackMessageIds).mockResolvedValue(new Set());
   });
   it.each([
     "execute",
@@ -1295,6 +1296,9 @@ describe("createEmailProviderOperationExecutor", () => {
   });
 
   it("does not archive again when replaying an activated snooze", async () => {
+    vi.mocked(getPendingSnoozeRollbackMessageIds).mockResolvedValue(
+      new Set(["m1"]),
+    );
     vi.mocked(prepareSnoozedThread).mockResolvedValue({
       created: false,
       snoozedThread: { status: "PENDING" },
@@ -1324,6 +1328,7 @@ describe("createEmailProviderOperationExecutor", () => {
     expect(result.status).toBe("confirmed");
     expect(archiveMessages).not.toHaveBeenCalled();
     expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
+    expect(getPendingSnoozeRollbackMessageIds).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -1487,7 +1492,11 @@ describe("createEmailProviderOperationExecutor", () => {
     expect(await inspect()).toMatchObject({ status: "not_dispatched" });
     expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { pendingRollbackMessageIds, rollbackArchiveObservedIds: ["m1"] },
+        data: {
+          pendingRollbackMessageIds,
+          rollbackDispatchedAt: expect.any(Date),
+          rollbackArchiveObservedIds: ["m1"],
+        },
       }),
     );
     expect(prisma.snoozedThread.updateMany).toHaveBeenCalledBefore(
@@ -1496,6 +1505,10 @@ describe("createEmailProviderOperationExecutor", () => {
     vi.mocked(getPendingSnoozeRollbackMessageIds).mockResolvedValueOnce(
       new Set(pendingRollbackMessageIds),
     );
+    vi.mocked(prepareSnoozedThread).mockResolvedValueOnce({
+      created: true,
+      snoozedThread: { status: "PREPARING" },
+    } as never);
     const next = snoozeOperation(Date.now() + 60_000);
     expect(
       await executor.execute({
@@ -1517,11 +1530,80 @@ describe("createEmailProviderOperationExecutor", () => {
       snoozedThread: {
         ...receipt,
         pendingRollbackMessageIds,
+        rollbackDispatchedAt: new Date(),
         rollbackArchiveObservedIds: ["m1"],
       },
     } as never);
     expect(await inspect()).toMatchObject({ code: "snooze_expired" });
     expect(unarchiveMessages).toHaveBeenCalledExactlyOnceWith(["m1"]);
+  });
+
+  it.each([
+    false,
+    true,
+  ])("rechecks a stale pending rollback after its retry window (already in Inbox: %s)", async (inInbox) => {
+    const rollbackDispatchedAt = new Date(
+      Date.now() - SNOOZE_EXECUTION_LEASE_MS - 1000,
+    );
+    vi.mocked(prepareSnoozedThread).mockResolvedValueOnce({
+      created: false,
+      snoozedThread: {
+        id: "stale-rollback",
+        emailAccountId: "acc-1",
+        threadId: "thread-1",
+        status: "CANCELLED",
+        restoreMessageIds: ["m1"],
+        pendingRollbackMessageIds: ["m1"],
+        rollbackDispatchedAt,
+        rollbackArchiveObservedIds: [],
+      },
+    } as never);
+    prisma.snoozedThread.findMany.mockResolvedValue([]);
+    const unarchiveMessages = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        unarchiveMessages,
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: {},
+            labelIds: inInbox ? ["INBOX"] : [],
+          };
+        },
+      } as unknown as EmailProvider,
+    });
+    await expect(
+      executor.inspect({
+        operation: snoozeOperation(1),
+        receiptId: null,
+        signal: new AbortController().signal,
+      }),
+    ).resolves.toMatchObject({ status: "rejected", code: "snooze_cancelled" });
+
+    if (inInbox) {
+      expect(unarchiveMessages).not.toHaveBeenCalled();
+    } else {
+      expect(unarchiveMessages).toHaveBeenCalledExactlyOnceWith(["m1"]);
+      expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ rollbackDispatchedAt }),
+          data: expect.objectContaining({
+            rollbackDispatchedAt: expect.any(Date),
+          }),
+        }),
+      );
+    }
+    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          pendingRollbackMessageIds: [],
+          rollbackDispatchedAt: null,
+        }),
+      }),
+    );
   });
 
   it.each([
@@ -1873,6 +1955,7 @@ describe("createEmailProviderOperationExecutor", () => {
         data: {
           restoreMessageIds: ["pending"],
           pendingRollbackMessageIds: [],
+          rollbackDispatchedAt: null,
           rollbackArchiveObservedIds: [],
         },
       }),
@@ -2157,6 +2240,7 @@ describe("createEmailProviderOperationExecutor", () => {
       ...mutation,
       ...receipt,
       pendingRollbackMessageIds: ["m1", "m2"],
+      rollbackDispatchedAt: new Date(),
       rollbackArchiveObservedIds: ["m1", "m2"],
     } as never);
 
@@ -2181,6 +2265,7 @@ describe("createEmailProviderOperationExecutor", () => {
       data: {
         restoreMessageIds: [],
         pendingRollbackMessageIds: [],
+        rollbackDispatchedAt: null,
         rollbackArchiveObservedIds: [],
         archiveClaimedAt: null,
         pendingArchiveMessageId: null,

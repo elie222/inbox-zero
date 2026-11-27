@@ -336,7 +336,13 @@ export async function getPendingSnoozeRollbackMessageIds(
   const receipts = await prisma.snoozedThread.findMany({
     where: {
       emailAccountId,
+      status: {
+        in: [SnoozedThreadStatus.PREPARING, SnoozedThreadStatus.CANCELLED],
+      },
       pendingRollbackMessageIds: { isEmpty: false },
+      rollbackDispatchedAt: {
+        gt: new Date(Date.now() - SNOOZE_EXECUTION_LEASE_MS),
+      },
       ...(excludeMutationId && {
         OR: [
           { clientMutationId: null },
@@ -431,6 +437,7 @@ export async function cancelSnoozedThreadByClientMutationId({
       ...(restoredMessageIds && {
         restoreMessageIds: [],
         pendingRollbackMessageIds: [],
+        rollbackDispatchedAt: null,
         rollbackArchiveObservedIds: [],
       }),
     },

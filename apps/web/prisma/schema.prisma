@@ -977,6 +977,7 @@ model SnoozedThread {
   restoreMessageIds          String[]            @default([])
   targetOutcomes             Json?
   pendingRollbackMessageIds  String[]            @default([])
+  rollbackDispatchedAt       DateTime?
   rollbackArchiveObservedIds String[]            @default([])
 
   emailAccountId String

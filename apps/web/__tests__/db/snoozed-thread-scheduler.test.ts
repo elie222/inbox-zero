@@ -230,16 +230,39 @@ describe.skipIf(!RUN_DB_TESTS)(
       ).resolves.toBe("next");
     });
 
-    test("scopes pending rollback targets to the mailbox and excludes the receipt being recovered", async () => {
-      await prisma.snoozedThread.create({
-        data: {
-          emailAccountId,
-          threadId: "thread-with-rollback",
-          clientMutationId: "rollback-mutation",
-          scheduledFor: new Date(),
-          status: SnoozedThreadStatus.CANCELLED,
-          pendingRollbackMessageIds: ["pending-message"],
-        },
+    test("limits pending rollback fences to recent unresolved receipts in the mailbox", async () => {
+      const scheduledFor = new Date();
+      const receipt = {
+        emailAccountId,
+        scheduledFor,
+        threadId: "thread-with-rollback",
+      };
+      await prisma.snoozedThread.createMany({
+        data: [
+          {
+            ...receipt,
+            clientMutationId: "rollback-mutation",
+            status: SnoozedThreadStatus.CANCELLED,
+            pendingRollbackMessageIds: ["pending-message"],
+            rollbackDispatchedAt: scheduledFor,
+          },
+          {
+            ...receipt,
+            clientMutationId: "old-mutation",
+            status: SnoozedThreadStatus.PREPARING,
+            pendingRollbackMessageIds: ["old-message"],
+            rollbackDispatchedAt: new Date(
+              scheduledFor.getTime() - 60 * 60 * 1000,
+            ),
+          },
+          {
+            ...receipt,
+            clientMutationId: "completed-mutation",
+            status: SnoozedThreadStatus.COMPLETED,
+            pendingRollbackMessageIds: ["completed-message"],
+            rollbackDispatchedAt: scheduledFor,
+          },
+        ],
       });
       await expect(
         getPendingSnoozeRollbackMessageIds(emailAccountId, "new-mutation"),
