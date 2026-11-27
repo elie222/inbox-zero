@@ -71,21 +71,48 @@ export async function upgradeToPremiumLemon(options: {
   return premiumRecord;
 }
 
+/**
+ * Lemon Squeezy does not guarantee webhook order. `eventAt` is the event's
+ * `updated_at`; a write older than the last one applied is dropped and `null`
+ * is returned, so a late `subscription_updated` cannot extend access that a
+ * newer cancellation already ended.
+ */
+async function applyLemonSubscriptionEvent(options: {
+  premiumId: string;
+  eventAt: Date;
+  lemonSqueezyRenewsAt: Date;
+  lemonSqueezyVariantId?: number;
+}) {
+  const { count } = await prisma.premium.updateMany({
+    where: {
+      id: options.premiumId,
+      ...(options.lemonSqueezyVariantId
+        ? { lemonSqueezyVariantId: options.lemonSqueezyVariantId }
+        : {}),
+      OR: [
+        { lemonSqueezyEventAt: null },
+        { lemonSqueezyEventAt: { lte: options.eventAt } },
+      ],
+    },
+    data: {
+      lemonSqueezyRenewsAt: options.lemonSqueezyRenewsAt,
+      lemonSqueezyEventAt: options.eventAt,
+    },
+  });
+  if (count === 0) return null;
+
+  return await prisma.premium.findUnique({
+    where: { id: options.premiumId },
+    select: { users: { select: { email: true } } },
+  });
+}
+
 export async function extendPremiumLemon(options: {
   premiumId: string;
   lemonSqueezyRenewsAt: Date;
+  eventAt: Date;
 }) {
-  return await prisma.premium.update({
-    where: { id: options.premiumId },
-    data: {
-      lemonSqueezyRenewsAt: options.lemonSqueezyRenewsAt,
-    },
-    select: {
-      users: {
-        select: { email: true },
-      },
-    },
-  });
+  return await applyLemonSubscriptionEvent(options);
 }
 
 export async function grantPremiumAdmin(options: {
@@ -201,26 +228,20 @@ export async function cancelPremiumLemon({
   premiumId,
   lemonSqueezyEndsAt,
   variantId,
+  eventAt,
 }: {
   premiumId: string;
   lemonSqueezyEndsAt: Date;
   variantId?: number;
+  eventAt: Date;
 }) {
-  if (variantId) {
-    // Check if the premium exists for the given variant
-    // If the user changed plans we won't find it in the database
-    // And that's okay because the user is on a different plan
-    const premium = await prisma.premium.findUnique({
-      where: { id: premiumId, lemonSqueezyVariantId: variantId },
-      select: { id: true },
-    });
-    if (!premium) return null;
-  }
-
-  return await prisma.premium.update({
-    where: { id: premiumId },
-    data: { lemonSqueezyRenewsAt: lemonSqueezyEndsAt },
-    select: { users: { select: { email: true } } },
+  // If the user changed plans we won't find the premium for the given variant,
+  // and that's okay because the user is on a different plan.
+  return await applyLemonSubscriptionEvent({
+    premiumId,
+    eventAt,
+    lemonSqueezyRenewsAt: lemonSqueezyEndsAt,
+    lemonSqueezyVariantId: variantId,
   });
 }
 

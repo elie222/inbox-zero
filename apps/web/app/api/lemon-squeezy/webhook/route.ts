@@ -276,7 +276,15 @@ async function subscriptionUpdated({
   const updatedPremium = await extendPremiumLemon({
     premiumId,
     lemonSqueezyRenewsAt: new Date(payload.data.attributes.renews_at),
+    eventAt: new Date(payload.data.attributes.updated_at),
   });
+
+  if (!updatedPremium) {
+    logger.info("Ignored an out-of-order subscription_updated event", {
+      premiumId,
+    });
+    return NextResponse.json({ ok: true });
+  }
 
   const email = getEmailFromPremium(updatedPremium);
 
@@ -296,7 +304,7 @@ async function subscriptionUpdated({
 }
 
 async function subscriptionCancelled({
-  payload: _payload,
+  payload,
   premiumId,
   endsAt,
   variantId,
@@ -318,6 +326,7 @@ async function subscriptionCancelled({
     premiumId,
     variantId,
     lemonSqueezyEndsAt: new Date(endsAt),
+    eventAt: new Date(payload.data.attributes.updated_at),
   });
 
   if (!updatedPremium) return NextResponse.json({ ok: true });

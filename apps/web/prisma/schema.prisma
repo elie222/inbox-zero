@@ -600,6 +600,7 @@ model Premium {
 
   // lemon squeezy
   lemonSqueezyRenewsAt           DateTime?
+  lemonSqueezyEventAt            DateTime? // updated_at of the last applied webhook; older events are ignored
   lemonSqueezyCustomerId         Int?
   lemonSqueezySubscriptionId     Int?
   lemonSqueezySubscriptionItemId Int?
