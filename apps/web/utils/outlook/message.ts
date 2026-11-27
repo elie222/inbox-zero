@@ -145,7 +145,7 @@ export async function getCategoryMap(
 
 function getOutlookLabels(
   message: Message,
-  parentFolderType: OutlookSystemFolder | null,
+  parentFolderType: ParsedMessage["parentFolderType"],
   categoryMap?: Map<string, string>,
 ): string[] {
   const labels: string[] = [];
@@ -165,7 +165,8 @@ function getOutlookLabels(
     labels.push(OutlookLabel.STARRED);
   }
 
-  if (parentFolderType) labels.push(parentFolderType);
+  if (parentFolderType && parentFolderType !== "unknown")
+    labels.push(parentFolderType);
 
   // Add category labels - map names to IDs when category map is available
   if (message.categories) {
@@ -1189,8 +1190,8 @@ export function convertMessage(
 function getParentFolderType(
   message: Message,
   folderIds: Record<string, string>,
-): OutlookSystemFolder | null {
-  if (!message.parentFolderId) return null;
+): OutlookSystemFolder | "unknown" | null {
+  if (!message.parentFolderId) return "unknown";
   const folderKey = Object.entries(folderIds).find(
     ([, id]) => id === message.parentFolderId,
   )?.[0];
@@ -1202,7 +1203,10 @@ function getParentFolderType(
     [WELL_KNOWN_FOLDERS.junkemail]: OutlookLabel.SPAM,
     [WELL_KNOWN_FOLDERS.deleteditems]: OutlookLabel.TRASH,
   };
-  return types[folderKey as keyof typeof types] ?? null;
+  return (
+    types[folderKey as keyof typeof types] ??
+    (folderIds.inbox && folderIds.archive ? null : "unknown")
+  );
 }
 
 function normalizeInboxSection(value: unknown): ParsedMessage["inboxSection"] {

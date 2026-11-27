@@ -69,8 +69,8 @@ export interface ParsedMessage {
   isMeetingInvitation?: boolean;
   labelIds?: string[];
   parentFolderId?: string;
-  // A folder-based provider uses null when no system folder type is known.
-  parentFolderType?: OutlookSystemFolder | null;
+  // Null is a custom folder. Unknown means the system folder lookup was incomplete.
+  parentFolderType?: OutlookSystemFolder | "unknown" | null;
   // For Outlook: store raw recipient data to avoid double conversion
   rawRecipients?: {
     from?: NullableOption<Recipient>;

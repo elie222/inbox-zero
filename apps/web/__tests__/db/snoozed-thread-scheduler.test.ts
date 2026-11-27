@@ -24,8 +24,10 @@ describe.skipIf(!RUN_DB_TESTS)(
   () => {
     let prisma: typeof import("@/utils/prisma").default;
     let activatePreparedSnoozedThread: typeof import("@/utils/snooze/scheduler").activatePreparedSnoozedThread;
+    let claimSnoozePreparation: typeof import("@/utils/snooze/scheduler").claimSnoozePreparation;
     let markSnoozedThreadAsExecuting: typeof import("@/utils/snooze/scheduler").markSnoozedThreadAsExecuting;
     let prepareSnoozedThread: typeof import("@/utils/snooze/scheduler").prepareSnoozedThread;
+    let releaseSnoozePreparation: typeof import("@/utils/snooze/scheduler").releaseSnoozePreparation;
     let emailAccountId: string;
 
     const accountEmail = "snoozed-thread-scheduler-test@example.com";
@@ -34,8 +36,10 @@ describe.skipIf(!RUN_DB_TESTS)(
       prisma = (await import("@/utils/prisma")).default;
       ({
         activatePreparedSnoozedThread,
+        claimSnoozePreparation,
         markSnoozedThreadAsExecuting,
         prepareSnoozedThread,
+        releaseSnoozePreparation,
       } = await import("@/utils/snooze/scheduler"));
     });
 
@@ -125,6 +129,43 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(["mutation-one", "mutation-two"]).toContain(
         active[0]?.clientMutationId,
       );
+    });
+
+    test("serializes archive claims and records newly eligible rollback targets on retry", async () => {
+      const now = new Date("2026-08-17T09:00:00.000Z");
+      const { snoozedThread } = await prepareSnoozedThread({
+        clientMutationId: "archive-claim",
+        emailAccountId,
+        scheduledFor: new Date("2026-08-17T10:00:00.000Z"),
+        threadId: "archive-claim-thread",
+      });
+      const readReceipt = () =>
+        prisma.snoozedThread.findUniqueOrThrow({
+          where: { id: snoozedThread.id },
+        });
+      const claims = await Promise.all([
+        claimSnoozePreparation(snoozedThread, ["first"], now),
+        claimSnoozePreparation(snoozedThread, ["first"], now),
+      ]);
+      expect(claims.filter(Boolean)).toEqual([now]);
+      const retryAt = new Date(now.getTime() + 1);
+      expect(
+        await claimSnoozePreparation(await readReceipt(), undefined, retryAt),
+      ).toBeNull();
+      await releaseSnoozePreparation(snoozedThread.id, now);
+
+      expect(
+        await claimSnoozePreparation(
+          await readReceipt(),
+          ["first", "newly-inbox"],
+          retryAt,
+        ),
+      ).toEqual(retryAt);
+      await releaseSnoozePreparation(snoozedThread.id, now);
+      await expect(readReceipt()).resolves.toMatchObject({
+        archiveClaimedAt: retryAt,
+        restoreMessageIds: ["first", "newly-inbox"],
+      });
     });
 
     test("allows only one pending or executing restore per thread", async () => {

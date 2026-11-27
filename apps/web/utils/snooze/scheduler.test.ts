@@ -260,7 +260,11 @@ describe("snoozed thread scheduler", () => {
         clientMutationId: "mutation",
         status: SnoozedThreadStatus.PREPARING,
       },
-      data: { status: SnoozedThreadStatus.PENDING, restoreMessageIds: [] },
+      data: {
+        status: SnoozedThreadStatus.PENDING,
+        archiveClaimedAt: null,
+        restoreMessageIds: [],
+      },
     });
     expect(prisma.snoozedThread.findMany).toHaveBeenCalledWith({
       where: {

@@ -6,6 +6,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 import {
   buildOutlookSearchFallbackQuery,
   convertMessage,
+  getFolderIds,
   getMessage,
   queryBatchMessages,
   queryMessagesWithAttachments,
@@ -15,7 +16,34 @@ import {
   sanitizeKqlFieldQuery,
   sanitizeKqlTextQuery,
 } from "@/utils/outlook/message";
-import type { OutlookClient } from "@/utils/outlook/client";
+import { OutlookClient } from "@/utils/outlook/client";
+
+it("retries the Archive folder lookup when the initial folder map is incomplete", async () => {
+  const logger = createTestLogger();
+  const client = new OutlookClient("test-access-token", logger);
+  const getArchive = vi
+    .fn()
+    .mockRejectedValueOnce(
+      Object.assign(new Error("Folder unavailable"), { statusCode: 404 }),
+    )
+    .mockResolvedValue({ id: "archive-folder" });
+  vi.spyOn(client.getClient(), "api").mockImplementation(
+    (path) =>
+      ({
+        select: () => ({
+          get:
+            path === "/me/mailFolders/archive"
+              ? getArchive
+              : async () => ({ id: path }),
+        }),
+      }) as never,
+  );
+
+  expect((await getFolderIds(client, logger)).archive).toBeUndefined();
+  expect((await getFolderIds(client, logger)).archive).toBe("archive-folder");
+  expect((await getFolderIds(client, logger)).archive).toBe("archive-folder");
+  expect(getArchive).toHaveBeenCalledTimes(2);
+});
 
 describe("convertMessage", () => {
   it("retains BCC on a detail request that respects Graph field selection", async () => {

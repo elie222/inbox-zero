@@ -107,25 +107,63 @@ export async function activatePreparedSnoozedThread(input: SnoozeMutation) {
   return activated;
 }
 
-export async function markSnoozeArchiveStarted(
-  id: string,
-  restoreMessageIds: string[],
+export async function claimSnoozePreparation(
+  receipt: Pick<
+    SnoozedThread,
+    "id" | "archiveClaimedAt" | "restoreMessageIds" | "updatedAt"
+  >,
+  inboxMessageIds?: string[],
+  now = new Date(),
 ) {
+  const { id, archiveClaimedAt, restoreMessageIds, updatedAt } = receipt;
+  if (snoozeArchiveRetryAfterMs(archiveClaimedAt, now)) return null;
   const result = await prisma.snoozedThread.updateMany({
-    where: { id, status: SnoozedThreadStatus.PREPARING, archiveStarted: false },
-    data: { archiveStarted: true, restoreMessageIds },
-  });
-  if (result.count === 1) return true;
-  return Boolean(
-    await prisma.snoozedThread.findUnique({
-      where: {
-        id,
-        status: SnoozedThreadStatus.PREPARING,
+    where: {
+      id,
+      status: SnoozedThreadStatus.PREPARING,
+      updatedAt,
+      archiveClaimedAt,
+      ...(inboxMessageIds && { scheduledFor: { gt: now } }),
+    },
+    data: {
+      archiveClaimedAt: now,
+      ...(inboxMessageIds && {
         archiveStarted: true,
+        restoreMessageIds: [
+          ...new Set([...restoreMessageIds, ...inboxMessageIds]),
+        ],
+      }),
+    },
+  });
+  return result.count ? now : null;
+}
+
+export async function releaseSnoozePreparation(
+  id: string,
+  archiveClaimedAt: Date,
+) {
+  await prisma.snoozedThread.updateMany({
+    where: {
+      id,
+      archiveClaimedAt,
+      status: {
+        in: [SnoozedThreadStatus.PREPARING, SnoozedThreadStatus.CANCELLED],
       },
-      select: { id: true },
-    }),
-  );
+    },
+    data: { archiveClaimedAt: null },
+  });
+}
+
+export function snoozeArchiveRetryAfterMs(
+  archiveClaimedAt: Date | null,
+  now = new Date(),
+) {
+  return archiveClaimedAt
+    ? Math.max(
+        0,
+        archiveClaimedAt.getTime() + SNOOZE_EXECUTION_LEASE_MS - now.getTime(),
+      )
+    : 0;
 }
 
 async function activateWithConflictRetry({
@@ -166,7 +204,11 @@ async function activateWithConflictRetry({
             clientMutationId,
             status: SnoozedThreadStatus.PREPARING,
           },
-          data: { status: SnoozedThreadStatus.PENDING, restoreMessageIds: [] },
+          data: {
+            status: SnoozedThreadStatus.PENDING,
+            archiveClaimedAt: null,
+            restoreMessageIds: [],
+          },
         }),
         prisma.snoozedThread.findUniqueOrThrow({
           where: {

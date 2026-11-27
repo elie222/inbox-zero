@@ -20,6 +20,8 @@ import {
   createEmailProviderOperationExecutor,
 } from "@/utils/mail-api/operations";
 
+export const maxDuration = 300;
+
 export const PUT = withEmailProvider(
   "mail/v1/operations",
   async (request, context) => {

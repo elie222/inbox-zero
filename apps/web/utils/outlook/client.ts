@@ -80,6 +80,8 @@ export class OutlookClient {
   }
 
   setFolderIdCache(cache: Record<string, string>): void {
+    // A partial lookup cannot distinguish Archive from a custom folder.
+    if (!cache.inbox || !cache.archive) return;
     this.folderIdCache = cache;
   }
 
