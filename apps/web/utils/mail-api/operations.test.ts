@@ -802,6 +802,82 @@ describe("createEmailProviderOperationExecutor", () => {
     expect(prepareSnoozedThread).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    { label: "schedules a future wake", offset: 60_000, expected: "confirmed" },
+    {
+      label: "restores mail after the wake time",
+      offset: -60_000,
+      expected: "rejected",
+    },
+    {
+      label: "keeps a failed archive retryable",
+      offset: 60_000,
+      archiveFails: true,
+      expected: "not_dispatched",
+    },
+  ])("recovers a prepared conversation with a missing original message and $label", async ({
+    offset,
+    archiveFails,
+    expected,
+  }) => {
+    const untilMs = Date.now() + offset;
+    const operation = snoozeOperation(untilMs);
+    vi.mocked(prepareSnoozedThread).mockResolvedValueOnce({
+      created: false,
+      snoozedThread: { status: "PENDING" },
+    } as never);
+    if (expected === "confirmed") {
+      vi.mocked(activatePreparedSnoozedThread).mockResolvedValueOnce({
+        status: "PENDING",
+      } as never);
+    }
+    const archiveThreadWithLabel = vi.fn(async () => {
+      if (archiveFails) throw new Error("Provider unavailable");
+    });
+    const unarchiveThread = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveThreadWithLabel,
+        unarchiveThread,
+        getMessage: vi
+          .fn()
+          .mockResolvedValueOnce({ threadId: "thread-1" })
+          .mockRejectedValue(new Error("Requested entity was not found")),
+      } as unknown as EmailProvider,
+    });
+    const signal = new AbortController().signal;
+    await executor.execute({ operation, attemptId: "original-snooze", signal });
+    const [mutation] = vi.mocked(prepareSnoozedThread).mock.calls[0];
+    vi.mocked(getSnoozedThreadByClientMutationId).mockResolvedValueOnce({
+      ...mutation,
+      status: "PREPARING",
+    } as never);
+
+    const result = await executor.inspect({
+      operation,
+      receiptId: null,
+      signal,
+    });
+
+    expect(result.status).toBe(expected);
+    if (offset < 0) {
+      expect(result).toMatchObject({ code: "snooze_expired" });
+      expect(unarchiveThread).toHaveBeenCalledWith("thread-1");
+      expect(cancelSnoozedThreadByClientMutationId).toHaveBeenCalled();
+      expect(archiveThreadWithLabel).not.toHaveBeenCalled();
+    } else {
+      expect(archiveThreadWithLabel).toHaveBeenCalledWith("thread-1", "");
+      expect(unarchiveThread).not.toHaveBeenCalled();
+    }
+    if (expected === "confirmed") {
+      expect(activatePreparedSnoozedThread).toHaveBeenCalledWith(mutation);
+    } else {
+      expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
+    }
+  });
+
   it("finishes scheduling a preparing snooze during recovery", async () => {
     vi.mocked(prepareSnoozedThread).mockResolvedValue({
       created: false,

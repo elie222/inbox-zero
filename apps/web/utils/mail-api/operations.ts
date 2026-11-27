@@ -14,6 +14,7 @@ import type {
   ProviderChange,
 } from "@inboxzero/mail-core/sync";
 import type { EmailProvider } from "@/utils/email/types";
+import { isThreadNotFoundError } from "@/utils/email/thread-not-found";
 import {
   parsedMessageBodyObservation,
   parsedMessageMetadata,
@@ -547,13 +548,23 @@ async function executeSnooze(
       clientMutationId: operation.key.operationId,
       emailAccountId: accountId,
     });
-    if (
-      existing?.clientMutationPayloadHash === clientMutationPayloadHash &&
-      (existing.status === "PENDING" ||
+    if (existing?.clientMutationPayloadHash === clientMutationPayloadHash) {
+      if (existing.status === "PREPARING" && !isAuthError(error)) {
+        return recoverPreparingSnooze(provider, operation, {
+          clientMutationId: operation.key.operationId,
+          clientMutationPayloadHash,
+          emailAccountId: accountId,
+          scheduledFor,
+          threadId: existing.threadId,
+        });
+      }
+      if (
+        existing.status === "PENDING" ||
         existing.status === "EXECUTING" ||
-        existing.status === "COMPLETED")
-    ) {
-      return confirmedSnooze(operation);
+        existing.status === "COMPLETED"
+      ) {
+        return confirmedSnooze(operation);
+      }
     }
     if (failedTargetOutcome(firstTarget, error).code === "not_found") {
       return {
@@ -562,14 +573,7 @@ async function executeSnooze(
         targets: [],
       };
     }
-    if (isAuthError(error)) {
-      return {
-        status: "not_dispatched" as const,
-        reason: "blocked_auth" as const,
-        retryAfterMs: null,
-      };
-    }
-    return snoozeUnavailable();
+    return snoozeProviderUnavailable(error);
   }
   if (!threadId) return snoozeUnavailable();
 
@@ -1039,6 +1043,36 @@ function confirmedSnooze(operation: PreparedMetadataOperation) {
   };
 }
 
+async function recoverPreparingSnooze(
+  provider: EmailProvider,
+  operation: PreparedMetadataOperation,
+  mutation: Parameters<typeof activatePreparedSnoozedThread>[0],
+) {
+  const { threadId, emailAccountId, clientMutationId } = mutation;
+  const expired = mutation.scheduledFor.getTime() <= Date.now();
+  try {
+    if (!expired) {
+      // Preparation verified the conversation before the original archive.
+      await provider.archiveThreadWithLabel(threadId, "");
+      const activated = await activatePreparedSnoozedThread(mutation);
+      if (activated.status !== "CANCELLED") return confirmedSnooze(operation);
+    }
+
+    await provider.unarchiveThread(threadId);
+  } catch (error) {
+    if (!isThreadNotFoundError(error)) return snoozeProviderUnavailable(error);
+    await cancelPreparedSnooze(emailAccountId, clientMutationId);
+    return { status: "rejected" as const, code: "not_found", targets: [] };
+  }
+
+  if (expired) await cancelPreparedSnooze(emailAccountId, clientMutationId);
+  return {
+    status: "rejected" as const,
+    code: expired ? "snooze_expired" : "snooze_cancelled",
+    targets: [],
+  };
+}
+
 async function restoreSnoozeTargets(
   provider: EmailProvider,
   targets: Array<{ messageId: string }>,
@@ -1059,6 +1093,17 @@ function snoozeUnavailable() {
     reason: "unavailable" as const,
     retryAfterMs: 1000,
   };
+}
+
+function snoozeProviderUnavailable(error: unknown) {
+  if (isAuthError(error)) {
+    return {
+      status: "not_dispatched" as const,
+      reason: "blocked_auth" as const,
+      retryAfterMs: null,
+    };
+  }
+  return snoozeUnavailable();
 }
 
 async function cancelPreparedSnooze(accountId: string, operationId: string) {
