@@ -63,7 +63,11 @@ async function listSnoozedThreads(emailAccountId: string) {
             in: [SnoozedThreadStatus.PENDING, SnoozedThreadStatus.EXECUTING],
           },
         },
-        { status: SnoozedThreadStatus.PREPARING, archiveStarted: true },
+        {
+          status: SnoozedThreadStatus.PREPARING,
+          // Older workers could archive before this receipt tracked dispatch.
+          OR: [{ archiveStarted: true }, { clientMutationPayloadHash: null }],
+        },
       ],
     },
     orderBy: { scheduledFor: "asc" },

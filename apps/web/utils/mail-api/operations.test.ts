@@ -1877,12 +1877,12 @@ describe("createEmailProviderOperationExecutor", () => {
       );
     } else {
       expect(unarchiveMessages).not.toHaveBeenCalled();
+      expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
     }
     expect(result).toMatchObject({
       status: "rejected",
       code: "snooze_expired",
     });
-    expect(cancelSnoozedThreadByClientMutationId).toHaveBeenCalled();
     expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
   });
 

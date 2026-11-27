@@ -15,7 +15,7 @@ vi.mock("@/utils/middleware", async () => {
   };
 });
 
-it("lists scheduled snoozes and only preparations that started archiving", async () => {
+it("lists preparations that may have started archiving, including legacy receipts", async () => {
   prisma.snoozedThread.findMany.mockResolvedValue([]);
 
   const response = await GET(
@@ -34,7 +34,10 @@ it("lists scheduled snoozes and only preparations that started archiving", async
               in: [SnoozedThreadStatus.PENDING, SnoozedThreadStatus.EXECUTING],
             },
           },
-          { status: SnoozedThreadStatus.PREPARING, archiveStarted: true },
+          {
+            status: SnoozedThreadStatus.PREPARING,
+            OR: [{ archiveStarted: true }, { clientMutationPayloadHash: null }],
+          },
         ],
       },
     }),

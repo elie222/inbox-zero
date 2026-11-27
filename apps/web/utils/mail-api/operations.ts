@@ -1233,7 +1233,11 @@ async function reconcileSnooze(
   if (!claim) return snoozePreparationUnavailable(existing);
   try {
     if (!existing.archiveStarted) {
-      if (wakeTime <= Date.now() || failure.status === "rejected") {
+      // A hashless receipt may have archived mail before dispatch was tracked.
+      if (
+        existing.clientMutationPayloadHash !== null &&
+        (wakeTime <= Date.now() || failure.status === "rejected")
+      ) {
         await cancelPreparedSnooze(
           emailAccountId,
           clientMutationId,
