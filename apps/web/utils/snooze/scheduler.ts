@@ -1,8 +1,11 @@
 import { Client } from "@upstash/qstash";
+import type { TargetOutcome } from "@inboxzero/mail-core/operations";
 import { env } from "@/env";
 import { SnoozedThreadStatus } from "@/generated/prisma/enums";
 import { Prisma, type SnoozedThread } from "@/generated/prisma/client";
 import { getCronSecretHeader } from "@/utils/cron";
+import type { SnoozeFolderIds } from "@/utils/email/types";
+import { SafeError } from "@/utils/error";
 import { getInternalApiUrl } from "@/utils/internal-api";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -11,6 +14,14 @@ import { isDuplicateError } from "@/utils/prisma-helpers";
 const logger = createScopedLogger("snoozed-threads");
 export const SNOOZE_EXECUTION_LEASE_MS = 15 * 60 * 1000;
 const SNOOZE_RETRY_DELAY_MS = 5 * 60 * 1000;
+
+type SnoozeMutation = {
+  clientMutationId: string;
+  clientMutationPayloadHash?: string;
+  emailAccountId: string;
+  scheduledFor: Date;
+  threadId: string;
+};
 
 export async function scheduleSnoozedThread({
   emailAccountId,
@@ -44,34 +55,22 @@ export async function scheduleSnoozedThread({
   return snoozedThread;
 }
 
-export async function prepareSnoozedThread({
-  clientMutationId,
-  emailAccountId,
-  scheduledFor,
-  threadId,
-}: {
-  clientMutationId: string;
-  emailAccountId: string;
-  scheduledFor: Date;
-  threadId: string;
-}) {
+export async function prepareSnoozedThread(input: SnoozeMutation) {
+  const { clientMutationId, emailAccountId } = input;
   const existing = await getSnoozedThreadByClientMutationId({
     clientMutationId,
     emailAccountId,
   });
   if (existing) {
-    assertSnoozePayload(existing, { scheduledFor, threadId });
+    assertSnoozePayload(existing, input);
     return { created: false, snoozedThread: existing };
   }
 
   try {
     const snoozedThread = await prisma.snoozedThread.create({
       data: {
-        clientMutationId,
-        emailAccountId,
-        scheduledFor,
+        ...input,
         status: SnoozedThreadStatus.PREPARING,
-        threadId,
       },
     });
     return { created: true, snoozedThread };
@@ -81,52 +80,147 @@ export async function prepareSnoozedThread({
       emailAccountId,
     });
     if (!concurrent) throw error;
-    assertSnoozePayload(concurrent, { scheduledFor, threadId });
+    assertSnoozePayload(concurrent, input);
     return { created: false, snoozedThread: concurrent };
   }
 }
 
-export async function activatePreparedSnoozedThread({
-  clientMutationId,
-  emailAccountId,
-  scheduledFor,
-  threadId,
-}: {
-  clientMutationId: string;
-  emailAccountId: string;
-  scheduledFor: Date;
-  threadId: string;
-}) {
+export async function activatePreparedSnoozedThread(
+  input: SnoozeMutation,
+  archiveClaimedAt: Date,
+  targets: TargetOutcome[],
+) {
+  const { clientMutationId, emailAccountId, threadId } = input;
   const snoozedThread = await getSnoozedThreadByClientMutationId({
     clientMutationId,
     emailAccountId,
   });
   if (!snoozedThread) throw new Error("Prepared snooze was not found");
-  assertSnoozePayload(snoozedThread, { scheduledFor, threadId });
-  if (snoozedThread.status !== SnoozedThreadStatus.PREPARING) {
+  assertSnoozePayload(snoozedThread, input);
+  if (snoozedThread.status === SnoozedThreadStatus.CANCELLED)
     return snoozedThread;
-  }
+  if (snoozedThread.status !== SnoozedThreadStatus.PREPARING) return null;
+  if (snoozedThread.archiveClaimedAt?.getTime() !== archiveClaimedAt.getTime())
+    return null;
 
-  const { activated, replacedSnoozes } = await activateWithConflictRetry({
+  const activation = await activateWithConflictRetry({
+    id: snoozedThread.id,
     clientMutationId,
     emailAccountId,
     threadId,
+    archiveClaimedAt,
+    targets,
   });
-  assertSnoozePayload(activated, { scheduledFor, threadId });
+  if (!activation) return null;
+  const { activated, replacedSnoozes } = activation;
+  assertSnoozePayload(activated, input);
   if (activated.status !== SnoozedThreadStatus.PENDING) return activated;
 
   await publishSnoozedThread({ replacedSnoozes, snoozedThread: activated });
   return activated;
 }
 
+export async function claimSnoozePreparation(
+  receipt: Pick<SnoozedThread, "id" | "archiveClaimedAt" | "updatedAt">,
+  dispatch?: {
+    clientMutationPayloadHash: string;
+    folders?: SnoozeFolderIds;
+  },
+  now = new Date(),
+) {
+  const { id, archiveClaimedAt, updatedAt } = receipt;
+  if (snoozeArchiveRetryAfterMs(archiveClaimedAt, now)) return null;
+  const result = await prisma.snoozedThread.updateMany({
+    where: {
+      id,
+      status: SnoozedThreadStatus.PREPARING,
+      updatedAt,
+      archiveClaimedAt,
+      ...(dispatch && { scheduledFor: { gt: now } }),
+    },
+    data: {
+      archiveClaimedAt: now,
+      ...(dispatch && {
+        archiveStarted: true,
+        clientMutationPayloadHash: dispatch.clientMutationPayloadHash,
+        ...dispatch.folders,
+      }),
+    },
+  });
+  return result.count ? now : null;
+}
+
+export async function releaseSnoozePreparation(
+  id: string,
+  archiveClaimedAt: Date,
+) {
+  await prisma.snoozedThread.updateMany({
+    where: {
+      id,
+      archiveClaimedAt,
+      status: {
+        in: [SnoozedThreadStatus.PREPARING, SnoozedThreadStatus.CANCELLED],
+      },
+    },
+    data: { archiveClaimedAt: null },
+  });
+}
+
+export async function updateSnoozeArchiveWrite({
+  id,
+  claim,
+  previousMessageId,
+  messageId,
+  restoreMessageIds,
+}: {
+  id: string;
+  claim: Date;
+  previousMessageId: string | null;
+  messageId: string | null;
+  restoreMessageIds?: string[];
+}) {
+  const changed = await prisma.snoozedThread.updateMany({
+    where: {
+      id,
+      archiveClaimedAt: claim,
+      pendingArchiveMessageId: previousMessageId,
+      ...(messageId && { status: SnoozedThreadStatus.PREPARING }),
+    },
+    data: {
+      pendingArchiveMessageId: messageId,
+      pendingArchiveDispatchedAt: messageId ? new Date() : null,
+      ...(restoreMessageIds && { restoreMessageIds }),
+    },
+  });
+  return changed.count === 1;
+}
+
+export function snoozeArchiveRetryAfterMs(
+  archiveClaimedAt: Date | null,
+  now = new Date(),
+) {
+  return archiveClaimedAt
+    ? Math.max(
+        0,
+        archiveClaimedAt.getTime() + SNOOZE_EXECUTION_LEASE_MS - now.getTime(),
+      )
+    : 0;
+}
+
 async function activateWithConflictRetry({
+  id,
   clientMutationId,
   emailAccountId,
   threadId,
+  archiveClaimedAt,
+  targets,
 }: {
+  id: string;
   clientMutationId: string;
   emailAccountId: string;
   threadId: string;
+  archiveClaimedAt: Date;
+  targets: TargetOutcome[];
 }) {
   const pendingSnooze = {
     emailAccountId,
@@ -142,7 +236,7 @@ async function activateWithConflictRetry({
   };
   for (let attempt = 0; ; attempt += 1) {
     try {
-      const [replacedSnoozes, , , activated] = await prisma.$transaction([
+      const [replacedSnoozes, , activated] = await prisma.$transaction([
         prisma.snoozedThread.findMany({
           where: replaceablePendingSnooze,
           select: { id: true },
@@ -151,25 +245,30 @@ async function activateWithConflictRetry({
           where: replaceablePendingSnooze,
           data: { status: SnoozedThreadStatus.CANCELLED },
         }),
-        prisma.snoozedThread.updateMany({
+        prisma.snoozedThread.update({
           where: {
-            emailAccountId,
-            clientMutationId,
+            id,
             status: SnoozedThreadStatus.PREPARING,
+            archiveClaimedAt,
+            pendingArchiveMessageId: null,
+            pendingRollbackMessageIds: { isEmpty: true },
           },
-          data: { status: SnoozedThreadStatus.PENDING },
-        }),
-        prisma.snoozedThread.findUniqueOrThrow({
-          where: {
-            emailAccountId_clientMutationId: {
-              emailAccountId,
-              clientMutationId,
-            },
+          data: {
+            status: SnoozedThreadStatus.PENDING,
+            archiveClaimedAt: null,
+            restoreMessageIds: [],
+            targetOutcomes: targets,
           },
         }),
       ]);
       return { activated, replacedSnoozes };
     } catch (error) {
+      // A failed fenced update rolls back replacement of the active snooze too.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      )
+        return null;
       if (attempt >= 2 || !isSnoozeActivationConflict(error)) throw error;
     }
   }
@@ -234,6 +333,36 @@ async function publishSnoozedThread({
   }
 }
 
+export async function getPendingSnoozeRollbackMessageIds(
+  emailAccountId: string,
+  excludeMutationId?: string,
+) {
+  const receipts = await prisma.snoozedThread.findMany({
+    where: {
+      emailAccountId,
+      status: {
+        in: [SnoozedThreadStatus.PREPARING, SnoozedThreadStatus.CANCELLED],
+      },
+      pendingRollbackMessageIds: { isEmpty: false },
+      rollbackDispatchedAt: {
+        gt: new Date(Date.now() - SNOOZE_EXECUTION_LEASE_MS),
+      },
+      ...(excludeMutationId && {
+        OR: [
+          { clientMutationId: null },
+          { clientMutationId: { not: excludeMutationId } },
+        ],
+      }),
+    },
+    select: { pendingRollbackMessageIds: true },
+  });
+  return new Set(
+    receipts.flatMap(
+      ({ pendingRollbackMessageIds }) => pendingRollbackMessageIds,
+    ),
+  );
+}
+
 export function getSnoozedThreadByClientMutationId({
   clientMutationId,
   emailAccountId,
@@ -289,32 +418,34 @@ export async function cancelSnoozedThreads({
 export async function cancelSnoozedThreadByClientMutationId({
   clientMutationId,
   emailAccountId,
+  restoredMessageIds,
+  archiveClaimedAt,
 }: {
   clientMutationId: string;
   emailAccountId: string;
+  restoredMessageIds?: string[];
+  archiveClaimedAt?: Date;
 }) {
-  const snoozedThread = await prisma.snoozedThread.findUnique({
-    where: {
-      emailAccountId_clientMutationId: { emailAccountId, clientMutationId },
-    },
-    select: { id: true },
-  });
-  if (!snoozedThread) return;
   await prisma.snoozedThread.updateMany({
     where: {
-      id: snoozedThread.id,
-      status: {
-        in: [
-          SnoozedThreadStatus.PREPARING,
-          SnoozedThreadStatus.PENDING,
-          SnoozedThreadStatus.EXECUTING,
-        ],
-      },
+      clientMutationId,
+      emailAccountId,
+      status: SnoozedThreadStatus.PREPARING,
+      ...(archiveClaimedAt && { archiveClaimedAt }),
+      ...(restoredMessageIds && {
+        restoreMessageIds: { equals: restoredMessageIds },
+      }),
     },
-    data: { status: SnoozedThreadStatus.CANCELLED },
+    data: {
+      status: SnoozedThreadStatus.CANCELLED,
+      ...(restoredMessageIds && {
+        restoreMessageIds: [],
+        pendingRollbackMessageIds: [],
+        rollbackDispatchedAt: null,
+        rollbackArchiveObservedIds: [],
+      }),
+    },
   });
-  const client = getQstashClient();
-  if (client) await cancelQstashMessages(client, [snoozedThread.id]);
 }
 
 export async function markSnoozedThreadAsExecuting(
@@ -393,14 +524,19 @@ function getSchedulerLabel(snoozedThreadId: string) {
 }
 
 function assertSnoozePayload(
-  snoozedThread: Pick<SnoozedThread, "scheduledFor" | "threadId">,
-  expected: { scheduledFor: Date; threadId: string },
+  snoozedThread: SnoozedThread,
+  expected: SnoozeMutation,
 ) {
-  if (
-    snoozedThread.threadId !== expected.threadId ||
-    snoozedThread.scheduledFor.getTime() !== expected.scheduledFor.getTime()
-  ) {
-    throw new Error("Snooze mutation ID was reused with different input");
+  // Restore retries can move scheduledFor after the original payload is stored.
+  const payloadMatches = snoozedThread.clientMutationPayloadHash
+    ? snoozedThread.clientMutationPayloadHash ===
+      expected.clientMutationPayloadHash
+    : snoozedThread.scheduledFor.getTime() === expected.scheduledFor.getTime();
+  if (snoozedThread.threadId !== expected.threadId || !payloadMatches) {
+    throw new SafeError(
+      "Snooze mutation ID was reused with different input",
+      409,
+    );
   }
 }
 

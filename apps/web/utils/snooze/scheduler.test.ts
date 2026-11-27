@@ -4,6 +4,7 @@ import { SnoozedThreadStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   activatePreparedSnoozedThread,
+  cancelSnoozedThreadByClientMutationId,
   markSnoozedThreadAsExecuting,
   prepareSnoozedThread,
   releaseSnoozedThreadForRetry,
@@ -60,6 +61,22 @@ describe("snoozed thread scheduler", () => {
       data: { emailAccountId: "account", scheduledFor, threadId: "thread" },
     });
     expect(publishJSON).not.toHaveBeenCalled();
+  });
+
+  it("retains rollback targets when cancelling a preparation without a completed restore", async () => {
+    await cancelSnoozedThreadByClientMutationId({
+      clientMutationId: "mutation",
+      emailAccountId: "account",
+    });
+
+    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
+      where: {
+        clientMutationId: "mutation",
+        emailAccountId: "account",
+        status: SnoozedThreadStatus.PREPARING,
+      },
+      data: { status: SnoozedThreadStatus.CANCELLED },
+    });
   });
 
   it("claims pending work only once", async () => {
@@ -211,12 +228,14 @@ describe("snoozed thread scheduler", () => {
     env.QSTASH_TOKEN = "qstash-token";
     publishJSON.mockResolvedValue({ messageId: "message-id" });
     const scheduledFor = new Date("2020-08-17T09:00:00.000Z");
+    const claim = new Date(scheduledFor.getTime() - 1000);
     const prepared = {
       id: "snooze",
       clientMutationId: "mutation",
       emailAccountId: "account",
       scheduledFor,
       status: SnoozedThreadStatus.PREPARING,
+      archiveClaimedAt: claim,
       threadId: "thread",
     } as never;
     const activated = {
@@ -224,26 +243,37 @@ describe("snoozed thread scheduler", () => {
       status: SnoozedThreadStatus.PENDING,
     } as never;
     prisma.snoozedThread.findUnique.mockResolvedValue(prepared);
-    prisma.snoozedThread.findUniqueOrThrow.mockResolvedValue(activated);
+    prisma.snoozedThread.update.mockResolvedValue(activated);
     prisma.snoozedThread.findMany.mockResolvedValue([{ id: "old" }] as never);
     prisma.snoozedThread.updateMany.mockResolvedValue({ count: 1 });
 
     await expect(
-      activatePreparedSnoozedThread({
-        clientMutationId: "mutation",
-        emailAccountId: "account",
-        scheduledFor,
-        threadId: "thread",
-      }),
+      activatePreparedSnoozedThread(
+        {
+          clientMutationId: "mutation",
+          emailAccountId: "account",
+          scheduledFor,
+          threadId: "thread",
+        },
+        claim,
+        [],
+      ),
     ).resolves.toBe(activated);
 
-    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
+    expect(prisma.snoozedThread.update).toHaveBeenCalledWith({
       where: {
-        emailAccountId: "account",
-        clientMutationId: "mutation",
+        id: "snooze",
         status: SnoozedThreadStatus.PREPARING,
+        archiveClaimedAt: claim,
+        pendingArchiveMessageId: null,
+        pendingRollbackMessageIds: { isEmpty: true },
       },
-      data: { status: SnoozedThreadStatus.PENDING },
+      data: {
+        status: SnoozedThreadStatus.PENDING,
+        archiveClaimedAt: null,
+        restoreMessageIds: [],
+        targetOutcomes: [],
+      },
     });
     expect(prisma.snoozedThread.findMany).toHaveBeenCalledWith({
       where: {
@@ -262,12 +292,14 @@ describe("snoozed thread scheduler", () => {
 
   it("retries activation when a concurrent reservation wins the unique index", async () => {
     const scheduledFor = new Date("2026-08-17T09:00:00.000Z");
+    const claim = new Date(scheduledFor.getTime() - 1000);
     const prepared = {
       id: "snooze",
       clientMutationId: "mutation",
       emailAccountId: "account",
       scheduledFor,
       status: SnoozedThreadStatus.PREPARING,
+      archiveClaimedAt: claim,
       threadId: "thread",
     } as never;
     const activated = {
@@ -279,7 +311,7 @@ describe("snoozed thread scheduler", () => {
       code: "P2002",
     });
     prisma.snoozedThread.findUnique.mockResolvedValue(prepared);
-    prisma.snoozedThread.findUniqueOrThrow.mockResolvedValue(activated);
+    prisma.snoozedThread.update.mockResolvedValue(activated);
     prisma.$transaction
       .mockRejectedValueOnce(conflict)
       .mockImplementationOnce(async (operations) =>
@@ -287,15 +319,47 @@ describe("snoozed thread scheduler", () => {
       );
 
     await expect(
-      activatePreparedSnoozedThread({
-        clientMutationId: "mutation",
-        emailAccountId: "account",
-        scheduledFor,
-        threadId: "thread",
-      }),
+      activatePreparedSnoozedThread(
+        {
+          clientMutationId: "mutation",
+          emailAccountId: "account",
+          scheduledFor,
+          threadId: "thread",
+        },
+        claim,
+        [],
+      ),
     ).resolves.toBe(activated);
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not publish when the claim changes between the read and activation", async () => {
+    env.QSTASH_TOKEN = "qstash-token";
+    const archiveClaimedAt = new Date("2026-08-16T09:30:00.000Z");
+    const mutation = {
+      clientMutationId: "mutation",
+      emailAccountId: "account",
+      scheduledFor: new Date("2026-08-16T10:00:00.000Z"),
+      threadId: "thread",
+    };
+    prisma.snoozedThread.findUnique.mockResolvedValue({
+      ...mutation,
+      id: "snooze",
+      archiveClaimedAt,
+      status: SnoozedThreadStatus.PREPARING,
+    } as never);
+    prisma.$transaction.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("Claim was replaced", {
+        code: "P2025",
+        clientVersion: "test",
+      }),
+    );
+
+    await expect(
+      activatePreparedSnoozedThread(mutation, archiveClaimedAt, []),
+    ).resolves.toBeNull();
+    expect(publishJSON).not.toHaveBeenCalled();
   });
 
   it("releases claimed work for a later retry", async () => {

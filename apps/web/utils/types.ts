@@ -1,5 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { Prisma } from "@/generated/prisma/client";
+import type { OutlookSystemFolder } from "@/utils/outlook/folders";
 import type {
   Recipient,
   NullableOption,
@@ -68,6 +69,8 @@ export interface ParsedMessage {
   isMeetingInvitation?: boolean;
   labelIds?: string[];
   parentFolderId?: string;
+  // Null is a custom folder. Unknown means the system folder lookup was incomplete.
+  parentFolderType?: OutlookSystemFolder | "unknown" | null;
   // For Outlook: store raw recipient data to avoid double conversion
   rawRecipients?: {
     from?: NullableOption<Recipient>;

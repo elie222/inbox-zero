@@ -11,6 +11,7 @@ import type {
 import type { ParsedMessage, Attachment } from "@/utils/types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { OutlookLabel, WELL_KNOWN_FOLDERS } from "./constants";
+import type { OutlookSystemFolder } from "@/utils/outlook/folders";
 import {
   encodeODataFilter,
   escapeODataString,
@@ -144,7 +145,7 @@ export async function getCategoryMap(
 
 function getOutlookLabels(
   message: Message,
-  folderIds: Record<string, string>,
+  parentFolderType: ParsedMessage["parentFolderType"],
   categoryMap?: Map<string, string>,
 ): string[] {
   const labels: string[] = [];
@@ -164,29 +165,8 @@ function getOutlookLabels(
     labels.push(OutlookLabel.STARRED);
   }
 
-  // Map folder ID to label
-  if (message.parentFolderId) {
-    const folderKey = Object.entries(folderIds).find(
-      ([_, id]) => id === message.parentFolderId,
-    )?.[0];
-
-    if (folderKey) {
-      const FOLDER_TO_LABEL_MAP = {
-        [WELL_KNOWN_FOLDERS.inbox]: OutlookLabel.INBOX,
-        [WELL_KNOWN_FOLDERS.sentitems]: OutlookLabel.SENT,
-        [WELL_KNOWN_FOLDERS.drafts]: OutlookLabel.DRAFT,
-        [WELL_KNOWN_FOLDERS.archive]: OutlookLabel.ARCHIVE,
-        [WELL_KNOWN_FOLDERS.junkemail]: OutlookLabel.SPAM,
-        [WELL_KNOWN_FOLDERS.deleteditems]: OutlookLabel.TRASH,
-      };
-
-      const label =
-        FOLDER_TO_LABEL_MAP[folderKey as keyof typeof FOLDER_TO_LABEL_MAP];
-      if (label) {
-        labels.push(label);
-      }
-    }
-  }
+  if (parentFolderType && parentFolderType !== "unknown")
+    labels.push(parentFolderType);
 
   // Add category labels - map names to IDs when category map is available
   if (message.categories) {
@@ -1138,7 +1118,8 @@ export function convertMessage(
     | "html"
     | undefined;
 
-  const labelIds = getOutlookLabels(message, folderIds, categoryMap);
+  const parentFolderType = getParentFolderType(message, folderIds);
+  const labelIds = getOutlookLabels(message, parentFolderType, categoryMap);
   const date =
     message.receivedDateTime ||
     message.createdDateTime ||
@@ -1191,6 +1172,7 @@ export function convertMessage(
     labelIds,
     inboxSection: normalizeInboxSection(message.inferenceClassification),
     parentFolderId: message.parentFolderId || undefined,
+    parentFolderType,
     internalDate: date,
     historyId: "",
     inline: convertInlineAttachments(message.attachments),
@@ -1203,6 +1185,28 @@ export function convertMessage(
       ccRecipients: message.ccRecipients,
     },
   };
+}
+
+function getParentFolderType(
+  message: Message,
+  folderIds: Record<string, string>,
+): OutlookSystemFolder | "unknown" | null {
+  if (!message.parentFolderId) return "unknown";
+  const folderKey = Object.entries(folderIds).find(
+    ([, id]) => id === message.parentFolderId,
+  )?.[0];
+  const types = {
+    [WELL_KNOWN_FOLDERS.inbox]: OutlookLabel.INBOX,
+    [WELL_KNOWN_FOLDERS.sentitems]: OutlookLabel.SENT,
+    [WELL_KNOWN_FOLDERS.drafts]: OutlookLabel.DRAFT,
+    [WELL_KNOWN_FOLDERS.archive]: OutlookLabel.ARCHIVE,
+    [WELL_KNOWN_FOLDERS.junkemail]: OutlookLabel.SPAM,
+    [WELL_KNOWN_FOLDERS.deleteditems]: OutlookLabel.TRASH,
+  };
+  return (
+    types[folderKey as keyof typeof types] ??
+    (folderIds.inbox && folderIds.archive ? null : "unknown")
+  );
 }
 
 function normalizeInboxSection(value: unknown): ParsedMessage["inboxSection"] {

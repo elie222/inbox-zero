@@ -13,7 +13,10 @@ export async function executeSnoozedThread(
   leaseStartedAt: Date,
 ) {
   try {
-    await provider.unarchiveThread(snoozedThread.threadId);
+    const { threadId, archiveFolderId } = snoozedThread;
+    if (archiveFolderId)
+      await provider.unarchiveThread(threadId, { archiveFolderId });
+    else await provider.unarchiveThread(threadId);
   } catch (error) {
     // A deleted thread can never be restored, so retrying would loop forever.
     if (isThreadNotFoundError(error)) {

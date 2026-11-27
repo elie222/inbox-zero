@@ -811,6 +811,36 @@ describe("OutlookProvider.getLatestMessageInThread", () => {
 });
 
 describe("OutlookProvider snapshot mutations", () => {
+  it("waits for other started restores before reporting a failed Outlook move", async () => {
+    const started = Promise.withResolvers<void>();
+    const finish = Promise.withResolvers<void>();
+    const failed = Object.assign(new Error("Move failed"), { statusCode: 400 });
+    const api = vi.fn((path: string) => ({
+      async post() {
+        if (path.includes("/one/")) throw failed;
+        started.resolve();
+        await finish.promise;
+      },
+    }));
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api }) } as never,
+      createTestLogger(),
+    );
+    let rejected = false;
+    const result = provider.unarchiveMessages(["one", "two"]).catch((error) => {
+      rejected = true;
+      return error;
+    });
+    await started.promise;
+    try {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(rejected).toBe(false);
+    } finally {
+      finish.resolve();
+    }
+    await expect(result).resolves.toBe(failed);
+  });
+
   it.each([
     ["archiveMessages", "archive"],
     ["trashMessages", "deleteditems"],

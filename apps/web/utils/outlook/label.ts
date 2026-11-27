@@ -506,17 +506,20 @@ async function moveThreadFromFolderToInbox({
   client,
   threadId,
   sourceFolder,
+  fallbackSourceFolderId,
   logger,
 }: {
   client: OutlookClient;
   threadId: string;
   sourceFolder: keyof typeof SOURCE_FOLDER_LABELS;
+  fallbackSourceFolderId?: string;
   logger: Logger;
 }) {
   const folderIds = await getFolderIds(client, logger, {
     includeDrafts: false,
   });
-  const sourceFolderId = folderIds[WELL_KNOWN_FOLDERS[sourceFolder]];
+  const sourceFolderId =
+    folderIds[WELL_KNOWN_FOLDERS[sourceFolder]] ?? fallbackSourceFolderId;
 
   // Without the source folder we can't tell the messages apart from the sent
   // and deleted ones in the same conversation, and moving those into the inbox
@@ -555,16 +558,19 @@ async function moveThreadFromFolderToInbox({
 export async function unarchiveThread({
   client,
   threadId,
+  archiveFolderId,
   logger,
 }: {
   client: OutlookClient;
   threadId: string;
+  archiveFolderId?: string;
   logger: Logger;
 }) {
   await moveThreadFromFolderToInbox({
     client,
     threadId,
     sourceFolder: "archive",
+    fallbackSourceFolderId: archiveFolderId,
     logger,
   });
 }

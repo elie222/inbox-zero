@@ -14,12 +14,40 @@ import prisma from "@/utils/prisma";
 import { getUserPremium } from "@/utils/user/get";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
 import { getMessagingRoute } from "@/utils/messaging/routes";
+import { sleep } from "@/utils/sleep";
+
+const MAX_RUN_ATTEMPTS = 3;
 
 export const executeAutomationJobBody = z.object({
   automationJobRunId: z.string().min(1, "Automation job run ID is required"),
 });
 
 export async function executeAutomationJobRun({
+  automationJobRunId,
+  logger,
+  retryInRequest = false,
+}: {
+  automationJobRunId: string;
+  logger: Logger;
+  retryInRequest?: boolean;
+}) {
+  for (let attempt = 1; ; attempt++) {
+    const response = await attemptAutomationJobRun({
+      automationJobRunId,
+      logger,
+    });
+    if (
+      !retryInRequest ||
+      response.status !== 503 ||
+      attempt >= MAX_RUN_ATTEMPTS
+    ) {
+      return response;
+    }
+    await sleep(1000 * attempt);
+  }
+}
+
+async function attemptAutomationJobRun({
   automationJobRunId,
   logger,
 }: {
@@ -121,9 +149,11 @@ export async function executeAutomationJobRun({
     where: {
       id: automationJobRunId,
       status: AutomationJobRunStatus.PENDING,
+      attempts: run.attempts,
     },
     data: {
       status: AutomationJobRunStatus.RUNNING,
+      attempts: { increment: 1 },
     },
   });
 
@@ -132,6 +162,7 @@ export async function executeAutomationJobRun({
     return new Response("Run already claimed", { status: 409 });
   }
 
+  let deliveryStarted = false;
   try {
     if (!run.automationJob.enabled) {
       runLogger.info("Skipping automation job run because job is disabled");
@@ -210,6 +241,7 @@ export async function executeAutomationJobRun({
       logger: runLogger,
     });
 
+    deliveryStarted = true;
     const messagingResult = await sendAutomationMessage({
       channel: run.automationJob.messagingChannel,
       route,
@@ -245,23 +277,38 @@ export async function executeAutomationJobRun({
       runLogger.error("Automation job execution failed", { error });
     }
 
+    // Once delivery starts, the provider may have accepted the message.
+    const retryable =
+      !isConfigurationError &&
+      !deliveryStarted &&
+      run.attempts + 1 < MAX_RUN_ATTEMPTS;
     await prisma.automationJobRun.update({
       where: { id: automationJobRunId },
       data: {
         status: isConfigurationError
           ? AutomationJobRunStatus.SKIPPED
-          : AutomationJobRunStatus.FAILED,
-        processedAt: new Date(),
+          : retryable
+            ? AutomationJobRunStatus.PENDING
+            : AutomationJobRunStatus.FAILED,
+        processedAt: retryable ? null : new Date(),
         error: errorMessage,
       },
     });
 
-    return new Response(
-      isConfigurationError
-        ? "Automation job skipped due to configuration"
-        : "Automation job execution failed",
-      { status: isConfigurationError ? 200 : 500 },
-    );
+    if (isConfigurationError) {
+      return new Response("Automation job skipped due to configuration", {
+        status: 200,
+      });
+    }
+    if (retryable) {
+      return new Response(
+        "Automation job failed before delivery and can retry",
+        {
+          status: 503,
+        },
+      );
+    }
+    return new Response("Automation job execution failed", { status: 500 });
   }
 }
 

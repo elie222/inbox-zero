@@ -24,8 +24,13 @@ describe.skipIf(!RUN_DB_TESTS)(
   () => {
     let prisma: typeof import("@/utils/prisma").default;
     let activatePreparedSnoozedThread: typeof import("@/utils/snooze/scheduler").activatePreparedSnoozedThread;
+    let claimSnoozePreparation: typeof import("@/utils/snooze/scheduler").claimSnoozePreparation;
+    let getPendingSnoozeRollbackMessageIds: typeof import("@/utils/snooze/scheduler").getPendingSnoozeRollbackMessageIds;
     let markSnoozedThreadAsExecuting: typeof import("@/utils/snooze/scheduler").markSnoozedThreadAsExecuting;
     let prepareSnoozedThread: typeof import("@/utils/snooze/scheduler").prepareSnoozedThread;
+    let releaseSnoozePreparation: typeof import("@/utils/snooze/scheduler").releaseSnoozePreparation;
+    let updateSnoozeArchiveWrite: typeof import("@/utils/snooze/scheduler").updateSnoozeArchiveWrite;
+    let withSnoozeMutationLease: typeof import("@/utils/snooze/mutation-lease").withSnoozeMutationLease;
     let emailAccountId: string;
 
     const accountEmail = "snoozed-thread-scheduler-test@example.com";
@@ -34,9 +39,16 @@ describe.skipIf(!RUN_DB_TESTS)(
       prisma = (await import("@/utils/prisma")).default;
       ({
         activatePreparedSnoozedThread,
+        claimSnoozePreparation,
+        getPendingSnoozeRollbackMessageIds,
         markSnoozedThreadAsExecuting,
         prepareSnoozedThread,
+        releaseSnoozePreparation,
+        updateSnoozeArchiveWrite,
       } = await import("@/utils/snooze/scheduler"));
+      ({ withSnoozeMutationLease } = await import(
+        "@/utils/snooze/mutation-lease"
+      ));
     });
 
     beforeEach(async () => {
@@ -49,37 +61,52 @@ describe.skipIf(!RUN_DB_TESTS)(
       await prisma.$disconnect();
     });
 
+    test("binds a mutation to its original payload even after the restore is delayed", async () => {
+      const input = {
+        clientMutationId: "payload-bound-snooze",
+        clientMutationPayloadHash: "original-payload",
+        emailAccountId,
+        scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+        threadId: "payload-bound-thread",
+      };
+      const { snoozedThread } = await prepareSnoozedThread(input);
+      const delayedRestore = new Date("2026-08-17T09:05:00.000Z");
+      await prisma.snoozedThread.update({
+        where: { id: snoozedThread.id },
+        data: { scheduledFor: delayedRestore },
+      });
+
+      await expect(prepareSnoozedThread(input)).resolves.toMatchObject({
+        created: false,
+        snoozedThread: { scheduledFor: delayedRestore },
+      });
+      await expect(
+        prepareSnoozedThread({
+          ...input,
+          clientMutationPayloadHash: "different-payload",
+          scheduledFor: delayedRestore,
+        }),
+      ).rejects.toThrow("Snooze mutation ID was reused with different input");
+    });
+
     test("keeps one active restore when the same thread is scheduled concurrently", async () => {
       const scheduledFor = new Date("2026-08-17T09:00:00.000Z");
 
-      await Promise.all([
-        prepareSnoozedThread({
-          clientMutationId: "mutation-one",
-          emailAccountId,
-          scheduledFor,
-          threadId: "concurrent-thread",
+      const results = await Promise.allSettled(
+        ["mutation-one", "mutation-two"].map(async (clientMutationId) => {
+          const input = {
+            clientMutationId,
+            emailAccountId,
+            scheduledFor,
+            threadId: "concurrent-thread",
+          };
+          const { snoozedThread } = await prepareSnoozedThread(input);
+          const claim = await claimSnoozePreparation(snoozedThread);
+          if (!claim)
+            throw new Error("The preparation was unexpectedly claimed");
+          return activatePreparedSnoozedThread(input, claim, []);
         }),
-        prepareSnoozedThread({
-          clientMutationId: "mutation-two",
-          emailAccountId,
-          scheduledFor,
-          threadId: "concurrent-thread",
-        }),
-      ]);
-      const results = await Promise.allSettled([
-        activatePreparedSnoozedThread({
-          clientMutationId: "mutation-one",
-          emailAccountId,
-          scheduledFor,
-          threadId: "concurrent-thread",
-        }),
-        activatePreparedSnoozedThread({
-          clientMutationId: "mutation-two",
-          emailAccountId,
-          scheduledFor,
-          threadId: "concurrent-thread",
-        }),
-      ]);
+      );
 
       expect(results.every((result) => result.status === "fulfilled")).toBe(
         true,
@@ -97,6 +124,170 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(["mutation-one", "mutation-two"]).toContain(
         active[0]?.clientMutationId,
       );
+    });
+
+    test("serializes archive claims and records newly eligible rollback targets on retry", async () => {
+      const now = new Date("2026-08-17T09:00:00.000Z");
+      const input = {
+        clientMutationId: "archive-claim",
+        emailAccountId,
+        scheduledFor: new Date("2026-08-17T10:00:00.000Z"),
+        threadId: "archive-claim-thread",
+      };
+      const { snoozedThread } = await prepareSnoozedThread(input);
+      const readReceipt = () =>
+        prisma.snoozedThread.findUniqueOrThrow({
+          where: { id: snoozedThread.id },
+        });
+      const folders = { archiveFolderId: "archive", inboxFolderId: "inbox" };
+      const dispatch = {
+        clientMutationPayloadHash: "archive-payload",
+        folders,
+      };
+      const claims = await Promise.all([
+        claimSnoozePreparation(snoozedThread, dispatch, now),
+        claimSnoozePreparation(snoozedThread, dispatch, now),
+      ]);
+      expect(claims.filter(Boolean)).toEqual([now]);
+      const retryAt = new Date(now.getTime() + 1);
+      expect(
+        await claimSnoozePreparation(await readReceipt(), undefined, retryAt),
+      ).toBeNull();
+      await releaseSnoozePreparation(snoozedThread.id, now);
+
+      expect(
+        await claimSnoozePreparation(await readReceipt(), dispatch, retryAt),
+      ).toEqual(retryAt);
+      await releaseSnoozePreparation(snoozedThread.id, now);
+      await expect(
+        activatePreparedSnoozedThread({ ...input, ...dispatch }, now, []),
+      ).resolves.toBeNull();
+      await expect(readReceipt()).resolves.toMatchObject({
+        status: SnoozedThreadStatus.PREPARING,
+        archiveClaimedAt: retryAt,
+        clientMutationPayloadHash: dispatch.clientMutationPayloadHash,
+        restoreMessageIds: [],
+        ...folders,
+      });
+      const targetOutcomes = [
+        {
+          key: { accountId: emailAccountId, messageId: "first" },
+          outcome: "applied" as const,
+          code: null,
+        },
+        {
+          key: { accountId: emailAccountId, messageId: "newly-inbox" },
+          outcome: "rejected" as const,
+          code: "not_found",
+        },
+      ];
+      const pendingWrite = {
+        id: snoozedThread.id,
+        claim: retryAt,
+        previousMessageId: null,
+        messageId: "first",
+        restoreMessageIds: ["first"],
+      };
+      await expect(updateSnoozeArchiveWrite(pendingWrite)).resolves.toBe(true);
+      await expect(readReceipt()).resolves.toMatchObject({
+        pendingArchiveMessageId: "first",
+        pendingArchiveDispatchedAt: expect.any(Date),
+        restoreMessageIds: ["first"],
+      });
+      const settlement = {
+        id: snoozedThread.id,
+        claim: retryAt,
+        previousMessageId: "first",
+        messageId: null,
+      };
+      await expect(
+        updateSnoozeArchiveWrite({ ...settlement, claim: now }),
+      ).resolves.toBe(false);
+      await expect(
+        activatePreparedSnoozedThread(
+          { ...input, ...dispatch },
+          retryAt,
+          targetOutcomes,
+        ),
+      ).resolves.toBeNull();
+      await expect(updateSnoozeArchiveWrite(settlement)).resolves.toBe(true);
+      await activatePreparedSnoozedThread(
+        { ...input, ...dispatch },
+        retryAt,
+        targetOutcomes,
+      );
+      await expect(readReceipt()).resolves.toMatchObject({
+        status: SnoozedThreadStatus.PENDING,
+        archiveClaimedAt: null,
+        targetOutcomes,
+      });
+    });
+
+    test("serializes mailbox snooze mutations until the owner finishes", async () => {
+      const claimed = Promise.withResolvers<void>();
+      const finish = Promise.withResolvers<void>();
+      const first = withSnoozeMutationLease(emailAccountId, async () => {
+        claimed.resolve();
+        await finish.promise;
+        return "restored";
+      });
+      await claimed.promise;
+      try {
+        await expect(
+          withSnoozeMutationLease(emailAccountId, async () => "competing"),
+        ).resolves.toBeNull();
+      } finally {
+        finish.resolve();
+        await expect(first).resolves.toBe("restored");
+      }
+      await expect(
+        withSnoozeMutationLease(emailAccountId, async () => "next"),
+      ).resolves.toBe("next");
+    });
+
+    test("limits pending rollback fences to recent unresolved receipts in the mailbox", async () => {
+      const scheduledFor = new Date();
+      const receipt = {
+        emailAccountId,
+        scheduledFor,
+        threadId: "thread-with-rollback",
+      };
+      await prisma.snoozedThread.createMany({
+        data: [
+          {
+            ...receipt,
+            clientMutationId: "rollback-mutation",
+            status: SnoozedThreadStatus.CANCELLED,
+            pendingRollbackMessageIds: ["pending-message"],
+            rollbackDispatchedAt: scheduledFor,
+          },
+          {
+            ...receipt,
+            clientMutationId: "old-mutation",
+            status: SnoozedThreadStatus.PREPARING,
+            pendingRollbackMessageIds: ["old-message"],
+            rollbackDispatchedAt: new Date(
+              scheduledFor.getTime() - 60 * 60 * 1000,
+            ),
+          },
+          {
+            ...receipt,
+            clientMutationId: "completed-mutation",
+            status: SnoozedThreadStatus.COMPLETED,
+            pendingRollbackMessageIds: ["completed-message"],
+            rollbackDispatchedAt: scheduledFor,
+          },
+        ],
+      });
+      await expect(
+        getPendingSnoozeRollbackMessageIds(emailAccountId, "new-mutation"),
+      ).resolves.toEqual(new Set(["pending-message"]));
+      await expect(
+        getPendingSnoozeRollbackMessageIds(emailAccountId, "rollback-mutation"),
+      ).resolves.toEqual(new Set());
+      await expect(
+        getPendingSnoozeRollbackMessageIds("other-mailbox"),
+      ).resolves.toEqual(new Set());
     });
 
     test("allows only one pending or executing restore per thread", async () => {
@@ -157,19 +348,16 @@ describe.skipIf(!RUN_DB_TESTS)(
         },
       });
       const scheduledFor = new Date("2026-08-17T10:00:00.000Z");
-      await prepareSnoozedThread({
+      const input = {
         clientMutationId: "replacement",
         emailAccountId,
         scheduledFor,
         threadId,
-      });
-
-      await activatePreparedSnoozedThread({
-        clientMutationId: "replacement",
-        emailAccountId,
-        scheduledFor,
-        threadId,
-      });
+      };
+      const { snoozedThread } = await prepareSnoozedThread(input);
+      const claim = await claimSnoozePreparation(snoozedThread);
+      if (!claim) throw new Error("The preparation was unexpectedly claimed");
+      await activatePreparedSnoozedThread(input, claim, []);
 
       await expect(
         prisma.snoozedThread.findUnique({ where: { id: legacy.id } }),

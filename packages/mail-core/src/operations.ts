@@ -84,6 +84,7 @@ export const targetOutcomeSchema = z.object({
   outcome: z.enum(["applied", "rejected", "uncertain"]),
   code: z.string().nullable(),
 });
+export const targetOutcomesSchema = z.array(targetOutcomeSchema);
 export type TargetOutcome = z.infer<typeof targetOutcomeSchema>;
 
 export const EXECUTABLE_OPERATION_STATUSES = [

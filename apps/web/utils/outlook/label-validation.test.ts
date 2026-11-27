@@ -21,6 +21,16 @@ describe("sanitizeOutlookCategoryName", () => {
     expect(result.length).toBe(255);
     expect(result.includes(",")).toBe(false);
   });
+
+  it("keeps an emoji only when the whole character fits", () => {
+    const prefix = "a".repeat(253);
+    expect(sanitizeOutlookCategoryName(`${prefix}😀suffix`)).toBe(
+      `${prefix}😀`,
+    );
+    expect(sanitizeOutlookCategoryName(`${prefix}a😀suffix`)).toBe(
+      `${prefix}a`,
+    );
+  });
 });
 
 describe("normalizeOutlookCategoryName", () => {

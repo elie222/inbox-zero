@@ -24,18 +24,25 @@ describe("executeSnoozedThread", () => {
     prisma.snoozedThread.updateMany.mockResolvedValue({ count: 1 });
   });
 
-  it("restores the thread and completes the snooze", async () => {
+  it.each([
+    null,
+    "archive-id",
+  ])("restores the thread and completes the snooze with recorded archive folder %s", async (archiveFolderId) => {
     const provider = createMockEmailProvider();
 
     const result = await executeSnoozedThread(
-      snoozedThread,
+      { id: "snooze", threadId: "thread", archiveFolderId } as never,
       provider,
       logger,
       leaseStartedAt,
     );
 
     expect(result.success).toBe(true);
-    expect(provider.unarchiveThread).toHaveBeenCalledWith("thread");
+    if (archiveFolderId)
+      expect(provider.unarchiveThread).toHaveBeenCalledWith("thread", {
+        archiveFolderId,
+      });
+    else expect(provider.unarchiveThread).toHaveBeenCalledWith("thread");
     expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
       where: {
         id: "snooze",

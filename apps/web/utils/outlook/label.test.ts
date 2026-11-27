@@ -246,8 +246,13 @@ describe("labelThread", () => {
 });
 
 describe("unarchiveThread", () => {
-  it("moves every archived message back, following paged results", async () => {
-    mockGetFolderIds.mockResolvedValue({ archive: "archive-id" });
+  it.each([
+    true,
+    false,
+  ])("moves every archived message back with a live archive folder lookup: %s", async (liveFolderKnown) => {
+    mockGetFolderIds.mockResolvedValue(
+      liveFolderKnown ? { archive: "archive-id" } : {},
+    );
     const { client, post, filters } = createPagingClient([
       {
         value: [{ id: "m1" }, { id: "m2" }],
@@ -259,13 +264,15 @@ describe("unarchiveThread", () => {
     await unarchiveThread({
       client,
       threadId: "thread-1",
+      archiveFolderId: "recorded-archive-id",
       logger: createTestLogger(),
     });
 
     // Without following @odata.nextLink, m3 would silently stay archived.
     expect(post).toHaveBeenCalledTimes(3);
     expect(post).toHaveBeenCalledWith({ destinationId: "inbox" });
-    expect(filters[0]).toContain("parentFolderId eq 'archive-id'");
+    const sourceFolder = liveFolderKnown ? "archive-id" : "recorded-archive-id";
+    expect(filters[0]).toContain(`parentFolderId eq '${sourceFolder}'`);
   });
 
   it("refuses to run when the archive folder cannot be resolved", async () => {

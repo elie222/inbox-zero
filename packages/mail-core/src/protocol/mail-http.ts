@@ -15,7 +15,7 @@ import {
   syncPageSchema,
   syncPositionSchema,
 } from "../sync";
-import { preparedOperationSchema, targetOutcomeSchema } from "../operations";
+import { preparedOperationSchema, targetOutcomesSchema } from "../operations";
 import { MAX_CHANGES_BATCH_READS } from "../ports/mailbox-source";
 
 /** Sent by native clients as `<client>/<version>` so server logs show which build made a request. */
@@ -282,7 +282,7 @@ export const operationAdmitResultSchema = z.discriminatedUnion("status", [
     receiptId: z.string().nullable(),
     observations: z.array(providerChangeSchema),
     bodies: z.array(bodyObservationSchema).optional(),
-    targets: z.array(targetOutcomeSchema),
+    targets: targetOutcomesSchema,
   }),
   z.object({
     status: z.literal("accepted"),
@@ -303,7 +303,7 @@ export const operationAdmitResultSchema = z.discriminatedUnion("status", [
     protocolVersion: mailProtocolVersionSchema,
     requestId: z.string(),
     code: z.string(),
-    targets: z.array(targetOutcomeSchema),
+    targets: targetOutcomesSchema,
   }),
   z.object({
     status: z.literal("uncertain"),

@@ -271,11 +271,13 @@ export async function replaceRuleWithResolvedActions({
   emailAccountId,
   data,
   actions,
+  expectedUpdatedAt,
 }: {
   ruleId: string;
   emailAccountId: string;
   data: RuleRecordData;
   actions: RuleActionCreateData[];
+  expectedUpdatedAt?: Date;
 }): Promise<RuleWithRelations> {
   const existingRule = await prisma.rule.findUnique({
     where: { id: ruleId, emailAccountId },
@@ -302,7 +304,11 @@ export async function replaceRuleWithResolvedActions({
   validateWebhookUrlsInActions(actions);
 
   const rule = await prisma.rule.update({
-    where: { id: ruleId, emailAccountId },
+    where: {
+      id: ruleId,
+      emailAccountId,
+      ...(expectedUpdatedAt && { updatedAt: expectedUpdatedAt }),
+    },
     data: {
       name: data.name,
       systemType: data.systemType,

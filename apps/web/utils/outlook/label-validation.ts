@@ -14,7 +14,14 @@ export function sanitizeOutlookCategoryName(name: string): string {
     .replace(/\s+/g, " ")
     .trim();
 
-  return sanitized.slice(0, OUTLOOK_CATEGORY_MAX_LENGTH).trim();
+  const boundaryCodePoint = sanitized.codePointAt(
+    OUTLOOK_CATEGORY_MAX_LENGTH - 1,
+  );
+  const end =
+    boundaryCodePoint !== undefined && boundaryCodePoint > 0xff_ff
+      ? OUTLOOK_CATEGORY_MAX_LENGTH - 1
+      : OUTLOOK_CATEGORY_MAX_LENGTH;
+  return sanitized.slice(0, end).trim();
 }
 
 export function normalizeOutlookCategoryName(name: string): string {

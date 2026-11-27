@@ -169,6 +169,7 @@ model EmailAccount {
   includeSentWithSignature       Boolean   @default(true) // "Sent with <brand>" footer on emails sent from the mail client
   sentMessageOpenTrackingEnabled Boolean   @default(true) // show when sent mail-client emails are opened
   watchEmailsExpirationDate      DateTime?
+  snoozeMutationLeaseUntil       DateTime?
   watchEmailsSubscriptionId      String? // For Outlook subscription ID
   watchEmailsSubscriptionHistory Json? // Historical Outlook subscription IDs: [{ subscriptionId, createdAt, replacedAt }]
   lastSyncedHistoryId            String?
@@ -961,12 +962,24 @@ model ScheduledAction {
 }
 
 model SnoozedThread {
-  id               String              @id @default(cuid())
-  updatedAt        DateTime            @updatedAt
-  threadId         String
-  scheduledFor     DateTime
-  status           SnoozedThreadStatus @default(PENDING)
-  clientMutationId String?
+  id                        String              @id @default(cuid())
+  updatedAt                 DateTime            @updatedAt
+  threadId                  String
+  scheduledFor              DateTime
+  status                    SnoozedThreadStatus @default(PENDING)
+  clientMutationId          String?
+  clientMutationPayloadHash String?
+  archiveStarted            Boolean             @default(false)
+  archiveClaimedAt          DateTime?
+  pendingArchiveMessageId   String?
+  pendingArchiveDispatchedAt DateTime?
+  archiveFolderId           String?
+  inboxFolderId             String?
+  restoreMessageIds          String[]            @default([])
+  targetOutcomes             Json?
+  pendingRollbackMessageIds  String[]            @default([])
+  rollbackDispatchedAt       DateTime?
+  rollbackArchiveObservedIds String[]            @default([])
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -1737,6 +1750,7 @@ model Booking {
   cancelTokenHash      String
   cancellationReason   String?
   idempotencyToken     String?
+  rescheduleClaimedAt  DateTime?
 
   bookingLinkId  String
   bookingLink    BookingLink  @relation(fields: [bookingLinkId], references: [id], onDelete: Cascade)
@@ -1983,6 +1997,7 @@ model AutomationJobRun {
   status       AutomationJobRunStatus @default(PENDING)
   scheduledFor DateTime
   processedAt  DateTime?
+  attempts     Int                    @default(0)
 
   outboundMessage   String? @db.Text
   providerMessageId String? // Provider message ID (e.g. Slack `ts`)

@@ -551,7 +551,10 @@ describe("public booking", () => {
     });
     expect(prisma.booking.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "booking-id", status: BookingStatus.CONFIRMED },
+        where: expect.objectContaining({
+          id: "booking-id",
+          status: BookingStatus.CONFIRMED,
+        }),
         data: {
           status: BookingStatus.CANCELED,
           cancellationReason: "No longer needed",
@@ -600,7 +603,10 @@ describe("public booking", () => {
     expect(cancelCalendarEvent).toHaveBeenCalled();
     expect(prisma.booking.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "booking-id", status: BookingStatus.CONFIRMED },
+        where: expect.objectContaining({
+          id: "booking-id",
+          status: BookingStatus.CONFIRMED,
+        }),
         data: expect.objectContaining({ status: BookingStatus.CANCELED }),
       }),
     );
@@ -627,7 +633,7 @@ describe("public booking", () => {
         token: "cancel-token",
         logger,
       }),
-    ).rejects.toThrow("Booking is already canceled");
+    ).rejects.toThrow("Booking changed. Refresh and try again.");
 
     expect(cancelCalendarEvent).not.toHaveBeenCalled();
     expect(sendBookingCancellationEmails).not.toHaveBeenCalled();
@@ -724,15 +730,24 @@ describe("public booking", () => {
 
     expect(prisma.booking.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
+        where: expect.objectContaining({
           id: "booking-id",
           status: BookingStatus.CONFIRMED,
           startTime: new Date("2026-05-04T09:00:00.000Z"),
           endTime: new Date("2026-05-04T09:30:00.000Z"),
-        },
+          OR: [
+            { rescheduleClaimedAt: null },
+            {
+              rescheduleClaimedAt: {
+                lte: new Date("2026-05-03T23:50:00.000Z"),
+              },
+            },
+          ],
+        }),
         data: {
           startTime: new Date("2026-05-11T09:00:00.000Z"),
           endTime: new Date("2026-05-11T09:30:00.000Z"),
+          rescheduleClaimedAt: new Date(),
         },
       }),
     );
@@ -766,6 +781,68 @@ describe("public booking", () => {
         ),
         cancelUrl: expect.stringContaining("/book/cancel/booking-id?token="),
       }),
+    );
+  });
+
+  it("rejects competing mutations while a reschedule is writing to the calendar", async () => {
+    let booking = bookingRecord({
+      cancelTokenHash: hashToken("manage-token"),
+      provider: "google",
+      providerConnectionId: "connection-id",
+      providerCalendarId: "primary",
+      providerEventId: "provider-event-id",
+    } as never);
+    const providerStarted = Promise.withResolvers<void>();
+    const releaseProvider = Promise.withResolvers<void>();
+    prisma.booking.findUnique.mockImplementation(
+      async () => ({ ...booking }) as never,
+    );
+    prisma.booking.findMany.mockResolvedValue([]);
+    prisma.booking.updateMany.mockImplementation(async ({ where, data }) => {
+      if (where?.OR?.length && booking.rescheduleClaimedAt) return { count: 0 };
+      booking = { ...booking, ...data } as typeof booking;
+      return { count: 1 };
+    });
+    vi.mocked(updateCalendarEvent).mockImplementation(async () => {
+      providerStarted.resolve();
+      await releaseProvider.promise;
+    });
+    const reschedule = (startTime: string) =>
+      reschedulePublicBooking({
+        id: booking.id,
+        token: "manage-token",
+        startTime,
+        guestTimezone: "UTC",
+        logger,
+      });
+
+    const first = reschedule("2026-05-11T09:00:00.000Z");
+    try {
+      await Promise.race([providerStarted.promise, first]);
+      await expect(
+        reschedule("2026-05-11T09:30:00.000Z"),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+      });
+      await expect(
+        cancelPublicBooking({
+          id: booking.id,
+          token: "manage-token",
+          logger,
+        }),
+      ).rejects.toMatchObject({ statusCode: 409 });
+      expect(updateCalendarEvent).toHaveBeenCalledTimes(1);
+      expect(cancelCalendarEvent).not.toHaveBeenCalled();
+    } finally {
+      releaseProvider.resolve();
+      await first;
+    }
+
+    expect(booking.rescheduleClaimedAt).toBeNull();
+    await expect(reschedule("2026-05-11T09:30:00.000Z")).resolves.toMatchObject(
+      {
+        startTime: "2026-05-11T09:30:00.000Z",
+      },
     );
   });
 
@@ -840,6 +917,7 @@ describe("public booking", () => {
         data: {
           startTime: new Date("2026-05-04T09:00:00.000Z"),
           endTime: new Date("2026-05-04T09:30:00.000Z"),
+          rescheduleClaimedAt: null,
         },
       }),
     );
@@ -1250,6 +1328,7 @@ function bookingRecordBase() {
     cancelTokenHash: hashToken("cancel-token"),
     cancellationReason: null,
     idempotencyToken: "token-1",
+    rescheduleClaimedAt: null as Date | null,
     createdAt: new Date("2026-05-01T00:00:00.000Z"),
     updatedAt: new Date("2026-05-01T00:00:00.000Z"),
     bookingLink: {
