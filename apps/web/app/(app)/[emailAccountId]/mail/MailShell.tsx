@@ -1555,6 +1555,18 @@ export function MailShell() {
       splitPickerThreads
     )
       return {};
+    let archiveShortcut: ShortcutHandlers["archive"];
+    if (!targetsArchived) {
+      archiveShortcut = archiveTargets;
+    } else if (
+      !isMailOverlayOpen &&
+      isReaderTarget &&
+      !selection.hasSelection &&
+      orderedIds.length === 1 &&
+      orderedIds[0] === openThreadKey
+    ) {
+      archiveShortcut = closeReader;
+    }
     return {
       unsubscribe:
         !isMailOverlayOpen && !senderCommands?.isUnsubscribeDisabled
@@ -1621,7 +1633,7 @@ export function MailShell() {
       extendSelectionUp: () => extendSelection(-1),
       label: canLabel ? openLabelPicker : undefined,
       move: canLabel ? openMovePicker : undefined,
-      archive: targetsArchived ? undefined : archiveTargets,
+      archive: archiveShortcut,
       star: starTargets,
       markSpam: markSpamTargets,
       markUnread: markUnreadTargets,
