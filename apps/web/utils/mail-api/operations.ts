@@ -74,6 +74,7 @@ type SnoozeRollbackReceipt = SnoozeFolders &
 type SnoozeRecoveryObservation = {
   target: { messageId: string };
   message: ParsedMessage | null;
+  startedAtMs: number;
 };
 
 export function createEmailProviderOperationExecutor(input: {
@@ -1278,6 +1279,18 @@ async function reconcileSnooze(
       existing,
       reads.messages,
     );
+    if (
+      hasPartialSnoozeRollback(existing) ||
+      archiveObservation === "waiting"
+    ) {
+      await restoreObservedSnoozeArchives(
+        provider,
+        existing,
+        reads.messages,
+        claim,
+      );
+      return snoozeUnavailable(30_000);
+    }
     const restoreMessageIds =
       archiveObservation === "unobserved"
         ? existing.restoreMessageIds.filter(
@@ -1285,18 +1298,6 @@ async function reconcileSnooze(
           )
         : existing.restoreMessageIds;
     if (existing.pendingArchiveMessageId) {
-      if (
-        archiveObservation === "waiting" ||
-        hasPartialSnoozeRollback(existing)
-      ) {
-        await restoreObservedSnoozeArchives(
-          provider,
-          existing,
-          reads.messages,
-          claim,
-        );
-        return snoozeUnavailable(30_000);
-      }
       if (
         !(await updateSnoozeArchiveWrite({
           id: existing.id,
@@ -1465,10 +1466,7 @@ async function resumeCancelledSnooze(
       )
         ? "settled"
         : snoozeArchiveObservation(receipt, reads.messages);
-    if (
-      receipt.pendingArchiveMessageId &&
-      (hasPartialSnoozeRollback(receipt) || archiveObservation === "waiting")
-    ) {
+    if (hasPartialSnoozeRollback(receipt) || archiveObservation === "waiting") {
       await restoreObservedSnoozeArchives(
         provider,
         receipt,
@@ -1529,17 +1527,21 @@ async function readSnoozeRecoveryTargets(
     items: targets,
     concurrency: SNOOZE_RECOVERY_READ_CONCURRENCY,
     async run(target) {
+      const startedAtMs = Date.now();
       try {
-        return await provider.getMessage(target.messageId);
+        return {
+          message: await provider.getMessage(target.messageId),
+          startedAtMs,
+        };
       } catch (error) {
         if (failedTargetOutcome(target, error).code !== "not_found")
           throw error;
-        return null;
+        return { message: null, startedAtMs };
       }
     },
   });
   const messages = results.flatMap(({ item: target, result }) =>
-    result.status === "fulfilled" ? [{ target, message: result.value }] : [],
+    result.status === "fulfilled" ? [{ target, ...result.value }] : [],
   );
   const unavailable = results.find(
     ({ result }) => result.status === "rejected",
@@ -1577,7 +1579,7 @@ function snoozeArchiveObservation(
   if (
     location === "unknown" ||
     (dispatchedAt &&
-      dispatchedAt.getTime() + SNOOZE_ARCHIVE_OBSERVATION_MS > Date.now())
+      dispatchedAt.getTime() + SNOOZE_ARCHIVE_OBSERVATION_MS > read.startedAtMs)
   )
     return "waiting";
   return "unobserved";
@@ -1586,15 +1588,13 @@ function snoozeArchiveObservation(
 function hasPartialSnoozeRollback(
   receipt: Pick<
     SnoozedThread,
-    "pendingArchiveMessageId" | "pendingRollbackMessageIds"
+    "restoreMessageIds" | "pendingRollbackMessageIds"
   >,
 ) {
-  return Boolean(
-    receipt.pendingArchiveMessageId &&
-      receipt.pendingRollbackMessageIds?.length &&
-      !receipt.pendingRollbackMessageIds.includes(
-        receipt.pendingArchiveMessageId,
-      ),
+  const pendingIds = new Set(receipt.pendingRollbackMessageIds);
+  return (
+    pendingIds.size > 0 &&
+    receipt.restoreMessageIds.some((id) => !pendingIds.has(id))
   );
 }
 

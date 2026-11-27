@@ -2245,6 +2245,166 @@ describe("createEmailProviderOperationExecutor", () => {
     else expect(unarchiveMessages).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    "PREPARING",
+    "CANCELLED",
+  ])("retains unrestored targets after a partial rollback settles on a %s receipt", async (status) => {
+    const receipt = {
+      id: "partial-rollback",
+      emailAccountId: "acc-1",
+      threadId: "thread-1",
+      status,
+      archiveStarted: true,
+      archiveClaimedAt: null,
+      pendingArchiveMessageId: null,
+      restoreMessageIds: ["m1", "m2"],
+      pendingRollbackMessageIds: ["m1"],
+      rollbackDispatchedAt: new Date() as Date | null,
+      rollbackArchiveObservedIds: ["m1"],
+    };
+    const prepare = async () =>
+      ({ created: false, snoozedThread: { ...receipt } }) as never;
+    vi.mocked(prepareSnoozedThread).mockImplementationOnce(prepare);
+    prisma.snoozedThread.findMany.mockResolvedValue([]);
+    const archived = new Set(["m2"]);
+    const unarchiveMessages = vi.fn(async (ids: string[]) => {
+      for (const id of ids) archived.delete(id);
+    });
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        unarchiveMessages,
+        async getMessage(id: string) {
+          return {
+            id,
+            threadId: "thread-1",
+            headers: {},
+            labelIds: archived.has(id) ? [] : ["INBOX"],
+          };
+        },
+        getMessagesBatch(this: EmailProvider, ids: string[]) {
+          return Promise.all(ids.map((id) => this.getMessage(id)));
+        },
+      } as unknown as EmailProvider,
+    });
+    const targets = ["m1", "m2"].map((messageId) => ({
+      accountId: "acc-1",
+      messageId,
+    }));
+    const inspect = () =>
+      executor.inspect({
+        operation: {
+          ...metadataOperation(targets),
+          intent: {
+            kind: "metadata",
+            targets,
+            change: { kind: "snooze", untilMs: 1 },
+          },
+        },
+        receiptId: null,
+        signal: new AbortController().signal,
+      });
+
+    expect(await inspect()).toMatchObject({ status: "not_dispatched" });
+    expect(unarchiveMessages).not.toHaveBeenCalled();
+    expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
+    const remaining = {
+      restoreMessageIds: ["m2"],
+      pendingRollbackMessageIds: [],
+      rollbackDispatchedAt: null,
+      rollbackArchiveObservedIds: [],
+    };
+    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: remaining }),
+    );
+    Object.assign(receipt, remaining);
+
+    vi.mocked(prepareSnoozedThread).mockImplementationOnce(prepare);
+    expect(await inspect()).toMatchObject({
+      status: "rejected",
+      code: status === "CANCELLED" ? "snooze_cancelled" : "snooze_expired",
+    });
+    expect(unarchiveMessages).toHaveBeenCalledExactlyOnceWith(["m2"]);
+    expect(archived.size).toBe(0);
+  });
+
+  it("keeps a pending archive when the Inbox lookup started before the observation cutoff", async () => {
+    const now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+    try {
+      const receipt = {
+        id: "archive-near-cutoff",
+        emailAccountId: "acc-1",
+        threadId: "thread-1",
+        status: "PREPARING",
+        archiveStarted: true,
+        archiveClaimedAt: null,
+        pendingArchiveMessageId: "m1",
+        pendingArchiveDispatchedAt: new Date(now - 30 * 60 * 1000 + 1),
+        restoreMessageIds: ["m1"],
+      };
+      const prepare = async () =>
+        ({ created: false, snoozedThread: receipt }) as never;
+      vi.mocked(prepareSnoozedThread).mockImplementationOnce(prepare);
+      prisma.snoozedThread.findMany.mockResolvedValue([]);
+      let archiveCommitted = false;
+      const unarchiveMessages = vi.fn();
+      const readMessage = (id: string) => ({
+        id,
+        threadId: "thread-1",
+        headers: {},
+        labelIds: id === "m1" && archiveCommitted ? [] : ["INBOX"],
+      });
+      const executor = createEmailProviderOperationExecutor({
+        accountId: "acc-1",
+        provider: {
+          name: "google",
+          unarchiveMessages,
+          async getMessagesBatch(ids: string[]) {
+            return ids.map(readMessage);
+          },
+          async getMessage(id: string) {
+            if (id === "m2") {
+              archiveCommitted = true;
+              clock.mockReturnValue(now + 2);
+            }
+            return readMessage(id);
+          },
+        } as unknown as EmailProvider,
+      });
+      const targets = ["m1", "m2"].map((messageId) => ({
+        accountId: "acc-1",
+        messageId,
+      }));
+      const inspect = () =>
+        executor.inspect({
+          operation: {
+            ...metadataOperation(targets),
+            intent: {
+              kind: "metadata",
+              targets,
+              change: { kind: "snooze", untilMs: 1 },
+            },
+          },
+          receiptId: null,
+          signal: new AbortController().signal,
+        });
+
+      expect(await inspect()).toMatchObject({ status: "not_dispatched" });
+      expect(updateSnoozeArchiveWrite).not.toHaveBeenCalled();
+      expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
+      vi.mocked(prepareSnoozedThread).mockImplementationOnce(prepare);
+      expect(await inspect()).toMatchObject({
+        status: "rejected",
+        code: "snooze_expired",
+      });
+      expect(unarchiveMessages).toHaveBeenCalledExactlyOnceWith(["m1"]);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it("verifies Outlook's archive destination before dispatch and saves it for verification", async () => {
     const receipt = {
       id: "snooze-row",
