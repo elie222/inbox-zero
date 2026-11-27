@@ -30,8 +30,14 @@ export async function upgradeToPremiumLemon(options: {
   lemonLicenseKey?: string;
   lemonLicenseInstanceId?: string;
   emailAccountsAccess?: number;
+  /**
+   * The webhook's `updated_at`. When set, an event older than the last applied
+   * one is dropped and `null` is returned.
+   */
+  eventAt?: Date;
 }) {
-  const { userId, ...data } = options;
+  const { userId, eventAt, ...fields } = options;
+  const data = eventAt ? { ...fields, lemonSqueezyEventAt: eventAt } : fields;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -43,23 +49,54 @@ export async function upgradeToPremiumLemon(options: {
     throw new Error("User not found");
   }
 
-  const premiumRecord = user.premiumId
-    ? await prisma.premium.update({
-        where: { id: user.premiumId },
-        data,
-        select: { users: { select: { id: true, email: true } } },
-      })
-    : await prisma.premium.create({
-        data: {
-          users: { connect: { id: userId } },
-          admins: { connect: { id: userId } },
-          ...data,
-        },
-        select: { users: { select: { id: true, email: true } } },
-      });
+  const premiumSelect = { users: { select: { id: true, email: true } } };
+  let premiumRecord: {
+    users: Array<{ id: string; email: string }>;
+  } | null;
+
+  if (user.premiumId && eventAt) {
+    const { count } = await prisma.premium.updateMany({
+      where: {
+        id: user.premiumId,
+        OR: [
+          { lemonSqueezyEventAt: null },
+          { lemonSqueezyEventAt: { lte: eventAt } },
+        ],
+      },
+      data,
+    });
+    premiumRecord =
+      count === 0
+        ? null
+        : await prisma.premium.findUnique({
+            where: { id: user.premiumId },
+            select: premiumSelect,
+          });
+  } else if (user.premiumId) {
+    premiumRecord = await prisma.premium.update({
+      where: { id: user.premiumId },
+      data,
+      select: premiumSelect,
+    });
+  } else {
+    premiumRecord = await prisma.premium.create({
+      data: {
+        users: { connect: { id: userId } },
+        admins: { connect: { id: userId } },
+        ...data,
+      },
+      select: premiumSelect,
+    });
+  }
+
+  if (!premiumRecord) {
+    logger.info("Ignoring stale Lemon Squeezy event", { userId, eventAt });
+    return null;
+  }
+  const upgraded = premiumRecord;
 
   after(() => {
-    const userIds = premiumRecord.users.map((premiumUser) => premiumUser.id);
+    const userIds = upgraded.users.map((premiumUser) => premiumUser.id);
     ensureEmailAccountsWatched({ userIds, logger }).catch((error) => {
       logger.error("Failed to ensure email watches after premium upgrade", {
         userIds,

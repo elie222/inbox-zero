@@ -148,6 +148,9 @@ async function subscriptionCreated({
     logger,
   );
 
+  // null: a newer event was already applied, so skip the side effects too
+  if (!updatedPremium) return NextResponse.json({ ok: true });
+
   const email = getEmailFromPremium(updatedPremium);
   if (email) {
     try {
@@ -190,6 +193,9 @@ async function subscriptionPlanChanged({
     userId,
     logger,
   );
+
+  // null: a newer event was already applied, so skip the side effects too
+  if (!updatedPremium) return NextResponse.json({ ok: true });
 
   const email = getEmailFromPremium(updatedPremium);
   if (email) {
@@ -251,6 +257,7 @@ async function handleSubscriptionCreated(
     lemonSqueezyCustomerId: payload.data.attributes.customer_id,
     lemonSqueezyProductId: payload.data.attributes.product_id,
     lemonSqueezyVariantId: payload.data.attributes.variant_id,
+    eventAt: new Date(payload.data.attributes.updated_at),
   });
 
   return { updatedPremium, tier };
