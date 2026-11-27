@@ -543,6 +543,19 @@ async function executeSnooze(
   let threadId: string;
   try {
     ({ threadId } = await provider.getMessage(firstTarget.messageId));
+    if (!threadId) return snoozeUnavailable();
+    // The scheduler tracks one conversation per snooze, including older receipts
+    // that predate target fingerprints.
+    for (const target of operation.intent.targets.slice(1)) {
+      const message = await provider.getMessage(target.messageId);
+      if (message.threadId !== threadId) {
+        return {
+          status: "rejected" as const,
+          code: "snooze_failed",
+          targets: [],
+        };
+      }
+    }
   } catch (error) {
     const existing = await getSnoozedThreadByClientMutationId({
       clientMutationId: operation.key.operationId,
@@ -575,8 +588,6 @@ async function executeSnooze(
     }
     return snoozeProviderUnavailable(error);
   }
-  if (!threadId) return snoozeUnavailable();
-
   const snoozeMutation = {
     clientMutationId: operation.key.operationId,
     clientMutationPayloadHash,
@@ -622,8 +633,7 @@ async function executeSnooze(
   const observations: ProviderChange[] = [];
   for (const target of operation.intent.targets) {
     try {
-      const message = await provider.getMessage(target.messageId);
-      await provider.archiveThreadWithLabel(message.threadId, "");
+      await provider.archiveThreadWithLabel(threadId, "");
       try {
         const archivedMessage = await provider.getMessage(target.messageId);
         if (

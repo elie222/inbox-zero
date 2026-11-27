@@ -878,6 +878,54 @@ describe("createEmailProviderOperationExecutor", () => {
     }
   });
 
+  it.each([
+    { secondThreadId: "thread-1", expected: "confirmed" },
+    { secondThreadId: "thread-2", expected: "rejected" },
+  ])("checks legacy snooze targets when the second message belongs to $secondThreadId", async ({
+    secondThreadId,
+    expected,
+  }) => {
+    if (expected === "confirmed") {
+      vi.mocked(prepareSnoozedThread).mockResolvedValueOnce({
+        created: false,
+        snoozedThread: { status: "PENDING", clientMutationPayloadHash: null },
+      } as never);
+    }
+    const archiveThreadWithLabel = vi.fn();
+    const executor = createEmailProviderOperationExecutor({
+      accountId: "acc-1",
+      provider: {
+        name: "google",
+        archiveThreadWithLabel,
+        async getMessage(id: string) {
+          return { id, threadId: id === "m1" ? "thread-1" : secondThreadId };
+        },
+      } as unknown as EmailProvider,
+    });
+    const targets = ["m1", "m2"].map((messageId) => ({
+      accountId: "acc-1",
+      messageId,
+    }));
+    const result = await executor.inspect({
+      operation: {
+        ...metadataOperation(targets),
+        intent: {
+          kind: "metadata",
+          targets,
+          change: { kind: "snooze", untilMs: Date.now() + 60_000 },
+        },
+      },
+      receiptId: null,
+      signal: new AbortController().signal,
+    });
+
+    expect(result.status).toBe(expected);
+    expect(archiveThreadWithLabel).not.toHaveBeenCalled();
+    expect(prepareSnoozedThread).toHaveBeenCalledTimes(
+      expected === "confirmed" ? 1 : 0,
+    );
+  });
+
   it("finishes scheduling a preparing snooze during recovery", async () => {
     vi.mocked(prepareSnoozedThread).mockResolvedValue({
       created: false,
