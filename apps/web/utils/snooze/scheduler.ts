@@ -298,17 +298,25 @@ export async function cancelSnoozedThreads({
 export async function cancelSnoozedThreadByClientMutationId({
   clientMutationId,
   emailAccountId,
+  restoredMessageIds,
 }: {
   clientMutationId: string;
   emailAccountId: string;
+  restoredMessageIds?: string[];
 }) {
   await prisma.snoozedThread.updateMany({
     where: {
       clientMutationId,
       emailAccountId,
       status: SnoozedThreadStatus.PREPARING,
+      ...(restoredMessageIds && {
+        restoreMessageIds: { equals: restoredMessageIds },
+      }),
     },
-    data: { status: SnoozedThreadStatus.CANCELLED, restoreMessageIds: [] },
+    data: {
+      status: SnoozedThreadStatus.CANCELLED,
+      ...(restoredMessageIds && { restoreMessageIds: [] }),
+    },
   });
 }
 

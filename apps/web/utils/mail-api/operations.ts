@@ -704,6 +704,10 @@ async function executeSnooze(
   }
   const applied = targets.filter((target) => target.outcome === "applied");
   if (applied.length === 0) {
+    // A successful archive can precede the provider's visible inbox update.
+    if (targets.some((target) => target.code === "not_applied")) {
+      return snoozeUnavailable();
+    }
     await cancelPreparedSnooze(accountId, operation.key.operationId);
     return {
       status: "rejected" as const,
@@ -1110,10 +1114,13 @@ async function reconcileSnoozeAfterLookupFailure(
 
   const targets: TargetOutcome[] = [];
   const archivedMessages: ParsedMessage[] = [];
+  const restoreIds = new Set(existing.restoreMessageIds);
+  const rollbackMessages: ParsedMessage[] = [];
   let conversationChanged = false;
   for (const target of operation.intent.targets) {
     try {
       const message = await provider.getMessage(target.messageId);
+      if (restoreIds.has(message.id)) rollbackMessages.push(message);
       const sameThread = message.threadId === existing.threadId;
       conversationChanged ||= !sameThread;
       const archived = metadataChangeSatisfied(
@@ -1133,19 +1140,25 @@ async function reconcileSnoozeAfterLookupFailure(
     }
   }
 
-  if (!archivedMessages.length) {
-    if (!expired && !conversationChanged && failure.status === "not_dispatched")
-      return failure;
-    await cancelPreparedSnooze(emailAccountId, clientMutationId);
-    return {
-      status: "rejected" as const,
-      code: expired ? "snooze_expired" : "snooze_failed",
-      targets: [],
-    };
+  if (
+    !archivedMessages.length &&
+    !expired &&
+    !conversationChanged &&
+    failure.status === "not_dispatched"
+  ) {
+    return failure;
   }
 
-  const stillSnoozed = await getOtherSnoozedThreads(existing, archivedMessages);
-  if (!expired && !conversationChanged && stillSnoozed.size === 0) {
+  const stillSnoozed = await getOtherSnoozedThreads(existing, [
+    ...archivedMessages,
+    ...rollbackMessages,
+  ]);
+  if (
+    archivedMessages.length &&
+    !expired &&
+    !conversationChanged &&
+    stillSnoozed.size === 0
+  ) {
     const activated = await activatePreparedSnoozedThread({
       ...mutation,
       threadId: existing.threadId,
@@ -1168,10 +1181,8 @@ async function reconcileSnoozeAfterLookupFailure(
     return resumeCancelledSnooze(provider, activated);
   }
 
-  const restoreIds = new Set(existing.restoreMessageIds);
-  const toRestore = archivedMessages.filter(
-    (message) =>
-      restoreIds.has(message.id) && !stillSnoozed.has(message.threadId),
+  const toRestore = rollbackMessages.filter(
+    (message) => !stillSnoozed.has(message.threadId),
   );
   if (
     !(await restoreSnoozeTargets(
@@ -1181,7 +1192,11 @@ async function reconcileSnoozeAfterLookupFailure(
   ) {
     return snoozeUnavailable();
   }
-  await cancelPreparedSnooze(emailAccountId, clientMutationId);
+  await cancelPreparedSnooze(
+    emailAccountId,
+    clientMutationId,
+    existing.restoreMessageIds,
+  );
   return {
     status: "rejected" as const,
     code: expired ? "snooze_expired" : "snooze_failed",
@@ -1194,13 +1209,10 @@ async function resumeCancelledSnooze(
   receipt: Pick<SnoozedThread, "id" | "emailAccountId" | "restoreMessageIds">,
 ) {
   if (receipt.restoreMessageIds.length) {
-    const archivedMessages: ParsedMessage[] = [];
+    const rollbackMessages: ParsedMessage[] = [];
     for (const messageId of new Set(receipt.restoreMessageIds)) {
       try {
-        const message = await provider.getMessage(messageId);
-        if (!parsedMessageMetadata(message).roles.includes("inbox")) {
-          archivedMessages.push(message);
-        }
+        rollbackMessages.push(await provider.getMessage(messageId));
       } catch (error) {
         if (
           failedTargetOutcome(
@@ -1214,9 +1226,9 @@ async function resumeCancelledSnooze(
     }
     const stillSnoozed = await getOtherSnoozedThreads(
       receipt,
-      archivedMessages,
+      rollbackMessages,
     );
-    const toRestore = archivedMessages
+    const toRestore = rollbackMessages
       .filter((message) => !stillSnoozed.has(message.threadId))
       .map(({ id }) => ({ messageId: id }));
     if (!(await restoreSnoozeTargets(provider, toRestore)))
@@ -1286,11 +1298,16 @@ function snoozeProviderUnavailable(error: unknown) {
   return snoozeUnavailable();
 }
 
-async function cancelPreparedSnooze(accountId: string, operationId: string) {
+async function cancelPreparedSnooze(
+  accountId: string,
+  operationId: string,
+  restoredMessageIds?: string[],
+) {
   try {
     await cancelSnoozedThreadByClientMutationId({
       clientMutationId: operationId,
       emailAccountId: accountId,
+      ...(restoredMessageIds && { restoredMessageIds }),
     });
   } catch {
     // The prepare row is optional once we are already rejecting.

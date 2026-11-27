@@ -817,6 +817,13 @@ describe("createEmailProviderOperationExecutor", () => {
       restore: true,
     },
     {
+      label: "rolls back an expired archive even while the inbox read is stale",
+      expired: true,
+      staleInbox: true,
+      expected: "rejected",
+      restore: true,
+    },
+    {
       label: "leaves archived mail alone before dispatch",
       expired: true,
       beforeArchive: true,
@@ -854,6 +861,7 @@ describe("createEmailProviderOperationExecutor", () => {
     },
   ])("$label during snooze recovery", async ({
     expired,
+    staleInbox,
     beforeArchive,
     transientFailure,
     moved,
@@ -899,7 +907,7 @@ describe("createEmailProviderOperationExecutor", () => {
                 ? "thread-2"
                 : "thread-1",
             headers: { from: "ada@example.com" },
-            labelIds: id === "m1" ? ["INBOX"] : [],
+            labelIds: id === "m1" || staleInbox ? ["INBOX"] : [],
           };
         },
       } as unknown as EmailProvider,
@@ -1120,7 +1128,7 @@ describe("createEmailProviderOperationExecutor", () => {
     expect(markSnoozeArchiveStarted).toHaveBeenCalled();
   });
 
-  it("does not activate a snooze when the provider still reports the message in the inbox after archive", async () => {
+  it("keeps the snooze retryable while the provider still shows the archived message in the inbox", async () => {
     vi.mocked(prepareSnoozedThread).mockResolvedValue({
       created: true,
       snoozedThread: { status: "PREPARING" },
@@ -1147,23 +1155,11 @@ describe("createEmailProviderOperationExecutor", () => {
       signal: new AbortController().signal,
     });
     expect(result).toMatchObject({
-      status: "rejected",
-      code: "snooze_failed",
-      targets: [
-        {
-          key: { accountId: "acc-1", messageId: "m1" },
-          outcome: "rejected",
-          code: "not_applied",
-        },
-      ],
+      status: "not_dispatched",
+      reason: "unavailable",
     });
     expect(activatePreparedSnoozedThread).not.toHaveBeenCalled();
-    expect(cancelSnoozedThreadByClientMutationId).toHaveBeenCalledWith(
-      expect.objectContaining({
-        clientMutationId: "bulk-1",
-        emailAccountId: "acc-1",
-      }),
-    );
+    expect(cancelSnoozedThreadByClientMutationId).not.toHaveBeenCalled();
   });
 
   it("rejects a fresh expired snooze before archiving", async () => {
@@ -1363,7 +1359,7 @@ describe("createEmailProviderOperationExecutor", () => {
             id,
             threadId: "thread-1",
             headers: { from: "ada@example.com" },
-            labelIds: archived.has(id) ? [] : ["INBOX"],
+            labelIds: archived.has(id) && !firstMessageDeleted ? [] : ["INBOX"],
           };
         },
       } as unknown as EmailProvider,

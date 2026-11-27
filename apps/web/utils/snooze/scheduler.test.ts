@@ -4,6 +4,7 @@ import { SnoozedThreadStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   activatePreparedSnoozedThread,
+  cancelSnoozedThreadByClientMutationId,
   markSnoozedThreadAsExecuting,
   prepareSnoozedThread,
   releaseSnoozedThreadForRetry,
@@ -60,6 +61,22 @@ describe("snoozed thread scheduler", () => {
       data: { emailAccountId: "account", scheduledFor, threadId: "thread" },
     });
     expect(publishJSON).not.toHaveBeenCalled();
+  });
+
+  it("retains rollback targets when cancelling a preparation without a completed restore", async () => {
+    await cancelSnoozedThreadByClientMutationId({
+      clientMutationId: "mutation",
+      emailAccountId: "account",
+    });
+
+    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
+      where: {
+        clientMutationId: "mutation",
+        emailAccountId: "account",
+        status: SnoozedThreadStatus.PREPARING,
+      },
+      data: { status: SnoozedThreadStatus.CANCELLED },
+    });
   });
 
   it("claims pending work only once", async () => {
