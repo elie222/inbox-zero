@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import prisma from "@/utils/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import type { ActionType } from "@/generated/prisma/enums";
 import { PremiumTier } from "@/generated/prisma/enums";
 import { ONE_MONTH_MS, ONE_YEAR_MS, TEN_YEARS_MS } from "@/utils/date";
@@ -16,6 +17,7 @@ import { env } from "@/env";
 import { isAddingDigestAction } from "@/utils/premium/digest";
 
 const logger = createScopedLogger("premium");
+const lemonEventPriority = { update: 0, upgrade: 1, cutoff: 2 } as const;
 
 export async function upgradeToPremiumLemon(options: {
   userId: string;
@@ -30,8 +32,24 @@ export async function upgradeToPremiumLemon(options: {
   lemonLicenseKey?: string;
   lemonLicenseInstanceId?: string;
   emailAccountsAccess?: number;
+  /**
+   * The webhook's `updated_at`. When set, an event older than the last applied
+   * one is dropped and `null` is returned.
+   */
+  eventAt?: Date;
+  isCutoff?: boolean;
 }) {
-  const { userId, ...data } = options;
+  const { userId, eventAt, isCutoff, ...fields } = options;
+  const priority = isCutoff
+    ? lemonEventPriority.cutoff
+    : lemonEventPriority.upgrade;
+  const data = eventAt
+    ? {
+        ...fields,
+        lemonSqueezyEventAt: eventAt,
+        lemonSqueezyEventPriority: priority,
+      }
+    : fields;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -43,23 +61,51 @@ export async function upgradeToPremiumLemon(options: {
     throw new Error("User not found");
   }
 
-  const premiumRecord = user.premiumId
-    ? await prisma.premium.update({
-        where: { id: user.premiumId },
-        data,
-        select: { users: { select: { id: true, email: true } } },
-      })
-    : await prisma.premium.create({
-        data: {
-          users: { connect: { id: userId } },
-          admins: { connect: { id: userId } },
-          ...data,
-        },
-        select: { users: { select: { id: true, email: true } } },
-      });
+  const premiumSelect = { users: { select: { id: true, email: true } } };
+  let premiumRecord: {
+    users: Array<{ id: string; email: string }>;
+  } | null;
+
+  if (user.premiumId && eventAt) {
+    const { count } = await prisma.premium.updateMany({
+      where: {
+        id: user.premiumId,
+        ...lemonEventOrder(eventAt, priority),
+      },
+      data,
+    });
+    premiumRecord =
+      count === 0
+        ? null
+        : await prisma.premium.findUnique({
+            where: { id: user.premiumId },
+            select: premiumSelect,
+          });
+  } else if (user.premiumId) {
+    premiumRecord = await prisma.premium.update({
+      where: { id: user.premiumId },
+      data,
+      select: premiumSelect,
+    });
+  } else {
+    premiumRecord = await prisma.premium.create({
+      data: {
+        users: { connect: { id: userId } },
+        admins: { connect: { id: userId } },
+        ...data,
+      },
+      select: premiumSelect,
+    });
+  }
+
+  if (!premiumRecord) {
+    logger.info("Ignoring stale Lemon Squeezy event", { userId, eventAt });
+    return null;
+  }
+  const upgraded = premiumRecord;
 
   after(() => {
-    const userIds = premiumRecord.users.map((premiumUser) => premiumUser.id);
+    const userIds = upgraded.users.map((premiumUser) => premiumUser.id);
     ensureEmailAccountsWatched({ userIds, logger }).catch((error) => {
       logger.error("Failed to ensure email watches after premium upgrade", {
         userIds,
@@ -69,23 +115,6 @@ export async function upgradeToPremiumLemon(options: {
   });
 
   return premiumRecord;
-}
-
-export async function extendPremiumLemon(options: {
-  premiumId: string;
-  lemonSqueezyRenewsAt: Date;
-}) {
-  return await prisma.premium.update({
-    where: { id: options.premiumId },
-    data: {
-      lemonSqueezyRenewsAt: options.lemonSqueezyRenewsAt,
-    },
-    select: {
-      users: {
-        select: { email: true },
-      },
-    },
-  });
 }
 
 export async function grantPremiumAdmin(options: {
@@ -197,33 +226,6 @@ export function getAdminGrantExpiresAt({
   }
 }
 
-export async function cancelPremiumLemon({
-  premiumId,
-  lemonSqueezyEndsAt,
-  variantId,
-}: {
-  premiumId: string;
-  lemonSqueezyEndsAt: Date;
-  variantId?: number;
-}) {
-  if (variantId) {
-    // Check if the premium exists for the given variant
-    // If the user changed plans we won't find it in the database
-    // And that's okay because the user is on a different plan
-    const premium = await prisma.premium.findUnique({
-      where: { id: premiumId, lemonSqueezyVariantId: variantId },
-      select: { id: true },
-    });
-    if (!premium) return null;
-  }
-
-  return await prisma.premium.update({
-    where: { id: premiumId },
-    data: { lemonSqueezyRenewsAt: lemonSqueezyEndsAt },
-    select: { users: { select: { email: true } } },
-  });
-}
-
 export async function assertCanUseDigests(userId: string) {
   const hasDigestAccess = await checkHasAccess({
     userId,
@@ -275,4 +277,69 @@ export async function checkHasAccess({
     tier: getUserTier(user.premium),
     minimumTier,
   });
+}
+
+export async function applyLemonSubscriptionEvent(options: {
+  premiumId: string;
+  subscriptionId: number;
+  variantId: number;
+  eventAt: Date;
+  lemonSqueezyRenewsAt: Date;
+  isCutoff: boolean;
+  plan?: {
+    tier: PremiumTier;
+    lemonSqueezyVariantId: number;
+    lemonSqueezyProductId: number;
+    lemonSqueezySubscriptionItemId?: number;
+  };
+}) {
+  const priority = options.isCutoff
+    ? lemonEventPriority.cutoff
+    : lemonEventPriority.update;
+  const { count } = await prisma.premium.updateMany({
+    where: {
+      id: options.premiumId,
+      AND: {
+        OR: [
+          { lemonSqueezySubscriptionId: options.subscriptionId },
+          {
+            lemonSqueezySubscriptionId: null,
+            lemonSqueezyVariantId: options.variantId,
+          },
+        ],
+      },
+      ...lemonEventOrder(options.eventAt, priority),
+    },
+    data: {
+      ...options.plan,
+      lemonSqueezySubscriptionId: options.subscriptionId,
+      lemonSqueezyRenewsAt: options.lemonSqueezyRenewsAt,
+      lemonSqueezyEventAt: options.eventAt,
+      lemonSqueezyEventPriority: priority,
+    },
+  });
+  if (count === 0) return null;
+
+  return await prisma.premium.findUnique({
+    where: { id: options.premiumId },
+    select: { users: { select: { email: true } } },
+  });
+}
+
+function lemonEventOrder(
+  eventAt: Date,
+  priority: number,
+): Prisma.PremiumWhereInput {
+  // At the same subscription timestamp, a cutoff wins over an upgrade,
+  // an upgrade can run its effects after an update, and retries are ignored.
+  return {
+    OR: [
+      { lemonSqueezyEventAt: null },
+      { lemonSqueezyEventAt: { lt: eventAt } },
+      {
+        lemonSqueezyEventAt: eventAt,
+        lemonSqueezyEventPriority: { lt: priority },
+      },
+    ],
+  };
 }

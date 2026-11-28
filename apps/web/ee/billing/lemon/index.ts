@@ -3,6 +3,7 @@ import {
   lemonSqueezySetup,
   updateSubscriptionItem,
   getCustomer,
+  getSubscription,
   activateLicense,
 } from "@lemonsqueezy/lemonsqueezy.js";
 import type { Logger } from "@/utils/logger";
@@ -28,6 +29,11 @@ export async function updateSubscriptionItemQuantity(options: {
     quantity: options.quantity,
     invoiceImmediately: true,
   });
+}
+
+export async function getLemonSubscription(subscriptionId: number) {
+  setUpLemon();
+  return getSubscription(subscriptionId);
 }
 
 export async function getLemonCustomer(customerId: string) {
