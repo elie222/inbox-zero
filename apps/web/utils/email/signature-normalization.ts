@@ -47,9 +47,10 @@ export function getOwnSignatureHtml(html: string): string {
   if (!html) return "";
 
   const $ = load(html, null, looksLikeHtmlDocument(html));
-  const selector = SIGNATURE_SELECTORS.filter(
-    (item) => item !== ".gmail_signature_prefix",
-  ).join(", ");
+  const selector = [
+    ...SIGNATURE_SELECTORS.filter((item) => item !== ".gmail_signature_prefix"),
+    ".ms-outlook-signature",
+  ].join(", ");
   const signature = $(selector)
     .filter(
       (_index, element) =>
