@@ -1,9 +1,15 @@
-import { cancel, group, isCancel, log, text } from "@clack/prompts";
+import { cancel, group, isCancel, log, select, text } from "@clack/prompts";
+import { signInWithChatGpt } from "./chatgpt-auth";
 import type { EnvConfig } from "./utils";
 
 export const LLM_PROVIDER_OPTIONS = [
   { value: "anthropic", label: "Anthropic (Claude)" },
   { value: "openai", label: "OpenAI (ChatGPT)" },
+  {
+    value: "chatgpt",
+    label: "ChatGPT plan",
+    hint: "sign in with ChatGPT Plus/Pro instead of an API key",
+  },
   { value: "google", label: "Google (Gemini)" },
   {
     value: "openrouter",
@@ -44,6 +50,7 @@ const DEFAULT_MODELS = {
     economy: "claude-haiku-4-5",
   },
   openai: { default: "gpt-6-luna", economy: "gpt-6-luna" },
+  chatgpt: { default: "gpt-6.1-sol", economy: "gpt-6.1-sol" },
   google: {
     default: "gemini-3.8-flash",
     economy: "gemini-3.1-flash-lite",
@@ -94,6 +101,11 @@ export function seedLlmPlaceholderCredentials(
   const models = getDefaultLlmModels(provider);
   setRoleLlms(provider, models.default, env, models.economy);
 
+  if (provider === "chatgpt") {
+    env.CHATGPT_PLAN_ENABLED = "true";
+    return;
+  }
+
   if (provider === "bedrock") {
     env.BEDROCK_ACCESS_KEY = "replace-me";
     env.BEDROCK_SECRET_KEY = "replace-me";
@@ -127,6 +139,12 @@ export async function promptLlmCredentials(
 
   const models = getDefaultLlmModels(provider);
   setRoleLlms(provider, models.default, env, models.economy);
+
+  if (provider === "chatgpt") {
+    env.CHATGPT_PLAN_ENABLED = "true";
+    Object.assign(env, await promptChatGptSignIn());
+    return;
+  }
 
   if (provider === "bedrock") {
     const bedrock = await promptBedrockCreds();
@@ -263,6 +281,39 @@ async function promptBedrockCreds(): Promise<{
     secretKey: creds.secretKey,
     region: creds.region || "us-west-2",
   };
+}
+
+export async function promptChatGptSignIn(
+  existing: { hostId?: string; clientId?: string } = {},
+): Promise<EnvConfig> {
+  while (true) {
+    try {
+      const registration = await signInWithChatGpt(existing);
+      log.success(
+        `ChatGPT connected${registration.email ? ` as ${registration.email}` : ""}.`,
+      );
+      return {
+        CHATGPT_CLIENT_ID: registration.clientId,
+        CHATGPT_HOST_ID: registration.hostId,
+        CHATGPT_REFRESH_TOKEN: registration.refreshToken,
+      };
+    } catch (error) {
+      log.error(error instanceof Error ? error.message : String(error));
+      const next = await select({
+        message: "ChatGPT sign-in didn't finish",
+        options: [
+          { value: "retry", label: "Try again" },
+          {
+            value: "skip",
+            label: "Skip for now",
+            hint: "connect later with: inbox-zero chatgpt login",
+          },
+        ],
+      });
+      if (isCancel(next)) cancelSetup();
+      if (next === "skip") return {};
+    }
+  }
 }
 
 async function promptApiKey(provider: string): Promise<string> {

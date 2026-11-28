@@ -16,6 +16,7 @@ export const Provider = {
   OPENAI_COMPATIBLE: "openai-compatible",
   CODEX_CLI: "codex-cli",
   CLAUDE_CODE: "claude-code",
+  CHATGPT: "chatgpt",
 };
 
 export const providerOptions: { label: string; value: string }[] = [

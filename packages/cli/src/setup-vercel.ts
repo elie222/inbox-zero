@@ -572,7 +572,11 @@ async function promptVercelLlmConfig(
 
   const llmProvider = await p.select({
     message: "Default AI provider",
-    options: [...LLM_PROVIDER_OPTIONS],
+    // ChatGPT plan sign-in needs a local loopback callback, so it can't
+    // serve a hosted deployment.
+    options: LLM_PROVIDER_OPTIONS.filter(
+      (option) => option.value !== "chatgpt",
+    ),
   });
 
   if (p.isCancel(llmProvider)) cancelSetup();

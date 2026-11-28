@@ -35,6 +35,7 @@ Use one of these provider values before the colon in `*_LLMS` entries:
 | OpenAI-compatible (LM Studio, vLLM, LiteLLM, etc.) | `openai-compatible` |
 | Codex CLI (experimental, self-host only) | `codex-cli` |
 | Claude Code (experimental, self-host only) | `claude-code` |
+| ChatGPT plan via Sign in with ChatGPT (self-host only) | `chatgpt` |
 
 ## Tiers
 
@@ -123,6 +124,45 @@ Unsupported providers, entries without configured credentials, entries without m
 ### Legacy variables
 
 The old `DEFAULT_LLM_PROVIDER` / `DEFAULT_LLM_MODEL`, role-specific `*_LLM_PROVIDER` / `*_LLM_MODEL`, and `*_LLM_FALLBACKS` variables are deprecated but still supported for existing deployments. At startup, they are converted into the corresponding `*_LLMS` value. New deployments and CLI-generated env files should use `*_LLMS`.
+
+### Sign in with ChatGPT
+
+The `chatgpt` provider runs Inbox Zero's AI on the instance owner's ChatGPT
+Plus or Pro plan through OpenAI's
+[Sign in with ChatGPT](https://developers.openai.com/siwc/token-sharing-open-source)
+flow, so no OpenAI API key is needed. Requests count toward that plan's usage
+limits, which are shared with other apps using the plan; review them under
+ChatGPT Settings → Usage.
+
+It is for self-hosted, single-owner deployments. OpenAI requires partner
+approval to offer plan usage in a paid or remotely hosted app.
+
+The easiest way to connect is during setup: run `npx @inbox-zero/cli setup`,
+choose **ChatGPT plan** as the AI provider, and sign in when your browser
+opens. Setup saves the connection to your `.env`:
+
+```env
+CHATGPT_PLAN_ENABLED=true
+DEFAULT_LLMS=chatgpt:gpt-6.1-sol
+CHATGPT_CLIENT_ID=oaiapp_...
+CHATGPT_HOST_ID=urn:uuid:...
+CHATGPT_REFRESH_TOKEN=...
+```
+
+Inbox Zero imports these on first use and refreshes the connection itself from
+then on, storing it encrypted in the database. If setup runs on a remote server
+(for example over SSH), the browser can't reach the setup command after you
+approve: copy the address the sign-in page ends on (it starts with
+`http://127.0.0.1`) and paste it into the terminal.
+
+To reconnect later, for example after 30 days without use, run
+`inbox-zero chatgpt login` and restart with `inbox-zero start`. Admins (emails
+listed in `ADMINS`) can also connect or disconnect from `/admin` when the
+browser runs on the same machine as Inbox Zero.
+
+Plan usage only supports streamed Responses API requests without sampling
+settings (temperature, max output tokens), hosted tools such as file search,
+or audio input. Inbox Zero adapts its requests to these limits automatically.
 
 ### CLI LLM providers
 
