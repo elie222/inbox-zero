@@ -39,21 +39,22 @@ export interface Attributes {
   card_last_four: string;
   created_at: string;
   customer_id: number;
-  ends_at?: string;
+  ends_at?: string | null;
   first_order_item?: FirstOrderItem;
-  first_subscription_item?: FirstSubscriptionItem;
+  first_subscription_item?: FirstSubscriptionItem | null;
   order_id: number;
   order_item_id: number;
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   pause: any;
   product_id: number;
   product_name: string;
-  renews_at?: string;
+  renews_at?: string | null;
   status: string; // on_trial, active, cancelled, past_due, paused, paid
   status_formatted: string;
   store_id: number;
   test_mode: boolean;
-  // in payment success
+  // Subscription invoice payloads
+  subscription_id?: number;
   total_usd?: number;
   trial_ends_at?: string;
   updated_at: string;

@@ -513,9 +513,15 @@ export function getLemonSubscriptionTier({
 }: {
   variantId: number;
 }): PremiumTier {
-  const tier = variantIdToTier[variantId];
+  const tier = findLemonSubscriptionTier(variantId);
   if (!tier) throw new Error(`Unknown variant id: ${variantId}`);
   return tier;
+}
+
+export function findLemonSubscriptionTier(
+  variantId: number,
+): PremiumTier | undefined {
+  return variantIdToTier[variantId];
 }
 
 export const tiers: Tier[] = [starterTier, plusTier, professionalTier];

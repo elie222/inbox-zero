@@ -12,14 +12,17 @@ import {
   trackUpgradedToPremium,
 } from "@/utils/posthog";
 import {
-  cancelPremiumLemon,
-  extendPremiumLemon,
+  applyLemonSubscriptionEvent,
   upgradeToPremiumLemon,
 } from "@/utils/premium/server";
 import type { Payload } from "@/app/api/lemon-squeezy/webhook/types";
 import { switchedPremiumPlan, startedTrial } from "@inboxzero/loops";
 import { SafeError } from "@/utils/error";
-import { getLemonSubscriptionTier } from "@/app/(app)/premium/config";
+import {
+  findLemonSubscriptionTier,
+  getLemonSubscriptionTier,
+} from "@/app/(app)/premium/config";
+import { getLemonSubscription } from "@/ee/billing/lemon";
 import type { Logger } from "@/utils/logger";
 import { secureCompare } from "@/utils/crypto-compare";
 
@@ -80,13 +83,20 @@ export const POST = withError("lemon-squeezy/webhook", async (request) => {
 
   // payment failed
   if (payload.meta.event_name === "subscription_payment_failed") {
-    return await subscriptionCancelled({
-      payload,
-      premiumId,
-      endsAt: new Date().toISOString(),
-      variantId: payload.data.attributes.variant_id,
-      logger,
-    });
+    const subscriptionId = payload.data.attributes.subscription_id;
+    if (!subscriptionId) throw new Error("No subscription_id provided");
+
+    // Order this write using the subscription snapshot, since the invoice has its own timestamp.
+    const { data, error } = await getLemonSubscription(subscriptionId);
+    if (!data)
+      throw new Error("Could not retrieve Lemon Squeezy subscription", {
+        cause: error,
+      });
+    const snapshot = data.data.attributes;
+    if (isPaymentPastDue(snapshot.status)) {
+      await applySubscriptionSnapshot(premiumId, subscriptionId, snapshot);
+    }
+    return NextResponse.json({ ok: true });
   }
 
   // payment success
@@ -95,14 +105,15 @@ export const POST = withError("lemon-squeezy/webhook", async (request) => {
   }
 
   // cancelled or expired
-  if (payload.data.attributes.ends_at) {
-    return await subscriptionCancelled({
-      payload,
+  if (
+    payload.data.type === "subscriptions" &&
+    payload.data.attributes.ends_at
+  ) {
+    await applySubscriptionSnapshot(
       premiumId,
-      endsAt: payload.data.attributes.ends_at,
-      variantId: payload.data.attributes.variant_id,
-      logger,
-    });
+      Number(payload.data.id),
+      payload.data.attributes,
+    );
   }
 
   return NextResponse.json({ ok: true });
@@ -225,10 +236,9 @@ async function handleSubscriptionCreated(
   userId: string,
   logger: Logger,
 ) {
-  if (!payload.data.attributes.renews_at)
-    throw new Error("No renews_at provided");
-
-  const lemonSqueezyRenewsAt = new Date(payload.data.attributes.renews_at);
+  const { lemonSqueezyRenewsAt, eventAt, isCutoff } = subscriptionExpiry(
+    payload.data.attributes,
+  );
 
   if (!payload.data.attributes.first_subscription_item)
     throw new Error("No subscription item");
@@ -257,7 +267,8 @@ async function handleSubscriptionCreated(
     lemonSqueezyCustomerId: payload.data.attributes.customer_id,
     lemonSqueezyProductId: payload.data.attributes.product_id,
     lemonSqueezyVariantId: payload.data.attributes.variant_id,
-    eventAt: new Date(payload.data.attributes.updated_at),
+    eventAt,
+    isCutoff,
   });
 
   return { updatedPremium, tier };
@@ -272,19 +283,11 @@ async function subscriptionUpdated({
   premiumId: string;
   logger: Logger;
 }) {
-  if (!payload.data.attributes.renews_at)
-    throw new Error("No renews_at provided");
-
-  logger.info("Subscription updated", {
-    lemonSqueezyRenewsAt: new Date(payload.data.attributes.renews_at),
+  const updatedPremium = await applySubscriptionSnapshot(
     premiumId,
-  });
-
-  const updatedPremium = await extendPremiumLemon({
-    premiumId,
-    lemonSqueezyRenewsAt: new Date(payload.data.attributes.renews_at),
-    eventAt: new Date(payload.data.attributes.updated_at),
-  });
+    Number(payload.data.id),
+    payload.data.attributes,
+  );
 
   if (!updatedPremium) {
     logger.info("Ignored an out-of-order subscription_updated event", {
@@ -306,49 +309,6 @@ async function subscriptionUpdated({
       );
     }
   }
-
-  return NextResponse.json({ ok: true });
-}
-
-async function subscriptionCancelled({
-  payload,
-  premiumId,
-  endsAt,
-  variantId,
-  logger,
-}: {
-  payload: Payload;
-  premiumId: string;
-  endsAt: NonNullable<Payload["data"]["attributes"]["ends_at"]>;
-  variantId: NonNullable<Payload["data"]["attributes"]["variant_id"]>;
-  logger: Logger;
-}) {
-  logger.info("Subscription cancelled", {
-    endsAt: new Date(endsAt),
-    variantId,
-    premiumId,
-  });
-
-  const updatedPremium = await cancelPremiumLemon({
-    premiumId,
-    variantId,
-    lemonSqueezyEndsAt: new Date(endsAt),
-    eventAt: new Date(payload.data.attributes.updated_at),
-  });
-
-  if (!updatedPremium) return NextResponse.json({ ok: true });
-
-  // const email = getEmailFromPremium(updatedPremium);
-  // if (email) {
-  //   await Promise.allSettled([
-  //     trackSubscriptionCancelled(
-  //       email,
-  //       payload.data.attributes.status,
-  //       payload.data.attributes,
-  //     ),
-  //     cancelledPremium(email),
-  //   ]);
-  // }
 
   return NextResponse.json({ ok: true });
 }
@@ -397,4 +357,54 @@ function getEmailFromPremium(premium: {
   users: Array<{ email: string | null }>;
 }) {
   return premium.users?.[0]?.email;
+}
+
+type SubscriptionSnapshot = Pick<
+  Payload["data"]["attributes"],
+  | "status"
+  | "renews_at"
+  | "ends_at"
+  | "updated_at"
+  | "variant_id"
+  | "product_id"
+> & { first_subscription_item?: { id: number } | null };
+
+function isPaymentPastDue(status: string) {
+  return status === "past_due" || status === "unpaid";
+}
+
+function subscriptionExpiry(snapshot: SubscriptionSnapshot) {
+  const cutoffAt =
+    snapshot.ends_at ??
+    (isPaymentPastDue(snapshot.status) ? snapshot.updated_at : null);
+  const expiresAt = cutoffAt ?? snapshot.renews_at;
+  if (!expiresAt) throw new Error("No subscription expiry provided");
+
+  return {
+    eventAt: new Date(snapshot.updated_at),
+    lemonSqueezyRenewsAt: new Date(expiresAt),
+    isCutoff: cutoffAt !== null,
+  };
+}
+
+async function applySubscriptionSnapshot(
+  premiumId: string,
+  subscriptionId: number,
+  snapshot: SubscriptionSnapshot,
+) {
+  const tier = findLemonSubscriptionTier(snapshot.variant_id);
+  return await applyLemonSubscriptionEvent({
+    premiumId,
+    subscriptionId,
+    variantId: snapshot.variant_id,
+    ...subscriptionExpiry(snapshot),
+    plan: tier
+      ? {
+          tier,
+          lemonSqueezyVariantId: snapshot.variant_id,
+          lemonSqueezyProductId: snapshot.product_id,
+          lemonSqueezySubscriptionItemId: snapshot.first_subscription_item?.id,
+        }
+      : undefined,
+  });
 }
