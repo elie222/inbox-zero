@@ -16,6 +16,7 @@ import { withGmailRetry } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
 import { getEmbeddedGmailAttachmentDescriptors } from "./attachment";
 import { gmailMessageBodies } from "./message-bodies";
+import { isInlineAttachment } from "@/utils/attachments/inline";
 
 export function parseMessage(
   message: MessageWithPayload,
@@ -280,19 +281,6 @@ function isMessage(
   message: gmail_v1.Schema$Message,
 ): message is { id: string; threadId: string } {
   return !!message.id && !!message.threadId;
-}
-
-function isInlineAttachment(
-  attachment: NonNullable<ParsedMessage["attachments"]>[number],
-) {
-  const disposition = attachment.headers["content-disposition"]
-    ?.split(";", 1)[0]
-    ?.trim()
-    .toLowerCase();
-  return (
-    disposition === "inline" ||
-    (!disposition && Boolean(attachment.headers["content-id"]))
-  );
 }
 
 export async function queryBatchMessages(
