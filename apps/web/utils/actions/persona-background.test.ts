@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/__mocks__/prisma";
 import { analyzePersonaAction } from "./email-account";
 import { getMockMessage } from "@/__tests__/helpers";
@@ -102,6 +103,7 @@ describe("background persona scheduling", () => {
       } as never;
     });
     prisma.emailAccount.update.mockResolvedValue({ id: "account-1" } as never);
+    prisma.emailAccount.updateMany.mockResolvedValue({ count: 1 });
     mocks.getAccount.mockResolvedValue({ id: "account-1", user: {} });
     mocks.getMessages.mockResolvedValue({ messages: [] });
     mocks.getSentMessages.mockResolvedValue([]);
@@ -125,7 +127,7 @@ describe("background persona scheduling", () => {
   });
 
   it("responds before starting an unresolved provider read", async () => {
-    mocks.getMessages.mockReturnValue(new Promise(() => {}));
+    mocks.getSentMessages.mockReturnValue(new Promise(() => {}));
 
     const result = await Promise.race([
       analyzePersonaAction("account-1"),
@@ -136,7 +138,7 @@ describe("background persona scheduling", () => {
 
     expect(result).not.toBe("blocked");
     expect(result).toMatchObject({ data: { status: "running" } });
-    expect(mocks.getMessages).not.toHaveBeenCalled();
+    expect(mocks.getSentMessages).not.toHaveBeenCalled();
   });
 
   it("reuses cached analysis without provider or LLM requests", async () => {
@@ -154,7 +156,7 @@ describe("background persona scheduling", () => {
       data: { status: "completed" },
     });
     await drainAfter();
-    expect(mocks.getMessages).not.toHaveBeenCalled();
+    expect(mocks.getSentMessages).not.toHaveBeenCalled();
     expect(mocks.analyze).not.toHaveBeenCalled();
   });
 
@@ -164,13 +166,13 @@ describe("background persona scheduling", () => {
     await analyzePersonaAction("account-2");
     await drainAfter();
 
-    expect(mocks.getMessages).toHaveBeenCalledTimes(2);
-    expect(mocks.getMessages).toHaveBeenNthCalledWith(1, { maxResults: 200 });
+    expect(mocks.getSentMessages).toHaveBeenCalledTimes(2);
+    expect(mocks.getSentMessages).toHaveBeenNthCalledWith(1, 200);
   });
 
   it("cools down after throttling and allows another attempt after expiry", async () => {
     vi.useFakeTimers();
-    mocks.getMessages.mockRejectedValue(
+    mocks.getSentMessages.mockRejectedValue(
       Object.assign(new Error("Quota exceeded"), {
         code: 403,
         errors: [{ reason: "rateLimitExceeded" }],
@@ -183,12 +185,12 @@ describe("background persona scheduling", () => {
       data: { status: "cooldown" },
     });
     await drainAfter();
-    expect(mocks.getMessages).toHaveBeenCalledTimes(1);
+    expect(mocks.getSentMessages).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(60_001);
     await analyzePersonaAction("account-1");
     await drainAfter();
-    expect(mocks.getMessages).toHaveBeenCalledTimes(2);
+    expect(mocks.getSentMessages).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
   });
 
@@ -199,24 +201,24 @@ describe("background persona scheduling", () => {
     await drainAfter();
 
     expect(mocks.analyze).not.toHaveBeenCalled();
-    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
+    expect(prisma.emailAccount.updateMany).not.toHaveBeenCalled();
     expect(await analyzePersonaAction("account-1")).toMatchObject({
       data: { status: "cooldown" },
     });
   });
 
   it("persists completed analysis after the response", async () => {
-    mocks.getMessages.mockResolvedValue({ messages: [getMockMessage()] });
+    mocks.getSentMessages.mockResolvedValue([getMockMessage()]);
 
     expect(await analyzePersonaAction("account-1")).toMatchObject({
       data: { status: "running" },
     });
-    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
+    expect(prisma.emailAccount.updateMany).not.toHaveBeenCalled();
     await drainAfter();
 
-    expect(mocks.getMessages).toHaveBeenCalledWith({ maxResults: 200 });
-    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
-      where: { id: "account-1" },
+    expect(mocks.getSentMessages).toHaveBeenCalledWith(200);
+    expect(prisma.emailAccount.updateMany).toHaveBeenCalledWith({
+      where: { id: "account-1", personaAnalysis: { equals: Prisma.DbNull } },
       data: { personaAnalysis: persona },
     });
   });
@@ -231,22 +233,22 @@ describe("background persona scheduling", () => {
       data: { status: "running" },
     });
     await drainAfter();
-    expect(mocks.getMessages).toHaveBeenCalledTimes(1);
+    expect(mocks.getSentMessages).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });
 
   it("does not let an expired task overwrite the result owned by a newer task", async () => {
     vi.useFakeTimers();
-    mocks.getMessages.mockResolvedValue({ messages: [getMockMessage()] });
+    mocks.getSentMessages.mockResolvedValue([getMockMessage()]);
     await analyzePersonaAction("account-1");
     const oldCallbacks = mocks.after.splice(0);
     await vi.advanceTimersByTimeAsync(300_001);
     await analyzePersonaAction("account-1");
 
     for (const callback of oldCallbacks) await callback();
-    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
+    expect(prisma.emailAccount.updateMany).not.toHaveBeenCalled();
     await drainAfter();
-    expect(prisma.emailAccount.update).toHaveBeenCalledOnce();
+    expect(prisma.emailAccount.updateMany).toHaveBeenCalledOnce();
     vi.useRealTimers();
   });
 
