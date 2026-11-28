@@ -3,6 +3,7 @@ import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
+import { isReservedReviewBypassLabel } from "@/utils/review-before-delete";
 import {
   isOrganizationRuleActionTypeAvailable,
   ORGANIZATION_RULE_ACTION_DISABLED_MESSAGE,
@@ -37,6 +38,15 @@ export const organizationRuleActionSchema = z
           path: ["label"],
         });
       } else {
+        if (isReservedReviewBypassLabel(label)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `"${label}" is a reserved system label and cannot be used in a Label action`,
+            path: ["label"],
+          });
+          return;
+        }
+
         const validation = validateLabelNameBasic(label);
         if (!validation.valid) {
           ctx.addIssue({

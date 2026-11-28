@@ -20,6 +20,25 @@ describe("outlook spam mutations", () => {
     ]);
   });
 
+  it("moves thread messages to review folder when marking spam with reviewLabel", async () => {
+    const { client, posts } = createClient(
+      ["m1"],
+      [{ id: "folder-review-id", displayName: "Review/Delete" }],
+    );
+    await markSpam(
+      client,
+      "thread-1",
+      createScopedLogger("test"),
+      "Review/Delete",
+    );
+    expect(posts).toEqual([
+      {
+        path: "/me/messages/m1/move",
+        body: { destinationId: "folder-review-id" },
+      },
+    ]);
+  });
+
   it("moves thread messages to Inbox when marking not spam", async () => {
     const { client, posts } = createClient(["m1"]);
     await markNotSpam(client, "thread-1", createScopedLogger("test"));
@@ -29,7 +48,10 @@ describe("outlook spam mutations", () => {
   });
 });
 
-function createClient(messageIds: string[]) {
+function createClient(
+  messageIds: string[],
+  folders: Array<{ id: string; displayName: string }> = [],
+) {
   const posts: Array<{ path: string; body: unknown }> = [];
   let selectedPath = "";
   const api = vi.fn((path: string) => {
@@ -39,11 +61,14 @@ function createClient(messageIds: string[]) {
       select: vi.fn().mockReturnThis(),
       top: vi.fn().mockReturnThis(),
       async get() {
+        if (selectedPath === "/me/mailFolders") {
+          return { value: folders };
+        }
         return { value: messageIds.map((id) => ({ id })) };
       },
       async post(body: unknown) {
         posts.push({ path: selectedPath, body });
-        return {};
+        return { id: "new-folder-id" };
       },
     };
   });

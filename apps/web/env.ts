@@ -246,6 +246,7 @@ const parsedEnv = createEnv({
     // Defaults to false. Only enable on a trusted, single-tenant self-hosted
     // deployment — never on a shared/multi-tenant instance.
     WEBHOOK_ALLOW_PRIVATE_IPS: booleanString.optional().default(false),
+    REVIEW_BEFORE_DELETE_LABEL: z.string().trim().min(1).optional(),
     DIGEST_MAX_SUMMARIES_PER_24H: z.coerce
       .number()
       .int()
